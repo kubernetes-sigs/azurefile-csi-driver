@@ -34,7 +34,7 @@ spec:
           - mountPath: /registration
             name: registration-dir
         - name: azurefile
-          image: andyzhangx/azurefile-csi:latest
+          image: andyzhangx/azurefile-csi:v0.1.0-alpha
           args:
             - "--v=5"
             - "--endpoint=$(CSI_ENDPOINT)"
