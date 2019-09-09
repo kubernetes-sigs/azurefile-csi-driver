@@ -1,6 +1,7 @@
 language: go
 go_import_path: github.com/kubernetes-sigs/azurefile-csi-driver
 dist: bionic
+sudo: required
 
 env:
   global:
@@ -8,6 +9,12 @@ env:
 
 go:
   - "1.12.1"
+
+cache:
+  directories:
+    - $GOPATH/pkg
+    - $GOPATH/bin
+    - $GOROOT
 
 jobs:
   include:

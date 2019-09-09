@@ -25,7 +25,7 @@ function cleanup {
 function install_csi_sanity_bin {
   git clone https://github.com/kubernetes-csi/csi-test.git -b v1.1.0
   pushd csi-test/cmd/csi-sanity
-  make install
+  make
   popd
 }
 
@@ -36,9 +36,9 @@ if [[ "$#" -gt 0 ]]; then
   nodeid="$1"
 fi
 
-sudo _output/azurefileplugin --endpoint "$endpoint" --nodeid "$nodeid" -v=5 &
+_output/azurefileplugin --endpoint "$endpoint" --nodeid "$nodeid" -v=5 &
 trap cleanup EXIT
 
 # Skip "should fail when requesting to create a snapshot with already existing name and different SourceVolumeId.", because azurefile cannot specify the snapshot name.
 echo "Begin to run sanity test..."
-sudo csi-sanity --ginkgo.v --csi.endpoint="$endpoint" -ginkgo.skip='should fail when requesting to create a snapshot with already existing name and different SourceVolumeId.'
+csi-test/cmd/csi-sanity/csi-sanity --ginkgo.v --csi.endpoint="$endpoint" -ginkgo.skip='should fail when requesting to create a snapshot with already existing name and different SourceVolumeId.'
