@@ -104,4 +104,6 @@ func testIntegration(t *testing.T, creds *credentials.Credentials) {
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Integration test failed %v", err)
 	}
+
+	log.Printf("integration test result: \n%v", cmd.Stdout)
 }
