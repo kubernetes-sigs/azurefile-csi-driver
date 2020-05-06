@@ -26,6 +26,7 @@ import (
 
 // These are set during build time via -ldflags
 var (
+	driverName    = "azurefile-csi-driver"
 	driverVersion = "N/A"
 	gitCommit     = "N/A"
 	buildDate     = "N/A"
@@ -45,7 +46,7 @@ type VersionInfo struct {
 // GetVersion returns the version information of the driver
 func GetVersion() VersionInfo {
 	return VersionInfo{
-		DriverName:    DriverName,
+		DriverName:    driverName,
 		DriverVersion: driverVersion,
 		GitCommit:     gitCommit,
 		BuildDate:     buildDate,
