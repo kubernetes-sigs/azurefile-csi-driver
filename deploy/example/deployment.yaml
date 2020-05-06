@@ -8,7 +8,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 100Gi
+      storage: 10Gi
   storageClassName: file.csi.azure.com
 ---
 apiVersion: apps/v1
