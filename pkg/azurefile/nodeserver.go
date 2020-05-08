@@ -172,6 +172,8 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		options := []string{fmt.Sprintf("username=%s,password=%s", accountName, accountKey)}
 		mountOptions = util.JoinMountOptions(cifsMountFlags, options)
 		mountOptions = appendDefaultMountOptions(mountOptions)
+		// add "nosharesock", refer to https://docs.microsoft.com/en-us/azure/storage/files/storage-troubleshooting-files-performance#throughput-on-linux-clients-is-significantly-lower-when-compared-to-windows-clients
+		mountOptions = append(mountOptions, "nosharesock")
 	}
 
 	klog.V(2).Infof("cifsMountPath(%v) fstype(%v) volumeID(%v) context(%v) mountflags(%v) mountOptions(%v)",
