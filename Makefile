@@ -104,9 +104,16 @@ container:
 azurefile-container:
 ifdef CI
 	az acr login --name $(REGISTRY_NAME)
-	make azurefile azurefile-windows
-	az acr build --registry $(REGISTRY_NAME) -t $(IMAGE_TAG)-linux-amd64 -f ./pkg/azurefileplugin/Dockerfile --platform linux .
-	az acr build --registry $(REGISTRY_NAME) -t $(IMAGE_TAG)-windows-1809-amd64 -f ./pkg/azurefileplugin/Windows.Dockerfile --platform windows .
+	# make azurefile azurefile-windows
+	# az acr build --registry $(REGISTRY_NAME) -t $(IMAGE_TAG)-linux-amd64 -f ./pkg/azurefileplugin/Dockerfile --platform linux .
+	# az acr build --registry $(REGISTRY_NAME) -t $(IMAGE_TAG)-windows-1809-amd64 -f ./pkg/azurefileplugin/Windows.Dockerfile --platform windows .
+
+	docker buildx rm container-builder || true
+	docker buildx create --use --name=container-builder
+	docker buildx build --build-arg LDFLAGS=${LDFLAGS} -t $(IMAGE_TAG)-linux-amd64 -f ./pkg/azurefileplugin/Dockerfile --platform="linux/amd64" --push .
+	make azuredisk-windows
+	docker buildx build  -t $(IMAGE_TAG)-windows-1809-amd64 -f ./pkg/azurefileplugin/Windows.Dockerfile --platform="windows/amd64" --push .
+
 	docker manifest create $(IMAGE_TAG) $(IMAGE_TAG)-linux-amd64 $(IMAGE_TAG)-windows-1809-amd64
 	docker manifest inspect $(IMAGE_TAG)
 else
