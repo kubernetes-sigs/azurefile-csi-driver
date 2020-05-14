@@ -20,7 +20,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags "${LDFLAGS:--X sigs.k8s.io/azu
 
 FROM us.gcr.io/k8s-artifacts-prod/build-image/debian-base-amd64:v2.1.0
 COPY --from=builder /go/src/sigs.k8s.io/azurefile-csi-driver/_output/azurefileplugin /azurefileplugin
-RUN clean-install util-linux e2fsprogs mount ca-certificates udev xfsprogs
+RUN clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs
 
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"
