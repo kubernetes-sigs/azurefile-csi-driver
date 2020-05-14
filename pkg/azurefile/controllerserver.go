@@ -89,7 +89,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case secretNamespaceField:
 			secretNamespace = v
 		default:
-			return nil, fmt.Errorf("invalid option %q", k)
+			//don't return error here since there are some parameters(e.g. fsType) used in later process
+			//return nil, fmt.Errorf("invalid option %q", k)
 		}
 	}
 
