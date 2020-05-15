@@ -12,10 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM mcr.microsoft.com/aks/fundamental/base-ubuntu:v0.0.5
-RUN apt-get update && apt-get install -y ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs
+FROM golang:1.13.10-alpine3.10 as builder
+WORKDIR /go/src/sigs.k8s.io/azurefile-csi-driver
+ADD . .
+ARG TARGETARCH
+ARG TARGETOS
+ARG LDFLAGS
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a -ldflags "${LDFLAGS:--X sigs.k8s.io/azurefile-csi-driver/pkg/azurefile.driverVersion=latest}" -o _output/azurefileplugin ./pkg/azurefileplugin
+
+FROM us.gcr.io/k8s-artifacts-prod/build-image/debian-base-amd64:v2.1.0
+COPY --from=builder /go/src/sigs.k8s.io/azurefile-csi-driver/_output/azurefileplugin /azurefileplugin
+RUN clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs
+
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"
 
-COPY ./_output/azurefileplugin /azurefileplugin
 ENTRYPOINT ["/azurefileplugin"]
