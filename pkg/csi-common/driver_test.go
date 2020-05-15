@@ -47,12 +47,12 @@ func TestNewFakeDriver(t *testing.T) {
 	assert.Nil(t, d)
 
 	// Invalid nodeID
-	d = NewCSIDriver(fakeDriverName,vendorVersion,"")
-	assert.Nil(t,d)
+	d = NewCSIDriver(fakeDriverName, vendorVersion, "")
+	assert.Nil(t, d)
 
 	// Invalid Version
-	d = NewCSIDriver(fakeDriverName,"",fakeNodeID)
-	assert.NotNil(t,d)
+	d = NewCSIDriver(fakeDriverName, "", fakeNodeID)
+	assert.NotNil(t, d)
 }
 
 func TestGetVolumeCapabilityAccessModes(t *testing.T) {
