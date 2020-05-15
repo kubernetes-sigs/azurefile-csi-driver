@@ -35,7 +35,6 @@ var (
 )
 
 func NewFakeDriver() *CSIDriver {
-
 	driver := NewCSIDriver(fakeDriverName, vendorVersion, fakeNodeID)
 
 	return driver
@@ -43,12 +42,20 @@ func NewFakeDriver() *CSIDriver {
 
 func TestNewFakeDriver(t *testing.T) {
 	// Test New fake driver with invalid arguments.
+	// Invalid driver name
 	d := NewCSIDriver("", vendorVersion, fakeNodeID)
 	assert.Nil(t, d)
+
+	// Invalid nodeID
+	d = NewCSIDriver(fakeDriverName, vendorVersion, "")
+	assert.Nil(t, d)
+
+	// Invalid Version
+	d = NewCSIDriver(fakeDriverName, "", fakeNodeID)
+	assert.NotNil(t, d)
 }
 
 func TestGetVolumeCapabilityAccessModes(t *testing.T) {
-
 	d := NewFakeDriver()
 
 	// Test no volume access modes.
@@ -101,4 +108,38 @@ func TestValidateControllerServiceRequest(t *testing.T) {
 	err = d.ValidateControllerServiceRequest(csi.ControllerServiceCapability_RPC_GET_CAPACITY)
 	assert.NoError(t, err)
 
+}
+
+func TestValidateNodeServiceRequest(t *testing.T) {
+	d := NewFakeDriver()
+
+	// Valid requests which require no capabilities
+	err := d.ValidateNodeServiceRequest(csi.NodeServiceCapability_RPC_UNKNOWN)
+	assert.NoError(t, err)
+
+	// Test node with invalid capability validation
+	err = d.ValidateNodeServiceRequest(csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME)
+	s, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, s.Code(), codes.InvalidArgument)
+
+	// Add node service capabilities
+	d.AddNodeServiceCapabilities(
+		[]csi.NodeServiceCapability_RPC_Type{
+			csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
+			csi.NodeServiceCapability_RPC_GET_VOLUME_STATS,
+			csi.NodeServiceCapability_RPC_EXPAND_VOLUME,
+		})
+
+	// Test node service stage unstaged volume is supported
+	err = d.ValidateNodeServiceRequest(csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME)
+	assert.NoError(t, err)
+
+	// Test node service get volume stats is supported
+	err = d.ValidateNodeServiceRequest(csi.NodeServiceCapability_RPC_GET_VOLUME_STATS)
+	assert.NoError(t, err)
+
+	// Test node expand volume is supported
+	err = d.ValidateNodeServiceRequest(csi.NodeServiceCapability_RPC_EXPAND_VOLUME)
+	assert.NoError(t, err)
 }

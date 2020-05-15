@@ -25,13 +25,48 @@ import (
 )
 
 func TestGetPluginInfo(t *testing.T) {
+	// Check with correct arguments
 	d := NewFakeDriver()
-
 	ids := NewDefaultIdentityServer(d)
-
 	req := csi.GetPluginInfoRequest{}
 	resp, err := ids.GetPluginInfo(context.Background(), &req)
 	assert.NoError(t, err)
 	assert.Equal(t, resp.GetName(), fakeDriverName)
 	assert.Equal(t, resp.GetVendorVersion(), vendorVersion)
+
+	//Check error when driver name is empty
+	d = NewFakeDriver()
+	d.Name = ""
+	ids = NewDefaultIdentityServer(d)
+	resp, err = ids.GetPluginInfo(context.Background(), &req)
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+
+	//Check error when version is empty
+	d = NewCSIDriver(fakeDriverName, "", fakeNodeID)
+	d.Version = ""
+	ids = NewDefaultIdentityServer(d)
+	resp, err = ids.GetPluginInfo(context.Background(), &req)
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
+
+func TestProbe(t *testing.T) {
+	d := NewFakeDriver()
+	ids := NewDefaultIdentityServer(d)
+	req := csi.ProbeRequest{}
+	resp, err := ids.Probe(context.Background(), &req)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, resp.XXX_sizecache, int32(0))
+}
+
+func TestGetPluginCapabilities(t *testing.T) {
+	d := NewFakeDriver()
+	ids := NewDefaultIdentityServer(d)
+	req := csi.GetPluginCapabilitiesRequest{}
+	resp, err := ids.GetPluginCapabilities(context.Background(), &req)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, resp.XXX_sizecache, int32(0))
 }
