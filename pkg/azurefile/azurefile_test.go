@@ -17,8 +17,10 @@ limitations under the License.
 package azurefile
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"k8s.io/legacy-cloud-providers/azure"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -26,6 +28,27 @@ import (
 
 	"github.com/stretchr/testify/assert"
 )
+
+const (
+	fakeNodeID     = "fakeNodeID"
+	fakeDriverName = "fake"
+)
+
+var (
+	vendorVersion = "0.3.0"
+)
+
+func NewFakeDriver() *Driver {
+	driver := NewDriver(fakeNodeID)
+	driver.Name = fakeDriverName
+	driver.Version = vendorVersion
+	return driver
+}
+
+func TestNewFakeDriver(t *testing.T) {
+	d := NewDriver(fakeNodeID)
+	assert.NotNil(t, d)
+}
 
 func TestAppendDefaultMountOptions(t *testing.T) {
 	tests := []struct {
@@ -266,11 +289,17 @@ func TestGetValidFileShareName(t *testing.T) {
 			volumeName: "1234567891234567891234567891234567891234567891234567891234567891",
 			expected:   "123456789123456789123456789123456789123456789123456789123456789",
 		},
+		{
+			volumeName: "aq",
+			expected:   "pvc-file-dynamic",
+		},
 	}
 
 	for _, test := range tests {
 		result := getValidFileShareName(test.volumeName)
-		if !reflect.DeepEqual(result, test.expected) {
+		if test.volumeName == "aq" {
+			assert.Contains(t, result, test.expected)
+		} else if !reflect.DeepEqual(result, test.expected) {
 			t.Errorf("input: %q, getValidFileShareName result: %q, expected: %q", test.volumeName, result, test.expected)
 		}
 	}
@@ -388,5 +417,109 @@ func TestIsCorruptedDir(t *testing.T) {
 	for i, test := range tests {
 		isCorruptedDir := IsCorruptedDir(test.dir)
 		assert.Equal(t, test.expectedResult, isCorruptedDir, "TestCase[%d]: %s", i, test.desc)
+	}
+}
+
+func TestNewDriver(t *testing.T) {
+	tests := []struct {
+		nodeID string
+	}{
+		{
+			nodeID: fakeNodeID,
+		},
+		{
+			nodeID: "",
+		},
+	}
+
+	for _, test := range tests {
+		result := NewDriver(test.nodeID)
+		assert.NotNil(t, result)
+		assert.Equal(t, result.NodeID, test.nodeID)
+	}
+}
+
+func TestGetFileSvcClient(t *testing.T) {
+	tests := []struct {
+		accountName   string
+		accountKey    string
+		expectedError error
+	}{
+		{
+			accountName:   "accname",
+			accountKey:    base64.StdEncoding.EncodeToString([]byte("acc_key")),
+			expectedError: nil,
+		},
+		{
+			accountName:   "",
+			accountKey:    base64.StdEncoding.EncodeToString([]byte("acc_key")),
+			expectedError: fmt.Errorf("error creating azure client: azure: account name is not valid: it must be between 3 and 24 characters, and only may contain numbers and lowercase letters: "),
+		},
+		{
+			accountName:   "accname",
+			accountKey:    "",
+			expectedError: fmt.Errorf("error creating azure client: azure: account key required"),
+		},
+	}
+
+	d := NewFakeDriver()
+	d.cloud = &azure.Cloud{}
+	d.cloud.Environment.StorageEndpointSuffix = "url"
+	for _, test := range tests {
+		_, err := d.getFileSvcClient(test.accountName, test.accountKey)
+		if !reflect.DeepEqual(err, test.expectedError) {
+			t.Errorf("accountName: %v accountKey: %v Error: %v", test.accountName, test.accountKey, err)
+		}
+	}
+}
+
+func TestGetFileURL(t *testing.T) {
+	tests := []struct {
+		accountName           string
+		accountKey            string
+		storageEndpointSuffix string
+		fileShareName         string
+		diskName              string
+		expectedError         error
+	}{
+		{
+			accountName:           "f5713de20cde511e8ba4900",
+			accountKey:            base64.StdEncoding.EncodeToString([]byte("acc_key")),
+			storageEndpointSuffix: "suffix",
+			fileShareName:         "pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41",
+			diskName:              "diskname.vhd",
+			expectedError:         nil,
+		},
+		{
+			accountName:           "",
+			accountKey:            base64.StdEncoding.EncodeToString([]byte("acc_key")),
+			storageEndpointSuffix: "suffix",
+			fileShareName:         "pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41",
+			diskName:              "diskname.vhd",
+			expectedError:         nil,
+		},
+		{
+			accountName:           "",
+			accountKey:            "",
+			storageEndpointSuffix: "",
+			fileShareName:         "",
+			diskName:              "",
+			expectedError:         nil,
+		},
+		{
+			accountName:           "f5713de20cde511e8ba4900",
+			accountKey:            "abc",
+			storageEndpointSuffix: "suffix",
+			fileShareName:         "pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41",
+			diskName:              "diskname.vhd",
+			expectedError:         fmt.Errorf("NewSharedKeyCredential(f5713de20cde511e8ba4900) failed with error: illegal base64 data at input byte 0"),
+		},
+	}
+	for _, test := range tests {
+		_, err := getFileURL(test.accountName, test.accountKey, test.storageEndpointSuffix, test.fileShareName, test.diskName)
+		if !reflect.DeepEqual(err, test.expectedError) {
+			t.Errorf("accountName: %v accountKey: %v storageEndpointSuffix: %v fileShareName: %v diskName: %v Error: %v",
+				test.accountName, test.accountKey, test.storageEndpointSuffix, test.fileShareName, test.diskName, err)
+		}
 	}
 }
