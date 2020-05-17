@@ -13,6 +13,13 @@
 # limitations under the License.
 
 FROM golang:1.13.10-alpine3.10 as builder
+FROM scratch
+RUN make bin/azurefile-csi-driver ENABLE_GIT_COMMAND=true
+
+FROM gcr.io/distroless/static@sha256:c6d5981545ce1406d33e61434c61e9452dad93ecd8397c41e89036ef977a88f4
+COPY --from=builder /go/src/sigs.k8s.io/cloud-provider-azure/bin/azurefile-csi-driver /usr/local/bin/azurefile-csi-driver
+ENTRYPOINT [ "/usr/local/bin/azurefile-csi-driver" ]
+
 WORKDIR /go/src/sigs.k8s.io/azurefile-csi-driver
 ADD . .
 ARG TARGETARCH
