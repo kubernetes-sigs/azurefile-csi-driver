@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -51,7 +52,7 @@ func GetCloudProvider(kubeconfig string) (*azure.Cloud, error) {
 	if az.TenantID == "" || az.SubscriptionID == "" {
 		klog.V(2).Infof("could not read cloud config from secret")
 		credFile, ok := os.LookupEnv(DefaultAzureCredentialFileEnv)
-		if ok {
+		if ok && strings.TrimSpace(credFile) != "" {
 			klog.V(2).Infof("%s env var set as %v", DefaultAzureCredentialFileEnv, credFile)
 		} else {
 			if runtime.GOOS == "windows" {
