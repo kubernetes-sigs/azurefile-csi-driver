@@ -73,12 +73,12 @@ users:
 		{
 			desc:        "[failure] out of cluster, no kubeconfig, no credential file",
 			kubeconfig:  "",
-			expectedErr: fmt.Errorf("Failed to load config from file: %s, cloud not get azure cloud provider", DefaultCredFilePath),
+			expectedErr: fmt.Errorf("Failed to load config from file: %s, cloud not get azure cloud provider", DefaultCredFilePathLinux),
 		},
 		{
 			desc:        "[failure] out of cluster & in cluster, specify a non-exist kubeconfig, no credential file",
 			kubeconfig:  "/tmp/non-exist.json",
-			expectedErr: fmt.Errorf("Failed to load config from file: %s, cloud not get azure cloud provider", DefaultCredFilePath),
+			expectedErr: fmt.Errorf("Failed to load config from file: %s, cloud not get azure cloud provider", DefaultCredFilePathLinux),
 		},
 		{
 			desc:        "[failure] out of cluster & in cluster, specify a empty kubeconfig, no credential file",
@@ -88,7 +88,7 @@ users:
 		{
 			desc:        "[failure] out of cluster & in cluster, specify a fake kubeconfig, no credential file",
 			kubeconfig:  fakeKubeConfig,
-			expectedErr: fmt.Errorf("Failed to load config from file: %s, cloud not get azure cloud provider", DefaultCredFilePath),
+			expectedErr: fmt.Errorf("Failed to load config from file: %s, cloud not get azure cloud provider", DefaultCredFilePathLinux),
 		},
 		{
 			desc:        "[success] out of cluster & in cluster, no kubeconfig, a fake credential file",
