@@ -88,7 +88,11 @@ spec:
             periodSeconds: 30
           env:
             - name: AZURE_CREDENTIAL_FILE
-              value: "C:\\k\\azure.json"
+              valueFrom:
+                configMapKeyRef:
+                  name: azure-cred-file
+                  key: path-windows
+                  optional: true
             - name: CSI_ENDPOINT
               value: unix://C:\\csi\\csi.sock
             - name: KUBE_NODE_NAME

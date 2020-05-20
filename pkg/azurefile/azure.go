@@ -19,6 +19,7 @@ package azurefile
 import (
 	"fmt"
 	"os"
+	"runtime"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -29,7 +30,8 @@ import (
 
 var (
 	DefaultAzureCredentialFileEnv = "AZURE_CREDENTIAL_FILE"
-	DefaultCredFilePath           = "/etc/kubernetes/azure.json"
+	DefaultCredFilePathLinux      = "/etc/kubernetes/azure.json"
+	DefaultCredFilePathWindows    = "C:\\k\\azure.json"
 )
 
 // GetCloudProvider get Azure Cloud Provider
@@ -52,7 +54,11 @@ func GetCloudProvider(kubeconfig string) (*azure.Cloud, error) {
 		if ok {
 			klog.V(2).Infof("%s env var set as %v", DefaultAzureCredentialFileEnv, credFile)
 		} else {
-			credFile = DefaultCredFilePath
+			if runtime.GOOS == "windows" {
+				credFile = DefaultCredFilePathWindows
+			} else {
+				credFile = DefaultCredFilePathLinux
+			}
 			klog.V(2).Infof("use default %s env var: %v", DefaultAzureCredentialFileEnv, credFile)
 		}
 
