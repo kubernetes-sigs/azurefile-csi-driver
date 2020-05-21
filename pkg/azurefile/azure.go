@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -37,8 +38,11 @@ var (
 // GetCloudProvider get Azure Cloud Provider
 func GetCloudProvider(kubeconfig string) (*azure.Cloud, error) {
 	kubeClient, err := getKubeClient(kubeconfig)
-	if err != nil && !os.IsNotExist(err) && err != rest.ErrNotInCluster {
-		return nil, fmt.Errorf("failed to get KubeClient: %v", err)
+	if err != nil {
+		klog.Warningf("get kubeconfig(%s) failed with error: %v", kubeconfig, err)
+		if !os.IsNotExist(err) && err != rest.ErrNotInCluster {
+			return nil, fmt.Errorf("failed to get KubeClient: %v", err)
+		}
 	}
 
 	az := &azure.Cloud{}
@@ -51,7 +55,7 @@ func GetCloudProvider(kubeconfig string) (*azure.Cloud, error) {
 	if az.TenantID == "" || az.SubscriptionID == "" {
 		klog.V(2).Infof("could not read cloud config from secret")
 		credFile, ok := os.LookupEnv(DefaultAzureCredentialFileEnv)
-		if ok {
+		if ok && strings.TrimSpace(credFile) != "" {
 			klog.V(2).Infof("%s env var set as %v", DefaultAzureCredentialFileEnv, credFile)
 		} else {
 			if runtime.GOOS == "windows" {
