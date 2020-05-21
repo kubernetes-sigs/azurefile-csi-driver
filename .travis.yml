@@ -9,5 +9,5 @@ before_install:
   - GO111MODULE=off go get github.com/mattn/goveralls
 
 script:
-  - go test -covermode=count -coverprofile=profile.cov ./pkg/...
+  - sudo -E env "PATH=$PATH" go test -covermode=count -coverprofile=profile.cov ./pkg/...
   - $GOPATH/bin/goveralls -coverprofile=profile.cov -service=travis-ci

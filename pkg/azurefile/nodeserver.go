@@ -228,13 +228,13 @@ func (d *Driver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolu
 
 	klog.V(2).Infof("NodeUnstageVolume: CleanupMountPoint %s", stagingTargetPath)
 	if err := CleanupSMBMountPoint(d.mounter, stagingTargetPath, false); err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to unmount staing target %q: %v", stagingTargetPath, err)
+		return nil, status.Errorf(codes.Internal, "failed to unmount staging target %q: %v", stagingTargetPath, err)
 	}
 
 	targetPath := filepath.Join(filepath.Dir(stagingTargetPath), proxyMount)
 	klog.V(2).Infof("NodeUnstageVolume: CleanupMountPoint %s", targetPath)
 	if err := CleanupMountPoint(d.mounter, targetPath, false); err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to unmount staing target %q: %v", targetPath, err)
+		return nil, status.Errorf(codes.Internal, "failed to unmount staging target %q: %v", targetPath, err)
 	}
 	klog.V(2).Infof("NodeUnstageVolume: unmount %s successfully", stagingTargetPath)
 
