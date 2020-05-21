@@ -46,18 +46,14 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	if len(req.GetVolumeId()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
 	}
-	if len(req.GetTargetPath()) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
+	target := req.GetTargetPath()
+	if len(target) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Target path not provided")
 	}
 
 	source := req.GetStagingTargetPath()
 	if len(source) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Staging target not provided")
-	}
-
-	target := req.GetTargetPath()
-	if len(target) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Target path not provided")
 	}
 
 	mountOptions := []string{"bind"}
