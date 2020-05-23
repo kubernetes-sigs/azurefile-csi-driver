@@ -1,7 +1,7 @@
 image:
   azurefile:
     repository: mcr.microsoft.com/k8s/csi/azurefile-csi
-    tag: v0.7.0
+    tag: latest
     pullPolicy: IfNotPresent
   csiProvisioner:
     repository: mcr.microsoft.com/oss/kubernetes-csi/csi-provisioner
