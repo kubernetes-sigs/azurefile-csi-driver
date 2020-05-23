@@ -1,4 +1,4 @@
-## Install azurefile CSI driver development version on a Kubernetes cluster
+## Install azurefile CSI driver master version on a Kubernetes cluster
 
 ### Install by kubectl
 ```console
