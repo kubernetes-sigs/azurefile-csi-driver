@@ -17,10 +17,16 @@ limitations under the License.
 package azurefile
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2019-06-01/storage"
+	azure2 "github.com/Azure/go-autorest/autorest/azure"
+	"github.com/golang/mock/gomock"
 	"io/ioutil"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/legacy-cloud-providers/azure"
+	"k8s.io/legacy-cloud-providers/azure/clients/storageaccountclient/mockstorageaccountclient"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -521,5 +527,188 @@ func TestGetFileURL(t *testing.T) {
 			t.Errorf("accountName: %v accountKey: %v storageEndpointSuffix: %v fileShareName: %v diskName: %v Error: %v",
 				test.accountName, test.accountKey, test.storageEndpointSuffix, test.fileShareName, test.diskName, err)
 		}
+	}
+}
+
+func TestCheckFileShareExists(t *testing.T) {
+	d := NewFakeDriver()
+	d.cloud = &azure.Cloud{}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	value := base64.StdEncoding.EncodeToString([]byte("acc_key"))
+	valueError := "acc_key"
+
+	tests := []struct {
+		results   storage.AccountListKeysResult
+		expectErr bool
+		err       error
+	}{
+		{
+			storage.AccountListKeysResult{
+				Keys: &[]storage.AccountKey{
+					{Value: &value},
+				},
+			},
+			true,
+			fmt.Errorf("test error"),
+		},
+		{
+			storage.AccountListKeysResult{
+				Keys: &[]storage.AccountKey{
+					{},
+					{Value: &valueError},
+				},
+			},
+			true,
+			fmt.Errorf("test error"),
+		},
+		{storage.AccountListKeysResult{}, true, fmt.Errorf("test error")},
+	}
+
+	for _, test := range tests {
+		mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
+		d.cloud.StorageAccountClient = mockStorageAccountsClient
+		d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
+		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), "rg", gomock.Any()).Return(test.results, nil).AnyTimes()
+
+		_, err := d.checkFileShareExists("acct", "rg", "name")
+		if test.expectErr && err == nil {
+			t.Errorf("Unexpected non-error")
+			continue
+		}
+		if !test.expectErr && err != nil {
+			t.Errorf("Unexpected error: %v", err)
+			continue
+		}
+	}
+}
+
+func TestGetAccountInfo(t *testing.T) {
+	d := NewFakeDriver()
+	d.cloud = &azure.Cloud{}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	validSecret := map[string]string{
+		"azurestorageaccountname": "testaccount",
+		"azurestorageaccountkey":  "testkey",
+	}
+	emptySecret := map[string]string{}
+	value := base64.StdEncoding.EncodeToString([]byte("acc_key"))
+	key := storage.AccountListKeysResult{
+		Keys: &[]storage.AccountKey{
+			{Value: &value},
+		},
+	}
+
+	clientSet := fake.NewSimpleClientset()
+
+	tests := []struct {
+		volumeID   string
+		resGroup   string
+		secrets    map[string]string
+		reqContext map[string]string
+		expectErr  bool
+		err        error
+	}{
+		{
+			volumeID: "##",
+			resGroup: "",
+			secrets:  emptySecret,
+			reqContext: map[string]string{
+				shareNameField: "test_sharename",
+				diskNameField:  "test_diskname",
+			},
+			expectErr: false,
+			err:       nil,
+		},
+		{
+			volumeID: "vol_1##",
+			resGroup: "vol_1",
+			secrets:  validSecret,
+			reqContext: map[string]string{
+				shareNameField: "",
+				diskNameField:  "test_diskname",
+			},
+			expectErr: true,
+			err:       fmt.Errorf("test error"),
+		},
+		{
+			volumeID: "vol_1##",
+			resGroup: "vol_1",
+			secrets:  validSecret,
+			reqContext: map[string]string{
+				shareNameField: "test_sharename",
+				diskNameField:  "test_diskname",
+			},
+			expectErr: false,
+			err:       nil,
+		},
+		{
+			volumeID: "vol_1##",
+			resGroup: "vol_1",
+			secrets:  emptySecret,
+			reqContext: map[string]string{
+				shareNameField: "test_sharename",
+				diskNameField:  "test_diskname",
+			},
+			expectErr: false,
+			err:       nil,
+		},
+	}
+
+	for _, test := range tests {
+		mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
+		d.cloud.StorageAccountClient = mockStorageAccountsClient
+		d.cloud.KubeClient = clientSet
+		d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
+		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), test.resGroup, gomock.Any()).Return(key, nil).AnyTimes()
+		_, _, _, _, _, err := d.GetAccountInfo(test.volumeID, test.secrets, test.reqContext)
+		if test.expectErr && err == nil {
+			t.Errorf("Unexpected non-error")
+			continue
+		}
+		if !test.expectErr && err != nil {
+			t.Errorf("Unexpected error: %v", err)
+			continue
+		}
+	}
+}
+
+func TestCreateDisk(t *testing.T) {
+	d := NewFakeDriver()
+	d.cloud = &azure.Cloud{}
+	tests := []struct {
+		accountName           string
+		accountKey            string
+		storageEndpointSuffix string
+		fileShareName         string
+		diskName              string
+		expectedError         error
+	}{
+		{
+			accountName:           "f5713de20cde511e8ba4900",
+			accountKey:            "abc",
+			storageEndpointSuffix: "suffix",
+			fileShareName:         "pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41",
+			diskName:              "diskname.vhd",
+			expectedError:         fmt.Errorf("NewSharedKeyCredential(f5713de20cde511e8ba4900) failed with error: illegal base64 data at input byte 0"),
+		},
+		{
+			accountName:           "f5713de20cde511e8ba4900",
+			accountKey:            base64.StdEncoding.EncodeToString([]byte("acc_key")),
+			storageEndpointSuffix: "suffix",
+			fileShareName:         "pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41",
+			diskName:              "diskname.vhd",
+			expectedError:         nil,
+		},
+	}
+
+	for _, test := range tests {
+		_ = createDisk(context.Background(), test.accountName, test.accountKey, test.storageEndpointSuffix,
+			test.fileShareName, test.diskName, 20)
 	}
 }
