@@ -9,6 +9,7 @@ require (
 	github.com/Azure/go-autorest/autorest/adal v0.8.3
 	github.com/Azure/go-autorest/autorest/to v0.3.0
 	github.com/container-storage-interface/spec v1.2.0
+	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.3.5
 	github.com/kubernetes-csi/csi-proxy/client v0.0.0-20200330215040-9eff16441b2a
 	github.com/onsi/ginkgo v1.12.0
