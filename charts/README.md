@@ -6,12 +6,30 @@ Quick start instructions for the setup and configuration of azurefile CSI driver
 
 1. [install Helm Client 3.0+ ](https://helm.sh/docs/intro/quickstart/#install-helm)
 
-## Install AzureFile via `helm install`
+## Install latest CSI Driver via `helm install`
 
 ```console
 $ cd $GOPATH/src/sigs.k8s.io/azurefile-csi-driver/charts/latest
 $ helm package azurefile-csi-driver
 $ helm install azurefile-csi-driver azurefile-csi-driver-latest.tgz --namespace kube-system
+```
+
+## Install CSI Driver released version using Helm repository
+
+```console
+$ helm repo add azurefile-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts
+$ helm install --name azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system
+```
+
+### Search for different versions of charts available
+```console
+$ helm search -l azurefile-csi-driver/
+```
+
+### Install a specific version of Helm chart
+Specify the version of the chart to be installed using the `--version` parameter. 
+```console
+helm install --name azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system --version v0.6.0
 ```
 
 ## Uninstall

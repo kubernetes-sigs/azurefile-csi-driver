@@ -1,0 +1,64 @@
+apiVersion: v1
+entries:
+  azurefile-csi-driver:
+  - apiVersion: v1
+    appVersion: v0.7.0
+    created: "2020-05-26T20:50:52.707224603+05:30"
+    description: Azure File Container Storage Interface (CSI) Storage Plugin
+    digest: 944964758c8b2a91d3913c4f898949dd14a95e904a4e3bb78c3d22e4ae43289f
+    home: https://github.com/kubernetes-sigs/azurefile-csi-driver
+    maintainers:
+      - email: xiazhang@microsoft.com
+        name: andyzhangx
+    name: azurefile-csi-driver
+    sources:
+    - https://github.com/kubernetes-sigs/azurefile-csi-driver
+    urls:
+    - https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts/v0.7.0/azurefile-csi-driver-v0.7.0.tgz
+    version: v0.7.0
+  - apiVersion: v1
+    appVersion: v0.6.0
+    created: "2020-05-26T20:50:52.706952745+05:30"
+    description: Azure File Container Storage Interface (CSI) Storage Plugin
+    digest: f366852e2c52f896e9d71e28734402121440046669e031f6f6e8b60f1402aab3
+    home: https://github.com/kubernetes-sigs/azurefile-csi-driver
+    maintainers:
+      - email: xiazhang@microsoft.com
+        name: andyzhangx
+    name: azurefile-csi-driver
+    sources:
+    - https://github.com/kubernetes-sigs/azurefile-csi-driver
+    urls:
+    - https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts/v0.6.0/azurefile-csi-driver-v0.6.0.tgz
+    version: v0.6.0
+  - apiVersion: v1
+    appVersion: v0.5.0
+    created: "2020-05-26T20:50:52.706691422+05:30"
+    description: Azure File Container Storage Interface (CSI) Storage Plugin
+    digest: 7be07a9500b75d59fb6b7e889b2be347c5ec4d64cd2c4484a86e3dc66367e3fa
+    home: https://github.com/kubernetes-sigs/azurefile-csi-driver
+    maintainers:
+      - email: xiazhang@microsoft.com
+        name: andyzhangx
+    name: azurefile-csi-driver
+    sources:
+    - https://github.com/kubernetes-sigs/azurefile-csi-driver
+    urls:
+    - https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts/v0.5.0/azurefile-csi-driver-v0.5.0.tgz
+    version: v0.5.0
+  - apiVersion: v1
+    appVersion: v0.4.0
+    created: "2020-05-26T20:50:52.706429799+05:30"
+    description: Azure File Container Storage Interface (CSI) Storage Plugin
+    digest: 61b5ce35522c902042474b6602c475cc5fefa7b15387ec0341b34688ce061821
+    home: https://github.com/kubernetes-sigs/azurefile-csi-driver
+    maintainers:
+      - email: xiazhang@microsoft.com
+        name: andyzhangx
+    name: azurefile-csi-driver
+    sources:
+    - https://github.com/kubernetes-sigs/azurefile-csi-driver
+    urls:
+    - https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts/v0.4.0/azurefile-csi-driver-v0.4.0.tgz
+    version: v0.4.0
+generated: "2020-05-26T20:50:52.705521759+05:30"
