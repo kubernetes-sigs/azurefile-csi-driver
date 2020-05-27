@@ -2,7 +2,7 @@
 
 #### Feature Status
  - Status: beta
- - Minumum supported Kubernetes version: `1.17.0`
+ - Minimum supported Kubernetes version: `1.17.0`
 > [Volume snapshot](https://kubernetes-csi.github.io/docs/snapshot-controller.html) is beta(enabled by default) since Kubernetes `1.17.0`
 
 ### Create a StorageClass
