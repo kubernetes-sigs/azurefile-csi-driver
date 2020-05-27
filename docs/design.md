@@ -3,22 +3,22 @@
 
 Goal | Status | Notes
 --- | --- | --- |
-Support Kubernetes release 1.12 or later | Completed| release prior to 1.12 won't be supported |
+Support Kubernetes release 1.14 or later | Completed| release prior to 1.14 won't be supported |
 Support service principal and msi authentication | Completed |  |
-Support both Linux & Windows | In Progress | Windows related work is in progress: [Enable CSI hostpath example on windows](https://github.com/kubernetes-csi/drivers/issues/79) |
+Support both Linux & Windows | Completed | Windows related work is in progress: [Enable CSI hostpath example on windows](https://github.com/kubernetes-csi/drivers/issues/79) |
 Compatible with original storage class parameters and usage| Completed | there is a little difference in static provision, see [example](../deploy/example/pv-azurefile-csi.yaml) |
-Support sovereign cloud| done | verification pass on Azure China |
+Support sovereign cloud| Completed | verification pass on Azure China |
 
 ### Work items
 Item | Status | Notes
 --- | --- | --- |
-Support volume size grow | to-do |  |
-Support snapshot | to-do |  |
-Enable CI on Windows | done |  |
+Support volume size grow | Completed |  |
+Support snapshot | Completed |  |
+Enable CI on Windows | Completed |  |
 Complete all unit tests | Completed |  |
-Set up E2E test | to-do |  |
-Implement NodeStage/NodeUnstage functions | to-do | two pods on same node could share same mount |
-Implement azure file csi driver on Windows | to-do |  |
+Set up E2E test | Completed |  |
+Implement NodeStage/NodeUnstage functions | Completed | two pods on same node could share same mount |
+Implement azure file csi driver on Windows | Completed |  |
 
 ### Implementation details
 To prevent possible regression issues, azurefile CSI driver use [azure cloud provider](https://github.com/kubernetes/kubernetes/tree/v1.13.0/pkg/cloudprovider/providers/azure) library. Thus, all bug fixes in the built-in azure file plugin would be incorporated into this driver.
