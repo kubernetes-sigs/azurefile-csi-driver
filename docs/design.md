@@ -17,7 +17,7 @@ Support snapshot | Completed |  |
 Enable CI on Windows | Completed |  |
 Complete all unit tests | Completed |  |
 Set up E2E test | Completed |  |
-Implement NodeStage/NodeUnstage functions | Completed | two pods on same node could share same mount |
+Implement NodeStage/NodeUnstage functions | Completed | two pods on same node could share same PVC mount |
 Implement azure file csi driver on Windows | Completed |  |
 
 ### Implementation details
