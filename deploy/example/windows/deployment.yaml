@@ -14,22 +14,26 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: aspnet-azurefile
+  name: busybox-azurefile
   labels:
-    app: aspnet
+    app: busybox
 spec:
   replicas: 1
   template:
     metadata:
-      name: aspnet
+      name: busybox
       labels:
-        app: aspnet
+        app: busybox
     spec:
       nodeSelector:
         "kubernetes.io/os": windows
       containers:
-        - name: aspnet
-          image: mcr.microsoft.com/dotnet/framework/samples:aspnetapp
+        - name: busybox
+          image: e2eteam/busybox:1.29
+          command:
+            - "powershell.exe"
+            - "-Command"
+            - "while (1) { Add-Content -Encoding Ascii C:\\mnt\\azurefile\\data.txt $(Get-Date -Format u); sleep 1 }"
           volumeMounts:
             - name: azurefile
               mountPath: "/mnt/azurefile"
@@ -39,4 +43,4 @@ spec:
             claimName: pvc-azurefile
   selector:
     matchLabels:
-      app: aspnet
+      app: busybox
