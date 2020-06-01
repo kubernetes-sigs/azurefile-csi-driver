@@ -445,40 +445,6 @@ func TestNewDriver(t *testing.T) {
 	}
 }
 
-func TestGetFileSvcClient(t *testing.T) {
-	tests := []struct {
-		accountName   string
-		accountKey    string
-		expectedError error
-	}{
-		{
-			accountName:   "accname",
-			accountKey:    base64.StdEncoding.EncodeToString([]byte("acc_key")),
-			expectedError: nil,
-		},
-		{
-			accountName:   "",
-			accountKey:    base64.StdEncoding.EncodeToString([]byte("acc_key")),
-			expectedError: fmt.Errorf("error creating azure client: azure: account name is not valid: it must be between 3 and 24 characters, and only may contain numbers and lowercase letters: "),
-		},
-		{
-			accountName:   "accname",
-			accountKey:    "",
-			expectedError: fmt.Errorf("error creating azure client: azure: account key required"),
-		},
-	}
-
-	d := NewFakeDriver()
-	d.cloud = &azure.Cloud{}
-	d.cloud.Environment.StorageEndpointSuffix = "url"
-	for _, test := range tests {
-		_, err := d.getFileSvcClient(test.accountName, test.accountKey)
-		if !reflect.DeepEqual(err, test.expectedError) {
-			t.Errorf("accountName: %v accountKey: %v Error: %v", test.accountName, test.accountKey, err)
-		}
-	}
-}
-
 func TestGetFileURL(t *testing.T) {
 	tests := []struct {
 		accountName           string
@@ -526,61 +492,6 @@ func TestGetFileURL(t *testing.T) {
 		if !reflect.DeepEqual(err, test.expectedError) {
 			t.Errorf("accountName: %v accountKey: %v storageEndpointSuffix: %v fileShareName: %v diskName: %v Error: %v",
 				test.accountName, test.accountKey, test.storageEndpointSuffix, test.fileShareName, test.diskName, err)
-		}
-	}
-}
-
-func TestCheckFileShareExists(t *testing.T) {
-	d := NewFakeDriver()
-	d.cloud = &azure.Cloud{}
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	value := base64.StdEncoding.EncodeToString([]byte("acc_key"))
-	valueError := "acc_key"
-
-	tests := []struct {
-		results   storage.AccountListKeysResult
-		expectErr bool
-		err       error
-	}{
-		{
-			storage.AccountListKeysResult{
-				Keys: &[]storage.AccountKey{
-					{Value: &value},
-				},
-			},
-			true,
-			fmt.Errorf("test error"),
-		},
-		{
-			storage.AccountListKeysResult{
-				Keys: &[]storage.AccountKey{
-					{},
-					{Value: &valueError},
-				},
-			},
-			true,
-			fmt.Errorf("test error"),
-		},
-		{storage.AccountListKeysResult{}, true, fmt.Errorf("test error")},
-	}
-
-	for _, test := range tests {
-		mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
-		d.cloud.StorageAccountClient = mockStorageAccountsClient
-		d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
-		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), "rg", gomock.Any()).Return(test.results, nil).AnyTimes()
-
-		_, err := d.checkFileShareExists("acct", "rg", "name")
-		if test.expectErr && err == nil {
-			t.Errorf("Unexpected non-error")
-			continue
-		}
-		if !test.expectErr && err != nil {
-			t.Errorf("Unexpected error: %v", err)
-			continue
 		}
 	}
 }

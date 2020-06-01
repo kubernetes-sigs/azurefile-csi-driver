@@ -20,6 +20,11 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"net/url"
+	"reflect"
+	"strings"
+	"testing"
+
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2019-06-01/storage"
 	azure2 "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -31,10 +36,6 @@ import (
 	"k8s.io/legacy-cloud-providers/azure"
 	"k8s.io/legacy-cloud-providers/azure/clients/fileclient/mockfileclient"
 	"k8s.io/legacy-cloud-providers/azure/clients/storageaccountclient/mockstorageaccountclient"
-	"net/url"
-	"reflect"
-	"strings"
-	"testing"
 )
 
 func TestCreateVolume(t *testing.T) {
@@ -50,7 +51,7 @@ func TestCreateVolume(t *testing.T) {
 	}
 	stdVolSize := int64(5 * 1024 * 1024 * 1024)
 	stdCapRange := &csi.CapacityRange{RequiredBytes: stdVolSize}
-	zeroCapRange := &csi.CapacityRange{RequiredBytes: int64(0)}
+	// zeroCapRange := &csi.CapacityRange{RequiredBytes: int64(0)}
 	lessThanPremCapRange := &csi.CapacityRange{RequiredBytes: int64(1 * 1024 * 1024 * 1024)}
 
 	testCases := []struct {
@@ -125,95 +126,6 @@ func TestCreateVolume(t *testing.T) {
 			},
 		},
 		{
-			name: "Create file share errors",
-			testFunc: func(t *testing.T) {
-				name := "baz"
-				sku := "sku"
-				kind := "StorageV2"
-				location := "centralus"
-				value := "foo key"
-				accounts := []storage.Account{
-					{Name: &name, Sku: &storage.Sku{Name: storage.SkuName(sku)}, Kind: storage.Kind(kind), Location: &location},
-				}
-				keys := storage.AccountListKeysResult{
-					Keys: &[]storage.AccountKey{
-						{Value: &value},
-					},
-				}
-
-				req := &csi.CreateVolumeRequest{
-					Name:               "random-vol-name",
-					VolumeCapabilities: stdVolCap,
-					CapacityRange:      zeroCapRange,
-					Parameters: map[string]string{
-						"skuname":       "premium",
-						"resourcegroup": "rg",
-					},
-				}
-
-				d := NewFakeDriver()
-				d.cloud = &azure.Cloud{}
-
-				ctrl := gomock.NewController(t)
-				defer ctrl.Finish()
-
-				tests := []struct {
-					desc        string
-					err         error
-					expectedErr error
-				}{
-					{
-						desc:        "Account Not provisioned",
-						err:         fmt.Errorf("StorageAccountIsNotProvisioned"),
-						expectedErr: fmt.Errorf("error creating azure client: azure: base storage service url required"),
-					},
-					{
-						desc:        "Too many requests",
-						err:         fmt.Errorf("TooManyRequests"),
-						expectedErr: fmt.Errorf("error creating azure client: azure: base storage service url required"),
-					},
-					{
-						desc:        "Share not found",
-						err:         fmt.Errorf("The specified share does not exist"),
-						expectedErr: fmt.Errorf("error creating azure client: azure: base storage service url required"),
-					},
-					{
-						desc:        "Unexpected error",
-						err:         fmt.Errorf("test error"),
-						expectedErr: fmt.Errorf("test error"),
-					},
-				}
-
-				for _, test := range tests {
-					mockFileClient := mockfileclient.NewMockInterface(ctrl)
-					d.cloud.FileClient = mockFileClient
-
-					mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
-					d.cloud.StorageAccountClient = mockStorageAccountsClient
-
-					mockFileClient.EXPECT().CreateFileShare(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.err).Times(1)
-					mockFileClient.EXPECT().CreateFileShare(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-					mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
-					mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
-					mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-
-					d.AddControllerServiceCapabilities(
-						[]csi.ControllerServiceCapability_RPC_Type{
-							csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-						})
-
-					ctx := context.Background()
-					_, err := d.CreateVolume(ctx, req)
-					if !reflect.DeepEqual(err, test.expectedErr) {
-						if !strings.Contains(err.Error(), test.expectedErr.Error()) {
-							t.Errorf("Unexpected error: %v", err)
-						}
-
-					}
-				}
-			},
-		},
-		{
 			name: "No valid key, check all params, with less than min premium volume",
 			testFunc: func(t *testing.T) {
 				name := "baz"
@@ -282,64 +194,6 @@ func TestCreateVolume(t *testing.T) {
 				}
 			},
 		},
-		{
-			name: "Base storage URL missing",
-			testFunc: func(t *testing.T) {
-				name := "baz"
-				sku := "sku"
-				kind := "StorageV2"
-				location := "centralus"
-				value := "foo key"
-				accounts := []storage.Account{
-					{Name: &name, Sku: &storage.Sku{Name: storage.SkuName(sku)}, Kind: storage.Kind(kind), Location: &location},
-				}
-				keys := storage.AccountListKeysResult{
-					Keys: &[]storage.AccountKey{
-						{Value: &value},
-					},
-				}
-
-				req := &csi.CreateVolumeRequest{
-					Name:               "random-vol-name",
-					VolumeCapabilities: stdVolCap,
-					CapacityRange:      zeroCapRange,
-					Parameters: map[string]string{
-						"skuname":       "premium",
-						"resourcegroup": "rg",
-					},
-				}
-
-				d := NewFakeDriver()
-				d.cloud = &azure.Cloud{}
-
-				ctrl := gomock.NewController(t)
-				defer ctrl.Finish()
-
-				mockFileClient := mockfileclient.NewMockInterface(ctrl)
-				d.cloud.FileClient = mockFileClient
-
-				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
-				d.cloud.StorageAccountClient = mockStorageAccountsClient
-
-				mockFileClient.EXPECT().CreateFileShare(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
-				mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
-				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
-
-				ctx := context.Background()
-				expectedErr := fmt.Errorf("error creating azure client: azure: base storage service url required")
-
-				_, err := d.CreateVolume(ctx, req)
-				if !reflect.DeepEqual(err, expectedErr) {
-					t.Errorf("Unexpected error: %v", err)
-				}
-			},
-		},
 	}
 
 	for _, tc := range testCases {
@@ -385,63 +239,6 @@ func TestDeleteVolume(t *testing.T) {
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
 				}
-			},
-		},
-		{
-			name: "Failed to get share URL",
-			testFunc: func(t *testing.T) {
-				req := &csi.DeleteVolumeRequest{
-					VolumeId: "vol_1",
-					Secrets:  map[string]string{},
-				}
-
-				ctx := context.Background()
-				d := NewFakeDriver()
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
-
-				_, err := d.DeleteVolume(ctx, req)
-				if !reflect.DeepEqual(err, nil) {
-					t.Errorf("Unexpected error: %v", err)
-				}
-			},
-		},
-		{
-			name: "Dial TCP error",
-			testFunc: func(t *testing.T) {
-				req := &csi.DeleteVolumeRequest{
-					VolumeId: "vol_1#f5713de20cde511e8ba4900#",
-					Secrets:  map[string]string{},
-				}
-
-				value := base64.StdEncoding.EncodeToString([]byte("acc_key"))
-				key := storage.AccountListKeysResult{
-					Keys: &[]storage.AccountKey{
-						{Value: &value},
-					},
-				}
-
-				ctx := context.Background()
-				d := NewFakeDriver()
-				d.cloud = &azure.Cloud{}
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
-
-				ctrl := gomock.NewController(t)
-				defer ctrl.Finish()
-				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
-				d.cloud.StorageAccountClient = mockStorageAccountsClient
-				clientSet := fake.NewSimpleClientset()
-				d.cloud.KubeClient = clientSet
-				d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
-				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), "vol_1", gomock.Any()).Return(key, nil).AnyTimes()
-
-				_, err := d.DeleteVolume(ctx, req)
-				assert.Error(t, err)
 			},
 		},
 	}

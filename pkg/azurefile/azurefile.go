@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	azs "github.com/Azure/azure-sdk-for-go/storage"
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2019-06-01/storage"
 	"github.com/Azure/azure-storage-file-go/azfile"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/pborman/uuid"
@@ -86,6 +86,9 @@ const (
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
 	tooManyRequests       = "TooManyRequests"
 	shareNotFound         = "The specified share does not exist"
+	shareBeingDeleted     = "The specified share is being deleted"
+
+	fileShareAccountNamePrefix = "f"
 )
 
 // Driver implements all interfaces of CSI drivers
@@ -161,45 +164,30 @@ func (d *Driver) Run(endpoint, kubeconfig string) {
 	s.Wait()
 }
 
-func (d *Driver) checkFileShareCapacity(accountName, accountKey, fileShareName string, requestGiB int) error {
-	fileClient, err := d.getFileSvcClient(accountName, accountKey)
+func (d *Driver) checkFileShareCapacity(resourceGroupName, accountName, fileShareName string, requestGiB int) error {
+	exists, fileshare, err := d.checkFileShareExists(accountName, resourceGroupName, fileShareName)
 	if err != nil {
-		return err
+		return status.Errorf(codes.Internal, "failed to check file share(%s) if exists: %v", fileShareName, err)
+	} else if !exists {
+		return nil
 	}
-	resp, err := fileClient.ListShares(azs.ListSharesParameters{Prefix: fileShareName})
-	if err != nil {
-		return fmt.Errorf("error listing file shares: %v", err)
-	}
-	for _, share := range resp.Shares {
-		if share.Name == fileShareName && share.Properties.Quota != requestGiB {
-			return status.Errorf(codes.AlreadyExists, "the request volume already exists, but its capacity(%v) is different from (%v)", share.Properties.Quota, requestGiB)
-		}
+	if fileshare.FileShareProperties.ShareQuota != nil && int(*fileshare.FileShareProperties.ShareQuota) != requestGiB {
+		return status.Errorf(codes.AlreadyExists, "the request volume already exists, but its capacity(%v) is different from (%v)", int(*fileshare.FileShareProperties.ShareQuota), requestGiB)
 	}
 
 	return nil
 }
 
-func (d *Driver) checkFileShareExists(accountName, resourceGroup, name string) (bool, error) {
-	// find the access key with this account
-	accountKey, err := d.cloud.GetStorageAccesskey(accountName, resourceGroup)
+func (d *Driver) checkFileShareExists(accountName, resourceGroup, fileShareName string) (bool, storage.FileShare, error) {
+	fileShare, err := d.cloud.GetFileShare(resourceGroup, accountName, fileShareName)
 	if err != nil {
-		return false, fmt.Errorf("error getting storage key for storage account %s: %v", accountName, err)
+		if strings.Contains(err.Error(), "ShareNotFound") {
+			return false, storage.FileShare{}, nil
+		}
+		return false, storage.FileShare{}, fmt.Errorf("failed to get file share(%s) under rg(%s) account(%s): %v", fileShareName, resourceGroup, accountName, err)
 	}
 
-	fileClient, err := d.getFileSvcClient(accountName, accountKey)
-	if err != nil {
-		return false, err
-	}
-	return fileClient.GetShareReference(name).Exists()
-}
-
-func (d *Driver) getFileSvcClient(accountName, accountKey string) (*azs.FileServiceClient, error) {
-	fileClient, err := azs.NewClient(accountName, accountKey, d.cloud.Environment.StorageEndpointSuffix, azs.DefaultAPIVersion, true)
-	if err != nil {
-		return nil, fmt.Errorf("error creating azure client: %v", err)
-	}
-	fc := fileClient.GetFileService()
-	return &fc, nil
+	return true, fileShare, nil
 }
 
 // get file share info according to volume id, e.g.
