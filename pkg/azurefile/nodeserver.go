@@ -133,19 +133,24 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 	// don't respect fsType from req.GetVolumeCapability().GetMount().GetFsType()
 	// since it's ext4 by default on Linux
-	var fsType string
+	var fsType, server string
 	for k, v := range context {
 		switch strings.ToLower(k) {
 		case fsTypeField:
 			fsType = v
 		case diskNameField:
 			diskName = v
+		case serverNameField:
+			server = v
 		}
 	}
 
-	var mountOptions []string
 	osSeparator := string(os.PathSeparator)
-	source := fmt.Sprintf("%s%s%s.file.%s%s%s", osSeparator, osSeparator, accountName, d.cloud.Environment.StorageEndpointSuffix, osSeparator, fileShareName)
+	if strings.TrimSpace(server) == "" {
+		// server address is "accountname.blob.core.windows.net" by default
+		server = fmt.Sprintf("%s.file.%s", accountName, d.cloud.Environment.StorageEndpointSuffix)
+	}
+	source := fmt.Sprintf("%s%s%s%s%s", osSeparator, osSeparator, server, osSeparator, fileShareName)
 
 	cifsMountPath := targetPath
 	cifsMountFlags := mountFlags
@@ -158,6 +163,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		cifsMountPath = filepath.Join(filepath.Dir(targetPath), proxyMount)
 	}
 
+	var mountOptions []string
 	if runtime.GOOS == "windows" {
 		mountOptions = []string{fmt.Sprintf("AZURE\\%s", accountName), accountKey}
 	} else {

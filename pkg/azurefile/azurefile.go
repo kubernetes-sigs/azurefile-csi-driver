@@ -72,6 +72,7 @@ const (
 
 	shareNameField           = "sharename"
 	diskNameField            = "diskname"
+	serverNameField          = "server"
 	fsTypeField              = "fstype"
 	secretNamespaceField     = "secretnamespace"
 	storeAccountKeyField     = "storeaccountkey"
