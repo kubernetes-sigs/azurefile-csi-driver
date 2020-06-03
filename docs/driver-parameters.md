@@ -11,6 +11,7 @@ storageAccount | specify the storage account name in which azure file share will
 location | specify the location in which azure file share will be created | `eastus`, `westus`, etc. | No | if empty, driver will use the same location name as current k8s cluster
 resourceGroup | specify the resource group in which azure file share will be created | existing resource group name | No | if empty, driver will use the same resource group name as current k8s cluster
 shareName | specify azure file share name | existing or new azure file name | No | if empty, driver will generate an azure file share name
+server | specify azure storage account server address | existing server address, e.g. `accountname.privatelink.blob.core.windows.net` | No | if empty, driver will use default `accountname.blob.core.windows.net` or other sovereign cloud account address
 storeAccountKey | whether store account key to k8s secret | `true`,`false` | No | `true`
 secretNamespace | specify the namespace of secret to store account key | `default`,`kube-system`,etc | No | `default`
 --- | following parameters are only for [VHD disk feature](../deploy/example/disk) | --- | --- |

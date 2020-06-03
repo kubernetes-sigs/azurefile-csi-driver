@@ -16,3 +16,4 @@ mountOptions:
   - gid=0
   - mfsymlinks
   - cache=strict  # https://linux.die.net/man/8/mount.cifs
+  - nosharesock
