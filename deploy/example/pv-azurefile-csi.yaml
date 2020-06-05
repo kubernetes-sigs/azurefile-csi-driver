@@ -20,7 +20,7 @@ spec:
   csi:
     driver: file.csi.azure.com
     readOnly: false
-    volumeHandle: arbitrary-volumeid  # make sure it's a uniqe id
+    volumeHandle: unique-volumeid  # make sure it's a unique id in the cluster
     volumeAttributes:
       shareName: EXISTING_FILE_SHARE_NAME  # only file share name, don't use full path
       server: SERVER_ADDRESS  # optional, provide a new address to replace default "accountname.blob.core.windows.net"
