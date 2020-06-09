@@ -9,7 +9,7 @@ spec:
   resources:
     requests:
       storage: 100Gi
-  storageClassName: file.csi.azure.com
+  storageClassName: azurefile-csi
 ---
 apiVersion: apps/v1
 kind: Deployment

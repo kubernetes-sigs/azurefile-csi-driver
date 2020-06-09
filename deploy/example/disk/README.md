@@ -27,7 +27,7 @@ Add a new parameter(`fsType`) in Azure File CSI driver storage class, other para
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: file.csi.azure.com
+  name: azurefile-csi
 provisioner: file.csi.azure.com
 parameters:
   skuName: Premium_LRS  # available values: Standard_LRS, Standard_GRS, Standard_ZRS, Standard_RAGRS, Premium_LRS
@@ -43,7 +43,7 @@ spec:
   resources:
     requests:
       storage: 100Gi
-  storageClassName: file.csi.azure.com
+  storageClassName: azurefile-csi
 ```
 
 #### Prerequisite
@@ -103,7 +103,7 @@ kubectl scale statefulset statefulset-azurefile --replicas=30
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: file.csi.azure.com
+  name: azurefile-csi
 provisioner: file.csi.azure.com
 parameters:
   storageAccount: EXISTING_STORAGE_ACCOUNT_NAME
