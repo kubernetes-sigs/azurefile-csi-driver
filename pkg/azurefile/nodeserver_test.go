@@ -352,6 +352,55 @@ func TestNodeUnstageVolume(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestNodeGetVolumeStats(t *testing.T) {
+	nonexistedPath := "/not/a/real/directory"
+	fakePath := "/tmp/fake-volume-path"
+
+	tests := []struct {
+		desc        string
+		req         csi.NodeGetVolumeStatsRequest
+		expectedErr error
+	}{
+		{
+			desc:        "Volume ID missing",
+			req:         csi.NodeGetVolumeStatsRequest{VolumePath: targetTest},
+			expectedErr: status.Error(codes.InvalidArgument, "NodeGetVolumeStats volume ID was empty"),
+		},
+		{
+			desc:        "VolumePath missing",
+			req:         csi.NodeGetVolumeStatsRequest{VolumeId: "vol_1"},
+			expectedErr: status.Error(codes.InvalidArgument, "NodeGetVolumeStats volume path was empty"),
+		},
+		{
+			desc:        "Incorrect volume path",
+			req:         csi.NodeGetVolumeStatsRequest{VolumePath: nonexistedPath, VolumeId: "vol_1"},
+			expectedErr: status.Errorf(codes.Internal, "failed to get metrics: failed to get FsInfo due to error no such file or directory"),
+		},
+		{
+			desc:        "standard success",
+			req:         csi.NodeGetVolumeStatsRequest{VolumePath: fakePath, VolumeId: "vol_1"},
+			expectedErr: nil,
+		},
+	}
+
+	// Setup
+	_ = makeDir(fakePath)
+	d := NewFakeDriver()
+
+	for _, test := range tests {
+		_, err := d.NodeGetVolumeStats(context.Background(), &test.req)
+		//t.Errorf("[debug] error: %v\n metrics: %v", err, metrics)
+		if !reflect.DeepEqual(err, test.expectedErr) {
+			t.Errorf("desc: %v, expected error: %v, actual error: %v", test.desc, test.expectedErr, err)
+		}
+	}
+
+	// Clean up
+
+	err := os.RemoveAll(fakePath)
+	assert.NoError(t, err)
+}
+
 func TestEnsureMountPoint(t *testing.T) {
 	// Setup
 	_ = makeDir(sourceTest)
