@@ -29,6 +29,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
+	"k8s.io/kubernetes/pkg/volume"
 	"k8s.io/kubernetes/pkg/volume/util"
 
 	"google.golang.org/grpc/codes"
@@ -263,8 +264,61 @@ func (d *Driver) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (
 }
 
 // NodeGetVolumeStats get volume stats
-func (d *Driver) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "")
+func (d *Driver) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
+	if len(req.VolumeId) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "NodeGetVolumeStats volume ID was empty")
+	}
+	if len(req.VolumePath) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "NodeGetVolumeStats volume path was empty")
+	}
+
+	volumeMetrics, err := volume.NewMetricsStatFS(req.VolumePath).GetMetrics()
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get metrics: %v", err)
+	}
+
+	available, ok := volumeMetrics.Available.AsInt64()
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "failed to transform volume available size(%v)", volumeMetrics.Available)
+	}
+	capacity, ok := volumeMetrics.Capacity.AsInt64()
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "failed to transform volume capacity size(%v)", volumeMetrics.Capacity)
+	}
+	used, ok := volumeMetrics.Used.AsInt64()
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "failed to transform volume used size(%v)", volumeMetrics.Used)
+	}
+
+	inodesFree, ok := volumeMetrics.InodesFree.AsInt64()
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "failed to transform disk inodes free(%v)", volumeMetrics.InodesFree)
+	}
+	inodes, ok := volumeMetrics.Inodes.AsInt64()
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "failed to transform disk inodes(%v)", volumeMetrics.Inodes)
+	}
+	inodesUsed, ok := volumeMetrics.InodesUsed.AsInt64()
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "failed to transform disk inodes used(%v)", volumeMetrics.InodesUsed)
+	}
+
+	return &csi.NodeGetVolumeStatsResponse{
+		Usage: []*csi.VolumeUsage{
+			{
+				Unit:      csi.VolumeUsage_BYTES,
+				Available: available,
+				Total:     capacity,
+				Used:      used,
+			},
+			{
+				Unit:      csi.VolumeUsage_INODES,
+				Available: inodesFree,
+				Total:     inodes,
+				Used:      inodesUsed,
+			},
+		},
+	}, nil
 }
 
 // NodeExpandVolume node expand volume
