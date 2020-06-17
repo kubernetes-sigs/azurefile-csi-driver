@@ -3,7 +3,7 @@ module sigs.k8s.io/azurefile-csi-driver
 go 1.13
 
 require (
-	github.com/Azure/azure-sdk-for-go v40.2.0+incompatible
+	github.com/Azure/azure-sdk-for-go v43.0.0+incompatible
 	github.com/Azure/azure-storage-file-go v0.7.0
 	github.com/Azure/go-autorest/autorest v0.10.0
 	github.com/Azure/go-autorest/autorest/adal v0.8.3
@@ -24,16 +24,16 @@ require (
 	k8s.io/api v0.18.1
 	k8s.io/apimachinery v0.18.2-beta.0
 	k8s.io/client-go v0.18.1
-	k8s.io/cloud-provider v0.18.1
+	k8s.io/cloud-provider v0.0.0
 	k8s.io/klog v1.0.0
 	k8s.io/kubernetes v1.18.1
 	k8s.io/legacy-cloud-providers v0.0.0
-	k8s.io/utils v0.0.0-20200411171748-3d5a2fe318e4
+	k8s.io/utils v0.0.0-20200414100711-2df71ebbae66
 	sigs.k8s.io/yaml v1.2.0
 )
 
 replace (
-	github.com/Azure/azure-sdk-for-go => github.com/Azure/azure-sdk-for-go v40.2.0+incompatible
+	github.com/Azure/azure-sdk-for-go => github.com/Azure/azure-sdk-for-go v43.0.0+incompatible
 	github.com/container-storage-interface/spec => github.com/container-storage-interface/spec v1.1.0
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.0.0
 	go.etcd.io/etcd => go.etcd.io/etcd v0.0.0-20200410171415-59f5fb25a533
@@ -44,19 +44,19 @@ replace (
 	k8s.io/apiserver => k8s.io/apiserver v0.18.1
 	k8s.io/cli-runtime => k8s.io/cli-runtime v0.18.1
 	k8s.io/client-go => k8s.io/client-go v0.18.1
-	k8s.io/cloud-provider => k8s.io/cloud-provider v0.18.1
+	k8s.io/cloud-provider => k8s.io/cloud-provider v0.0.0-20200521010552-19fa0136a360
 	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.18.1
 	k8s.io/code-generator => k8s.io/code-generator v0.18.2-beta.0
 	k8s.io/component-base => k8s.io/component-base v0.18.1
 	k8s.io/cri-api => k8s.io/cri-api v0.18.2-beta.0
-	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.18.1
+	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.0.0-20200530124324-08bf6a63b59d
 	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.18.1
 	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.18.1
 	k8s.io/kube-proxy => k8s.io/kube-proxy v0.18.1
 	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.18.1
 	k8s.io/kubectl => k8s.io/kubectl v0.18.1
 	k8s.io/kubelet => k8s.io/kubelet v0.18.1
-	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.0.0-20200413192026-36f88b5f5220
+	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.0.0-20200616111343-29b60defc62f
 	k8s.io/metrics => k8s.io/metrics v0.18.1
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.18.1
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.18.1
