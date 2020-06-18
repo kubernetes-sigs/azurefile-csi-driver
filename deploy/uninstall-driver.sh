@@ -38,7 +38,6 @@ kubectl delete -f $repo/csi-azurefile-controller.yaml --ignore-not-found
 kubectl delete -f $repo/csi-azurefile-driver.yaml --ignore-not-found
 kubectl delete -f $repo/csi-azurefile-node.yaml --ignore-not-found
 kubectl delete -f $repo/csi-azurefile-node-windows.yaml --ignore-not-found
-kubectl delete -f $repo/crd-csi-node-info.yaml --ignore-not-found
 kubectl delete -f $repo/rbac-csi-azurefile-controller.yaml --ignore-not-found
 kubectl delete -f $repo/rbac-csi-azurefile-node.yaml --ignore-not-found
 echo 'Uninstalled Azure File CSI driver successfully.'

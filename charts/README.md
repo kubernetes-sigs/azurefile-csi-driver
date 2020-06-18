@@ -18,18 +18,18 @@ $ helm install azurefile-csi-driver azurefile-csi-driver-latest.tgz --namespace 
 
 ```console
 $ helm repo add azurefile-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts
-$ helm install --name azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system
+$ helm install  azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system
 ```
 
 ### Search for different versions of charts available
 ```console
-$ helm search -l azurefile-csi-driver/
+$ helm search repo -l azurefile-csi-driver/
 ```
 
 ### Install a specific version of Helm chart
 Specify the version of the chart to be installed using the `--version` parameter. 
 ```console
-helm install --name azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system --version v0.6.0
+helm install  azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system --version v0.6.0
 ```
 
 ## Uninstall
