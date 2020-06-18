@@ -31,6 +31,8 @@ Please refer to [install azurefile csi driver](https://github.com/kubernetes-sig
 
 ### Examples
  - [Basic usage](./deploy/example/e2e_usage.md)
+ 
+### Features
  - [Snapshot](./deploy/example/snapshot)
  - [VHD disk](./deploy/example/disk)
  - [Windows](./deploy/example/windows)
@@ -42,7 +44,6 @@ Please refer to [install azurefile csi driver](https://github.com/kubernetes-sig
 Please refer to [development guide](./docs/csi-dev.md)
 
 ### Links
- - [Kubernetes CSI Documentation](https://kubernetes-csi.github.io/docs/Home.html)
- - [Analysis of the CSI Spec](https://blog.thecodeteam.com/2017/11/03/analysis-csi-spec/)
+ - [Kubernetes CSI Documentation](https://kubernetes-csi.github.io/docs)
  - [CSI Drivers](https://github.com/kubernetes-csi/drivers)
  - [Container Storage Interface (CSI) Specification](https://github.com/container-storage-interface/spec)
