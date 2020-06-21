@@ -500,7 +500,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		volumes := []testsuites.VolumeDetails{}
 		for i := 1; i <= 6; i++ {
 			volume := testsuites.VolumeDetails{
-				ClaimSize: "10Gi",
+				ClaimSize: "100Gi",
 				VolumeMount: testsuites.VolumeMountDetails{
 					NameGenerate:      "test-volume-",
 					MountPathGenerate: "/mnt/test-",
@@ -511,8 +511,9 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 		pods := []testsuites.PodDetails{
 			{
-				Cmd:     "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data",
-				Volumes: volumes,
+				Cmd:       convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
+				Volumes:   volumes,
+				IsWindows: isWindowsCluster,
 			},
 		}
 		test := testsuites.DynamicallyProvisionedPodWithMultiplePVsTest{
