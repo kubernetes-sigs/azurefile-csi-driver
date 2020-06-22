@@ -18,6 +18,7 @@ package testsuites
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"time"
@@ -34,6 +35,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/pkg/kubelet/events"
 	"k8s.io/kubernetes/test/e2e/framework"
@@ -247,6 +250,7 @@ func (t *TestPersistentVolumeClaim) Cleanup() {
 	// kubelet is slowly cleaning up the previous pod, however it should succeed
 	// in a couple of minutes.
 	if t.persistentVolume.Spec.PersistentVolumeReclaimPolicy == v1.PersistentVolumeReclaimDelete {
+		t.removeFinalizers()
 		ginkgo.By(fmt.Sprintf("waiting for claim's PV %q to be deleted", t.persistentVolume.Name))
 		err := framework.WaitForPersistentVolumeDeleted(t.client, t.persistentVolume.Name, 5*time.Second, 10*time.Minute)
 		framework.ExpectNoError(err)
@@ -284,6 +288,29 @@ func (t *TestPersistentVolumeClaim) DeleteBackingVolume(azfile *azurefile.Driver
 	if err != nil {
 		ginkgo.Fail(fmt.Sprintf("could not delete volume %q: %v", volumeID, err))
 	}
+}
+
+// removeFinalizers is a workaround to solve the problem that PV is stuck at terminating after PVC is deleted.
+// Related issue: https://github.com/kubernetes/kubernetes/issues/69697
+func (t *TestPersistentVolumeClaim) removeFinalizers() {
+	pv, err := t.client.CoreV1().PersistentVolumes().Get(context.TODO(), t.persistentVolume.Name, metav1.GetOptions{})
+	framework.ExpectNoError(err)
+
+	pvClone := pv.DeepCopy()
+
+	oldData, err := json.Marshal(pvClone)
+	framework.ExpectNoError(err)
+
+	pvClone.ObjectMeta.Finalizers = nil
+
+	newData, err := json.Marshal(pvClone)
+	framework.ExpectNoError(err)
+
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, pvClone)
+	framework.ExpectNoError(err)
+
+	_, err = t.client.CoreV1().PersistentVolumes().Patch(context.TODO(), pvClone.Name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
+	framework.ExpectNoError(err)
 }
 
 type TestDeployment struct {

@@ -40,7 +40,7 @@ import (
 
 // CreateVolume provisions an azure file
 func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
-	klog.V(2).Infof("CreateVolume called with request %v", *req)
+	klog.V(2).Infof("CreateVolume called with request %+v", *req)
 	if err := d.ValidateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME); err != nil {
 		klog.Errorf("invalid create volume req: %v", req)
 		return nil, err
@@ -114,12 +114,24 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		validFileShareName = getValidFileShareName(name)
 	}
 
-	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d)", validFileShareName, account, sku, resourceGroup, location, fileShareSize)
-	lockKey := account + sku + accountKind + resourceGroup + location
+	if resourceGroup == "" {
+		resourceGroup = d.cloud.ResourceGroup
+	}
+
+	retAccount, retAccountKey, err := d.cloud.EnsureStorageAccount(account, sku, accountKind, resourceGroup, location, fileShareAccountNamePrefix)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to ensure storage account: %v", err)
+	}
+
+	if err := d.checkFileShareCapacity(resourceGroup, retAccount, validFileShareName, fileShareSize); err != nil {
+		return nil, err
+	}
+
+	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d)", validFileShareName, retAccount, sku, resourceGroup, location, fileShareSize)
+	lockKey := retAccount + sku + accountKind + resourceGroup + location
 	d.volLockMap.LockEntry(lockKey)
 	defer d.volLockMap.UnlockEntry(lockKey)
-	var retAccount, retAccountKey string
-	err := wait.Poll(1*time.Second, 2*time.Minute, func() (bool, error) {
+	err = wait.Poll(1*time.Second, 2*time.Minute, func() (bool, error) {
 		var retErr error
 		retAccount, retAccountKey, retErr = d.cloud.CreateFileShare(validFileShareName, account, sku, accountKind, resourceGroup, location, fileShareSize)
 		if retErr != nil {
@@ -136,6 +148,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), sleep 3s to retry", validFileShareName, account, retErr)
 				time.Sleep(3 * time.Second)
 				return false, nil
+			} else if strings.Contains(retErr.Error(), shareBeingDeleted) {
+				klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), sleep 1s to retry", validFileShareName, account, retErr)
+				time.Sleep(time.Second)
+				return false, nil
 			}
 		}
 		return true, retErr
@@ -147,10 +163,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, fmt.Errorf("create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d) timeout(3m)", validFileShareName, account, sku, resourceGroup, location, fileShareSize)
 	}
 	klog.V(2).Infof("create file share %s on storage account %s successfully", validFileShareName, retAccount)
-
-	if err := d.checkFileShareCapacity(retAccount, retAccountKey, validFileShareName, fileShareSize); err != nil {
-		return nil, err
-	}
 
 	isDiskMount := (fsType != "" && fsType != cifs)
 	if isDiskMount && diskName == "" {
@@ -165,7 +177,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		klog.V(2).Infof("begin to create vhd file(%s) size(%d) on share(%s) on account(%s) type(%s) rg(%s) location(%s)",
 			diskName, diskSizeBytes, validFileShareName, account, sku, resourceGroup, location)
 		if err := createDisk(ctx, retAccount, retAccountKey, d.cloud.Environment.StorageEndpointSuffix, validFileShareName, diskName, diskSizeBytes); err != nil {
-			return nil, status.Error(codes.Internal, fmt.Sprintf("failed to create VHD disk: %v", err))
+			return nil, status.Errorf(codes.Internal, "failed to create VHD disk: %v", err)
 		}
 		klog.V(2).Infof("create vhd file(%s) size(%d) on share(%s) on account(%s) type(%s) rg(%s) location(%s) successfully",
 			diskName, diskSizeBytes, validFileShareName, account, sku, resourceGroup, location)
@@ -204,20 +216,15 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 	}
 
 	volumeID := req.VolumeId
-	shareURL, err := d.getShareURL(volumeID, req.GetSecrets())
-	if err != nil {
-		// According to CSI Driver Sanity Tester, should succeed when an invalid volume id is used
-		klog.V(4).Infof("failed to get share url with (%s): %v, returning with success", volumeID, err)
-		return &csi.DeleteVolumeResponse{}, nil
-	}
 	resourceGroupName, accountName, fileShareName, _, err := getFileShareInfo(volumeID)
 	if err != nil {
+		// According to CSI Driver Sanity Tester, should succeed when an invalid volume id is used
 		klog.Errorf("getFileShareInfo(%s) in DeleteVolume failed with error: %v", volumeID, err)
 		return &csi.DeleteVolumeResponse{}, nil
 	}
 
-	if _, err = shareURL.Delete(ctx, azfile.DeleteSnapshotsOptionInclude); err != nil {
-		return nil, status.Errorf(codes.Internal, "DeleteFileShare %s under %s failed with error: %v", fileShareName, accountName, err)
+	if err := d.cloud.DeleteFileShare(resourceGroupName, accountName, fileShareName); err != nil {
+		return nil, status.Errorf(codes.Internal, "DeleteFileShare %s under account(%s) rg(%s) failed with error: %v", fileShareName, accountName, resourceGroupName, err)
 	}
 	klog.V(2).Infof("azure file(%s) under rg(%s) account(%s) volume(%s) is deleted successfully", fileShareName, resourceGroupName, accountName, volumeID)
 
@@ -243,7 +250,7 @@ func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.Valida
 	if resourceGroupName == "" {
 		resourceGroupName = d.cloud.ResourceGroup
 	}
-	if exists, err := d.checkFileShareExists(accountName, resourceGroupName, fileShareName); err != nil {
+	if exists, _, err := d.checkFileShareExists(accountName, resourceGroupName, fileShareName); err != nil {
 		return nil, status.Errorf(codes.NotFound, "error checking if volume(%s) exists: %v", volumeID, err)
 	} else if !exists {
 		return nil, status.Errorf(codes.NotFound, "the requested volume(%s) does not exist.", volumeID)
@@ -521,12 +528,12 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 	if capacityBytes == 0 {
 		return nil, status.Error(codes.InvalidArgument, "volume capacity range missing in request")
 	}
-	requestGiB := int32(volumehelper.RoundUpGiB(capacityBytes))
+	requestGiB := volumehelper.RoundUpGiB(capacityBytes)
 	if err := d.ValidateControllerServiceRequest(csi.ControllerServiceCapability_RPC_EXPAND_VOLUME); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid expand volume request: %v", req)
 	}
 
-	_, _, _, _, diskName, err := d.GetAccountInfo(volumeID, req.GetSecrets(), map[string]string{})
+	resourceGroupName, accountName, fileShareName, diskName, err := getFileShareInfo(volumeID)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("GetAccountInfo(%s) failed with error: %v", volumeID, err))
 	}
@@ -535,23 +542,20 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 		return nil, status.Error(codes.Unimplemented, fmt.Sprintf("vhd disk volume(%s) is not supported on ControllerExpandVolume", volumeID))
 	}
 
-	shareURL, err := d.getShareURL(volumeID, req.GetSecrets())
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get share url with (%s): %v, returning with success", volumeID, err)
-	}
-
-	if _, err = shareURL.SetQuota(ctx, requestGiB); err != nil {
+	if err = d.cloud.ResizeFileShare(resourceGroupName, accountName, fileShareName, int(requestGiB)); err != nil {
 		return nil, status.Errorf(codes.Internal, "expand volume error: %v", err)
 	}
 
-	resp, err := shareURL.GetProperties(ctx)
+	fileshare, err := d.cloud.GetFileShare(resourceGroupName, accountName, fileShareName)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get properties of share(%v): %v", shareURL, err)
+		return nil, status.Errorf(codes.Internal, "could not get file share(%s): %v", fileShareName, err)
+	}
+	if fileshare.FileShareProperties.ShareQuota == nil {
+		return nil, status.Errorf(codes.Internal, "the pointer of file share(%s) quota is nil", fileShareName)
 	}
 
-	currentQuota := volumehelper.GiBToBytes(int64(resp.Quota()))
-	klog.V(2).Infof("ControllerExpandVolume(%s) successfully, currentQuota: %d", volumeID, currentQuota)
-	return &csi.ControllerExpandVolumeResponse{CapacityBytes: currentQuota}, nil
+	klog.V(2).Infof("ControllerExpandVolume(%s) successfully, currentQuota: %d", volumeID, *fileshare.FileShareProperties.ShareQuota)
+	return &csi.ControllerExpandVolumeResponse{CapacityBytes: requestGiB}, nil
 }
 
 // getShareURL: sourceVolumeID is the id of source file share, returns a ShareURL of source file share.
