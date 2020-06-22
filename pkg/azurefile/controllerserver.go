@@ -148,6 +148,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), sleep 3s to retry", validFileShareName, account, retErr)
 				time.Sleep(3 * time.Second)
 				return false, nil
+			} else if strings.Contains(retErr.Error(), shareBeingDeleted) {
+				klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), sleep 1s to retry", validFileShareName, account, retErr)
+				time.Sleep(time.Second)
+				return false, nil
 			}
 		}
 		return true, retErr
