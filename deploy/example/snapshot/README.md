@@ -1,7 +1,7 @@
 # Snapshot Example
 
 #### Feature Status
- - Status: beta
+ - Status: alpha
  - Minimum supported Kubernetes version: `1.17.0`
 > [Volume snapshot](https://kubernetes-csi.github.io/docs/snapshot-controller.html) is beta(enabled by default) since Kubernetes `1.17.0`
 
