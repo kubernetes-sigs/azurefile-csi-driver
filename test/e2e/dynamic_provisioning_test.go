@@ -497,6 +497,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 	})
 
 	ginkgo.It("should create a pod with multiple volumes [kubernetes.io/azure-file] [file.csi.azure.com] [Windows]", func() {
+		skipIfUsingInTreeVolumePlugin()
+
 		volumes := []testsuites.VolumeDetails{}
 		for i := 1; i <= 6; i++ {
 			volume := testsuites.VolumeDetails{
