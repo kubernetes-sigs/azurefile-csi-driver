@@ -8,6 +8,6 @@ parameters:
   resourceGroup: EXISTING_RESOURCE_GROUP_NAME
   storageAccount: EXISTING_STORAGE_ACCOUNT_NAME
   shareName: SHARE_NAME
-  server: SERVER_ADDRESS  # optional, provide a new address to replace default "accountname.blob.core.windows.net"
+  server: SERVER_ADDRESS  # optional, provide a new address to replace default "accountname.file.core.windows.net"
 reclaimPolicy: Delete
 volumeBindingMode: Immediate

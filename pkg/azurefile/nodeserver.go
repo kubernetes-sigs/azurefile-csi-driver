@@ -147,7 +147,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	osSeparator := string(os.PathSeparator)
 	if strings.TrimSpace(server) == "" {
-		// server address is "accountname.blob.core.windows.net" by default
+		// server address is "accountname.file.core.windows.net" by default
 		server = fmt.Sprintf("%s.file.%s", accountName, d.cloud.Environment.StorageEndpointSuffix)
 	}
 	source := fmt.Sprintf("%s%s%s%s%s", osSeparator, osSeparator, server, osSeparator, fileShareName)
