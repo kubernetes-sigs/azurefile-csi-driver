@@ -23,6 +23,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2019-06-01/storage"
 	azure2 "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/legacy-cloud-providers/azure"
@@ -30,9 +31,8 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	csicommon "sigs.k8s.io/azurefile-csi-driver/pkg/csi-common"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -622,4 +622,52 @@ func TestCreateDisk(t *testing.T) {
 		_ = createDisk(context.Background(), test.accountName, test.accountKey, test.storageEndpointSuffix,
 			test.fileShareName, test.diskName, 20)
 	}
+}
+
+func TestRun(t *testing.T) {
+	fakeCredFile := "fake-cred-file.json"
+	fakeCredContent := `{
+    "tenantId": "1234",
+    "subscriptionId": "12345",
+    "aadClientId": "123456",
+    "aadClientSecret": "1234567",
+    "resourceGroup": "rg1",
+    "location": "loc"
+}`
+
+	if err := ioutil.WriteFile(fakeCredFile, []byte(fakeCredContent), 0666); err != nil {
+		t.Error(err)
+	}
+
+	defer func() {
+		if err := os.Remove(fakeCredFile); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	originalCredFile, ok := os.LookupEnv(DefaultAzureCredentialFileEnv)
+	if ok {
+		defer os.Setenv(DefaultAzureCredentialFileEnv, originalCredFile)
+	} else {
+		defer os.Unsetenv(DefaultAzureCredentialFileEnv)
+	}
+	os.Setenv(DefaultAzureCredentialFileEnv, fakeCredFile)
+
+	d := NewFakeDriver()
+	d.Run("tcp://127.0.0.1:0", "", true)
+}
+
+func TestUtilsRunNodePublishServer(t *testing.T) {
+	d := NewFakeDriver()
+	csicommon.RunNodePublishServer("tcp://127.0.0.1:0", &d.CSIDriver, d, true)
+}
+
+func TestUtilsRunControllerandNodePublishServer(t *testing.T) {
+	d := NewFakeDriver()
+	csicommon.RunControllerandNodePublishServer("tcp://127.0.0.1:0", &d.CSIDriver, d, d, true)
+}
+
+func TestUtilsRunControllerPublishServer(t *testing.T) {
+	d := NewFakeDriver()
+	csicommon.RunControllerPublishServer("tcp://127.0.0.1:0", &d.CSIDriver, d, true)
 }

@@ -112,7 +112,7 @@ func NewDriver(nodeID string) *Driver {
 }
 
 // Run driver initialization
-func (d *Driver) Run(endpoint, kubeconfig string) {
+func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 	versionMeta, err := GetVersionYAML()
 	if err != nil {
 		klog.Fatalf("%v", err)
@@ -160,7 +160,7 @@ func (d *Driver) Run(endpoint, kubeconfig string) {
 
 	s := csicommon.NewNonBlockingGRPCServer()
 	// Driver d act as IdentityServer, ControllerServer and NodeServer
-	s.Start(endpoint, d, d, d)
+	s.Start(endpoint, d, d, d, testBool)
 	s.Wait()
 }
 
