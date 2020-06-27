@@ -118,7 +118,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		resourceGroup = d.cloud.ResourceGroup
 	}
 
-	retAccount, retAccountKey, err := d.cloud.EnsureStorageAccount(account, sku, accountKind, resourceGroup, location, fileShareAccountNamePrefix)
+	enableHTTPSTrafficOnly := true
+	retAccount, retAccountKey, err := d.cloud.EnsureStorageAccount(account, sku, accountKind, resourceGroup, location, fileShareAccountNamePrefix, enableHTTPSTrafficOnly)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to ensure storage account: %v", err)
 	}
@@ -133,7 +134,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	defer d.volLockMap.UnlockEntry(lockKey)
 	err = wait.Poll(1*time.Second, 2*time.Minute, func() (bool, error) {
 		var retErr error
-		retAccount, retAccountKey, retErr = d.cloud.CreateFileShare(validFileShareName, account, sku, accountKind, resourceGroup, location, fileShareSize)
+		retAccount, retAccountKey, retErr = d.cloud.CreateFileShare(validFileShareName, account, sku, accountKind, resourceGroup, location, storage.SMB, fileShareSize)
 		if retErr != nil {
 			if strings.Contains(retErr.Error(), accountNotProvisioned) {
 				klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), sleep 1s to retry", validFileShareName, account, retErr)
