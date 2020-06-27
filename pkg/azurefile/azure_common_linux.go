@@ -24,8 +24,8 @@ import (
 	"k8s.io/utils/mount"
 )
 
-func SMBMount(m *mount.SafeFormatAndMount, source, target, fsType string, options []string) error {
-	return m.Mount(source, target, fsType, options)
+func SMBMount(m *mount.SafeFormatAndMount, source, target, fsType string, options, sensitiveMountOptions []string) error {
+	return m.MountSensitive(source, target, fsType, options, sensitiveMountOptions)
 }
 
 func SMBUnmount(m *mount.SafeFormatAndMount, target string) error {
