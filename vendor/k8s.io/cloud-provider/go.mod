@@ -2,20 +2,22 @@
 
 module k8s.io/cloud-provider
 
-go 1.13
+go 1.14
 
 require (
-	k8s.io/api v0.0.0-20200519082057-dccc90724807
-	k8s.io/apimachinery v0.0.0-20200519081849-bdcc9f4ab675
-	k8s.io/client-go v0.0.0-20200520082344-7ab8430bef2c
-	k8s.io/klog/v2 v2.0.0
-	k8s.io/utils v0.0.0-20200414100711-2df71ebbae66
+	github.com/google/go-cmp v0.4.0
+	github.com/stretchr/testify v1.4.0
+	k8s.io/api v0.0.0-20200626130448-f849118f70f6
+	k8s.io/apimachinery v0.0.0-20200626130251-3b98a76529ae
+	k8s.io/client-go v0.0.0-20200626130735-db5293afc7bf
+	k8s.io/component-base v0.0.0-20200626131333-f52a9b7250e8
+	k8s.io/klog/v2 v2.1.0
+	k8s.io/utils v0.0.0-20200619165400-6e3d28b6ed19
 )
 
 replace (
-	golang.org/x/sys => golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a // pinned to release-branch.go1.13
-	golang.org/x/tools => golang.org/x/tools v0.0.0-20190821162956-65e3620a7ae7 // pinned to release-branch.go1.13
-	k8s.io/api => k8s.io/api v0.0.0-20200519082057-dccc90724807
-	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20200519081849-bdcc9f4ab675
-	k8s.io/client-go => k8s.io/client-go v0.0.0-20200520082344-7ab8430bef2c
+	k8s.io/api => k8s.io/api v0.0.0-20200626130448-f849118f70f6
+	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20200626130251-3b98a76529ae
+	k8s.io/client-go => k8s.io/client-go v0.0.0-20200626130735-db5293afc7bf
+	k8s.io/component-base => k8s.io/component-base v0.0.0-20200626131333-f52a9b7250e8
 )
