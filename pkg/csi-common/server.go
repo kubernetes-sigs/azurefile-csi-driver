@@ -17,14 +17,16 @@ limitations under the License.
 package csicommon
 
 import (
-	"github.com/container-storage-interface/spec/lib/go/csi"
-	"google.golang.org/grpc"
-	"k8s.io/klog"
 	"net"
 	"os"
 	"runtime"
 	"sync"
 	"time"
+
+	"google.golang.org/grpc"
+	"k8s.io/klog"
+
+	"github.com/container-storage-interface/spec/lib/go/csi"
 )
 
 // Defines Non blocking GRPC server interfaces
@@ -48,8 +50,6 @@ type nonBlockingGRPCServer struct {
 	wg     sync.WaitGroup
 	server *grpc.Server
 }
-
-//var TestBool = false
 
 func (s *nonBlockingGRPCServer) Start(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, testMode bool) {
 	s.wg.Add(1)
@@ -109,7 +109,6 @@ func (s *nonBlockingGRPCServer) serve(endpoint string, ids csi.IdentityServer, c
 		s.wg.Done()
 		go func() {
 			// make sure Serve() is called
-
 			s.wg.Wait()
 			time.Sleep(time.Millisecond * 1000)
 			s.server.GracefulStop()

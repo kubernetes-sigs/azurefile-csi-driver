@@ -17,10 +17,11 @@ limitations under the License.
 package csicommon
 
 import (
-	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
 )
 
 func TestNewNonBlockingGRPCServer(t *testing.T) {
@@ -54,6 +55,7 @@ func TestStop(t *testing.T) {
 	s.server = grpc.NewServer()
 	s.Stop()
 }
+
 func TestForceStop(t *testing.T) {
 	s := nonBlockingGRPCServer{}
 	s.server = grpc.NewServer()
