@@ -163,7 +163,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		cifsMountPath = filepath.Join(filepath.Dir(targetPath), proxyMount)
 	}
 
-	var mountOptions []string
+	var mountOptions, sensitiveMountOptions []string
 	if runtime.GOOS == "windows" {
 		mountOptions = []string{fmt.Sprintf("AZURE\\%s", accountName), accountKey}
 	} else {
@@ -171,9 +171,8 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			return nil, status.Error(codes.Internal, fmt.Sprintf("MkdirAll %s failed with error: %v", targetPath, err))
 		}
 		// parameters suggested by https://azure.microsoft.com/en-us/documentation/articles/storage-how-to-use-files-linux/
-		options := []string{fmt.Sprintf("username=%s,password=%s", accountName, accountKey)}
-		mountOptions = util.JoinMountOptions(cifsMountFlags, options)
-		mountOptions = appendDefaultMountOptions(mountOptions)
+		sensitiveMountOptions = []string{fmt.Sprintf("username=%s,password=%s", accountName, accountKey)}
+		mountOptions = appendDefaultMountOptions(cifsMountFlags)
 	}
 
 	klog.V(2).Infof("cifsMountPath(%v) fstype(%v) volumeID(%v) context(%v) mountflags(%v) mountOptions(%v)",
@@ -190,7 +189,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}
 		mountComplete := false
 		err = wait.Poll(5*time.Second, 10*time.Minute, func() (bool, error) {
-			err := SMBMount(d.mounter, source, cifsMountPath, cifs, mountOptions)
+			err := SMBMount(d.mounter, source, cifsMountPath, cifs, mountOptions, sensitiveMountOptions)
 			mountComplete = true
 			return true, err
 		})

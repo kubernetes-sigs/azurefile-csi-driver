@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/azurefile-csi-driver/pkg/mounter"
 )
 
-func SMBMount(m *mount.SafeFormatAndMount, source, target, fsType string, options []string) error {
+func SMBMount(m *mount.SafeFormatAndMount, source, target, fsType string, options, sensitiveMountOptions []string) error {
 	proxy, ok := m.Interface.(*mounter.CSIProxyMounter)
 	if !ok {
 		return fmt.Errorf("could not cast to csi proxy class")
