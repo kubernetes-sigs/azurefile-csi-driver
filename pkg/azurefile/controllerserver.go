@@ -94,6 +94,14 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
+	protocol := storage.SMB
+	if fsType == nfs {
+		if account == "" {
+			return nil, status.Errorf(codes.InvalidArgument, "storage account must be specified when provisioning nfs file share")
+		}
+		protocol = storage.NFS
+	}
+
 	fileShareSize := int(requestGiB)
 	// account kind should be FileStorage for Premium File
 	accountKind := string(storage.StorageV2)
@@ -107,7 +115,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	validFileShareName := fileShareName
 	if validFileShareName == "" {
 		name := req.GetName()
-		if fsType != "" && fsType != cifs {
+		if isDiskType(fsType) {
 			// use "pvcd" prefix for vhd disk file share
 			name = strings.Replace(name, "pvc", "pvcd", 1)
 		}
@@ -134,7 +142,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	defer d.volLockMap.UnlockEntry(lockKey)
 	err = wait.Poll(1*time.Second, 2*time.Minute, func() (bool, error) {
 		var retErr error
-		retAccount, retAccountKey, retErr = d.cloud.CreateFileShare(validFileShareName, account, sku, accountKind, resourceGroup, location, storage.SMB, fileShareSize)
+		retAccount, retAccountKey, retErr = d.cloud.CreateFileShare(validFileShareName, account, sku, accountKind, resourceGroup, location, protocol, fileShareSize)
 		if retErr != nil {
 			if strings.Contains(retErr.Error(), accountNotProvisioned) {
 				klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), sleep 1s to retry", validFileShareName, account, retErr)
@@ -165,7 +173,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 	klog.V(2).Infof("create file share %s on storage account %s successfully", validFileShareName, retAccount)
 
-	isDiskMount := (fsType != "" && fsType != cifs)
+	isDiskMount := isDiskType(fsType)
 	if isDiskMount && diskName == "" {
 		if fileShareName == "" {
 			// use pvc name as vhd disk name if file share not specified

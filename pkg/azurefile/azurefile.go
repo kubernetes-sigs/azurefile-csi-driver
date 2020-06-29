@@ -81,6 +81,7 @@ const (
 	defaultSecretNamespace   = "default"
 	proxyMount               = "proxy-mount"
 	cifs                     = "cifs"
+	nfs                      = "nfs"
 	metaDataNode             = "node"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"

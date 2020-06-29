@@ -154,7 +154,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	cifsMountPath := targetPath
 	cifsMountFlags := mountFlags
-	isDiskMount := (fsType != "" && fsType != cifs)
+	isDiskMount := isDiskType(fsType)
 	if isDiskMount {
 		if diskName == "" {
 			return nil, status.Errorf(codes.Internal, "diskname could not be empty, targetPath: %s", targetPath)
@@ -184,12 +184,16 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 
 	if !isDirMounted {
+		mountFsType := cifs
+		if fsType == nfs {
+			mountFsType = nfs
+		}
 		if err = prepareStagePath(cifsMountPath, d.mounter); err != nil {
 			return nil, fmt.Errorf("prepare stage path failed for %s with error: %v", cifsMountPath, err)
 		}
 		mountComplete := false
 		err = wait.Poll(5*time.Second, 10*time.Minute, func() (bool, error) {
-			err := SMBMount(d.mounter, source, cifsMountPath, cifs, mountOptions, sensitiveMountOptions)
+			err := SMBMount(d.mounter, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions)
 			mountComplete = true
 			return true, err
 		})

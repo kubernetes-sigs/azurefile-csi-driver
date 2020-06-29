@@ -108,3 +108,7 @@ func setAzureCredentials(kubeClient kubernetes.Interface, accountName, accountKe
 	}
 	return secretName, err
 }
+
+func isDiskType(fsType string) bool {
+	return (fsType != "" && fsType != cifs && fsType != nfs)
+}
