@@ -23,6 +23,8 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a -ldflags "${LDFL
 FROM us.gcr.io/k8s-artifacts-prod/build-image/debian-base-amd64:v2.1.0
 COPY --from=builder /go/src/sigs.k8s.io/azurefile-csi-driver/_output/azurefileplugin /azurefileplugin
 RUN clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs
+# this is a workaround to install nfs-common and don't quit with error
+RUN apt update && apt install nfs-common -y || true
 
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"
