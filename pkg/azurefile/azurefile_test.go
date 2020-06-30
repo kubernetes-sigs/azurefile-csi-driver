@@ -20,19 +20,24 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
+	"net/url"
+	"os"
+	"path/filepath"
+	"reflect"
+	"testing"
+
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2019-06-01/storage"
 	azure2 "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"io/ioutil"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/legacy-cloud-providers/azure"
+	"k8s.io/legacy-cloud-providers/azure/clients/fileclient/mockfileclient"
 	"k8s.io/legacy-cloud-providers/azure/clients/storageaccountclient/mockstorageaccountclient"
-	"os"
-	"path/filepath"
-	"reflect"
 	csicommon "sigs.k8s.io/azurefile-csi-driver/pkg/csi-common"
-	"testing"
 )
 
 const (
@@ -486,6 +491,14 @@ func TestGetFileURL(t *testing.T) {
 			diskName:              "diskname.vhd",
 			expectedError:         fmt.Errorf("NewSharedKeyCredential(f5713de20cde511e8ba4900) failed with error: illegal base64 data at input byte 0"),
 		},
+		{
+			accountName:           "^f5713de20cde511e8ba4900",
+			accountKey:            base64.StdEncoding.EncodeToString([]byte("acc_key")),
+			storageEndpointSuffix: "suffix",
+			fileShareName:         "pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41",
+			diskName:              "diskname.vhd",
+			expectedError:         fmt.Errorf("parse fileURLTemplate error: %v", &url.Error{Op: "parse", URL: "https://^f5713de20cde511e8ba4900.file.suffix/pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41/diskname.vhd", Err: url.InvalidHostError("^")}),
+		},
 	}
 	for _, test := range tests {
 		_, err := getFileURL(test.accountName, test.accountKey, test.storageEndpointSuffix, test.fileShareName, test.diskName)
@@ -621,6 +634,107 @@ func TestCreateDisk(t *testing.T) {
 	for _, test := range tests {
 		_ = createDisk(context.Background(), test.accountName, test.accountKey, test.storageEndpointSuffix,
 			test.fileShareName, test.diskName, 20)
+	}
+}
+
+func TestCheckFileShareCapacity(t *testing.T) {
+	d := NewFakeDriver()
+	d.cloud = &azure.Cloud{}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	shareQuota := int32(10)
+	resourceGroupName := "rg"
+	accountName := "accountname"
+	fileShareName := "filesharename"
+	requestGiB := 0
+
+	tests := []struct {
+		desc                string
+		mockedFileShareResp storage.FileShare
+		mockedFileShareErr  error
+		expectedError       error
+	}{
+		{
+			desc:                "Get file share return error",
+			mockedFileShareResp: storage.FileShare{},
+			mockedFileShareErr:  fmt.Errorf("test error"),
+			expectedError:       status.Errorf(codes.Internal, "failed to check file share(filesharename) if exists: failed to get file share(filesharename) under rg(rg) account(accountname): test error"),
+		},
+		{
+			desc:                "Share not found",
+			mockedFileShareResp: storage.FileShare{},
+			mockedFileShareErr:  fmt.Errorf("ShareNotFound"),
+			expectedError:       nil,
+		},
+		{
+			desc:                "Volume already exists",
+			mockedFileShareResp: storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &shareQuota}},
+			mockedFileShareErr:  nil,
+			expectedError:       status.Errorf(codes.AlreadyExists, "the request volume already exists, but its capacity(10) is different from (0)"),
+		},
+		{
+			desc:                "Valid request",
+			mockedFileShareResp: storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: nil}},
+			mockedFileShareErr:  nil,
+			expectedError:       nil,
+		},
+	}
+
+	for _, test := range tests {
+		mockFileClient := mockfileclient.NewMockInterface(ctrl)
+		d.cloud.FileClient = mockFileClient
+		mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
+		err := d.checkFileShareCapacity(resourceGroupName, accountName, fileShareName, requestGiB)
+		if !reflect.DeepEqual(err, test.expectedError) {
+			t.Errorf("Unexpected error: %v", err)
+		}
+	}
+}
+
+func TestCheckFileShareExists(t *testing.T) {
+	d := NewFakeDriver()
+	d.cloud = &azure.Cloud{}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	shareQuota := int32(10)
+	resourceGroupName := "rg"
+	accountName := "accountname"
+	fileShareName := "filesharename"
+
+	tests := []struct {
+		desc                string
+		mockedFileShareResp storage.FileShare
+		mockedFileShareErr  error
+		expectedError       error
+	}{
+		{
+			desc:                "Get file share return error",
+			mockedFileShareResp: storage.FileShare{},
+			mockedFileShareErr:  fmt.Errorf("test error"),
+			expectedError:       fmt.Errorf("failed to get file share(filesharename) under rg(accountname) account(rg): test error"),
+		},
+		{
+			desc:                "Share not found",
+			mockedFileShareResp: storage.FileShare{},
+			mockedFileShareErr:  fmt.Errorf("ShareNotFound"),
+			expectedError:       nil,
+		},
+		{
+			desc:                "Volume already exists",
+			mockedFileShareResp: storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &shareQuota}},
+			mockedFileShareErr:  nil,
+			expectedError:       nil,
+		},
+	}
+
+	for _, test := range tests {
+		mockFileClient := mockfileclient.NewMockInterface(ctrl)
+		d.cloud.FileClient = mockFileClient
+		mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
+		_, _, err := d.checkFileShareExists(resourceGroupName, accountName, fileShareName)
+		if !reflect.DeepEqual(err, test.expectedError) {
+			t.Errorf("Unexpected error: %v", err)
+		}
 	}
 }
 
