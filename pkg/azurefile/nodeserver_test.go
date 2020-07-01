@@ -19,18 +19,18 @@ package azurefile
 import (
 	"context"
 	"errors"
-	azure2 "github.com/Azure/go-autorest/autorest/azure"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"k8s.io/legacy-cloud-providers/azure"
 	"os"
 	"reflect"
-	"sigs.k8s.io/azurefile-csi-driver/pkg/mounter"
 	"syscall"
 	"testing"
 
+	azure2 "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"k8s.io/legacy-cloud-providers/azure"
+	"sigs.k8s.io/azurefile-csi-driver/pkg/mounter"
 )
 
 const (
@@ -458,4 +458,14 @@ func TestMakeDir(t *testing.T) {
 	// Remove the directory created
 	err = os.RemoveAll(targetTest)
 	assert.NoError(t, err)
+}
+
+func TestNodeExpandVolume(t *testing.T) {
+	d := NewFakeDriver()
+	req := csi.NodeExpandVolumeRequest{}
+	resp, err := d.NodeExpandVolume(context.Background(), &req)
+	assert.Nil(t, resp)
+	if !reflect.DeepEqual(err, status.Error(codes.Unimplemented, "")) {
+		t.Errorf("Unexpected error: %v", err)
+	}
 }

@@ -1679,3 +1679,33 @@ func TestSnapshotExists(t *testing.T) {
 		}
 	}
 }
+
+func TestGetCapacity(t *testing.T) {
+	d := NewFakeDriver()
+	req := csi.GetCapacityRequest{}
+	resp, err := d.GetCapacity(context.Background(), &req)
+	assert.Nil(t, resp)
+	if !reflect.DeepEqual(err, status.Error(codes.Unimplemented, "")) {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestListVolumes(t *testing.T) {
+	d := NewFakeDriver()
+	req := csi.ListVolumesRequest{}
+	resp, err := d.ListVolumes(context.Background(), &req)
+	assert.Nil(t, resp)
+	if !reflect.DeepEqual(err, status.Error(codes.Unimplemented, "")) {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestListSnapshots(t *testing.T) {
+	d := NewFakeDriver()
+	req := csi.ListSnapshotsRequest{}
+	resp, err := d.ListSnapshots(context.Background(), &req)
+	assert.Nil(t, resp)
+	if !reflect.DeepEqual(err, status.Error(codes.Unimplemented, "")) {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
