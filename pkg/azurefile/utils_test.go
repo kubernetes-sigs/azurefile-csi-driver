@@ -87,6 +87,17 @@ func ensureNoCallback(t *testing.T, callbackChan <-chan interface{}) bool {
 	}
 }
 
+func TestUnlockEntryNotExists(t *testing.T) {
+	testLockMap := newLockMap()
+
+	callbackChan1 := make(chan interface{})
+	go testLockMap.lockAndCallback(t, "entry1", callbackChan1)
+	ensureCallbackHappens(t, callbackChan1)
+	// entry2 does not exist
+	testLockMap.UnlockEntry("entry2")
+	testLockMap.UnlockEntry("entry1")
+}
+
 func TestSetAzureCredentials(t *testing.T) {
 	fakeClient := fake.NewSimpleClientset()
 

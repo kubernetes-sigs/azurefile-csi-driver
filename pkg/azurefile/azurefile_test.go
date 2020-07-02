@@ -749,26 +749,67 @@ func TestRun(t *testing.T) {
     "location": "loc"
 }`
 
-	if err := ioutil.WriteFile(fakeCredFile, []byte(fakeCredContent), 0666); err != nil {
-		t.Error(err)
+	testCases := []struct {
+		name     string
+		testFunc func(t *testing.T)
+	}{
+		{
+			name: "Successful run",
+			testFunc: func(t *testing.T) {
+				if err := ioutil.WriteFile(fakeCredFile, []byte(fakeCredContent), 0666); err != nil {
+					t.Error(err)
+				}
+
+				defer func() {
+					if err := os.Remove(fakeCredFile); err != nil {
+						t.Error(err)
+					}
+				}()
+
+				originalCredFile, ok := os.LookupEnv(DefaultAzureCredentialFileEnv)
+				if ok {
+					defer os.Setenv(DefaultAzureCredentialFileEnv, originalCredFile)
+				} else {
+					defer os.Unsetenv(DefaultAzureCredentialFileEnv)
+				}
+				os.Setenv(DefaultAzureCredentialFileEnv, fakeCredFile)
+
+				d := NewFakeDriver()
+				d.Run("tcp://127.0.0.1:0", "", true)
+			},
+		},
+		{
+			name: "Successful run with node ID missing",
+			testFunc: func(t *testing.T) {
+				if err := ioutil.WriteFile(fakeCredFile, []byte(fakeCredContent), 0666); err != nil {
+					t.Error(err)
+				}
+
+				defer func() {
+					if err := os.Remove(fakeCredFile); err != nil {
+						t.Error(err)
+					}
+				}()
+
+				originalCredFile, ok := os.LookupEnv(DefaultAzureCredentialFileEnv)
+				if ok {
+					defer os.Setenv(DefaultAzureCredentialFileEnv, originalCredFile)
+				} else {
+					defer os.Unsetenv(DefaultAzureCredentialFileEnv)
+				}
+				os.Setenv(DefaultAzureCredentialFileEnv, fakeCredFile)
+
+				d := NewFakeDriver()
+				d.cloud = &azure.Cloud{}
+				d.NodeID = ""
+				d.Run("tcp://127.0.0.1:0", "", true)
+			},
+		},
 	}
 
-	defer func() {
-		if err := os.Remove(fakeCredFile); err != nil {
-			t.Error(err)
-		}
-	}()
-
-	originalCredFile, ok := os.LookupEnv(DefaultAzureCredentialFileEnv)
-	if ok {
-		defer os.Setenv(DefaultAzureCredentialFileEnv, originalCredFile)
-	} else {
-		defer os.Unsetenv(DefaultAzureCredentialFileEnv)
+	for _, tc := range testCases {
+		t.Run(tc.name, tc.testFunc)
 	}
-	os.Setenv(DefaultAzureCredentialFileEnv, fakeCredFile)
-
-	d := NewFakeDriver()
-	d.Run("tcp://127.0.0.1:0", "", true)
 }
 
 func TestUtilsRunNodePublishServer(t *testing.T) {
