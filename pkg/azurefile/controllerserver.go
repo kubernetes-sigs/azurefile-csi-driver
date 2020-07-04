@@ -100,6 +100,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			return nil, status.Errorf(codes.InvalidArgument, "storage account must be specified when provisioning nfs file share")
 		}
 		protocol = storage.NFS
+		// NFS protocol does not need account key
+		storeAccountKey = storeAccountKeyFalse
 	}
 
 	fileShareSize := int(requestGiB)
@@ -136,7 +138,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, err
 	}
 
-	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d)", validFileShareName, retAccount, sku, resourceGroup, location, fileShareSize)
+	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d) protocol(%s)", validFileShareName, retAccount, sku, resourceGroup, location, fileShareSize, protocol)
 	lockKey := retAccount + sku + accountKind + resourceGroup + location
 	d.volLockMap.LockEntry(lockKey)
 	defer d.volLockMap.UnlockEntry(lockKey)
@@ -193,7 +195,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		parameters[diskNameField] = diskName
 	}
 
-	if storeAccountKey != "false" {
+	if storeAccountKey != storeAccountKeyFalse {
 		secretName, err := setAzureCredentials(d.cloud.KubeClient, retAccount, retAccountKey, secretNamespace)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to store storage account key: %v", err)

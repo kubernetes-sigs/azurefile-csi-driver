@@ -76,6 +76,7 @@ const (
 	fsTypeField              = "fstype"
 	secretNamespaceField     = "secretnamespace"
 	storeAccountKeyField     = "storeaccountkey"
+	storeAccountKeyFalse     = "false"
 	defaultSecretAccountName = "azurestorageaccountname"
 	defaultSecretAccountKey  = "azurestorageaccountkey"
 	defaultSecretNamespace   = "default"

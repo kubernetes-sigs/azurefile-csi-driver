@@ -151,6 +151,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		server = fmt.Sprintf("%s.file.%s", accountName, d.cloud.Environment.StorageEndpointSuffix)
 	}
 	source := fmt.Sprintf("%s%s%s%s%s", osSeparator, osSeparator, server, osSeparator, fileShareName)
+	if fsType == nfs {
+		source = fmt.Sprintf("%s:/%s/%s", server, accountName, fileShareName)
+	}
 
 	cifsMountPath := targetPath
 	cifsMountFlags := mountFlags
@@ -164,19 +167,22 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 
 	var mountOptions, sensitiveMountOptions []string
-	if runtime.GOOS == "windows" {
-		mountOptions = []string{fmt.Sprintf("AZURE\\%s", accountName), accountKey}
+	if fsType == nfs {
+		mountOptions = []string{"vers=4,minorversion=1"}
 	} else {
-		if err := os.MkdirAll(targetPath, 0750); err != nil {
-			return nil, status.Error(codes.Internal, fmt.Sprintf("MkdirAll %s failed with error: %v", targetPath, err))
+		if runtime.GOOS == "windows" {
+			mountOptions = []string{fmt.Sprintf("AZURE\\%s", accountName), accountKey}
+		} else {
+			if err := os.MkdirAll(targetPath, 0750); err != nil {
+				return nil, status.Error(codes.Internal, fmt.Sprintf("MkdirAll %s failed with error: %v", targetPath, err))
+			}
+			// parameters suggested by https://azure.microsoft.com/en-us/documentation/articles/storage-how-to-use-files-linux/
+			sensitiveMountOptions = []string{fmt.Sprintf("username=%s,password=%s", accountName, accountKey)}
+			mountOptions = appendDefaultMountOptions(cifsMountFlags)
 		}
-		// parameters suggested by https://azure.microsoft.com/en-us/documentation/articles/storage-how-to-use-files-linux/
-		sensitiveMountOptions = []string{fmt.Sprintf("username=%s,password=%s", accountName, accountKey)}
-		mountOptions = appendDefaultMountOptions(cifsMountFlags)
 	}
 
-	klog.V(2).Infof("cifsMountPath(%v) fstype(%v) volumeID(%v) context(%v) mountflags(%v) mountOptions(%v)",
-		cifsMountPath, fsType, volumeID, context, mountFlags, mountOptions)
+	klog.V(2).Infof("cifsMountPath(%v) fstype(%v) volumeID(%v) context(%v) mountflags(%v) mountOptions(%v)", cifsMountPath, fsType, volumeID, context, mountFlags, mountOptions)
 
 	isDirMounted, err := d.ensureMountPoint(cifsMountPath)
 	if err != nil {
