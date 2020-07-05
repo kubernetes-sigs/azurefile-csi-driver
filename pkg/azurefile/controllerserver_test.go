@@ -491,7 +491,7 @@ func TestCreateVolume(t *testing.T) {
 					"location":           "loc",
 					"storageaccount":     "stoacc",
 					"resourcegroup":      "rg",
-					fsTypeField:          "fstype",
+					fsTypeField:          "ext4",
 					storeAccountKeyField: "storeaccountkey",
 					secretNamespaceField: "default",
 					"defaultparam":       "defaultvalue",

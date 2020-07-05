@@ -205,7 +205,7 @@ func TestNodeStageVolume(t *testing.T) {
 	}
 
 	volContextEmptyDiskName := map[string]string{
-		fsTypeField:    "test_field",
+		fsTypeField:    "ext4",
 		diskNameField:  "",
 		shareNameField: "test_sharename",
 	}
@@ -286,7 +286,7 @@ func TestNodeStageVolume(t *testing.T) {
 		if test.desc == "Failed volume mount" {
 			assert.Error(t, err)
 		} else if !reflect.DeepEqual(err, test.expectedErr) {
-			t.Errorf("Unexpected error: %v", err)
+			t.Errorf("test case: %s, Unexpected error: %v", test.desc, err)
 		}
 	}
 

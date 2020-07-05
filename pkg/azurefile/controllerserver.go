@@ -179,10 +179,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if isDiskMount && diskName == "" {
 		if fileShareName == "" {
 			// use pvc name as vhd disk name if file share not specified
-			diskName = validFileShareName + ".vhd"
+			diskName = validFileShareName + vhdSuffix
 		} else {
 			// use uuid as vhd disk name if file share specified
-			diskName = uuid.NewUUID().String() + ".vhd"
+			diskName = uuid.NewUUID().String() + vhdSuffix
 		}
 		diskSizeBytes := volumehelper.GiBToBytes(requestGiB)
 		klog.V(2).Infof("begin to create vhd file(%s) size(%d) on share(%s) on account(%s) type(%s) rg(%s) location(%s)",

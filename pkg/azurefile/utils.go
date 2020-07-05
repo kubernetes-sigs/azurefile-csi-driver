@@ -110,5 +110,5 @@ func setAzureCredentials(kubeClient kubernetes.Interface, accountName, accountKe
 }
 
 func isDiskType(fsType string) bool {
-	return (fsType != "" && fsType != cifs && fsType != nfs)
+	return (fsType == "ext4" || fsType == "ext3" || fsType == "ext2" || fsType == "xfs")
 }

@@ -19,65 +19,45 @@ There are slow disk attach/detach issues on Azure managed disk(sometimes paralle
 
 Scheduling 20 pods with one vhd disk each on **one** node **in parallel** could be completed in 30s, while for azure managed disk driver, it's 30min. (not including the disk create/format and image pulling time)
 
- - How to use
+#### Prerequisite
+ - [install azurefile csi driver](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/install-azurefile-csi-driver.md)
  
-Add a new parameter(`fsType`) in Azure File CSI driver storage class, other parameters are same as [`file.csi.azure.com` driver parameters](../../../docs/driver-parameters.md)
-
-```
+#### How to use VHD feature
+ - Create an Azure File storage class
+> specify `fsType` in storage class `parameters`
+> </br>for more details, refer to [driver parameters](../../../docs/driver-parameters.md)
+```yaml
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: azurefile-csi
 provisioner: file.csi.azure.com
 parameters:
-  skuName: Premium_LRS  # available values: Standard_LRS, Standard_GRS, Standard_ZRS, Standard_RAGRS, Premium_LRS
+  skuName: Premium_LRS
   fsType: ext4  # available values: ext4, ext3, ext2, xfs
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: pvc-azurefile
-spec:
-  accessModes:
-    - ReadWriteOnce  # available values: ReadWriteOnce, ReadOnlyMany
-  resources:
-    requests:
-      storage: 100Gi
-  storageClassName: azurefile-csi
 ```
 
-#### Prerequisite
- - [install azurefile csi driver](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/install-azurefile-csi-driver.md)
+To make it easier, run following command to create a storage class directly:
+```console
+kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/disk/storageclass-azurefile-csi.yaml
+```
 
 #### Example#1. create a pod with vhd disk mount on Linux
 ##### Option#1: Dynamic Provisioning
  - Create an azurefile CSI storage class and PVC
 ```console
-kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/disk/storageclass-azurefile-csi.yaml
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/disk/pvc-azurefile-disk.yaml
 ```
 
 ##### Option#2: Static Provisioning(use an existing vhd file in azure file share)
 > make sure credential in cluster could access that file share
- - Create an azurefile CSI storage class and PVC
+ - Create a pod with azurefile CSI PVC
 ```console
-kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/disk/storageclass-azurefile-existing-disk.yaml
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/disk/pvc-azurefile-disk.yaml
-```
-
-#### 2. validate PVC status and create an nginx pod
- - make sure pvc is created and in `Bound` status finally
-```console
-watch kubectl describe pvc pvc-azurefile
-```
-
- - create a pod with azurefile CSI PVC
-```console
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/nginx-pod-azurefile.yaml
 ```
 
-#### 3. enter the pod container to do validation
- - watch the status of pod until its Status changed from `Pending` to `Running` and then enter the pod container
+ - enter the pod to check
 ```console
 $ kubect exec -it nginx-azurefile bash
 # df -h

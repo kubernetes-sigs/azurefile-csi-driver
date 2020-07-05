@@ -83,6 +83,7 @@ const (
 	proxyMount               = "proxy-mount"
 	cifs                     = "cifs"
 	nfs                      = "nfs"
+	vhdSuffix                = ".vhd"
 	metaDataNode             = "node"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
