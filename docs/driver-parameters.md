@@ -7,16 +7,18 @@
 Name | Meaning | Example | Mandatory | Default value 
 --- | --- | --- | --- | ---
 skuName | azure file storage account type (alias: `storageAccountType`) | `Standard_LRS`, `Standard_ZRS`, `Standard_GRS`, `Standard_RAGRS`, `Premium_LRS` | No | `Standard_LRS` <br><br> Note:  <br> 1. minimum file share size of Premium account type is `100GB`<br> 2.[`ZRS` account type](https://docs.microsoft.com/en-us/azure/storage/common/storage-redundancy#zone-redundant-storage) is supported in limited regions <br> 3. Premium files shares is currently only available for LRS
-storageAccount | specify the storage account name in which azure file share will be created | STORAGE_ACCOUNT_NAME | No | if empty, driver will find a suitable storage account that matches `skuName` in the same resource group; if a storage account name is provided, it means that storage account must exist otherwise there would be error
+storageAccount | specify the storage account name in which azure file share will be created | STORAGE_ACCOUNT_NAME | - No for SMB share </br> - Yes for NFS share|  - For SMB share: if empty, driver will find a suitable storage account that matches `skuName` in the same resource group; if a storage account name is provided, it means that storage account must exist otherwise there would be error. </br>  - For NFS share, storage account name must be provided
 location | specify the location in which azure file share will be created | `eastus`, `westus`, etc. | No | if empty, driver will use the same location name as current k8s cluster
 resourceGroup | specify the resource group in which azure file share will be created | existing resource group name | No | if empty, driver will use the same resource group name as current k8s cluster
 shareName | specify azure file share name | existing or new azure file name | No | if empty, driver will generate an azure file share name
 server | specify azure storage account server address | existing server address, e.g. `accountname.privatelink.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
 storeAccountKey | whether store account key to k8s secret | `true`,`false` | No | `true`
 secretNamespace | specify the namespace of secret to store account key | `default`,`kube-system`,etc | No | `default`
---- | following parameters are only for [VHD disk feature](../deploy/example/disk) | --- | --- |
+--- | **Following parameters are only for [VHD disk feature](../deploy/example/disk)** | --- | --- |
 fsType | File System Type | `ext4`, `ext3`, `ext2`, `xfs` | Yes | `ext4`
 diskName | existing VHD disk file name | `pvc-062196a6-6436-11ea-ab51-9efb888c0afb.vhd` | No |
+--- | **Following parameters are only for [NFS feature](../deploy/example/nfs)** | --- | --- |
+fsType | File System Type | `nfs` | Yes | `nfs`
 
  - Static Provision(use existing azure file)
   > get a quick example [here](../deploy/example/pv-azurefile-csi.yaml)

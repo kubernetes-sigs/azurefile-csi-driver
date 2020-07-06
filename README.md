@@ -33,9 +33,9 @@ Please refer to [install azurefile csi driver](https://github.com/kubernetes-sig
  - [Basic usage](./deploy/example/e2e_usage.md)
  
 ### Features
- - [Snapshot](./deploy/example/snapshot)
  - [VHD disk](./deploy/example/disk)
  - [Windows](./deploy/example/windows)
+ - [NFS](./deploy/example/nfs)
  
 ### Troubleshooting
  - [CSI driver troubleshooting guide](./docs/csi-debug.md) 

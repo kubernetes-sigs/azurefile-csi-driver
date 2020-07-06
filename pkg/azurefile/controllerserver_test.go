@@ -35,7 +35,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/cloud-provider"
+	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/legacy-cloud-providers/azure"
 	"k8s.io/legacy-cloud-providers/azure/clients/fileclient/mockfileclient"
 	"k8s.io/legacy-cloud-providers/azure/clients/storageaccountclient/mockstorageaccountclient"
@@ -154,7 +154,7 @@ func TestCreateVolume(t *testing.T) {
 					"resourcegroup":      "rg",
 					shareNameField:       "",
 					diskNameField:        "diskname",
-					fsTypeField:          "fstype",
+					fsTypeField:          "",
 					storeAccountKeyField: "storeaccountkey",
 					secretNamespaceField: "secretnamespace",
 					"defaultparam":       "defaultvalue",
@@ -223,7 +223,7 @@ func TestCreateVolume(t *testing.T) {
 					"resourcegroup":      "rg",
 					shareNameField:       "",
 					diskNameField:        "diskname",
-					fsTypeField:          "fstype",
+					fsTypeField:          "",
 					storeAccountKeyField: "storeaccountkey",
 					secretNamespaceField: "secretnamespace",
 					"defaultparam":       "defaultvalue",
@@ -348,7 +348,7 @@ func TestCreateVolume(t *testing.T) {
 					"resourcegroup":      "rg",
 					shareNameField:       "",
 					diskNameField:        "diskname",
-					fsTypeField:          "fstype",
+					fsTypeField:          "",
 					storeAccountKeyField: "storeaccountkey",
 					secretNamespaceField: "secretnamespace",
 					"defaultparam":       "defaultvalue",
@@ -422,7 +422,7 @@ func TestCreateVolume(t *testing.T) {
 					"resourcegroup":      "rg",
 					shareNameField:       "",
 					diskNameField:        "diskname",
-					fsTypeField:          "fstype",
+					fsTypeField:          "",
 					storeAccountKeyField: "storeaccountkey",
 					secretNamespaceField: "secretnamespace",
 					"defaultparam":       "defaultvalue",
@@ -491,7 +491,7 @@ func TestCreateVolume(t *testing.T) {
 					"location":           "loc",
 					"storageaccount":     "stoacc",
 					"resourcegroup":      "rg",
-					fsTypeField:          "fstype",
+					fsTypeField:          "ext4",
 					storeAccountKeyField: "storeaccountkey",
 					secretNamespaceField: "default",
 					"defaultparam":       "defaultvalue",
@@ -580,7 +580,7 @@ func TestCreateVolume(t *testing.T) {
 					"resourcegroup":      "rg",
 					shareNameField:       "",
 					diskNameField:        "diskname",
-					fsTypeField:          "fstype",
+					fsTypeField:          "",
 					storeAccountKeyField: "storeaccountkey",
 					secretNamespaceField: "default",
 					"defaultparam":       "defaultvalue",

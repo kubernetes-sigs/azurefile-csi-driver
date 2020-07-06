@@ -76,11 +76,19 @@ const (
 	fsTypeField              = "fstype"
 	secretNamespaceField     = "secretnamespace"
 	storeAccountKeyField     = "storeaccountkey"
+	storeAccountKeyFalse     = "false"
 	defaultSecretAccountName = "azurestorageaccountname"
 	defaultSecretAccountKey  = "azurestorageaccountkey"
 	defaultSecretNamespace   = "default"
 	proxyMount               = "proxy-mount"
 	cifs                     = "cifs"
+	smb                      = "smb"
+	nfs                      = "nfs"
+	ext4                     = "ext4"
+	ext3                     = "ext3"
+	ext2                     = "ext2"
+	xfs                      = "xfs"
+	vhdSuffix                = ".vhd"
 	metaDataNode             = "node"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
@@ -89,6 +97,11 @@ const (
 	shareBeingDeleted     = "The specified share is being deleted"
 
 	fileShareAccountNamePrefix = "f"
+)
+
+var (
+	supportedFsTypeList     = []string{cifs, smb, nfs, ext4, ext3, ext2, xfs}
+	supportedDiskFsTypeList = []string{ext4, ext3, ext2, xfs}
 )
 
 // Driver implements all interfaces of CSI drivers
