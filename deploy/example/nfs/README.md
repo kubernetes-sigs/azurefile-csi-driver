@@ -1,7 +1,8 @@
 ## NFS support
-[NFS volume on Azure Files](https://github.com/RenaShahMSFT/Azure-Files-NFS-Preview) is now available on Azure Canary(centraluseuap) region. This page shows how to use NFS feature on Azure Kubernetes cluster.
+[NFS volume on Azure Files](https://github.com/RenaShahMSFT/Azure-Files-NFS-Preview) is now in Private Preivew on Azure Canary(centraluseuap) region. This service is optimized for random access workloads with in-place data updates. It provides full POSIX file system support. 
+</br>This page shows how to use NFS feature by Azure File CSI driver on Azure Kubernetes cluster.
 
-### Feature Status: Alpha
+#### Feature Status: Alpha
 > supported OS: Linux
 
 #### Prerequisite
@@ -14,8 +15,9 @@ az provider register --namespace Microsoft.Storage
 ```
  - Create a `Premium_LRS` Azure storage account with following configurations to support NFS share
    - account kind: `FileStorage`
-   - enable HTTPS traffic only: `false`
+   - secure transfer required(enable HTTPS traffic only): `false`
    - select virtual network of agent nodes in `Firewalls and virtual networks`
+ - [install azurefile csi driver](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/install-azurefile-csi-driver.md)   
 
 #### How to use NFS feature
  - Create an Azure File storage class
