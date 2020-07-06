@@ -1,9 +1,8 @@
 ## NFS support
+[NFS volume on Azure Files](https://github.com/RenaShahMSFT/Azure-Files-NFS-Preview) is now available on Azure Canary(centraluseuap) region. This page shows how to use NFS feature on Azure Kubernetes cluster.
 
 ### Feature Status: Alpha
 > supported OS: Linux
-
-[NFS volume on Azure Files](https://github.com/RenaShahMSFT/Azure-Files-NFS-Preview) is now available on Azure Canary(centraluseuap) region. This page shows how to use NFS feature on Azure Kubernetes cluster.
 
 #### Prerequisite
  - [Register Azure Storage NFS Preview Program](https://forms.office.com/Pages/ResponsePage.aspx?id=v4j5cvGGr0GRqy180BHbR2Hac0C7FxRCrNVIXjVHNppUQkNVMElIRloyWVlSOUQ5RVMwOFlMNEJUQyQlQCN0PWcu)
@@ -42,12 +41,12 @@ kubectl create -f storageclass-azurefile-nfs.yaml
 ```
 
 ### Example#1
-#### Create a deployment with NFS volume
+ - Create a deployment with NFS volume
 ```console
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/statefulset.yaml
 ```
 
-#### enter the pod to check
+ - enter pod to check
 ```console
 $ exec -it statefulset-azurefile-0 bash
 # df -h
@@ -59,7 +58,7 @@ accountname.file.core.windows.net:/accountname/pvc-fa72ec43-ae64-42e4-a8a2-55660
 ```
 
 ### Example#2
-#### Create a Wordpress application with NFS volume
+ - Create a Wordpress application with NFS volume
 ```console
 helm repo add bitnami https://charts.bitnami.com/bitnami
 helm install --set persistence.storageClass="azurefile-csi" --set persistence.size=100Gi --generate-name bitnami/wordpress
