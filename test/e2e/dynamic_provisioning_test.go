@@ -75,35 +75,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(cs, ns)
 	})
 
-	ginkgo.It("should receive FailedMount event with invalid mount options [kubernetes.io/azure-file] [file.csi.azure.com]", func() {
-		skipIfTestingInWindowsCluster()
-
-		pods := []testsuites.PodDetails{
-			{
-				Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data",
-				Volumes: []testsuites.VolumeDetails{
-					{
-						ClaimSize: "10Gi",
-						MountOptions: []string{
-							"invalid",
-							"mount",
-							"options",
-						},
-						VolumeMount: testsuites.VolumeMountDetails{
-							NameGenerate:      "test-volume-",
-							MountPathGenerate: "/mnt/test-",
-						},
-					},
-				},
-			},
-		}
-		test := testsuites.DynamicallyProvisionedInvalidMountOptions{
-			CSIDriver: testDriver,
-			Pods:      pods,
-		}
-		test.Run(cs, ns)
-	})
-
 	ginkgo.It("should create multiple PV objects, bind to PVCs and attach all to different pods on the same node [kubernetes.io/azure-file] [file.csi.azure.com] [Windows]", func() {
 		pods := []testsuites.PodDetails{
 			{
@@ -294,29 +265,33 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(cs, ns)
 	})
 
-	ginkgo.It("should receive FailedMount event with invalid fsType [kubernetes.io/azure-file] [file.csi.azure.com] [disk]", func() {
+	ginkgo.It("should receive FailedMount event with invalid mount options [file.csi.azure.com] [disk]", func() {
 		skipIfUsingInTreeVolumePlugin()
 		skipIfTestingInWindowsCluster()
 
 		pods := []testsuites.PodDetails{
 			{
-				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
+				Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data",
 				Volumes: []testsuites.VolumeDetails{
 					{
 						ClaimSize: "10Gi",
+						MountOptions: []string{
+							"invalid",
+							"mount",
+							"options",
+						},
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
 							MountPathGenerate: "/mnt/test-",
 						},
 					},
 				},
-				IsWindows: isWindowsCluster,
 			},
 		}
 		test := testsuites.DynamicallyProvisionedInvalidMountOptions{
 			CSIDriver:              testDriver,
 			Pods:                   pods,
-			StorageClassParameters: map[string]string{"skuName": "Premium_LRS", "fsType": "invalid"},
+			StorageClassParameters: map[string]string{"skuName": "Premium_LRS", "fsType": "ext4"},
 		}
 		test.Run(cs, ns)
 	})

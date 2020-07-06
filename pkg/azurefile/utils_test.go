@@ -153,3 +153,93 @@ func TestSetAzureCredentials(t *testing.T) {
 		}
 	}
 }
+
+func TestIsDiskFsType(t *testing.T) {
+	tests := []struct {
+		fsType         string
+		expectedResult bool
+	}{
+		{
+			fsType:         "ext4",
+			expectedResult: true,
+		},
+		{
+			fsType:         "ext3",
+			expectedResult: true,
+		},
+		{
+			fsType:         "ext2",
+			expectedResult: true,
+		},
+		{
+			fsType:         "xfs",
+			expectedResult: true,
+		},
+		{
+			fsType:         "",
+			expectedResult: false,
+		},
+		{
+			fsType:         "cifs",
+			expectedResult: false,
+		},
+		{
+			fsType:         "invalid",
+			expectedResult: false,
+		},
+	}
+
+	for _, test := range tests {
+		result := isDiskFsType(test.fsType)
+		if result != test.expectedResult {
+			t.Errorf("isDiskFsType(%s) returned with %v, not equal to %v", test.fsType, result, test.expectedResult)
+		}
+	}
+}
+
+func TestIsSupportedFsType(t *testing.T) {
+	tests := []struct {
+		fsType         string
+		expectedResult bool
+	}{
+		{
+			fsType:         "ext4",
+			expectedResult: true,
+		},
+		{
+			fsType:         "ext3",
+			expectedResult: true,
+		},
+		{
+			fsType:         "ext2",
+			expectedResult: true,
+		},
+		{
+			fsType:         "xfs",
+			expectedResult: true,
+		},
+		{
+			fsType:         "",
+			expectedResult: true,
+		},
+		{
+			fsType:         "cifs",
+			expectedResult: true,
+		},
+		{
+			fsType:         "smb",
+			expectedResult: true,
+		},
+		{
+			fsType:         "invalid",
+			expectedResult: false,
+		},
+	}
+
+	for _, test := range tests {
+		result := isSupportedFsType(test.fsType)
+		if result != test.expectedResult {
+			t.Errorf("isSupportedFsType(%s) returned with %v, not equal to %v", test.fsType, result, test.expectedResult)
+		}
+	}
+}

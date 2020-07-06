@@ -94,6 +94,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
+	if !isSupportedFsType(fsType) {
+		return nil, status.Errorf(codes.InvalidArgument, "fsType(%s) is not supported, supported fsType list: %v", fsType, supportedFsTypeList)
+	}
+
 	protocol := storage.SMB
 	if fsType == nfs {
 		if account == "" {
@@ -117,7 +121,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	validFileShareName := fileShareName
 	if validFileShareName == "" {
 		name := req.GetName()
-		if isDiskType(fsType) {
+		if isDiskFsType(fsType) {
 			// use "pvcd" prefix for vhd disk file share
 			name = strings.Replace(name, "pvc", "pvcd", 1)
 		}
@@ -175,7 +179,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 	klog.V(2).Infof("create file share %s on storage account %s successfully", validFileShareName, retAccount)
 
-	isDiskMount := isDiskType(fsType)
+	isDiskMount := isDiskFsType(fsType)
 	if isDiskMount && diskName == "" {
 		if fileShareName == "" {
 			// use pvc name as vhd disk name if file share not specified

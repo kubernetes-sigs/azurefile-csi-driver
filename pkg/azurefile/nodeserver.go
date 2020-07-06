@@ -157,7 +157,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	cifsMountPath := targetPath
 	cifsMountFlags := mountFlags
-	isDiskMount := isDiskType(fsType)
+	isDiskMount := isDiskFsType(fsType)
 	if isDiskMount {
 		if diskName == "" {
 			return nil, status.Errorf(codes.Internal, "diskname could not be empty, targetPath: %s", targetPath)
