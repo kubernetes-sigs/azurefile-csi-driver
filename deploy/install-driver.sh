@@ -21,7 +21,7 @@ if [[ "$#" -gt 0 ]]; then
   ver="$1"
 fi
 
-repo="https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy"
+repo="https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/$ver/deploy"
 if [[ "$#" -gt 1 ]]; then
   if [[ "$2" == *"local"* ]]; then
     echo "use local deploy"
@@ -30,11 +30,10 @@ if [[ "$#" -gt 1 ]]; then
 fi
 
 if [ $ver != "master" ]; then
-	repo="$repo/$ver"
+  repo="$repo/$ver"
 fi
 
 echo "Installing Azure File CSI driver, version: $ver ..."
-kubectl apply -f $repo/crd-csi-node-info.yaml
 kubectl apply -f $repo/rbac-csi-azurefile-controller.yaml
 kubectl apply -f $repo/rbac-csi-azurefile-node.yaml
 kubectl apply -f $repo/csi-azurefile-controller.yaml
