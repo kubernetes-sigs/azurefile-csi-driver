@@ -21,7 +21,7 @@ package azurefile
 import (
 	"fmt"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/mount"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/mounter"
 )
