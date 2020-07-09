@@ -55,7 +55,7 @@ github.com/docker/spdystream
 github.com/docker/spdystream/spdy
 # github.com/evanphx/json-patch v4.2.0+incompatible
 github.com/evanphx/json-patch
-# github.com/go-logr/logr v0.1.0
+# github.com/go-logr/logr v0.2.0
 github.com/go-logr/logr
 # github.com/gogo/protobuf v1.3.1
 github.com/gogo/protobuf/gogoproto
@@ -721,7 +721,7 @@ k8s.io/csi-translation-lib
 k8s.io/csi-translation-lib/plugins
 # k8s.io/klog v1.0.0
 k8s.io/klog
-# k8s.io/klog/v2 v2.1.0
+# k8s.io/klog/v2 v2.2.0
 k8s.io/klog/v2
 # k8s.io/kube-openapi v0.0.0-20200121204235-bf4fb3bd569c
 k8s.io/kube-openapi/pkg/util/proto
@@ -867,6 +867,7 @@ k8s.io/legacy-cloud-providers/azure/retry
 # k8s.io/utils v0.0.0-20200619165400-6e3d28b6ed19
 k8s.io/utils/buffer
 k8s.io/utils/exec
+k8s.io/utils/exec/testing
 k8s.io/utils/integer
 k8s.io/utils/io
 k8s.io/utils/keymutex
