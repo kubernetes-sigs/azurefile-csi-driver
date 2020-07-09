@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 func init() {
