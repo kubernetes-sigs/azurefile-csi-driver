@@ -246,6 +246,11 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
+// ControllerGetVolume get volume
+func (d *Driver) ControllerGetVolume(context.Context, *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "")
+}
+
 // ValidateVolumeCapabilities return the capabilities of the volume
 func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
 	klog.V(4).Infof("ValidateVolumeCapabilities: called with args %+v", *req)
