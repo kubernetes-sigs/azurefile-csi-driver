@@ -495,7 +495,7 @@ func TestNodeGetVolumeStats(t *testing.T) {
 		{
 			desc:        "[Error] Incorrect volume path",
 			req:         csi.NodeGetVolumeStatsRequest{VolumePath: nonexistedPath, VolumeId: "vol_1"},
-			expectedErr: status.Errorf(codes.Internal, "failed to get metrics: failed to get FsInfo due to error no such file or directory"),
+			expectedErr: status.Errorf(codes.NotFound, "path /not/a/real/directory does not exist"),
 		},
 		{
 			desc:        "[Success] Standard success",
