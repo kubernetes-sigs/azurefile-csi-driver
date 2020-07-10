@@ -21,7 +21,7 @@ if [[ "$#" -gt 0 ]]; then
   ver="$1"
 fi
 
-repo="https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy"
+repo="https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/$ver/deploy"
 if [[ "$#" -gt 1 ]]; then
   if [[ "$2" == *"local"* ]]; then
     echo "use local deploy"
@@ -35,9 +35,9 @@ fi
 
 echo "Uninstalling Azure File CSI driver, version: $ver ..."
 kubectl delete -f $repo/csi-azurefile-controller.yaml --ignore-not-found
-kubectl delete -f $repo/csi-azurefile-driver.yaml --ignore-not-found
 kubectl delete -f $repo/csi-azurefile-node.yaml --ignore-not-found
 kubectl delete -f $repo/csi-azurefile-node-windows.yaml --ignore-not-found
+kubectl delete -f $repo/csi-azurefile-driver.yaml --ignore-not-found
 kubectl delete -f $repo/rbac-csi-azurefile-controller.yaml --ignore-not-found
 kubectl delete -f $repo/rbac-csi-azurefile-node.yaml --ignore-not-found
 echo 'Uninstalled Azure File CSI driver successfully.'

@@ -99,8 +99,8 @@ azurefile-windows:
 	CGO_ENABLED=0 GOOS=windows go build -a -ldflags ${LDFLAGS} -o _output/azurefileplugin.exe ./pkg/azurefileplugin
 
 .PHONY: container	
-container:	
-	docker buildx build --no-cache --build-arg LDFLAGS=${LDFLAGS} -t $(IMAGE_TAG) -f ./pkg/azurefileplugin/Dockerfile --platform="linux/amd64" --output "type=docker,push=false" .
+container: azurefile
+	docker build --no-cache -t $(IMAGE_TAG) -f ./pkg/azurefileplugin/dev.Dockerfile .
 
 .PHONY: azurefile-container
 azurefile-container:
@@ -121,7 +121,7 @@ else
 ifdef TEST_WINDOWS
 	docker buildx build --no-cache --build-arg LDFLAGS=${LDFLAGS} -t $(IMAGE_TAG)-windows-1809-amd64 -f ./pkg/azurefileplugin/Windows.Dockerfile --platform="windows/amd64" --output "type=docker,push=false" .
 else
-	make container
+	docker buildx build --no-cache --build-arg LDFLAGS=${LDFLAGS} -t $(IMAGE_TAG) -f ./pkg/azurefileplugin/Dockerfile --platform="linux/amd64" --output "type=docker,push=false" .
 endif
 endif
 
