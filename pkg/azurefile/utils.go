@@ -19,6 +19,7 @@ package azurefile
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
@@ -125,6 +126,17 @@ func isSupportedFsType(fsType string) bool {
 	for _, v := range supportedFsTypeList {
 		if fsType == v {
 			return true
+		}
+	}
+	return false
+}
+
+func isRetriableError(err error) bool {
+	if err != nil {
+		for _, v := range retriableErrors {
+			if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(v)) {
+				return true
+			}
 		}
 	}
 	return false

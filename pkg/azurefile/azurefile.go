@@ -92,9 +92,11 @@ const (
 	metaDataNode             = "node"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
-	tooManyRequests       = "TooManyRequests"
-	shareNotFound         = "The specified share does not exist"
-	shareBeingDeleted     = "The specified share is being deleted"
+	// this is a workaround fix for 429 throttling issue, will update cloud provider for better fix later
+	tooManyRequests   = "TooManyRequests"
+	shareNotFound     = "The specified share does not exist"
+	shareBeingDeleted = "The specified share is being deleted"
+	clientThrottled   = "client throttled"
 
 	fileShareAccountNamePrefix = "f"
 )
@@ -102,6 +104,8 @@ const (
 var (
 	supportedFsTypeList     = []string{cifs, smb, nfs, ext4, ext3, ext2, xfs}
 	supportedDiskFsTypeList = []string{ext4, ext3, ext2, xfs}
+
+	retriableErrors = []string{accountNotProvisioned, tooManyRequests, shareNotFound, shareBeingDeleted, clientThrottled}
 )
 
 // Driver implements all interfaces of CSI drivers
