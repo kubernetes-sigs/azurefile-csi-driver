@@ -60,7 +60,7 @@ accountname.file.core.windows.net:/accountname/pvc-fa72ec43-ae64-42e4-a8a2-55660
 ```
 
 ### Example#2
- - Create a Wordpress application with NFS volume
+ - Create a [Wordpress](https://github.com/bitnami/charts/tree/master/bitnami/wordpress) application with NFS volume
 ```console
 helm repo add bitnami https://charts.bitnami.com/bitnami
 helm install --set persistence.storageClass="azurefile-csi" --set persistence.size=100Gi --generate-name bitnami/wordpress
