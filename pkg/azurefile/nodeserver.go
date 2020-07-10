@@ -281,6 +281,14 @@ func (d *Driver) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeS
 		return nil, status.Error(codes.InvalidArgument, "NodeGetVolumeStats volume path was empty")
 	}
 
+	_, err := os.Stat(req.VolumePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, status.Errorf(codes.NotFound, "path %s does not exist", req.VolumePath)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to stat file %s: %v", req.VolumePath, err)
+	}
+
 	volumeMetrics, err := volume.NewMetricsStatFS(req.VolumePath).GetMetrics()
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get metrics: %v", err)
