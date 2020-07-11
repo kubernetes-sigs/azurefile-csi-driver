@@ -1,8 +1,8 @@
 ## `file.csi.azure.com` driver parameters
  > storage class `file.csi.azure.com` parameters are compatible with built-in [azurefile](https://kubernetes.io/docs/concepts/storage/volumes/#azurefile) plugin
 
- - Dynamic Provision
-  > get a quick example [here](../deploy/example/storageclass-azurefile-csi.yaml)
+### Dynamic Provision
+  > get a [example](../deploy/example/storageclass-azurefile-csi.yaml)
 
 Name | Meaning | Example | Mandatory | Default value 
 --- | --- | --- | --- | ---
@@ -20,12 +20,12 @@ diskName | existing VHD disk file name | `pvc-062196a6-6436-11ea-ab51-9efb888c0a
 --- | **Following parameters are only for [NFS feature](../deploy/example/nfs)** | --- | --- |
 fsType | File System Type | `nfs` | Yes | `nfs`
 
- - Static Provision(use existing azure file)
-  > get a quick example [here](../deploy/example/pv-azurefile-csi.yaml)
+### Static Provision(bring your own file share)
+  > get a [example](../deploy/example/pv-azurefile-csi.yaml)
 
 Name | Meaning | Available Value | Mandatory | Default value
 --- | --- | --- | --- | ---
 volumeAttributes.sharename | azure file share name | existing azure file share name | Yes |
 server | specify azure storage account server address | existing server address, e.g. `accountname.privatelink.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
 nodeStageSecretRef.name | secret name that stores storage account name and key | existing secret name |  Yes  |
-nodeStageSecretRef.namespace | namespace where the secret is | k8s namespace  |  No  | `default`
+nodeStageSecretRef.namespace | namespace where the secret is | k8s namespace  |  Yes  |
