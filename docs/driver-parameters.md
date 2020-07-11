@@ -1,4 +1,4 @@
-## `file.csi.azure.com` driver parameters
+## Driver Parameters
  > storage class `file.csi.azure.com` parameters are compatible with built-in [azurefile](https://kubernetes.io/docs/concepts/storage/volumes/#azurefile) plugin
 
 ### Dynamic Provision
