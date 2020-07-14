@@ -198,7 +198,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			return nil, fmt.Errorf("prepare stage path failed for %s with error: %v", cifsMountPath, err)
 		}
 		mountComplete := false
-		err = wait.Poll(5*time.Second, 10*time.Minute, func() (bool, error) {
+		err = wait.PollImmediate(1*time.Second, 2*time.Minute, func() (bool, error) {
 			err := SMBMount(d.mounter, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions)
 			mountComplete = true
 			return true, err
