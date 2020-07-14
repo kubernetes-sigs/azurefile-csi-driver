@@ -146,7 +146,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	lockKey := retAccount + sku + accountKind + resourceGroup + location
 	d.volLockMap.LockEntry(lockKey)
 	defer d.volLockMap.UnlockEntry(lockKey)
-	err = wait.Poll(1*time.Second, 2*time.Minute, func() (bool, error) {
+	err = wait.PollImmediate(1*time.Second, 2*time.Minute, func() (bool, error) {
 		var retErr error
 		retAccount, retAccountKey, retErr = d.cloud.CreateFileShare(validFileShareName, account, sku, accountKind, resourceGroup, location, protocol, fileShareSize)
 		if retErr != nil {
