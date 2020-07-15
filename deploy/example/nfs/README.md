@@ -6,8 +6,8 @@
 > supported OS: Linux
 
 #### Prerequisite
- - [Register Azure Storage NFS Preview Program](https://forms.office.com/Pages/ResponsePage.aspx?id=v4j5cvGGr0GRqy180BHbR2Hac0C7FxRCrNVIXjVHNppUQkNVMElIRloyWVlSOUQ5RVMwOFlMNEJUQyQlQCN0PWcu)
- - Register `AllowNfsFileShares`
+ - [Register Azure Storage NFS Preview Program](https://aka.ms/azurenfspreview)
+ - Register `AllowNfsFileShares` under your subscription
 ```console
 az feature register --name AllowNfsFileShares --namespace Microsoft.Storage
 az feature list -o table --query "[?contains(name, 'Microsoft.Storage/AllowNfsFileShares')].{Name:name,State:properties.state}"
