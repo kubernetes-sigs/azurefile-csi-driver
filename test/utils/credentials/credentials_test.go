@@ -128,7 +128,10 @@ func withAzureCredentials(t *testing.T, isAzureChinaCloud bool) {
 		"subscriptionId": "b9d2281e-xxxx-xxxx-xxxx-0d50377cdf76",
 		"aadClientSecret": "8c416dc5-xxxx-xxxx-xxxx-d77069e2a255",
 		"resourceGroup": "test-resource-group",
-		"location": "test-location"
+		"location": "test-location",
+		"cloudProviderBackoff": true,
+		"cloudProviderBackoffRetries": 6,
+		"cloudProviderBackoffDuration": 5
 	}
 	`
 	tmpl := template.New("expectedAzureCredentialFileContent")
@@ -179,7 +182,10 @@ func withEnvironmentVariables(t *testing.T, isAzureChinaCloud bool) {
 		"aadClientId": "test-aad-client-id",
 		"aadClientSecret": "test-aad-client-secret",
 		"resourceGroup": "test-resource-group",
-		"location": "test-location"
+		"location": "test-location",
+		"cloudProviderBackoff": true,
+		"cloudProviderBackoffRetries": 6,
+		"cloudProviderBackoffDuration": 5
 	}
 	`
 	tmpl := template.New("expectedAzureCredentialFileContent")

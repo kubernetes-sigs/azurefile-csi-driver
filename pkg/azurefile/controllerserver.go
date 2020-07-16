@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"time"
 
 	volumehelper "sigs.k8s.io/azurefile-csi-driver/pkg/util"
 
@@ -133,7 +132,18 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	enableHTTPSTrafficOnly := true
-	retAccount, retAccountKey, err := d.cloud.EnsureStorageAccount(account, sku, accountKind, resourceGroup, location, fileShareAccountNamePrefix, enableHTTPSTrafficOnly)
+
+	var retAccount, retAccountKey string
+	err := wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
+		var retErr error
+		retAccount, retAccountKey, retErr = d.cloud.EnsureStorageAccount(account, sku, accountKind, resourceGroup, location, fileShareAccountNamePrefix, enableHTTPSTrafficOnly)
+		if isRetriableError(retErr) {
+			klog.Warningf("EnsureStorageAccount(%s) failed with error(%v), waiting for retring", account, retErr)
+			return false, nil
+		}
+		return true, retErr
+	})
+
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to ensure storage account: %v", err)
 	}
@@ -146,28 +156,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	lockKey := retAccount + sku + accountKind + resourceGroup + location
 	d.volLockMap.LockEntry(lockKey)
 	defer d.volLockMap.UnlockEntry(lockKey)
-	err = wait.PollImmediate(1*time.Second, 2*time.Minute, func() (bool, error) {
+	err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 		var retErr error
 		retAccount, retAccountKey, retErr = d.cloud.CreateFileShare(validFileShareName, account, sku, accountKind, resourceGroup, location, protocol, fileShareSize)
-		if retErr != nil {
-			if strings.Contains(retErr.Error(), accountNotProvisioned) {
-				klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), sleep 1s to retry", validFileShareName, account, retErr)
-				time.Sleep(time.Second)
-				return false, nil
-			} else if strings.Contains(retErr.Error(), tooManyRequests) {
-				// this is a workaround fix for 429 throttling issue, will update cloud provider for better fix later
-				klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), sleep 10s to retry", validFileShareName, account, retErr)
-				time.Sleep(10 * time.Second)
-				return false, nil
-			} else if strings.Contains(retErr.Error(), shareNotFound) {
-				klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), sleep 3s to retry", validFileShareName, account, retErr)
-				time.Sleep(3 * time.Second)
-				return false, nil
-			} else if strings.Contains(retErr.Error(), shareBeingDeleted) {
-				klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), sleep 1s to retry", validFileShareName, account, retErr)
-				time.Sleep(time.Second)
-				return false, nil
-			}
+		if isRetriableError(retErr) {
+			klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), waiting for retring", validFileShareName, account, retErr)
+			return false, nil
 		}
 		return true, retErr
 	})

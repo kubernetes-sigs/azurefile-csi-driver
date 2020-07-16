@@ -42,10 +42,16 @@ const (
     "aadClientId": "{{.AADClientID}}",
     "aadClientSecret": "{{.AADClientSecret}}",
     "resourceGroup": "{{.ResourceGroup}}",
-    "location": "{{.Location}}"
+	"location": "{{.Location}}",
+	"cloudProviderBackoff": {{.CloudProviderBackoff}},
+	"cloudProviderBackoffRetries": {{.CloudProviderBackoffRetries}},
+    "cloudProviderBackoffDuration": {{.CloudProviderBackoffDuration}}
 }`
-	defaultAzurePublicCloudLocation = "eastus2"
-	defaultAzureChinaCloudLocation  = "chinaeast2"
+	defaultAzurePublicCloudLocation     = "eastus2"
+	defaultAzureChinaCloudLocation      = "chinaeast2"
+	defaultCloudProviderBackoff         = true
+	defaultCloudProviderBackoffRetries  = 6
+	defaultCloudProviderBackoffDuration = 5
 
 	// Env vars
 	tenantIDEnvVar        = "TENANT_ID"
@@ -82,13 +88,16 @@ type FromProw struct {
 
 // Credentials is used in Azure File CSI Driver to store Azure credentials
 type Credentials struct {
-	Cloud           string
-	TenantID        string
-	SubscriptionID  string
-	AADClientID     string
-	AADClientSecret string
-	ResourceGroup   string
-	Location        string
+	Cloud                        string
+	TenantID                     string
+	SubscriptionID               string
+	AADClientID                  string
+	AADClientSecret              string
+	ResourceGroup                string
+	Location                     string
+	CloudProviderBackoff         bool
+	CloudProviderBackoffRetries  int
+	CloudProviderBackoffDuration int
 }
 
 // CreateAzureCredentialFile creates a temporary Azure credential file for
@@ -195,6 +204,9 @@ func parseAndExecuteTemplate(cloud, tenantID, subscriptionID, aadClientID, aadCl
 		aadClientSecret,
 		resourceGroup,
 		location,
+		defaultCloudProviderBackoff,
+		defaultCloudProviderBackoffRetries,
+		defaultCloudProviderBackoffDuration,
 	}
 	err = t.Execute(f, c)
 	if err != nil {
