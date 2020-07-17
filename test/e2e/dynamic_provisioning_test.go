@@ -51,13 +51,22 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 	})
 
 	testDriver = driver.InitAzureFileDriver()
-	ginkgo.It("should create a volume on demand [kubernetes.io/azure-file] [file.csi.azure.com] [Windows]", func() {
+	ginkgo.It("should create a volume on demand with mount options [kubernetes.io/azure-file] [file.csi.azure.com] [Windows]", func() {
 		pods := []testsuites.PodDetails{
 			{
 				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
 				Volumes: []testsuites.VolumeDetails{
 					{
 						ClaimSize: "10Gi",
+						MountOptions: []string{
+							"dir_mode=0777",
+							"file_mode=0777",
+							"uid=0",
+							"gid=0",
+							"mfsymlinks",
+							"cache=strict",
+							"nosharesock",
+						},
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
 							MountPathGenerate: "/mnt/test-",
