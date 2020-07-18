@@ -9,17 +9,17 @@
 
 #### Prerequisite
  - [Register Azure Storage NFS Preview Program](https://aka.ms/azurenfspreview)
- - Register `AllowNfsFileShares` under your subscription
+ - Register `AllowNfsFileShares` feature under your subscription
 ```console
 az feature register --name AllowNfsFileShares --namespace Microsoft.Storage
 az feature list -o table --query "[?contains(name, 'Microsoft.Storage/AllowNfsFileShares')].{Name:name,State:properties.state}"
 az provider register --namespace Microsoft.Storage
 ```
+ - [install CSI driver](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/install-csi-driver-master.md) (only master version supported now)
  - Create a `Premium_LRS` Azure storage account with following configurations to support NFS share
    - account kind: `FileStorage`
    - secure transfer required(enable HTTPS traffic only): `false`
    - select virtual network of agent nodes in `Firewalls and virtual networks`
- - [install CSI driver](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/install-csi-driver-master.md) (only master version supported now)
 
 #### How to use NFS feature
  - Create an Azure File storage class
