@@ -1,9 +1,11 @@
 ## NFS support
-[NFS volume on Azure Files](https://github.com/RenaShahMSFT/Azure-Files-NFS-Preview) is now in Private Preview on Azure Canary(centraluseuap) region. This service is optimized for random access workloads with in-place data updates. It provides full POSIX file system support.
-</br>This page shows how to use NFS feature by Azure File CSI driver on Azure Kubernetes cluster.
+[NFS volume on Azure Files](https://github.com/RenaShahMSFT/Azure-Files-NFS-Preview) is now in Private Preview. This service is optimized for random access workloads with in-place data updates and provides full POSIX file system support. This page shows how to use NFS feature by Azure File CSI driver on Azure Kubernetes cluster.
 
 #### Feature Status: Alpha
 > supported OS: Linux
+
+#### Available regions
+`eastus`
 
 #### Prerequisite
  - [Register Azure Storage NFS Preview Program](https://aka.ms/azurenfspreview)
