@@ -19,7 +19,7 @@ az provider register --namespace Microsoft.Storage
    - account kind: `FileStorage`
    - secure transfer required(enable HTTPS traffic only): `false`
    - select virtual network of agent nodes in `Firewalls and virtual networks`
- - [install azurefile csi driver](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/install-azurefile-csi-driver.md)   
+ - [install CSI driver](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/install-csi-driver-master.md) (only master version supported now)
 
 #### How to use NFS feature
  - Create an Azure File storage class
