@@ -68,6 +68,16 @@ The following table lists the configurable parameters of the latest Azure File C
 | `serviceAccount.create`                           | whether create service account of csi-azurefile-controller  | true                                                              |
 | `rbac.create`                                     | whether create rbac of csi-azurefile-controller             | true                                                              |
 | `controller.replicas`                             | the replicas of csi-azurefile-controller                    | 2                                                                 |
+| `snapshot.enabled`                                | whether enable snapshot feature                            | false                                                        |
+| `snapshot.image.csiSnapshotter.repository`        | csi-snapshotter docker image                               | mcr.microsoft.com/oss/kubernetes-csi/csi-snapshotter         |
+| `snapshot.image.csiSnapshotter.tag`               | csi-snapshotter docker image tag                           | v2.0.1                                                       |
+| `snapshot.image.csiSnapshotter.pullPolicy`        | csi-snapshotter image pull policy                          | IfNotPresent                                                 |
+| `snapshot.image.csiSnapshotController.repository` | snapshot-controller docker image                           | mcr.microsoft.com/oss/kubernetes-csi/snapshot-controller     |
+| `snapshot.image.csiSnapshotController.tag`        | snapshot-controller docker image tag                       | v2.1.1                                                       |
+| `snapshot.image.csiSnapshotController.pullPolicy` | snapshot-controller image pull policy                      | IfNotPresent                                                 |
+| `snapshot.snapshotController.replicas`            | the replicas of snapshot-controller                        | 1                                                            |
+| `snapshot.snapshotController.serviceAccount`      | whether create service account of snapshot-controller      | true                                                         |
+| `snapshot.snapshotController.rbac`                | whether create rbac of snapshot-controller                 | true                                                         |
 | `linux.enabled`                                   | whether enable linux feature                               | true                                                              |
 | `windows.enabled`                                 | whether enable windows feature                             | false                                                             |
 | `windows.image.livenessProbe.repository`          | windows liveness-probe docker image                        | mcr.microsoft.com/oss/kubernetes-csi/livenessprobe                |

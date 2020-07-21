@@ -41,6 +41,13 @@ kubectl apply -f $repo/csi-azurefile-driver.yaml
 kubectl apply -f $repo/csi-azurefile-node.yaml
 
 if [[ "$#" -gt 1 ]]; then
+  if [[ "$2" == *"snapshot"* ]]; then
+    echo "install snapshot driver ..."
+    kubectl apply -f $repo/crd-csi-snapshot.yaml
+    kubectl apply -f $repo/rbac-csi-snapshot-controller.yaml
+    kubectl apply -f $repo/csi-snapshot-controller.yaml
+  fi
+
   if [[ "$2" == *"windows"* ]]; then
     echo "install Windows driver ..."
     kubectl apply -f $repo/csi-azurefile-node-windows.yaml
