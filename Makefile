@@ -107,7 +107,6 @@ azurefile-container:
 	docker buildx rm container-builder || true
 	docker buildx create --use --name=container-builder
 ifdef CI
-	az acr login --name $(REGISTRY_NAME)
 	docker buildx build --no-cache --build-arg LDFLAGS=${LDFLAGS} -t $(IMAGE_TAG)-linux-amd64 -f ./pkg/azurefileplugin/Dockerfile --platform="linux/amd64" --push .
 	docker buildx build --no-cache --build-arg LDFLAGS=${LDFLAGS} -t $(IMAGE_TAG)-windows-1809-amd64 -f ./pkg/azurefileplugin/Windows.Dockerfile --platform="windows/amd64" --push .
 
