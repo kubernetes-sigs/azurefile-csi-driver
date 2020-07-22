@@ -672,6 +672,7 @@ func (t *TestVolumeSnapshotClass) ReadyToUse(snapshot *v1beta1.VolumeSnapshot) {
 		if err != nil {
 			return false, fmt.Errorf("did not see ReadyToUse: %v", err)
 		}
+		e2elog.Logf("the status ReadyToUse of VolumeSnapshot(%q): %v", snapshot.Name, *vs.Status.ReadyToUse)
 		return *vs.Status.ReadyToUse, nil
 	})
 	framework.ExpectNoError(err)
