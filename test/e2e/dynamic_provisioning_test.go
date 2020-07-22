@@ -24,7 +24,11 @@ import (
 
 	"github.com/onsi/ginkgo"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	clientset "k8s.io/client-go/kubernetes"
+	restclientset "k8s.io/client-go/rest"
 	"k8s.io/kubernetes/test/e2e/framework"
 )
 
@@ -32,9 +36,10 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 	f := framework.NewDefaultFramework("azurefile")
 
 	var (
-		cs         clientset.Interface
-		ns         *v1.Namespace
-		testDriver driver.DynamicPVTestDriver
+		cs          clientset.Interface
+		ns          *v1.Namespace
+		snapshotrcs restclientset.Interface
+		testDriver  driver.PVTestDriver
 	)
 
 	ginkgo.BeforeEach(func() {
@@ -48,6 +53,12 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 		cs = f.ClientSet
 		ns = f.Namespace
+
+		var err error
+		snapshotrcs, err = restClient(testsuites.SnapshotAPIGroup, testsuites.APIVersionv1beta1)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("could not get rest clientset: %v", err))
+		}
 	})
 
 	testDriver = driver.InitAzureFileDriver()
@@ -508,4 +519,45 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		}
 		test.Run(cs, ns)
 	})
+
+	ginkgo.It("should create a pod, write and read to it, take a volume snapshot, and validate whether it is ready to use [disk.csi.azure.com]", func() {
+		skipIfTestingInWindowsCluster()
+		skipIfUsingInTreeVolumePlugin()
+
+		pod := testsuites.PodDetails{
+			Cmd: "echo 'hello world' > /mnt/test-1/data",
+			Volumes: []testsuites.VolumeDetails{
+				{
+					FSType:    "ext4",
+					ClaimSize: "10Gi",
+					VolumeMount: testsuites.VolumeMountDetails{
+						NameGenerate:      "test-volume-",
+						MountPathGenerate: "/mnt/test-",
+					},
+				},
+			},
+		}
+		podWithSnapshot := testsuites.PodDetails{
+			Cmd: "grep 'hello world' /mnt/test-1/data",
+		}
+		test := testsuites.DynamicallyProvisionedVolumeSnapshotTest{
+			CSIDriver:              testDriver,
+			Pod:                    pod,
+			PodWithSnapshot:        podWithSnapshot,
+			StorageClassParameters: map[string]string{"skuName": "Standard_LRS"},
+		}
+		test.Run(cs, snapshotrcs, ns)
+	})
 })
+
+func restClient(group string, version string) (restclientset.Interface, error) {
+	config, err := framework.LoadConfig()
+	if err != nil {
+		ginkgo.Fail(fmt.Sprintf("could not load config: %v", err))
+	}
+	gv := schema.GroupVersion{Group: group, Version: version}
+	config.GroupVersion = &gv
+	config.APIPath = "/apis"
+	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: serializer.NewCodecFactory(runtime.NewScheme())}
+	return restclientset.RESTClientFor(config)
+}
