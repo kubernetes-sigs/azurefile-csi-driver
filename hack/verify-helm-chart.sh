@@ -20,8 +20,8 @@ readonly PKG_ROOT="$(git rev-parse --show-toplevel)"
 
 function get_image_from_helm_chart() {
   local -r image_name="${1}"
-  image_repository="$(cat ${PKG_ROOT}/charts/latest/azurefile-csi-driver/values.yaml | yq -r .image.${image_name}.repository)"
-  image_tag="$(cat ${PKG_ROOT}/charts/latest/azurefile-csi-driver/values.yaml | yq -r .image.${image_name}.tag)"
+  image_repository="$(cat ${PKG_ROOT}/charts/latest/azurefile-csi-driver/values.yaml | yq -r ${image_name}.repository)"
+  image_tag="$(cat ${PKG_ROOT}/charts/latest/azurefile-csi-driver/values.yaml | yq -r ${image_name}.tag)"
   echo "${image_repository}:${image_tag}"
 }
 
@@ -48,22 +48,22 @@ expected_csi_resizer_image="$(cat ${PKG_ROOT}/deploy/csi-azurefile-controller.ya
 expected_liveness_probe_image="$(cat ${PKG_ROOT}/deploy/csi-azurefile-controller.yaml | yq -r .spec.template.spec.containers[4].image | head -n 1)"
 expected_azurefile_image="$(cat ${PKG_ROOT}/deploy/csi-azurefile-controller.yaml | yq -r .spec.template.spec.containers[5].image | head -n 1)"
 
-csi_provisioner_image="$(get_image_from_helm_chart "csiProvisioner")"
+csi_provisioner_image="$(get_image_from_helm_chart ".image.csiProvisioner")"
 validate_image "${expected_csi_provisioner_image}" "${csi_provisioner_image}"
 
-csi_attacher_image="$(get_image_from_helm_chart "csiAttacher")"
+csi_attacher_image="$(get_image_from_helm_chart ".image.csiAttacher")"
 validate_image "${expected_csi_attacher_image}" "${csi_attacher_image}"
 
-csi_snapshotter_image="$(get_image_from_helm_chart "csiSnapshotter")"
+csi_snapshotter_image="$(get_image_from_helm_chart ".snapshot.image.csiSnapshotter")"
 validate_image "${expected_csi_snapshotter_image}" "${csi_snapshotter_image}"
 
-csi_resizer_image="$(get_image_from_helm_chart "csiResizer")"
+csi_resizer_image="$(get_image_from_helm_chart ".image.csiResizer")"
 validate_image "${expected_csi_resizer_image}" "${csi_resizer_image}"
 
-liveness_probe_image="$(get_image_from_helm_chart "livenessProbe")"
+liveness_probe_image="$(get_image_from_helm_chart ".image.livenessProbe")"
 validate_image "${expected_liveness_probe_image}" "${liveness_probe_image}"
 
-azurefile_image="$(get_image_from_helm_chart "azurefile")"
+azurefile_image="$(get_image_from_helm_chart ".image.azurefile")"
 validate_image "${expected_azurefile_image}" "${azurefile_image}"
 
 # Extract images from csi-azurefile-node.yaml
@@ -73,9 +73,15 @@ expected_azurefile_image="$(cat ${PKG_ROOT}/deploy/csi-azurefile-node.yaml | yq 
 
 validate_image "${expected_liveness_probe_image}" "${liveness_probe_image}"
 
-node_driver_registrar="$(get_image_from_helm_chart "nodeDriverRegistrar")"
+node_driver_registrar="$(get_image_from_helm_chart ".image.nodeDriverRegistrar")"
 validate_image "${expected_node_driver_registrar}" "${node_driver_registrar}"
 
 validate_image "${expected_azurefile_image}" "${azurefile_image}"
+
+# Extract images from csi-snapshot-controller.yaml
+expected_snapshot_controller_image="$(cat ${PKG_ROOT}/deploy/csi-snapshot-controller.yaml | yq -r .spec.template.spec.containers[0].image | head -n 1)"
+
+snapshot_controller_image="$(get_image_from_helm_chart ".snapshot.image.csiSnapshotController")"
+validate_image "${expected_snapshot_controller_image}" "${snapshot_controller_image}"
 
 echo "Images in deploy/ matches those in the latest helm chart."

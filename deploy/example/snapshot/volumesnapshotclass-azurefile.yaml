@@ -1,6 +1,7 @@
 ---
-apiVersion: snapshot.storage.k8s.io/v1alpha1
+apiVersion: snapshot.storage.k8s.io/v1beta1
 kind: VolumeSnapshotClass
 metadata:
   name: csi-azurefile-vsc
-snapshotter: file.csi.azure.com
+driver: file.csi.azure.com
+deletionPolicy: Delete

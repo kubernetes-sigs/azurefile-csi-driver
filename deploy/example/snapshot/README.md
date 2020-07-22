@@ -1,37 +1,59 @@
-# Snapshot Example
+# Azure File Snapshot feature
 
-#### Feature Status
- - Status: alpha
- - Minimum supported Kubernetes version: `1.17.0`
-> [Volume snapshot](https://kubernetes-csi.github.io/docs/snapshot-controller.html) is beta(enabled by default) since Kubernetes `1.17.0`
+- Snapshot feature is alpha since Kubernetes v1.17.0, refer to [Snapshot & Restore Feature](https://kubernetes-csi.github.io/docs/snapshot-restore-feature.html) for more details.
 
-### Create a StorageClass
+> NOTE: There is no snapshot restore API currently. Just can use the azurefile-csi-driver to create the snapshot, but cannot restore the volume from the snapshot by it.
+
+## Install CSI Driver
+
+Follow the [instructions](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/install-csi-driver-master.md) to install snapshot driver.
+
+### 1. Create source PVC and an example pod to write data 
 ```console
-kubectl apply -f $GOPATH/src/github.com/kubernetes-sigs/azurefile-csi-driver/deploy/example/storageclass-azurefile-csi.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-csi.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/pvc-azurefile-csi.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/nginx-pod-azurefile.yaml
+```
+ - Check source PVC
+```console
+$ kubectl exec nginx-azurefile -- ls /mnt/azurefile
+outfile
 ```
 
-### Create a PVC
+### 2. Create a snapshot on source PVC
 ```console
-kubectl apply -f $GOPATH/src/github.com/kubernetes-sigs/azurefile-csi-driver/deploy/example/pvc-azurefile-csi.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/snapshot/volumesnapshotclass-azurefile.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/snapshot/volumesnapshot-azurefile.yaml
 ```
-
-### Create a VolumeSnapshotClass
+ - Check snapshot Status
 ```console
-kubectl apply -f $GOPATH/src/github.com/kubernetes-sigs/azurefile-csi-driver/deploy/example/snapshot/volumesnapshotclass-azurefile.yaml
+$ kubectl describe volumesnapshot azurefile-volume-snapshot
+Name:         azurefile-volume-snapshot
+Namespace:    default
+Labels:       <none>
+Annotations:  API Version:  snapshot.storage.k8s.io/v1beta1
+Kind:         VolumeSnapshot
+Metadata:
+  Creation Timestamp:  2020-07-21T08:00:50Z
+  Finalizers:
+    snapshot.storage.kubernetes.io/volumesnapshot-as-source-protection
+    snapshot.storage.kubernetes.io/volumesnapshot-bound-protection
+  Generation:        1
+  Resource Version:  16078
+  Self Link:         /apis/snapshot.storage.k8s.io/v1beta1/namespaces/default/volumesnapshots/azurefile-volume-snapshot
+  UID:               d7a3a5fb-cf58-4e57-b561-f6d7a0d10d6d
+Spec:
+  Source:
+    Persistent Volume Claim Name:  pvc-azurefile
+  Volume Snapshot Class Name:      csi-azurefile-vsc
+Status:
+  Bound Volume Snapshot Content Name:  snapcontent-d7a3a5fb-cf58-4e57-b561-f6d7a0d10d6d
+  Creation Time:                       2020-07-21T07:36:02Z
+  Ready To Use:                        true
+  Restore Size:                        100Gi
+Events:                                <none>
 ```
+> In above example, `snapcontent-2b0ef334-4112-4c86-8360-079c625d5562` is the snapshot name
 
-## Create a VolumeSnapshot
-```console
-kubectl apply -f $GOPATH/src/github.com/kubernetes-sigs/azurefile-csi-driver/deploy/example/snapshot/volumesnapshot-azurefile.yaml
-```
-
-## Delete a VolumeSnapshot
-```console
-kubectl delete -f $GOPATH/src/github.com/kubernetes-sigs/azurefile-csi-driver/deploy/example/snapshot/volumesnapshot-azurefile.yaml
-```
-
-## Delete a VolumeSnapshotClass
-
-```console
-kubectl delete -f $GOPATH/src/github.com/kubernetes-sigs/azurefile-csi-driver/deploy/example/snapshot/volumesnapshotclass-azurefile.yaml
-```
+#### Links
+ - [CSI Snapshotter](https://github.com/kubernetes-csi/external-snapshotter)

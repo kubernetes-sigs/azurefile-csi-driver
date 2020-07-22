@@ -14,7 +14,6 @@ spec:
 {{ include "azurefile.labels" . | indent 6 }}
         app: csi-azurefile-node
     spec:
-      serviceAccountName: csi-azuredisk-node-sa
       hostNetwork: true
       serviceAccountName: csi-azurefile-node-sa
       nodeSelector:
