@@ -9,7 +9,7 @@ csi-azurefile-controller-56bfddd689-sl4ll       5/5     Running   0          35s
 ```
  - get csi driver logs
 ```console
-$ kubectl logs `kubectl get po -n kube-system | grep csi-azurefile-controller | cut -d ' ' -f1` -c azurefile -n kube-system > csi-azurefile-controller.log
+$ kubectl logs csi-azurefile-controller-56bfddd689-dh5tk -c azurefile -n kube-system > csi-azurefile-controller.log
 ```
 > note: there could be multiple controller pods, if there are no helpful logs, try to get logs from other controller pods
 
