@@ -26,12 +26,13 @@ export REGISTRY=$REGISTRY_NAME.azurecr.io
 export IMAGE_NAME=public/k8s/csi/azurefile-csi
 export CI=1
 export PUBLISH=1
+az acr login --name $REGISTRY_NAME
 make azurefile-container
 make push
 make push-latest
 
-echo "sleep 10s ..."
-sleep 10 
+echo "sleep 60s ..."
+sleep 60
 image="mcr.microsoft.com/k8s/csi/azurefile-csi:latest"
 docker pull $image
 docker inspect $image | grep Created
