@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
@@ -317,6 +318,10 @@ func (t *TestPersistentVolumeClaim) removeFinalizers() {
 	framework.ExpectNoError(err)
 
 	_, err = t.client.CoreV1().PersistentVolumes().Patch(context.TODO(), pvClone.Name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
+	// Because the pv might be deleted successfully before patched, if so, ignore the error.
+	if err != nil && strings.Contains(err.Error(), "not found") {
+		return
+	}
 	framework.ExpectNoError(err)
 }
 
