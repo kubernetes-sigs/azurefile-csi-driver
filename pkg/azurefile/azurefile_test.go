@@ -157,21 +157,21 @@ func TestGetFileShareInfo(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		resourceGroupName, accountName, fileShareName, diskName, expectedError := getFileShareInfo(test.id)
+		resourceGroupName, accountName, fileShareName, diskName, expectedError := GetFileShareInfo(test.id)
 		if resourceGroupName != test.resourceGroupName {
-			t.Errorf("getFileShareInfo(%q) returned with: %q, expected: %q", test.id, resourceGroupName, test.resourceGroupName)
+			t.Errorf("GetFileShareInfo(%q) returned with: %q, expected: %q", test.id, resourceGroupName, test.resourceGroupName)
 		}
 		if accountName != test.accountName {
-			t.Errorf("getFileShareInfo(%q) returned with: %q, expected: %q", test.id, accountName, test.accountName)
+			t.Errorf("GetFileShareInfo(%q) returned with: %q, expected: %q", test.id, accountName, test.accountName)
 		}
 		if fileShareName != test.fileShareName {
-			t.Errorf("getFileShareInfo(%q) returned with: %q, expected: %q", test.id, fileShareName, test.fileShareName)
+			t.Errorf("GetFileShareInfo(%q) returned with: %q, expected: %q", test.id, fileShareName, test.fileShareName)
 		}
 		if diskName != test.diskName {
-			t.Errorf("getFileShareInfo(%q) returned with: %q, expected: %q", test.id, diskName, test.diskName)
+			t.Errorf("GetFileShareInfo(%q) returned with: %q, expected: %q", test.id, diskName, test.diskName)
 		}
 		if !reflect.DeepEqual(expectedError, test.expectedError) {
-			t.Errorf("getFileShareInfo(%q) returned with: %v, expected: %v", test.id, expectedError, test.expectedError)
+			t.Errorf("GetFileShareInfo(%q) returned with: %v, expected: %v", test.id, expectedError, test.expectedError)
 		}
 	}
 }

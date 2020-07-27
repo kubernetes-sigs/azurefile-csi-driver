@@ -26,6 +26,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-03-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2019-06-01/storage"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/azure"
@@ -40,6 +41,7 @@ type Client struct {
 	nicClient      network.InterfacesClient
 	subnetsClient  network.SubnetsClient
 	vnetClient     network.VirtualNetworksClient
+	accountsClient storage.AccountsClient
 }
 
 func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret string) (*Client, error) {
@@ -241,6 +243,10 @@ func (az *Client) GetVirtualNetworkSubnet(ctx context.Context, groupName, vnetNa
 	return az.subnetsClient.Get(ctx, groupName, vnetName, subnetName, "")
 }
 
+func (az *Client) GetStorageAccount(ctx context.Context, groupName, accountName string) (storage.Account, error) {
+	return az.accountsClient.GetProperties(ctx, groupName, accountName, "")
+}
+
 func getOAuthConfig(env azure.Environment, subscriptionID, tenantID string) (*adal.OAuthConfig, error) {
 	oauthConfig, err := adal.NewOAuthConfig(env.ActiveDirectoryEndpoint, tenantID)
 	if err != nil {
@@ -259,6 +265,7 @@ func getClient(env azure.Environment, subscriptionID, tenantID string, armSpt *a
 		nicClient:      network.NewInterfacesClient(subscriptionID),
 		subnetsClient:  network.NewSubnetsClient(subscriptionID),
 		vnetClient:     network.NewVirtualNetworksClient(subscriptionID),
+		accountsClient: storage.NewAccountsClient(subscriptionID),
 	}
 
 	authorizer := autorest.NewBearerAuthorizer(armSpt)
@@ -267,6 +274,7 @@ func getClient(env azure.Environment, subscriptionID, tenantID string, armSpt *a
 	c.nicClient.Authorizer = authorizer
 	c.subnetsClient.Authorizer = authorizer
 	c.vnetClient.Authorizer = authorizer
+	c.accountsClient.Authorizer = authorizer
 
 	return c
 }

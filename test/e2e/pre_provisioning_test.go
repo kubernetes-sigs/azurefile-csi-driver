@@ -246,6 +246,9 @@ func makeCreateVolumeReq(volumeName string) *csi.CreateVolumeRequest {
 			RequiredBytes: defaultDiskSizeBytes,
 			LimitBytes:    defaultDiskSizeBytes,
 		},
+		Parameters: map[string]string{
+			"skuname": "Standard_LRS",
+		},
 	}
 
 	return req

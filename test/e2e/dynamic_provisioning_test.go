@@ -62,6 +62,32 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 	})
 
 	testDriver = driver.InitAzureFileDriver()
+
+	ginkgo.It("should create a storage account with tags [file.csi.azure.com] [Windows]", func() {
+		// Because the pv object created by kubernetes.io/azure-file does not contain storage account name, skip the test with in-tree volume plugin.
+		skipIfUsingInTreeVolumePlugin()
+
+		volumes := []testsuites.VolumeDetails{
+			{
+				FSType:    "ext4",
+				ClaimSize: "100Gi",
+				VolumeMount: testsuites.VolumeMountDetails{
+					NameGenerate:      "test-volume-",
+					MountPathGenerate: "/mnt/test-",
+				},
+			},
+		}
+		tags := "account=azurefile-test"
+		test := testsuites.DynamicallyProvisionedAccountWithTags{
+			CSIDriver:              testDriver,
+			Volumes:                volumes,
+			StorageClassParameters: map[string]string{"skuName": "Premium_LRS", "tags": tags},
+			Tags:                   tags,
+		}
+
+		test.Run(cs, ns)
+	})
+
 	ginkgo.It("should create a volume on demand with mount options [kubernetes.io/azure-file] [file.csi.azure.com] [Windows]", func() {
 		pods := []testsuites.PodDetails{
 			{
@@ -520,7 +546,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(cs, ns)
 	})
 
-	ginkgo.It("should create a pod, write and read to it, take a volume snapshot, and validate whether it is ready to use [disk.csi.azure.com]", func() {
+	ginkgo.It("should create a pod, write and read to it, take a volume snapshot, and validate whether it is ready to use [file.csi.azure.com]", func() {
 		skipIfTestingInWindowsCluster()
 		skipIfUsingInTreeVolumePlugin()
 
