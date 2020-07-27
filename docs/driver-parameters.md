@@ -14,6 +14,7 @@ shareName | specify azure file share name | existing or new azure file name | No
 server | specify azure storage account server address | existing server address, e.g. `accountname.privatelink.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
 storeAccountKey | whether store account key to k8s secret | `true`,`false` | No | `true`
 secretNamespace | specify the namespace of secret to store account key | `default`,`kube-system`,etc | No | `default`
+tags | [tags](https://docs.microsoft.com/en-us/azure/azure-resource-manager/management/tag-resources) would be created in newly created storage account | tag format: 'foo=aaa,bar=bbb' | No | ""
 --- | **Following parameters are only for [VHD disk feature](../deploy/example/disk)** | --- | --- |
 fsType | File System Type | `ext4`, `ext3`, `ext2`, `xfs` | Yes | `ext4`
 diskName | existing VHD disk file name | `pvc-062196a6-6436-11ea-ab51-9efb888c0afb.vhd` | No |
