@@ -74,6 +74,7 @@ const (
 	diskNameField            = "diskname"
 	serverNameField          = "server"
 	fsTypeField              = "fstype"
+	tagsField                = "tags"
 	secretNamespaceField     = "secretnamespace"
 	storeAccountKeyField     = "storeaccountkey"
 	storeAccountKeyFalse     = "false"

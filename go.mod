@@ -18,7 +18,7 @@ require (
 	github.com/pborman/uuid v1.2.0
 	github.com/pelletier/go-toml v1.7.0
 	github.com/prometheus/client_golang v1.5.1
-	github.com/rubiojr/go-vhd v0.0.0-20160810183302-0bfd3b39853c
+	github.com/rubiojr/go-vhd v0.0.0-20200706105327-02e210299021
 	github.com/stretchr/testify v1.5.1
 	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e
 	google.golang.org/grpc v1.28.0
@@ -30,7 +30,7 @@ require (
 	k8s.io/klog/v2 v2.2.0
 	k8s.io/kubernetes v1.18.1
 	k8s.io/legacy-cloud-providers v0.0.0
-	k8s.io/utils v0.0.0-20200619165400-6e3d28b6ed19
+	k8s.io/utils v0.0.0-20200720150651-0bdb4ca86cbc
 	sigs.k8s.io/yaml v1.2.0
 )
 
@@ -58,7 +58,7 @@ replace (
 	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.18.1
 	k8s.io/kubectl => k8s.io/kubectl v0.18.1
 	k8s.io/kubelet => k8s.io/kubelet v0.18.1
-	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.0.0-20200626133822-cf16cbf3bcf3
+	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.0.0-20200726134743-6f78e2089a26
 	k8s.io/metrics => k8s.io/metrics v0.18.1
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.18.1
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.18.1
