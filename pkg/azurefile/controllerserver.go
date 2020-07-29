@@ -35,6 +35,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog/v2"
+	"k8s.io/legacy-cloud-providers/azure"
+	"k8s.io/legacy-cloud-providers/azure/clients/fileclient"
 )
 
 // CreateVolume provisions an azure file
@@ -61,7 +63,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	parameters := req.GetParameters()
-	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, storeAccountKey, secretNamespace string
+	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, storeAccountKey, secretNamespace, customTags string
 
 	// Apply ProvisionerParameters (case-insensitive). We leave validation of
 	// the values to the cloud provider.
@@ -87,6 +89,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			storeAccountKey = v
 		case secretNamespaceField:
 			secretNamespace = v
+		case tagsField:
+			customTags = v
 		default:
 			//don't return error here since there are some parameters(e.g. fsType) used in later process
 			//return nil, fmt.Errorf("invalid option %q", k)
@@ -133,10 +137,25 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	enableHTTPSTrafficOnly := true
 
+	tags, err := azure.ConvertTagsToMap(customTags)
+	if err != nil {
+		return nil, err
+	}
+
+	accountOptions := &azure.AccountOptions{
+		Name:                   account,
+		Type:                   sku,
+		Kind:                   accountKind,
+		ResourceGroup:          resourceGroup,
+		Location:               location,
+		EnableHTTPSTrafficOnly: enableHTTPSTrafficOnly,
+		Tags:                   tags,
+	}
+
 	var retAccount, retAccountKey string
-	err := wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
+	err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 		var retErr error
-		retAccount, retAccountKey, retErr = d.cloud.EnsureStorageAccount(account, sku, accountKind, resourceGroup, location, fileShareAccountNamePrefix, enableHTTPSTrafficOnly)
+		retAccount, retAccountKey, retErr = d.cloud.EnsureStorageAccount(accountOptions, fileShareAccountNamePrefix)
 		if isRetriableError(retErr) {
 			klog.Warningf("EnsureStorageAccount(%s) failed with error(%v), waiting for retring", account, retErr)
 			return false, nil
@@ -152,13 +171,19 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, err
 	}
 
+	shareOptions := &fileclient.ShareOptions{
+		Name:       validFileShareName,
+		Protocol:   protocol,
+		RequestGiB: fileShareSize,
+	}
+
 	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d) protocol(%s)", validFileShareName, retAccount, sku, resourceGroup, location, fileShareSize, protocol)
 	lockKey := retAccount + sku + accountKind + resourceGroup + location
 	d.volLockMap.LockEntry(lockKey)
 	defer d.volLockMap.UnlockEntry(lockKey)
 	err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 		var retErr error
-		retAccount, retAccountKey, retErr = d.cloud.CreateFileShare(validFileShareName, account, sku, accountKind, resourceGroup, location, protocol, fileShareSize)
+		retAccount, retAccountKey, retErr = d.cloud.CreateFileShare(accountOptions, shareOptions)
 		if isRetriableError(retErr) {
 			klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), waiting for retring", validFileShareName, account, retErr)
 			return false, nil
@@ -225,10 +250,10 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 	}
 
 	volumeID := req.VolumeId
-	resourceGroupName, accountName, fileShareName, _, err := getFileShareInfo(volumeID)
+	resourceGroupName, accountName, fileShareName, _, err := GetFileShareInfo(volumeID)
 	if err != nil {
 		// According to CSI Driver Sanity Tester, should succeed when an invalid volume id is used
-		klog.Errorf("getFileShareInfo(%s) in DeleteVolume failed with error: %v", volumeID, err)
+		klog.Errorf("GetFileShareInfo(%s) in DeleteVolume failed with error: %v", volumeID, err)
 		return &csi.DeleteVolumeResponse{}, nil
 	}
 
@@ -547,7 +572,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 		return nil, status.Errorf(codes.InvalidArgument, "invalid expand volume request: %v", req)
 	}
 
-	resourceGroupName, accountName, fileShareName, diskName, err := getFileShareInfo(volumeID)
+	resourceGroupName, accountName, fileShareName, diskName, err := GetFileShareInfo(volumeID)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("GetAccountInfo(%s) failed with error: %v", volumeID, err))
 	}

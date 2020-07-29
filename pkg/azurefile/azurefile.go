@@ -74,6 +74,7 @@ const (
 	diskNameField            = "diskname"
 	serverNameField          = "server"
 	fsTypeField              = "fstype"
+	tagsField                = "tags"
 	secretNamespaceField     = "secretnamespace"
 	storeAccountKeyField     = "storeaccountkey"
 	storeAccountKeyFalse     = "false"
@@ -211,7 +212,7 @@ func (d *Driver) checkFileShareExists(accountName, resourceGroup, fileShareName 
 // get file share info according to volume id, e.g.
 // input: "rg#f5713de20cde511e8ba4900#pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41#diskname.vhd"
 // output: rg, f5713de20cde511e8ba4900, pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41, diskname.vhd
-func getFileShareInfo(id string) (string, string, string, string, error) {
+func GetFileShareInfo(id string) (string, string, string, string, error) {
 	segments := strings.Split(id, separator)
 	if len(segments) < 3 {
 		return "", "", "", "", fmt.Errorf("error parsing volume id: %q, should at least contain two #", id)
@@ -395,7 +396,7 @@ func IsCorruptedDir(dir string) bool {
 
 func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]string) (rgName, accountName, accountKey, fileShareName, diskName string, err error) {
 	if len(secrets) == 0 {
-		rgName, accountName, fileShareName, diskName, err = getFileShareInfo(volumeID)
+		rgName, accountName, fileShareName, diskName, err = GetFileShareInfo(volumeID)
 		if err == nil {
 			if rgName == "" {
 				rgName = d.cloud.ResourceGroup
