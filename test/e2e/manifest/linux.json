@@ -31,13 +31,15 @@
         "masterProfile": {
             "count": 1,
             "dnsPrefix": "{dnsPrefix}",
-            "vmSize": "Standard_DS2_v2"
+            "vmSize": "Standard_DS2_v2",
+            "distro": "aks-ubuntu-18.04"
         },
         "agentPoolProfiles": [
             {
                 "name": "agentpool1",
                 "count": 2,
                 "vmSize": "Standard_DS2_v2",
+                "distro": "aks-ubuntu-18.04",
                 "availabilityProfile": "AvailabilitySet"
             }
         ],
