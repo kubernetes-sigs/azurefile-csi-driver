@@ -31,9 +31,7 @@ import (
 	"github.com/pborman/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog/v2"
 	"k8s.io/legacy-cloud-providers/azure"
 	"k8s.io/legacy-cloud-providers/azure/clients/fileclient"
@@ -342,13 +340,6 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 	nodeID := req.GetNodeId()
 	if len(nodeID) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Node ID not provided")
-	}
-	nodeName := types.NodeName(nodeID)
-	if _, err := d.cloud.InstanceID(ctx, nodeName); err != nil {
-		if err == cloudprovider.InstanceNotFound {
-			return nil, status.Error(codes.NotFound, fmt.Sprintf("failed to get azure instance id for node %q (%v)", nodeName, err))
-		}
-		return nil, status.Error(codes.Internal, fmt.Sprintf("get azure instance id for node %q failed with %v", nodeName, err))
 	}
 
 	_, accountName, accountKey, fileShareName, diskName, err := d.GetAccountInfo(volumeID, req.GetSecrets(), req.GetVolumeContext())

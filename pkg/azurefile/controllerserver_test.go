@@ -1011,24 +1011,6 @@ func TestControllerPublishVolume(t *testing.T) {
 			expectedErr: status.Error(codes.InvalidArgument, "Node ID not provided"),
 		},
 		{
-			desc: "Instance not found",
-			req: &csi.ControllerPublishVolumeRequest{
-				VolumeId:         "vol_1",
-				VolumeCapability: &stdVolCap,
-				NodeId:           "vm1",
-			},
-			expectedErr: status.Error(codes.NotFound, "failed to get azure instance id for node \"vm1\" (instance not found)"),
-		},
-		{
-			desc: "Get azure instance returns error",
-			req: &csi.ControllerPublishVolumeRequest{
-				VolumeId:         "vol_1",
-				VolumeCapability: &stdVolCap,
-				NodeId:           "vm2",
-			},
-			expectedErr: status.Error(codes.Internal, "get azure instance id for node \"vm2\" failed with Retriable: false, RetryAfter: 0s, HTTPStatusCode: 502, RawError: instance not found"),
-		},
-		{
 			desc: "Valid request disk name empty",
 			req: &csi.ControllerPublishVolumeRequest{
 				VolumeId:         "vol_1",
