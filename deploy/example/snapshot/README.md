@@ -1,8 +1,8 @@
 # Azure File Snapshot feature
 
-- Snapshot feature is alpha since Kubernetes v1.17.0, refer to [Snapshot & Restore Feature](https://kubernetes-csi.github.io/docs/snapshot-restore-feature.html) for more details.
+- Snapshot feature is beta since Kubernetes v1.17.0, refer to [Snapshot & Restore Feature](https://kubernetes-csi.github.io/docs/snapshot-restore-feature.html) for more details.
 
-> NOTE: There is no snapshot restore API currently. Just can use the azurefile-csi-driver to create the snapshot, but cannot restore the volume from the snapshot by it.
+> NOTE: Since there is no suitable Azure File snapshot restore API currently, this driver only supports snapshot creation, snapshot could be restored from Azure portal.
 
 ## Install CSI Driver
 
