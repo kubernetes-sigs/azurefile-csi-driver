@@ -122,6 +122,7 @@ spec:
               memory: 20Mi
         - name: azurefile
           image: mcr.microsoft.com/k8s/csi/azurefile-csi:latest
+          imagePullPolicy: IfNotPresent
           args:
             - "--v=5"
             - "--endpoint=$(CSI_ENDPOINT)"
