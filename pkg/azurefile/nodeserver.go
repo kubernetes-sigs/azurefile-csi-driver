@@ -168,7 +168,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	var mountOptions, sensitiveMountOptions []string
 	if fsType == nfs {
-		mountOptions = []string{"vers=4,minorversion=1,sec=sys"}
+		mountOptions = util.JoinMountOptions(mountFlags, []string{"vers=4,minorversion=1,sec=sys"})
 	} else {
 		if runtime.GOOS == "windows" {
 			mountOptions = []string{fmt.Sprintf("AZURE\\%s", accountName), accountKey}
