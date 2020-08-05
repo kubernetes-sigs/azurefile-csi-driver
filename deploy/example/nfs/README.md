@@ -23,7 +23,7 @@ az provider register --namespace Microsoft.Storage
 
 #### How to use NFS feature
  - Create an Azure File storage class
-> specify `storageAccount` and `fsType: nfs` in storage class `parameters`
+> specify `storageAccount` and `protocol: nfs` in storage class `parameters`
 > </br>for more details, refer to [driver parameters](../../../docs/driver-parameters.md)
 ```yaml
 apiVersion: storage.k8s.io/v1
@@ -34,7 +34,7 @@ provisioner: file.csi.azure.com
 parameters:
   resourceGroup: EXISTING_RESOURCE_GROUP_NAME  # optional, only set this when storage account is not in the same resource group as agent node
   storageAccount: EXISTING_STORAGE_ACCOUNT_NAME
-  fsType: nfs
+  protocol: nfs  # use "fsType: nfs" in v0.8.0
 ```
 
 run following command to create a storage class:

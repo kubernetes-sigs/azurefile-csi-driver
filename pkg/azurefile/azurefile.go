@@ -74,6 +74,7 @@ const (
 	diskNameField            = "diskname"
 	serverNameField          = "server"
 	fsTypeField              = "fstype"
+	protocolField            = "protocol"
 	tagsField                = "tags"
 	secretNamespaceField     = "secretnamespace"
 	storeAccountKeyField     = "storeaccountkey"
@@ -104,6 +105,7 @@ const (
 
 var (
 	supportedFsTypeList     = []string{cifs, smb, nfs, ext4, ext3, ext2, xfs}
+	supportedProtocolList   = []string{smb, nfs}
 	supportedDiskFsTypeList = []string{ext4, ext3, ext2, xfs}
 
 	retriableErrors = []string{accountNotProvisioned, tooManyRequests, shareNotFound, shareBeingDeleted, clientThrottled}
@@ -435,4 +437,16 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 	}
 
 	return rgName, accountName, accountKey, fileShareName, diskName, err
+}
+
+func isSupportedProtocol(protocol string) bool {
+	if protocol == "" {
+		return true
+	}
+	for _, v := range supportedProtocolList {
+		if protocol == v {
+			return true
+		}
+	}
+	return false
 }

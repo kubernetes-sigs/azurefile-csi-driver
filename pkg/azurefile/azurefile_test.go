@@ -826,3 +826,34 @@ func TestUtilsRunControllerPublishServer(t *testing.T) {
 	d := NewFakeDriver()
 	csicommon.RunControllerPublishServer("tcp://127.0.0.1:0", &d.CSIDriver, d, true)
 }
+
+func TestIsSupportedProtocol(t *testing.T) {
+	tests := []struct {
+		protocol       string
+		expectedResult bool
+	}{
+		{
+			protocol:       "",
+			expectedResult: true,
+		},
+		{
+			protocol:       "smb",
+			expectedResult: true,
+		},
+		{
+			protocol:       "nfs",
+			expectedResult: true,
+		},
+		{
+			protocol:       "invalid",
+			expectedResult: false,
+		},
+	}
+
+	for _, test := range tests {
+		result := isSupportedProtocol(test.protocol)
+		if result != test.expectedResult {
+			t.Errorf("isSupportedProtocol(%s) returned with %v, not equal to %v", test.protocol, result, test.expectedResult)
+		}
+	}
+}
