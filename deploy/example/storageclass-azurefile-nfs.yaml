@@ -6,6 +6,6 @@ metadata:
 provisioner: file.csi.azure.com
 parameters:
   storageAccount: EXISTING_STORAGE_ACCOUNT_NAME
-  fsType: nfs
+  protocol: nfs  # use "fsType: nfs" in v0.8.0
 reclaimPolicy: Delete
 volumeBindingMode: Immediate

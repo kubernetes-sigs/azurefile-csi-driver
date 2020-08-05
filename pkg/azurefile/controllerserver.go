@@ -61,7 +61,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	parameters := req.GetParameters()
-	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, storeAccountKey, secretNamespace, customTags string
+	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, storeAccountKey, secretNamespace, protocol, customTags string
 
 	// Apply ProvisionerParameters (case-insensitive). We leave validation of
 	// the values to the cloud provider.
@@ -87,6 +87,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			storeAccountKey = v
 		case secretNamespaceField:
 			secretNamespace = v
+		case protocolField:
+			protocol = v
 		case tagsField:
 			customTags = v
 		default:
@@ -99,14 +101,20 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Errorf(codes.InvalidArgument, "fsType(%s) is not supported, supported fsType list: %v", fsType, supportedFsTypeList)
 	}
 
-	protocol := storage.SMB
-	if fsType == nfs {
+	if !isSupportedProtocol(protocol) {
+		return nil, status.Errorf(codes.InvalidArgument, "protocol(%s) is not supported, supported protocol list: %v", protocol, supportedProtocolList)
+	}
+
+	shareProtocol := storage.SMB
+	if fsType == nfs || protocol == nfs {
 		if account == "" {
 			return nil, status.Errorf(codes.InvalidArgument, "storage account must be specified when provisioning nfs file share")
 		}
-		protocol = storage.NFS
+		shareProtocol = storage.NFS
 		// NFS protocol does not need account key
 		storeAccountKey = storeAccountKeyFalse
+		// reset protocol field (compatable with "fsType: nfs")
+		parameters[protocolField] = protocol
 	}
 
 	fileShareSize := int(requestGiB)
@@ -171,11 +179,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	shareOptions := &fileclient.ShareOptions{
 		Name:       validFileShareName,
-		Protocol:   protocol,
+		Protocol:   shareProtocol,
 		RequestGiB: fileShareSize,
 	}
 
-	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d) protocol(%s)", validFileShareName, retAccount, sku, resourceGroup, location, fileShareSize, protocol)
+	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d) protocol(%s)", validFileShareName, retAccount, sku, resourceGroup, location, fileShareSize, shareProtocol)
 	lockKey := retAccount + sku + accountKind + resourceGroup + location
 	d.volLockMap.LockEntry(lockKey)
 	defer d.volLockMap.UnlockEntry(lockKey)

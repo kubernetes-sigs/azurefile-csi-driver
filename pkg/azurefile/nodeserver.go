@@ -133,11 +133,13 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 	// don't respect fsType from req.GetVolumeCapability().GetMount().GetFsType()
 	// since it's ext4 by default on Linux
-	var fsType, server string
+	var fsType, server, protocol string
 	for k, v := range context {
 		switch strings.ToLower(k) {
 		case fsTypeField:
 			fsType = v
+		case protocolField:
+			protocol = v
 		case diskNameField:
 			diskName = v
 		case serverNameField:
@@ -151,7 +153,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		server = fmt.Sprintf("%s.file.%s", accountName, d.cloud.Environment.StorageEndpointSuffix)
 	}
 	source := fmt.Sprintf("%s%s%s%s%s", osSeparator, osSeparator, server, osSeparator, fileShareName)
-	if fsType == nfs {
+	if protocol == nfs {
 		source = fmt.Sprintf("%s:/%s/%s", server, accountName, fileShareName)
 	}
 
@@ -167,7 +169,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 
 	var mountOptions, sensitiveMountOptions []string
-	if fsType == nfs {
+	if protocol == nfs {
 		mountOptions = util.JoinMountOptions(mountFlags, []string{"vers=4,minorversion=1,sec=sys"})
 	} else {
 		if runtime.GOOS == "windows" {
@@ -191,7 +193,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	if !isDirMounted {
 		mountFsType := cifs
-		if fsType == nfs {
+		if protocol == nfs {
 			mountFsType = nfs
 		}
 		if err = prepareStagePath(cifsMountPath, d.mounter); err != nil {
