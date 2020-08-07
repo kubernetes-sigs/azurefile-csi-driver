@@ -107,6 +107,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	shareProtocol := storage.SMB
 	if fsType == nfs || protocol == nfs {
+		protocol = nfs
 		if account == "" {
 			return nil, status.Errorf(codes.InvalidArgument, "storage account must be specified when provisioning nfs file share")
 		}
@@ -130,7 +131,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	validFileShareName := fileShareName
 	if validFileShareName == "" {
 		name := req.GetName()
-		if isDiskFsType(fsType) {
+		if protocol == nfs {
+			// use "pvcn" prefix for nfs protocol file share
+			name = strings.Replace(name, "pvc", "pvcn", 1)
+		} else if isDiskFsType(fsType) {
 			// use "pvcd" prefix for vhd disk file share
 			name = strings.Replace(name, "pvc", "pvcd", 1)
 		}
