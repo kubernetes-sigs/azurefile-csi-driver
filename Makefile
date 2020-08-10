@@ -28,6 +28,7 @@ IMAGE_TAG = $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
 IMAGE_TAG_LATEST = $(REGISTRY)/$(IMAGE_NAME):latest
 BUILD_DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS ?= "-X ${PKG}/pkg/azurefile.driverVersion=${IMAGE_VERSION} -X ${PKG}/pkg/azurefile.gitCommit=${GIT_COMMIT} -X ${PKG}/pkg/azurefile.buildDate=${BUILD_DATE} -s -w -extldflags '-static'"
+E2E_BOOTSTRAP ?= true
 GINKGO_FLAGS = -ginkgo.noColor -ginkgo.v
 GO111MODULE = on
 GOPATH ?= $(shell go env GOPATH)
@@ -63,7 +64,7 @@ integration-test: azurefile
 
 .PHONY: e2e-test
 e2e-test:
-	go test -v -timeout=0 ./test/e2e ${GINKGO_FLAGS}
+	go test -v -timeout=0 ./test/e2e -e2e.bootstrap=${E2E_BOOTSTRAP} ${GINKGO_FLAGS}
 
 .PHONY: e2e-bootstrap
 e2e-bootstrap: install-helm
@@ -98,7 +99,7 @@ azurefile:
 azurefile-windows:
 	CGO_ENABLED=0 GOOS=windows go build -a -ldflags ${LDFLAGS} -o _output/azurefileplugin.exe ./pkg/azurefileplugin
 
-.PHONY: container	
+.PHONY: container
 container: azurefile
 	docker build --no-cache -t $(IMAGE_TAG) -f ./pkg/azurefileplugin/dev.Dockerfile .
 
