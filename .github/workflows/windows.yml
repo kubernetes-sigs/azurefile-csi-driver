@@ -23,3 +23,6 @@ jobs:
       - name: Build
         run: |
           go build -a -o _output/azurefileplugin.exe ./pkg/azurefileplugin
+      - name: Run Windows Unit Tests
+        run: |
+          go test -v -race ./pkg/... ./test/utils/credentials         
