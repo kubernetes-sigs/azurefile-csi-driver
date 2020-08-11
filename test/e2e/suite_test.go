@@ -53,6 +53,7 @@ var (
 	azurefileDriver           *azurefile.Driver
 	isUsingInTreeVolumePlugin = os.Getenv(driver.AzureDriverNameVar) == inTreeStorageClass
 	isWindowsCluster          = os.Getenv(testWindowsEnvVar) != ""
+	enableE2EBootstrap        bool
 )
 
 type testCmd struct {
@@ -60,6 +61,10 @@ type testCmd struct {
 	args     []string
 	startLog string
 	endLog   string
+}
+
+func init() {
+	flag.BoolVar(&enableE2EBootstrap, "e2e.bootstrap", true, "install azurefile-csi-driver as part of e2e test when set to true")
 }
 
 var _ = ginkgo.BeforeSuite(func() {
@@ -81,13 +86,15 @@ var _ = ginkgo.BeforeSuite(func() {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		// Install Azure File CSI Driver on cluster from project root
-		e2eBootstrap := testCmd{
-			command:  "make",
-			args:     []string{"e2e-bootstrap"},
-			startLog: "Installing Azure File CSI Driver...",
-			endLog:   "Azure File CSI Driver installed",
+		if enableE2EBootstrap {
+			e2eBootstrap := testCmd{
+				command:  "make",
+				args:     []string{"e2e-bootstrap"},
+				startLog: "Installing Azure File CSI Driver...",
+				endLog:   "Azure File CSI Driver installed",
+			}
+			execTestCmd([]testCmd{e2eBootstrap})
 		}
-		execTestCmd([]testCmd{e2eBootstrap})
 
 		nodeid := os.Getenv("nodeid")
 		kubeconfig := os.Getenv(kubeconfigEnvVar)
@@ -107,13 +114,15 @@ var _ = ginkgo.AfterSuite(func() {
 			startLog: "===================azurefile log===================",
 			endLog:   "===================================================",
 		}
-		e2eTeardown := testCmd{
-			command:  "make",
-			args:     []string{"e2e-teardown"},
-			startLog: "Uninstalling Azure File CSI Driver...",
-			endLog:   "Azure File CSI Driver uninstalled",
+		if enableE2EBootstrap {
+			e2eTeardown := testCmd{
+				command:  "make",
+				args:     []string{"e2e-teardown"},
+				startLog: "Uninstalling Azure File CSI Driver...",
+				endLog:   "Azure File CSI Driver uninstalled",
+			}
+			execTestCmd([]testCmd{azurefileLog, e2eTeardown})
 		}
-		execTestCmd([]testCmd{azurefileLog, e2eTeardown})
 
 		// install/uninstall CSI Driver deployment scripts test
 		installDriver := testCmd{
