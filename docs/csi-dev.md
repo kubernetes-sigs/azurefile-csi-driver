@@ -104,7 +104,7 @@ make push-latest
 ```
 
  - Replace `mcr.microsoft.com/k8s/csi/azurefile-csi:latest` in [`csi-azurefile-controller.yaml`](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/deploy/csi-azurefile-controller.yaml) and [`csi-azurefile-node.yaml`](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/deploy/csi-azurefile-node.yaml) with above dockerhub image urls and then follow [install CSI driver master version](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/install-csi-driver-master.md)
- ```
+```console
 wget -O csi-azurefile-controller.yaml https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/csi-azurefile-controller.yaml
 # edit csi-azurefile-controller.yaml
 kubectl apply -f csi-azurefile-controller.yaml
@@ -112,4 +112,10 @@ kubectl apply -f csi-azurefile-controller.yaml
 wget -O csi-azurefile-node.yaml https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/csi-azurefile-node.yaml
 # edit csi-azurefile-node.yaml
 kubectl apply -f csi-azurefile-node.yaml
- ```
+```
+
+### How to update chart index
+
+```console
+helm repo index charts --url=https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts
+```
