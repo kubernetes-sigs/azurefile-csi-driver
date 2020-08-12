@@ -77,8 +77,7 @@ ifdef TEST_WINDOWS
 		--set controller.replicas=1
 else
 	helm install azurefile-csi-driver charts/latest/azurefile-csi-driver --namespace kube-system --wait --timeout=15m -v=5 --debug \
-		--set image.azurefile.repository=$(REGISTRY)/$(IMAGE_NAME) \
-		--set image.azurefile.tag=$(IMAGE_VERSION) \
+		${E2E_HELM_OPTIONS} \
 		--set snapshot.enabled=true
 endif
 
