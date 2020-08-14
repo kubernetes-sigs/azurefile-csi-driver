@@ -24,6 +24,7 @@ spec:
           operator: "Equal"
           value: "true"
           effect: "NoSchedule"
+      {{- include "azurefile.pullSecrets" . | indent 6 }}
       containers:
         - name: csi-snapshot-controller
           image: "{{ .Values.snapshot.image.csiSnapshotController.repository }}:{{ .Values.snapshot.image.csiSnapshotController.tag }}"
