@@ -4,6 +4,8 @@ apiVersion: v1
 metadata:
   name: nginx-azurefile
 spec:
+  nodeSelector:
+    "kubernetes.io/os": linux
   containers:
     - image: nginx
       name: nginx-azurefile

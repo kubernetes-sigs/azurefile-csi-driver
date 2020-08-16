@@ -28,6 +28,8 @@ spec:
         app: nginx
       name: deployment-azurefile
     spec:
+      nodeSelector:
+        "kubernetes.io/os": linux
       containers:
         - name: deployment-azurefile
           image: nginx
