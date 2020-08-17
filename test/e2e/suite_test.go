@@ -100,38 +100,48 @@ var _ = ginkgo.BeforeSuite(func() {
 })
 
 var _ = ginkgo.AfterSuite(func() {
-	if !isUsingInTreeVolumePlugin && testutil.IsRunningInProw() {
-		azurefileLog := testCmd{
-			command:  "bash",
-			args:     []string{"test/utils/azurefile_log.sh"},
-			startLog: "===================azurefile log===================",
-			endLog:   "===================================================",
-		}
-		e2eTeardown := testCmd{
-			command:  "make",
-			args:     []string{"e2e-teardown"},
-			startLog: "Uninstalling Azure File CSI Driver...",
-			endLog:   "Azure File CSI Driver uninstalled",
-		}
-		execTestCmd([]testCmd{azurefileLog, e2eTeardown})
+	if testutil.IsRunningInProw() {
+		if isUsingInTreeVolumePlugin {
+			cmLog := testCmd{
+				command:  "bash",
+				args:     []string{"test/utils/controller-manager-log.sh"},
+				startLog: "===================controller-manager log=======",
+				endLog:   "===================================================",
+			}
+			execTestCmd([]testCmd{cmLog})
+		} else {
+			azurefileLog := testCmd{
+				command:  "bash",
+				args:     []string{"test/utils/azurefile_log.sh"},
+				startLog: "===================azurefile log===================",
+				endLog:   "===================================================",
+			}
+			e2eTeardown := testCmd{
+				command:  "make",
+				args:     []string{"e2e-teardown"},
+				startLog: "Uninstalling Azure File CSI Driver...",
+				endLog:   "Azure File CSI Driver uninstalled",
+			}
+			execTestCmd([]testCmd{azurefileLog, e2eTeardown})
 
-		// install/uninstall CSI Driver deployment scripts test
-		installDriver := testCmd{
-			command:  "bash",
-			args:     []string{"deploy/install-driver.sh", "master", "windows,local"},
-			startLog: "===================install CSI Driver deployment scripts test===================",
-			endLog:   "===================================================",
-		}
-		uninstallDriver := testCmd{
-			command:  "bash",
-			args:     []string{"deploy/uninstall-driver.sh", "master", "windows,local"},
-			startLog: "===================uninstall CSI Driver deployment scripts test===================",
-			endLog:   "===================================================",
-		}
-		execTestCmd([]testCmd{installDriver, uninstallDriver})
+			// install/uninstall CSI Driver deployment scripts test
+			installDriver := testCmd{
+				command:  "bash",
+				args:     []string{"deploy/install-driver.sh", "master", "windows,local"},
+				startLog: "===================install CSI Driver deployment scripts test===================",
+				endLog:   "===================================================",
+			}
+			uninstallDriver := testCmd{
+				command:  "bash",
+				args:     []string{"deploy/uninstall-driver.sh", "master", "windows,local"},
+				startLog: "===================uninstall CSI Driver deployment scripts test===================",
+				endLog:   "===================================================",
+			}
+			execTestCmd([]testCmd{installDriver, uninstallDriver})
 
-		err := credentials.DeleteAzureCredentialFile()
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			err := credentials.DeleteAzureCredentialFile()
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		}
 	}
 })
 
