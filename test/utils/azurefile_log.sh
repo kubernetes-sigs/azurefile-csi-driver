@@ -35,11 +35,11 @@ echo "==========================================================================
 LABEL='app=csi-azurefile-node'
 kubectl get pods -n${NS} -l${LABEL} \
     | awk 'NR>1 {print $1}' \
-    | xargs -I {} kubectl logs {} --prefix -c${CONTAINER} -n${NS}
+    | xargs -I {} bash -c "echo 'dumping logs for ${NS}/{}/${CONTAINER}' && kubectl logs {} -c${CONTAINER} -n${NS}"
 
 echo "print out csi-azurefile-node-win logs ..."
 echo "======================================================================================"
 LABEL='app=csi-azurefile-node-win'
 kubectl get pods -n${NS} -l${LABEL} \
     | awk 'NR>1 {print $1}' \
-    | xargs -I {} kubectl logs {} --prefix -c${CONTAINER} -n${NS}
+    | xargs -I {} bash -c "echo 'dumping logs for ${NS}/{}/${CONTAINER}' && kubectl logs {} -c${CONTAINER} -n${NS}"
