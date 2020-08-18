@@ -24,4 +24,4 @@ kubectl get pods -n${NS} | grep controller-manager
 kubectl get pods -n${NS} | grep controller-manager | awk '{print $1}'
 kubectl get pods -n${NS} | grep controller-manager \
     | awk '{print $1}' \
-    | xargs -I {} kubectl logs {} --prefix -n${NS}
+    | xargs -I {} bash -c "echo 'dumping logs for ${NS}/{}' && kubectl logs {} -n${NS}"
