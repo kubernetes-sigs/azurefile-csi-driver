@@ -8,7 +8,7 @@
 `eastus`
 
 #### Prerequisite
- - [Register Azure Storage NFS Preview Program](https://aka.ms/azurenfspreview)
+ - [Register Azure Storage NFS Preview Program](https://aka.ms/azurefilesnfs/enrollment)
  - Register `AllowNfsFileShares` feature under your subscription
 ```console
 az feature register --name AllowNfsFileShares --namespace Microsoft.Storage
