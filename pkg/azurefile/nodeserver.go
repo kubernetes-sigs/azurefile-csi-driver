@@ -40,7 +40,6 @@ import (
 
 // NodePublishVolume mount the volume from staging to target path
 func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
-	klog.V(2).Infof("NodePublishVolume called with request %v", *req)
 	if req.GetVolumeCapability() == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
 	}
@@ -262,7 +261,6 @@ func (d *Driver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolu
 
 // NodeGetCapabilities return the capabilities of the Node plugin
 func (d *Driver) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
-	klog.V(2).Infof("NodeGetCapabilities called with request %v", *req)
 	return &csi.NodeGetCapabilitiesResponse{
 		Capabilities: d.NSCap,
 	}, nil
@@ -270,7 +268,6 @@ func (d *Driver) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabi
 
 // NodeGetInfo return info of the node on which this plugin is running
 func (d *Driver) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
-	klog.V(2).Infof("NodeGetInfo called with request %v", *req)
 	return &csi.NodeGetInfoResponse{
 		NodeId: d.NodeID,
 	}, nil
