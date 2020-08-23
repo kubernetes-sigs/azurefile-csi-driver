@@ -167,13 +167,13 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		cifsMountPath = filepath.Join(filepath.Dir(targetPath), proxyMount)
 	}
 
-	var mountOptions, sensitiveMountOptions, loggingMountOptions []string
+	var mountOptions, sensitiveMountOptions []string
 	if protocol == nfs {
 		mountOptions = util.JoinMountOptions(mountFlags, []string{"vers=4,minorversion=1,sec=sys"})
 	} else {
 		if runtime.GOOS == "windows" {
-			mountOptions = []string{fmt.Sprintf("AZURE\\%s", accountName), accountKey}
-			loggingMountOptions = []string{fmt.Sprintf("AZURE\\%s", accountName)}
+			mountOptions = []string{fmt.Sprintf("AZURE\\%s", accountName)}
+			sensitiveMountOptions = []string{accountKey}
 		} else {
 			if err := os.MkdirAll(targetPath, 0750); err != nil {
 				return nil, status.Error(codes.Internal, fmt.Sprintf("MkdirAll %s failed with error: %v", targetPath, err))
@@ -181,11 +181,10 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			// parameters suggested by https://azure.microsoft.com/en-us/documentation/articles/storage-how-to-use-files-linux/
 			sensitiveMountOptions = []string{fmt.Sprintf("username=%s,password=%s", accountName, accountKey)}
 			mountOptions = appendDefaultMountOptions(cifsMountFlags)
-			loggingMountOptions = mountOptions
 		}
 	}
 
-	klog.V(2).Infof("cifsMountPath(%v) fstype(%v) volumeID(%v) context(%v) mountflags(%v) mountOptions(%v)", cifsMountPath, fsType, volumeID, context, mountFlags, loggingMountOptions)
+	klog.V(2).Infof("cifsMountPath(%v) fstype(%v) volumeID(%v) context(%v) mountflags(%v) mountOptions(%v)", cifsMountPath, fsType, volumeID, context, mountFlags, mountOptions)
 
 	isDirMounted, err := d.ensureMountPoint(cifsMountPath)
 	if err != nil {
