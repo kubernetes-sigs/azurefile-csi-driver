@@ -79,7 +79,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `snapshot.snapshotController.serviceAccount`      | whether create service account of snapshot-controller      | true                                                         |
 | `snapshot.snapshotController.rbac`                | whether create rbac of snapshot-controller                 | true                                                         |
 | `linux.enabled`                                   | whether enable linux feature                               | true                                                              |
-| `windows.enabled`                                 | whether enable windows feature                             | false                                                             |
+| `windows.enabled`                                 | whether enable windows feature                             | true                                                             |
 | `windows.image.livenessProbe.repository`          | windows liveness-probe docker image                        | mcr.microsoft.com/oss/kubernetes-csi/livenessprobe                |
 | `windows.image.livenessProbe.tag`                 | windows liveness-probe docker image tag                    | v2.0.1-alpha.1-windows-1809-amd64                                 |
 | `windows.image.livenessProbe.pullPolicy`          | windows liveness-probe image pull policy                   | IfNotPresent                                                      |
