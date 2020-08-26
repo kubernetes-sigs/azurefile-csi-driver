@@ -17,6 +17,7 @@ Add one of the following kinds:
 /kind cleanup
 /kind documentation
 /kind feature
+/kind test
 /kind design
 
 Optionally add one or more of the following kinds if applicable:
