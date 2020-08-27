@@ -582,15 +582,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 		return nil, status.Errorf(codes.Internal, "expand volume error: %v", err)
 	}
 
-	fileshare, err := d.cloud.GetFileShare(resourceGroupName, accountName, fileShareName)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "could not get file share(%s): %v", fileShareName, err)
-	}
-	if fileshare.FileShareProperties.ShareQuota == nil {
-		return nil, status.Errorf(codes.Internal, "the pointer of file share(%s) quota is nil", fileShareName)
-	}
-
-	klog.V(2).Infof("ControllerExpandVolume(%s) successfully, currentQuota: %d", volumeID, *fileshare.FileShareProperties.ShareQuota)
+	klog.V(2).Infof("ControllerExpandVolume(%s) successfully, currentQuota: %d", volumeID, int(requestGiB))
 	return &csi.ControllerExpandVolumeResponse{CapacityBytes: requestGiB}, nil
 }
 

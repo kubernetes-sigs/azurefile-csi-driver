@@ -429,11 +429,7 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 				diskName = v
 			}
 		}
-		if fileShareName != "" {
-			accountName, accountKey, err = getStorageAccount(secrets)
-		} else {
-			err = fmt.Errorf("could not find sharename from context(%v)", reqContext)
-		}
+		accountName, accountKey, err = getStorageAccount(secrets)
 	}
 
 	return rgName, accountName, accountKey, fileShareName, diskName, err
