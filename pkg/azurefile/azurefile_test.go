@@ -554,17 +554,6 @@ func TestGetAccountInfo(t *testing.T) {
 			resGroup: "vol_1",
 			secrets:  validSecret,
 			reqContext: map[string]string{
-				shareNameField: "",
-				diskNameField:  "test_diskname",
-			},
-			expectErr: true,
-			err:       fmt.Errorf("test error"),
-		},
-		{
-			volumeID: "vol_1##",
-			resGroup: "vol_1",
-			secrets:  validSecret,
-			reqContext: map[string]string{
 				shareNameField: "test_sharename",
 				diskNameField:  "test_diskname",
 			},
