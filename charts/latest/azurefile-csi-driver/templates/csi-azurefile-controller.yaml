@@ -131,11 +131,12 @@ spec:
           args:
             - "--v=5"
             - "--endpoint=$(CSI_ENDPOINT)"
+            - "--metrics-address=0.0.0.0:{{ .Values.controller.metricsPort }}"
           ports:
             - containerPort: 29612
               name: healthz
               protocol: TCP
-            - containerPort: 29614
+            - containerPort: {{ .Values.controller.metricsPort }}
               name: metrics
               protocol: TCP
           livenessProbe:

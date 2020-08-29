@@ -1,0 +1,13 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: csi-azurefile-controller
+  namespace: kube-system
+spec:
+  selector:
+    app: csi-azurefile-controller
+  ports:
+    - port: 29614
+      targetPort: 29614
+  type: LoadBalancer
