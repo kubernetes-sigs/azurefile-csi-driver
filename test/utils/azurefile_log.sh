@@ -47,3 +47,8 @@ LABEL='app=csi-azurefile-node-win'
 kubectl get pods -n${NS} -l${LABEL} \
     | awk 'NR>1 {print $1}' \
     | xargs -I {} bash -c "echo 'dumping logs for ${NS}/{}/${CONTAINER}' && kubectl logs {} -c${CONTAINER} -n${NS}"
+
+echo "print out cloudprovider_azure metrics ..."
+echo "======================================================================================"
+ip=`kubectl get svc csi-azurefile-controller -n kube-system | grep azurefile | awk '{print $4}'`
+curl http://$ip:29614/metrics

@@ -87,7 +87,14 @@ var _ = ginkgo.BeforeSuite(func() {
 			startLog: "Installing Azure File CSI Driver...",
 			endLog:   "Azure File CSI Driver installed",
 		}
-		execTestCmd([]testCmd{e2eBootstrap})
+
+		createMetricsSVC := testCmd{
+			command:  "make",
+			args:     []string{"create-metrics-svc"},
+			startLog: "create metrics service ...",
+			endLog:   "metrics service created",
+		}
+		execTestCmd([]testCmd{e2eBootstrap, createMetricsSVC})
 
 		nodeid := os.Getenv("nodeid")
 		kubeconfig := os.Getenv(kubeconfigEnvVar)
