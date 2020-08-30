@@ -7,7 +7,7 @@
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-csi.yaml
 ```
 
- - Create a statefulset with Azure Disk mount
+ - Create a statefulset with disk volume mount
 ```
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/statefulset.yaml
 ```
