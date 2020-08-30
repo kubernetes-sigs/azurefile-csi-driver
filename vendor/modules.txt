@@ -836,7 +836,7 @@ k8s.io/kubernetes/test/e2e/system
 k8s.io/kubernetes/test/utils
 k8s.io/kubernetes/test/utils/image
 k8s.io/kubernetes/third_party/forked/golang/expansion
-# k8s.io/legacy-cloud-providers v0.0.0 => k8s.io/legacy-cloud-providers v0.0.0-20200726134743-6f78e2089a26
+# k8s.io/legacy-cloud-providers v0.0.0 => k8s.io/legacy-cloud-providers v0.0.0-20200828174542-4c4df1c2abb3
 k8s.io/legacy-cloud-providers/azure
 k8s.io/legacy-cloud-providers/azure/auth
 k8s.io/legacy-cloud-providers/azure/cache
@@ -874,7 +874,7 @@ k8s.io/legacy-cloud-providers/azure/clients/vmssvmclient
 k8s.io/legacy-cloud-providers/azure/clients/vmssvmclient/mockvmssvmclient
 k8s.io/legacy-cloud-providers/azure/metrics
 k8s.io/legacy-cloud-providers/azure/retry
-# k8s.io/utils v0.0.0-20200720150651-0bdb4ca86cbc
+# k8s.io/utils v0.0.0-20200729134348-d5654de09c73
 k8s.io/utils/buffer
 k8s.io/utils/exec
 k8s.io/utils/exec/testing
