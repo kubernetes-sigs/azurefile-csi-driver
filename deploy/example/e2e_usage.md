@@ -10,6 +10,16 @@ kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-cs
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/statefulset.yaml
 ```
 
+ - Execute `df -h` command in the container
+```
+# kubectl exec -it statefulset-azurefile-0 sh
+# df -h
+Filesystem                                                                Size  Used Avail Use% Mounted on
+...
+//f571xxx.file.core.windows.net/pvc-54caa11f-9e27-11e9-ba7b-0601775d3b69  1.0G  64K  1.0G  1%   /mnt/azurefile
+...
+```
+
 ### AzureFile Static Provisioning(use an existing Azure file share)
 #### Option#1: Use storage class
 > make sure cluster identity could access that file share
@@ -47,15 +57,11 @@ watch kubectl describe pvc pvc-azurefile
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/nginx-pod-azurefile.yaml
 ```
 
-#### Enter container to verify
- - watch the status of pod until its Status changed from `Pending` to `Running` and then enter the pod container
+ - Execute `df -h` command in the container
 ```console
-$ watch kubectl describe po nginx-azurefile
 $ kubectl exec -it nginx-azurefile -- bash
 root@nginx-azurefile:/# df -h
 Filesystem                                                                Size  Used Avail Use% Mounted on
-overlay                                                                   30G   19G  11G   65%  /
-tmpfs                                                                     3.5G  0    3.5G  0%   /dev
 ...
 //f571xxx.file.core.windows.net/pvc-54caa11f-9e27-11e9-ba7b-0601775d3b69  1.0G  64K  1.0G  1%   /mnt/azurefile
 ...
