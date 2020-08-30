@@ -1,4 +1,6 @@
 ## CSI driver example
+> refer to [driver parameters](../../docs/driver-parameters.md) for more detailed usage
+
 ### AzureFile Dynamic Provisioning
  - Create a CSI storage class
 ```console
@@ -22,10 +24,25 @@ Filesystem                                                                Size  
 
 ### AzureFile Static Provisioning(use an existing Azure file share)
 #### Option#1: Use storage class
-> make sure cluster identity could access that file share
- - Create an azurefile CSI storage class and PVC
+> make sure cluster identity could access to the file share
+ - Download [Azure file CSI storage class](https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-existing-share.yaml), edit `resourceGroup`, `storageAccount`, `shareName` in storage class
+```yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: azurefile-csi
+provisioner: file.csi.azure.com
+parameters:
+  resourceGroup: EXISTING_RESOURCE_GROUP_NAME  # optional, only set this when storage account is not in the same resource group as agent node
+  storageAccount: EXISTING_STORAGE_ACCOUNT_NAME
+  shareName: SHARE_NAME
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+```
+
+ - Create storage class and PVC
 ```console
-kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-existing-share.yaml
+kubectl create -f storageclass-azurefile-existing-share.yaml
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/pvc-azurefile-csi.yaml
 ```
 
@@ -49,10 +66,10 @@ kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-cs
 
  - make sure pvc is created and in `Bound` status after a while
 ```console
-watch kubectl describe pvc pvc-azurefile
+kubectl describe pvc pvc-azurefile
 ```
 
- - create a pod with PVC mount
+#### create a pod with PVC mount
 ```console
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/nginx-pod-azurefile.yaml
 ```
