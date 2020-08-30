@@ -46,6 +46,9 @@ Please refer to [install azurefile csi driver](https://github.com/kubernetes-sig
 ## Kubernetes Development
 Please refer to [development guide](./docs/csi-dev.md)
 
+### View CI Results
+Check testgrid [provider-azure-azurefile-csi-driver](https://testgrid.k8s.io/provider-azure-azurefile-csi-driver) dashboard.
+
 ### Links
  - [Kubernetes CSI Documentation](https://kubernetes-csi.github.io/docs)
  - [CSI Drivers](https://github.com/kubernetes-csi/drivers)
