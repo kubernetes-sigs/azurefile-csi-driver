@@ -19,8 +19,11 @@ package testsuites
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -28,8 +31,11 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 
+	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
 	volumehelper "sigs.k8s.io/azurefile-csi-driver/pkg/util"
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
+	"sigs.k8s.io/azurefile-csi-driver/test/utils/azure"
+	"sigs.k8s.io/azurefile-csi-driver/test/utils/credentials"
 )
 
 // DynamicallyProvisionedResizeVolumeTest will provision required StorageClass(es), PVC(s) and Pod(s)
@@ -73,6 +79,9 @@ func (t *DynamicallyProvisionedResizeVolumeTest) Run(client clientset.Interface,
 		}
 		updatedSize := updatedPvc.Spec.Resources.Requests["storage"]
 
+		ginkgo.By("sleep 30s waiting for resize complete")
+		time.Sleep(30 * time.Second)
+
 		ginkgo.By("checking the resizing result")
 		newPvc, err := client.CoreV1().PersistentVolumeClaims(namespace.Name).Get(context.TODO(), tpod.pod.Spec.Volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
 		if err != nil {
@@ -81,6 +90,44 @@ func (t *DynamicallyProvisionedResizeVolumeTest) Run(client clientset.Interface,
 		newSize := newPvc.Spec.Resources.Requests["storage"]
 		if !newSize.Equal(updatedSize) {
 			framework.Failf("newSize(%+v) is not equal to updatedSize(%+v)", newSize, updatedSize)
+		}
+
+		ginkgo.By("checking the resizing PV result")
+		newPv, _ := client.CoreV1().PersistentVolumes().Get(context.Background(), updatedPvc.Spec.VolumeName, metav1.GetOptions{})
+		newPvSize := newPv.Spec.Capacity["storage"]
+		newPvSizeStr := newPvSize.String() + "Gi"
+
+		if !(newSize.String() == newPvSizeStr) {
+			framework.Failf("newPVCSize(%+v) is not equal to newPVSize(%+v)", newSize.String(), newPvSizeStr)
+		}
+
+		ginkgo.By("checking the resizing azurefile result")
+
+		creds, err := credentials.CreateAzureCredentialFile(false)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+		var resourceGroup string
+		var accountName string
+		var shareName string
+		if newPv.Spec.PersistentVolumeSource.CSI != nil {
+			resourceGroup, accountName, shareName, _, err = azurefile.GetFileShareInfo(newPv.Spec.PersistentVolumeSource.CSI.VolumeHandle)
+			framework.ExpectNoError(err, fmt.Sprintf("Error getting filesource for azurefile %v", err))
+		} else if newPv.Spec.PersistentVolumeSource.AzureFile != nil {
+			resourceGroup = creds.ResourceGroup
+			accountName = newPv.Spec.PersistentVolumeSource.AzureFile.SecretName
+			shareName = newPv.Spec.PersistentVolumeSource.AzureFile.ShareName
+		}
+
+		//get file information
+		fileshareClient, err := azureClient.GetAzureFilesClient()
+		framework.ExpectNoError(err, fmt.Sprintf("Error getting client for azurefile %v", err))
+		filetest, err := fileshareClient.Get(context.Background(), resourceGroup, accountName, shareName, "")
+		framework.ExpectNoError(err, fmt.Sprintf("Error getting file for azurefile %v", err))
+		newfileSize := strconv.Itoa(int(*filetest.ShareQuota)) + "Gi"
+		if !(newSize.String() == newfileSize) {
+			framework.Failf("newPVCSize(%+v) is not equal to new azurefileSize(%+v)", newSize.String(), newfileSize)
 		}
 	}
 }
