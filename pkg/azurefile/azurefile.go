@@ -38,6 +38,8 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/volume/util"
 	"k8s.io/legacy-cloud-providers/azure"
+	"k8s.io/legacy-cloud-providers/azure/clients/fileclient"
+	"k8s.io/legacy-cloud-providers/azure/retry"
 	"k8s.io/utils/mount"
 
 	csicommon "sigs.k8s.io/azurefile-csi-driver/pkg/csi-common"
@@ -114,8 +116,9 @@ var (
 // Driver implements all interfaces of CSI drivers
 type Driver struct {
 	csicommon.CSIDriver
-	cloud   *azure.Cloud
-	mounter *mount.SafeFormatAndMount
+	cloud      *azure.Cloud
+	fileClient *azureFileClient
+	mounter    *mount.SafeFormatAndMount
 	// lock per volume attach (only for vhd disk feature)
 	volLockMap *lockMap
 }
@@ -144,6 +147,8 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 		klog.Fatalf("failed to get Azure Cloud Provider, error: %v", err)
 	}
 	d.cloud = cloud
+	// todo: set backoff from cloud provider config
+	d.fileClient = newAzureFileClient(&cloud.Environment, &retry.Backoff{Steps: 1})
 
 	if d.NodeID == "" {
 		// Disable UseInstanceMetadata for controller to mitigate a timeout issue using IMDS
@@ -185,7 +190,31 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 	s.Wait()
 }
 
-func (d *Driver) checkFileShareCapacity(resourceGroupName, accountName, fileShareName string, requestGiB int) error {
+// checkFileShareCapacity return nil only if file share does not exist or capacity is the same
+func (d *Driver) checkFileShareCapacity(resourceGroupName, accountName, fileShareName string, requestGiB int, secrets map[string]string) error {
+	if len(secrets) > 0 {
+		accountName, accountKey, err := getStorageAccount(secrets)
+		if err != nil {
+			return err
+		}
+		fileClient, err := d.fileClient.getFileSvcClient(accountName, accountKey)
+		if err != nil {
+			return err
+		}
+		share := fileClient.GetShareReference(fileShareName)
+		exists, err := share.Exists()
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return nil
+		}
+		if share.Properties.Quota != requestGiB {
+			return status.Errorf(codes.AlreadyExists, "the request volume already exists, but its capacity(%v) is different from (%v)", share.Properties.Quota, requestGiB)
+		}
+		return nil
+	}
+
 	exists, fileshare, err := d.checkFileShareExists(accountName, resourceGroupName, fileShareName)
 	if err != nil {
 		return status.Errorf(codes.Internal, "failed to check file share(%s) if exists: %v", fileShareName, err)
@@ -292,6 +321,7 @@ func getStorageAccount(secrets map[string]string) (string, string, error) {
 		return "", "", fmt.Errorf("could not find accountkey or azurestorageaccountkey field in secrets(%v)", secrets)
 	}
 
+	klog.V(4).Infof("got storage account(%s) from secret", accountName)
 	return accountName, accountKey, nil
 }
 
@@ -392,7 +422,6 @@ func createDisk(ctx context.Context, accountName, accountKey, storageEndpointSuf
 
 func IsCorruptedDir(dir string) bool {
 	_, pathErr := mount.PathExists(dir)
-	fmt.Printf("IsCorruptedDir(%s) returned with error: %v", dir, pathErr)
 	return pathErr != nil && mount.IsCorruptedMnt(pathErr)
 }
 
@@ -430,6 +459,18 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 			}
 		}
 		accountName, accountKey, err = getStorageAccount(secrets)
+		// if volumeID is valid, get info from volumeID, ignore volumeID parsing error
+		if rg, _, fileShare, disk, err := GetFileShareInfo(volumeID); err == nil {
+			if rg != "" && rgName == "" {
+				rgName = rg
+			}
+			if fileShare != "" && fileShareName == "" {
+				fileShareName = fileShare
+			}
+			if disk != "" && diskName == "" {
+				diskName = disk
+			}
+		}
 	}
 
 	return rgName, accountName, accountKey, fileShareName, diskName, err
@@ -445,4 +486,42 @@ func isSupportedProtocol(protocol string) bool {
 		}
 	}
 	return false
+}
+
+// CreateFileShare creates a file share, using a matching storage account type, account kind, etc.
+// storage account will be created if specified account is not found
+func (d *Driver) CreateFileShare(accountOptions *azure.AccountOptions, shareOptions *fileclient.ShareOptions, secrets map[string]string) (string, string, error) {
+	if len(secrets) > 0 {
+		accountName, accountKey, err := getStorageAccount(secrets)
+		if err != nil {
+			return accountName, accountKey, err
+		}
+		err = d.fileClient.CreateFileShare(accountName, accountKey, shareOptions)
+		return accountName, accountKey, err
+	}
+	return d.cloud.CreateFileShare(accountOptions, shareOptions)
+}
+
+// DeleteFileShare deletes a file share using storage account name and key
+func (d *Driver) DeleteFileShare(resourceGroup, accountName, shareName string, secrets map[string]string) error {
+	if len(secrets) > 0 {
+		accountName, accountKey, err := getStorageAccount(secrets)
+		if err != nil {
+			return err
+		}
+		return d.fileClient.deleteFileShare(accountName, accountKey, shareName)
+	}
+	return d.cloud.DeleteFileShare(resourceGroup, accountName, shareName)
+}
+
+// ResizeFileShare resizes a file share
+func (d *Driver) ResizeFileShare(resourceGroup, accountName, shareName string, sizeGiB int, secrets map[string]string) error {
+	if len(secrets) > 0 {
+		accountName, accountKey, err := getStorageAccount(secrets)
+		if err != nil {
+			return err
+		}
+		return d.fileClient.resizeFileShare(accountName, accountKey, shareName, sizeGiB)
+	}
+	return d.cloud.ResizeFileShare(resourceGroup, accountName, shareName, sizeGiB)
 }
