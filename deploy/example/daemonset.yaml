@@ -1,0 +1,43 @@
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: pvc-azurefile
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: azurefile-csi
+---
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: azurefile-ds
+spec:
+  selector:
+    matchLabels:
+      app: azurefile-ds
+  template:
+    metadata:
+      labels:
+        app: azurefile-ds
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+        - name: nginx
+          image: nginx
+          command:
+            - "/bin/sh"
+            - "-c"
+            - while true; do echo $(date) >> /mnt/azurefile/outfile; sleep 1; done
+          volumeMounts:
+            - name: azurefile
+              mountPath: "/mnt/azurefile"
+              readOnly: false
+      volumes:
+        - name: azurefile
+          persistentVolumeClaim:
+            claimName: pvc-azurefile
