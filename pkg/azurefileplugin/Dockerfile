@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM us.gcr.io/k8s-artifacts-prod/build-image/debian-base-amd64:v2.1.0
+FROM k8s.gcr.io/build-image/debian-base-amd64:v2.1.3
 COPY ./_output/azurefileplugin /azurefileplugin
 RUN clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs
 # this is a workaround to install nfs-common and don't quit with error
