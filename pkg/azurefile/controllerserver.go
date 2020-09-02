@@ -176,7 +176,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Errorf(codes.Internal, "failed to ensure storage account: %v", err)
 	}
 
-	if err := d.checkFileShareCapacity(resourceGroup, retAccount, validFileShareName, fileShareSize); err != nil {
+	if err := d.checkFileShareCapacity(resourceGroup, retAccount, validFileShareName, fileShareSize, req.GetSecrets()); err != nil {
 		return nil, err
 	}
 
@@ -192,7 +192,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	defer d.volLockMap.UnlockEntry(lockKey)
 	err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 		var retErr error
-		retAccount, retAccountKey, retErr = d.cloud.CreateFileShare(accountOptions, shareOptions)
+		retAccount, retAccountKey, retErr = d.CreateFileShare(accountOptions, shareOptions, req.GetSecrets())
 		if isRetriableError(retErr) {
 			klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), waiting for retring", validFileShareName, account, retErr)
 			return false, nil
@@ -227,7 +227,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		parameters[diskNameField] = diskName
 	}
 
-	if storeAccountKey != storeAccountKeyFalse {
+	if storeAccountKey != storeAccountKeyFalse && len(req.GetSecrets()) == 0 {
 		secretName, err := setAzureCredentials(d.cloud.KubeClient, retAccount, retAccountKey, secretNamespace)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to store storage account key: %v", err)
@@ -265,7 +265,7 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 		return &csi.DeleteVolumeResponse{}, nil
 	}
 
-	if err := d.cloud.DeleteFileShare(resourceGroupName, accountName, fileShareName); err != nil {
+	if err := d.DeleteFileShare(resourceGroupName, accountName, fileShareName, req.GetSecrets()); err != nil {
 		return nil, status.Errorf(codes.Internal, "DeleteFileShare %s under account(%s) rg(%s) failed with error: %v", fileShareName, accountName, resourceGroupName, err)
 	}
 	klog.V(2).Infof("azure file(%s) under rg(%s) account(%s) volume(%s) is deleted successfully", fileShareName, resourceGroupName, accountName, volumeID)
@@ -578,7 +578,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 		return nil, status.Error(codes.Unimplemented, fmt.Sprintf("vhd disk volume(%s) is not supported on ControllerExpandVolume", volumeID))
 	}
 
-	if err = d.cloud.ResizeFileShare(resourceGroupName, accountName, fileShareName, int(requestGiB)); err != nil {
+	if err = d.ResizeFileShare(resourceGroupName, accountName, fileShareName, int(requestGiB), req.GetSecrets()); err != nil {
 		return nil, status.Errorf(codes.Internal, "expand volume error: %v", err)
 	}
 
