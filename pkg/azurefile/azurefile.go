@@ -191,41 +191,41 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 }
 
 // checkFileShareCapacity return nil only if file share does not exist or capacity is the same
-func (d *Driver) checkFileShareCapacity(resourceGroupName, accountName, fileShareName string, requestGiB int, secrets map[string]string) error {
+func (d *Driver) checkFileShareCapacity(resourceGroupName, accountName, fileShareName string, requestGiB int, secrets map[string]string) (string, error) {
 	if len(secrets) > 0 {
 		accountName, accountKey, err := getStorageAccount(secrets)
 		if err != nil {
-			return err
+			return accountName, err
 		}
 		fileClient, err := d.fileClient.getFileSvcClient(accountName, accountKey)
 		if err != nil {
-			return err
+			return accountName, err
 		}
 		share := fileClient.GetShareReference(fileShareName)
 		exists, err := share.Exists()
 		if err != nil {
-			return err
+			return accountName, err
 		}
 		if !exists {
-			return nil
+			return accountName, nil
 		}
 		if share.Properties.Quota != requestGiB {
-			return status.Errorf(codes.AlreadyExists, "the request volume already exists, but its capacity(%v) is different from (%v)", share.Properties.Quota, requestGiB)
+			return accountName, status.Errorf(codes.AlreadyExists, "the request volume already exists, but its capacity(%v) is different from (%v)", share.Properties.Quota, requestGiB)
 		}
-		return nil
+		return accountName, nil
 	}
 
 	exists, fileshare, err := d.checkFileShareExists(accountName, resourceGroupName, fileShareName)
 	if err != nil {
-		return status.Errorf(codes.Internal, "failed to check file share(%s) if exists: %v", fileShareName, err)
+		return accountName, status.Errorf(codes.Internal, "failed to check file share(%s) if exists: %v", fileShareName, err)
 	} else if !exists {
-		return nil
+		return accountName, nil
 	}
 	if fileshare.FileShareProperties.ShareQuota != nil && int(*fileshare.FileShareProperties.ShareQuota) != requestGiB {
-		return status.Errorf(codes.AlreadyExists, "the request volume already exists, but its capacity(%v) is different from (%v)", int(*fileshare.FileShareProperties.ShareQuota), requestGiB)
+		return accountName, status.Errorf(codes.AlreadyExists, "the request volume already exists, but its capacity(%v) is different from (%v)", int(*fileshare.FileShareProperties.ShareQuota), requestGiB)
 	}
 
-	return nil
+	return accountName, nil
 }
 
 func (d *Driver) checkFileShareExists(accountName, resourceGroup, fileShareName string) (bool, storage.FileShare, error) {
