@@ -9,3 +9,4 @@ parameters:
   protocol: nfs  # use "fsType: nfs" in v0.8.0
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
+allowVolumeExpansion: true
