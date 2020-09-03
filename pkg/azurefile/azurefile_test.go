@@ -673,9 +673,12 @@ func TestCheckFileShareCapacity(t *testing.T) {
 		mockFileClient := mockfileclient.NewMockInterface(ctrl)
 		d.cloud.FileClient = mockFileClient
 		mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
-		err := d.checkFileShareCapacity(resourceGroupName, accountName, fileShareName, requestGiB, map[string]string{})
+		retAccountName, err := d.checkFileShareCapacity(resourceGroupName, accountName, fileShareName, requestGiB, map[string]string{})
 		if !reflect.DeepEqual(err, test.expectedError) {
 			t.Errorf("Unexpected error: %v", err)
+		}
+		if retAccountName != accountName {
+			t.Errorf("Unexpected return account name: %s, expected: %s", retAccountName, accountName)
 		}
 	}
 }

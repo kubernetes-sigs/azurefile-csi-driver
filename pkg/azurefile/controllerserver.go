@@ -162,21 +162,22 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	var retAccount, retAccountKey string
-	err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
-		var retErr error
-		retAccount, retAccountKey, retErr = d.cloud.EnsureStorageAccount(accountOptions, fileShareAccountNamePrefix)
-		if isRetriableError(retErr) {
-			klog.Warningf("EnsureStorageAccount(%s) failed with error(%v), waiting for retring", account, retErr)
-			return false, nil
+	if len(req.GetSecrets()) == 0 { // check whether account is provided by secret
+		err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
+			var retErr error
+			retAccount, retAccountKey, retErr = d.cloud.EnsureStorageAccount(accountOptions, fileShareAccountNamePrefix)
+			if isRetriableError(retErr) {
+				klog.Warningf("EnsureStorageAccount(%s) failed with error(%v), waiting for retring", account, retErr)
+				return false, nil
+			}
+			return true, retErr
+		})
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to ensure storage account: %v", err)
 		}
-		return true, retErr
-	})
-
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to ensure storage account: %v", err)
 	}
 
-	if err := d.checkFileShareCapacity(resourceGroup, retAccount, validFileShareName, fileShareSize, req.GetSecrets()); err != nil {
+	if retAccount, err = d.checkFileShareCapacity(resourceGroup, retAccount, validFileShareName, fileShareSize, req.GetSecrets()); err != nil {
 		return nil, err
 	}
 
