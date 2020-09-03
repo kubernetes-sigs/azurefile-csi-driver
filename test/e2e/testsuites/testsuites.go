@@ -302,6 +302,9 @@ func (t *TestPersistentVolumeClaim) DeleteBackingVolume(azfile *azurefile.Driver
 // Related issue: https://github.com/kubernetes/kubernetes/issues/69697
 func (t *TestPersistentVolumeClaim) removeFinalizers() {
 	pv, err := t.client.CoreV1().PersistentVolumes().Get(context.TODO(), t.persistentVolume.Name, metav1.GetOptions{})
+	if err != nil && strings.Contains(err.Error(), "not found") {
+		return
+	}
 	framework.ExpectNoError(err)
 
 	pvClone := pv.DeepCopy()

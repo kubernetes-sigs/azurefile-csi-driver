@@ -34,14 +34,15 @@ import (
 )
 
 type Client struct {
-	environment    azure.Environment
-	subscriptionID string
-	groupsClient   resources.GroupsClient
-	vmClient       compute.VirtualMachinesClient
-	nicClient      network.InterfacesClient
-	subnetsClient  network.SubnetsClient
-	vnetClient     network.VirtualNetworksClient
-	accountsClient storage.AccountsClient
+	environment      azure.Environment
+	subscriptionID   string
+	groupsClient     resources.GroupsClient
+	vmClient         compute.VirtualMachinesClient
+	nicClient        network.InterfacesClient
+	subnetsClient    network.SubnetsClient
+	vnetClient       network.VirtualNetworksClient
+	accountsClient   storage.AccountsClient
+	filesharesClient storage.FileSharesClient
 }
 
 func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret string) (*Client, error) {
@@ -61,6 +62,11 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret stri
 	}
 
 	return getClient(env, subscriptionID, tenantID, armSpt), nil
+}
+
+func (az *Client) GetAzureFilesClient() (storage.FileSharesClient, error) {
+
+	return az.filesharesClient, nil
 }
 
 func (az *Client) EnsureResourceGroup(ctx context.Context, name, location string, managedBy *string) (resourceGroup *resources.Group, err error) {
@@ -258,14 +264,15 @@ func getOAuthConfig(env azure.Environment, subscriptionID, tenantID string) (*ad
 
 func getClient(env azure.Environment, subscriptionID, tenantID string, armSpt *adal.ServicePrincipalToken) *Client {
 	c := &Client{
-		environment:    env,
-		subscriptionID: subscriptionID,
-		groupsClient:   resources.NewGroupsClientWithBaseURI(env.ResourceManagerEndpoint, subscriptionID),
-		vmClient:       compute.NewVirtualMachinesClient(subscriptionID),
-		nicClient:      network.NewInterfacesClient(subscriptionID),
-		subnetsClient:  network.NewSubnetsClient(subscriptionID),
-		vnetClient:     network.NewVirtualNetworksClient(subscriptionID),
-		accountsClient: storage.NewAccountsClient(subscriptionID),
+		environment:      env,
+		subscriptionID:   subscriptionID,
+		groupsClient:     resources.NewGroupsClientWithBaseURI(env.ResourceManagerEndpoint, subscriptionID),
+		vmClient:         compute.NewVirtualMachinesClient(subscriptionID),
+		nicClient:        network.NewInterfacesClient(subscriptionID),
+		subnetsClient:    network.NewSubnetsClient(subscriptionID),
+		vnetClient:       network.NewVirtualNetworksClient(subscriptionID),
+		accountsClient:   storage.NewAccountsClient(subscriptionID),
+		filesharesClient: storage.NewFileSharesClient(subscriptionID),
 	}
 
 	authorizer := autorest.NewBearerAuthorizer(armSpt)
@@ -275,6 +282,7 @@ func getClient(env azure.Environment, subscriptionID, tenantID string, armSpt *a
 	c.subnetsClient.Authorizer = authorizer
 	c.vnetClient.Authorizer = authorizer
 	c.accountsClient.Authorizer = authorizer
+	c.filesharesClient.Authorizer = authorizer
 
 	return c
 }
