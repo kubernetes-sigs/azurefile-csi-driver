@@ -65,6 +65,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `image.nodeDriverRegistrar.repository`            | csi-node-driver-registrar docker image                     | mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar    |
 | `image.nodeDriverRegistrar.tag`                   | csi-node-driver-registrar docker image tag                 | v1.2.0                                                            |
 | `image.nodeDriverRegistrar.pullPolicy`            | csi-node-driver-registrar image pull policy                | IfNotPresent                                                      |
+| `imagePullSecrets`                                | Specify docker-registry secret names as an array           | [] (does not add image pull secrets to deployed pods)             | 
 | `serviceAccount.create`                           | whether create service account of csi-azurefile-controller  | true                                                              |
 | `rbac.create`                                     | whether create rbac of csi-azurefile-controller             | true                                                              |
 | `controller.replicas`                             | the replicas of csi-azurefile-controller                    | 2                                                                 |
