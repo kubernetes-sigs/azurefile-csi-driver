@@ -9,3 +9,13 @@ labels:
   chart: "{{ .Chart.Name }}"
   chartVersion: "{{ .Chart.Version }}"
 {{- end -}}
+
+{{/* pull secrets for containers */}}
+{{- define "azurefile.pullSecrets" -}}
+{{- if .Values.imagePullSecrets }}
+imagePullSecrets:
+{{- range .Values.imagePullSecrets }}
+  - name: {{ . }}
+{{- end }}
+{{- end }}
+{{- end -}}

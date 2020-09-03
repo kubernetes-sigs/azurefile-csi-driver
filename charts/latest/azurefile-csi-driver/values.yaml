@@ -23,6 +23,9 @@ image:
     repository: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar
     tag: v1.2.0
     pullPolicy: IfNotPresent
+## Name of secrets (present in namespace) containing Docker credentials used to pull images
+# imagePullSecrets:
+#   - myRegistryKeySecretName
 
 serviceAccount:
   create: true
