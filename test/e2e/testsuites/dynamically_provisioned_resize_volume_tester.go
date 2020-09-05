@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/onsi/ginkgo"
@@ -97,7 +98,7 @@ func (t *DynamicallyProvisionedResizeVolumeTest) Run(client clientset.Interface,
 		newPvSize := newPv.Spec.Capacity["storage"]
 		newPvSizeStr := newPvSize.String() + "Gi"
 
-		if !(newSize.String() == newPvSizeStr) {
+		if !strings.Contains(newPvSizeStr, newSize.String()) {
 			framework.Failf("newPVCSize(%+v) is not equal to newPVSize(%+v)", newSize.String(), newPvSizeStr)
 		}
 
