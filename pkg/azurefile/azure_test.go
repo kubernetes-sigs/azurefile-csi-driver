@@ -24,9 +24,16 @@ import (
 	"testing"
 )
 
+func skipTestIfWindows(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test on Windows")
+	}
+}
+
 // TestGetCloudProvider tests the func GetCloudProvider().
 // To run this unit test successfully, need to ensure /etc/kubernetes/azure.json nonexistent.
 func TestGetCloudProvider(t *testing.T) {
+	skipTestIfWindows(t)
 	fakeCredFile := "fake-cred-file.json"
 	fakeKubeConfig := "fake-kube-config"
 	emptyKubeConfig := "empty-kube-config"
