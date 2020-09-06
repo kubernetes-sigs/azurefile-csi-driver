@@ -78,6 +78,7 @@ func TestNodeGetCapabilities(t *testing.T) {
 }
 
 func TestNodePublishVolume(t *testing.T) {
+	skipIfTestingOnWindows(t)
 	volumeCap := csi.VolumeCapability_AccessMode{Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER}
 	errorMountSource := "./error_mount_source"
 	alreadyMountedTarget := "./false_is_likely_exist_target"
@@ -183,6 +184,7 @@ func TestNodePublishVolume(t *testing.T) {
 }
 
 func TestNodeUnpublishVolume(t *testing.T) {
+	skipIfTestingOnWindows(t)
 	errorTarget := "./error_is_likely_target"
 	targetFile := "./abc.go"
 
@@ -421,6 +423,7 @@ func TestNodeStageVolume(t *testing.T) {
 }
 
 func TestNodeUnstageVolume(t *testing.T) {
+	skipIfTestingOnWindows(t)
 	errorTarget := "./error_is_likely_target"
 	targetFile := "./abc.go"
 
