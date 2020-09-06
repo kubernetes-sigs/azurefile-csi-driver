@@ -177,8 +177,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
-	if retAccount, err = d.checkFileShareCapacity(resourceGroup, retAccount, validFileShareName, fileShareSize, req.GetSecrets()); err != nil {
-		return nil, err
+	if quota, err := d.getFileShareQuota(resourceGroup, retAccount, validFileShareName, req.GetSecrets()); err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	} else if quota != -1 && quota != fileShareSize {
+		return nil, status.Errorf(codes.AlreadyExists, "request file share(%s) already exists, but its capacity(%v) is different from (%v)", validFileShareName, quota, fileShareSize)
 	}
 
 	shareOptions := &fileclient.ShareOptions{
@@ -298,9 +300,10 @@ func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.Valida
 	if resourceGroupName == "" {
 		resourceGroupName = d.cloud.ResourceGroup
 	}
-	if exists, _, err := d.checkFileShareExists(accountName, resourceGroupName, fileShareName); err != nil {
-		return nil, status.Errorf(codes.NotFound, "error checking if volume(%s) exists: %v", volumeID, err)
-	} else if !exists {
+
+	if quota, err := d.getFileShareQuota(resourceGroupName, accountName, fileShareName, req.GetSecrets()); err != nil {
+		return nil, status.Errorf(codes.Internal, "error checking if volume(%s) exists: %v", volumeID, err)
+	} else if quota == -1 {
 		return nil, status.Errorf(codes.NotFound, "the requested volume(%s) does not exist.", volumeID)
 	}
 

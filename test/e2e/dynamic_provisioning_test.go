@@ -263,7 +263,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 	ginkgo.It("should create a volume on demand and resize it [kubernetes.io/azure-file] [file.csi.azure.com] [Windows]", func() {
 		// todo: re-enable resize test for in-tree driver
-		skipIfUsingInTreeVolumePlugin()		
+		skipIfUsingInTreeVolumePlugin()
 		pods := []testsuites.PodDetails{
 			{
 				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),

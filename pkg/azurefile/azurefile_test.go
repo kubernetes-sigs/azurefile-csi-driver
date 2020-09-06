@@ -31,8 +31,6 @@ import (
 	azure2 "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/legacy-cloud-providers/azure"
 	"k8s.io/legacy-cloud-providers/azure/clients/fileclient/mockfileclient"
@@ -626,64 +624,7 @@ func TestCreateDisk(t *testing.T) {
 	}
 }
 
-func TestCheckFileShareCapacity(t *testing.T) {
-	d := NewFakeDriver()
-	d.cloud = &azure.Cloud{}
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	shareQuota := int32(10)
-	resourceGroupName := "rg"
-	accountName := "accountname"
-	fileShareName := "filesharename"
-	requestGiB := 0
-
-	tests := []struct {
-		desc                string
-		mockedFileShareResp storage.FileShare
-		mockedFileShareErr  error
-		expectedError       error
-	}{
-		{
-			desc:                "Get file share return error",
-			mockedFileShareResp: storage.FileShare{},
-			mockedFileShareErr:  fmt.Errorf("test error"),
-			expectedError:       status.Errorf(codes.Internal, "failed to check file share(filesharename) if exists: failed to get file share(filesharename) under rg(rg) account(accountname): test error"),
-		},
-		{
-			desc:                "Share not found",
-			mockedFileShareResp: storage.FileShare{},
-			mockedFileShareErr:  fmt.Errorf("ShareNotFound"),
-			expectedError:       nil,
-		},
-		{
-			desc:                "Volume already exists",
-			mockedFileShareResp: storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &shareQuota}},
-			mockedFileShareErr:  nil,
-			expectedError:       status.Errorf(codes.AlreadyExists, "the request volume already exists, but its capacity(10) is different from (0)"),
-		},
-		{
-			desc:                "Valid request",
-			mockedFileShareResp: storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: nil}},
-			mockedFileShareErr:  nil,
-			expectedError:       nil,
-		},
-	}
-
-	for _, test := range tests {
-		mockFileClient := mockfileclient.NewMockInterface(ctrl)
-		d.cloud.FileClient = mockFileClient
-		mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
-		retAccountName, err := d.checkFileShareCapacity(resourceGroupName, accountName, fileShareName, requestGiB, map[string]string{})
-		if !reflect.DeepEqual(err, test.expectedError) {
-			t.Errorf("Unexpected error: %v", err)
-		}
-		if retAccountName != accountName {
-			t.Errorf("Unexpected return account name: %s, expected: %s", retAccountName, accountName)
-		}
-	}
-}
-
-func TestCheckFileShareExists(t *testing.T) {
+func TestGetFileShareQuota(t *testing.T) {
 	d := NewFakeDriver()
 	d.cloud = &azure.Cloud{}
 	ctrl := gomock.NewController(t)
@@ -697,24 +638,28 @@ func TestCheckFileShareExists(t *testing.T) {
 		desc                string
 		mockedFileShareResp storage.FileShare
 		mockedFileShareErr  error
+		expectedQuota       int
 		expectedError       error
 	}{
 		{
 			desc:                "Get file share return error",
 			mockedFileShareResp: storage.FileShare{},
 			mockedFileShareErr:  fmt.Errorf("test error"),
-			expectedError:       fmt.Errorf("failed to get file share(filesharename) under rg(accountname) account(rg): test error"),
+			expectedQuota:       -1,
+			expectedError:       fmt.Errorf("test error"),
 		},
 		{
 			desc:                "Share not found",
 			mockedFileShareResp: storage.FileShare{},
 			mockedFileShareErr:  fmt.Errorf("ShareNotFound"),
+			expectedQuota:       -1,
 			expectedError:       nil,
 		},
 		{
 			desc:                "Volume already exists",
 			mockedFileShareResp: storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &shareQuota}},
 			mockedFileShareErr:  nil,
+			expectedQuota:       int(shareQuota),
 			expectedError:       nil,
 		},
 	}
@@ -723,9 +668,12 @@ func TestCheckFileShareExists(t *testing.T) {
 		mockFileClient := mockfileclient.NewMockInterface(ctrl)
 		d.cloud.FileClient = mockFileClient
 		mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
-		_, _, err := d.checkFileShareExists(resourceGroupName, accountName, fileShareName)
+		quota, err := d.getFileShareQuota(resourceGroupName, accountName, fileShareName, map[string]string{})
 		if !reflect.DeepEqual(err, test.expectedError) {
-			t.Errorf("Unexpected error: %v", err)
+			t.Errorf("test name: %s, Unexpected error: %v, expected error: %v", test.desc, err, test.expectedError)
+		}
+		if quota != test.expectedQuota {
+			t.Errorf("Unexpected return quota: %d, expected: %d", quota, test.expectedQuota)
 		}
 	}
 }

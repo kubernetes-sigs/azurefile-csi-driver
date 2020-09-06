@@ -55,10 +55,11 @@ func TestCreateVolume(t *testing.T) {
 			},
 		},
 	}
+	fakeShareQuota := int32(100)
 	stdVolSize := int64(5 * 1024 * 1024 * 1024)
 	stdCapRange := &csi.CapacityRange{RequiredBytes: stdVolSize}
 	zeroCapRange := &csi.CapacityRange{RequiredBytes: int64(0)}
-	lessThanPremCapRange := &csi.CapacityRange{RequiredBytes: int64(1 * 1024 * 1024 * 1024)}
+	lessThanPremCapRange := &csi.CapacityRange{RequiredBytes: int64(fakeShareQuota * 1024 * 1024 * 1024)}
 
 	testCases := []struct {
 		name     string
@@ -68,7 +69,7 @@ func TestCreateVolume(t *testing.T) {
 			name: "Controller Capability missing",
 			testFunc: func(t *testing.T) {
 				req := &csi.CreateVolumeRequest{
-					Name:               "random-vol-name",
+					Name:               "random-vol-name-cap-missing",
 					CapacityRange:      stdCapRange,
 					VolumeCapabilities: stdVolCap,
 					Parameters:         nil,
@@ -112,7 +113,7 @@ func TestCreateVolume(t *testing.T) {
 			name: "Volume capabilities missing",
 			testFunc: func(t *testing.T) {
 				req := &csi.CreateVolumeRequest{
-					Name:          "random-vol-name",
+					Name:          "random-vol-name-vol-cap-missing",
 					CapacityRange: stdCapRange,
 					Parameters:    nil,
 				}
@@ -162,7 +163,7 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				req := &csi.CreateVolumeRequest{
-					Name:               "random-vol-name",
+					Name:               "random-vol-name-no-valid-key",
 					VolumeCapabilities: stdVolCap,
 					CapacityRange:      zeroCapRange,
 					Parameters:         allParam,
@@ -231,7 +232,7 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				req := &csi.CreateVolumeRequest{
-					Name:               "random-vol-name",
+					Name:               "random-vol-name-no-valid-key-check-all-params",
 					VolumeCapabilities: stdVolCap,
 					CapacityRange:      lessThanPremCapRange,
 					Parameters:         allParam,
@@ -286,7 +287,7 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				req := &csi.CreateVolumeRequest{
-					Name:               "random-vol-name",
+					Name:               "random-vol-name-get-file-error",
 					VolumeCapabilities: stdVolCap,
 					CapacityRange:      stdCapRange,
 					Parameters:         nil,
@@ -316,11 +317,11 @@ func TestCreateVolume(t *testing.T) {
 					})
 
 				ctx := context.Background()
-				expectedErr := status.Errorf(codes.Internal, "failed to check file share(random-vol-name) if exists: failed to get file share(random-vol-name) under rg() account(baz): test error")
+				expectedErr := status.Errorf(codes.Internal, "test error")
 
 				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectedErr) {
-					t.Errorf("Unexpected error: %v", err)
+					t.Errorf("test name: %s, Unexpected error: %v, expected error: %v", name, err, expectedErr)
 				}
 			},
 		},
@@ -356,7 +357,7 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				req := &csi.CreateVolumeRequest{
-					Name:               "random-vol-name",
+					Name:               "random-vol-name-crete-file-error",
 					VolumeCapabilities: stdVolCap,
 					CapacityRange:      lessThanPremCapRange,
 					Parameters:         allParam,
@@ -378,11 +379,6 @@ func TestCreateVolume(t *testing.T) {
 					Steps: 6,
 				}
 
-				mockFileClient.EXPECT().CreateFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf(accountNotProvisioned)).Times(1)
-				mockFileClient.EXPECT().CreateFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf(tooManyRequests)).Times(1)
-				mockFileClient.EXPECT().CreateFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf(shareNotFound)).Times(1)
-				mockFileClient.EXPECT().CreateFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf(shareBeingDeleted)).Times(1)
-				mockFileClient.EXPECT().CreateFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("test error")).Times(1)
 				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
@@ -395,10 +391,11 @@ func TestCreateVolume(t *testing.T) {
 
 				ctx := context.Background()
 
-				expectedErr := fmt.Errorf("error: failed to create share random-vol-name in account stoacc: test error")
+				expectedErr := status.Errorf(codes.Internal, "FileShareProperties or FileShareProperties.ShareQuota is nil")
+
 				_, err := d.CreateVolume(ctx, req)
-				if !strings.Contains(err.Error(), expectedErr.Error()) {
-					t.Errorf("Unexpected error: %v", err)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("test name: %s, Unexpected error: %v, expected error: %v", name, err, expectedErr)
 				}
 			},
 		},
@@ -434,7 +431,7 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				req := &csi.CreateVolumeRequest{
-					Name:               "random-vol-name",
+					Name:               "random-vol-name-namespace-not-match",
 					VolumeCapabilities: stdVolCap,
 					CapacityRange:      lessThanPremCapRange,
 					Parameters:         allParam,
@@ -457,7 +454,7 @@ func TestCreateVolume(t *testing.T) {
 				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-				mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
+				mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
 
 				d.AddControllerServiceCapabilities(
 					[]csi.ControllerServiceCapability_RPC_Type{
@@ -503,7 +500,7 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				req := &csi.CreateVolumeRequest{
-					Name:               "random-vol-name",
+					Name:               "random-vol-name-create-disk-error",
 					VolumeCapabilities: stdVolCap,
 					CapacityRange:      lessThanPremCapRange,
 					Parameters:         allParam,
@@ -544,7 +541,7 @@ func TestCreateVolume(t *testing.T) {
 					mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
 					mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
 					mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-					mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
+					mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
 
 					d.AddControllerServiceCapabilities(
 						[]csi.ControllerServiceCapability_RPC_Type{
@@ -592,7 +589,7 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				req := &csi.CreateVolumeRequest{
-					Name:               "random-vol-name",
+					Name:               "random-vol-name-valid-request",
 					VolumeCapabilities: stdVolCap,
 					CapacityRange:      lessThanPremCapRange,
 					Parameters:         allParam,
@@ -615,7 +612,7 @@ func TestCreateVolume(t *testing.T) {
 				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-				mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
+				mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
 
 				d.AddControllerServiceCapabilities(
 					[]csi.ControllerServiceCapability_RPC_Type{
@@ -663,7 +660,7 @@ func TestDeleteVolume(t *testing.T) {
 			name: "Controller capability missing",
 			testFunc: func(t *testing.T) {
 				req := &csi.DeleteVolumeRequest{
-					VolumeId: "vol_1",
+					VolumeId: "vol_1-cap-missing",
 					Secrets:  map[string]string{},
 				}
 
@@ -828,6 +825,7 @@ func TestValidateVolumeCapabilities(t *testing.T) {
 			},
 		},
 	}
+	fakeShareQuota := int32(100)
 
 	tests := []struct {
 		desc               string
@@ -862,7 +860,7 @@ func TestValidateVolumeCapabilities(t *testing.T) {
 				VolumeId:           "vol_1#f5713de20cde511e8ba4900#fileshare#",
 				VolumeCapabilities: stdVolCap,
 			},
-			expectedErr:        status.Errorf(codes.NotFound, "error checking if volume(vol_1#f5713de20cde511e8ba4900#fileshare#) exists: failed to get file share(fileshare) under rg(vol_1) account(f5713de20cde511e8ba4900): test error"),
+			expectedErr:        status.Errorf(codes.Internal, "error checking if volume(vol_1#f5713de20cde511e8ba4900#fileshare#) exists: test error"),
 			mockedFileShareErr: fmt.Errorf("test error"),
 		},
 		{
@@ -906,10 +904,6 @@ func TestValidateVolumeCapabilities(t *testing.T) {
 			req: csi.ValidateVolumeCapabilitiesRequest{
 				VolumeId:           "vol_1#f5713de20cde511e8ba4900#fileshare#diskname#",
 				VolumeCapabilities: stdVolCap,
-				Secrets: map[string]string{
-					"accountname":            "accountname",
-					"azurestorageaccountkey": "key",
-				},
 				VolumeContext: map[string]string{
 					shareNameField: "sharename",
 					diskNameField:  "diskname",
@@ -928,11 +922,11 @@ func TestValidateVolumeCapabilities(t *testing.T) {
 		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(key, nil).AnyTimes()
 		mockFileClient := mockfileclient.NewMockInterface(ctrl)
 		d.cloud.FileClient = mockFileClient
-		mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{}, test.mockedFileShareErr).AnyTimes()
+		mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, test.mockedFileShareErr).AnyTimes()
 
 		_, err := d.ValidateVolumeCapabilities(context.Background(), &test.req)
 		if !reflect.DeepEqual(err, test.expectedErr) {
-			t.Errorf("Unexpected error: %v", err)
+			t.Errorf("Unexpected error: %v, expected error: %v", err, test.expectedErr)
 		}
 	}
 }

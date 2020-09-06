@@ -24,15 +24,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2019-06-01/storage"
 	"github.com/Azure/azure-storage-file-go/azfile"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/pborman/uuid"
 	"github.com/rubiojr/go-vhd/vhd"
 
 	"golang.org/x/net/context"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
@@ -190,54 +187,40 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 	s.Wait()
 }
 
-// checkFileShareCapacity return nil only if file share does not exist or capacity is the same
-func (d *Driver) checkFileShareCapacity(resourceGroupName, accountName, fileShareName string, requestGiB int, secrets map[string]string) (string, error) {
+// getFileShareQuota return (-1, nil) means file share does not exist
+func (d *Driver) getFileShareQuota(resourceGroupName, accountName, fileShareName string, secrets map[string]string) (int, error) {
 	if len(secrets) > 0 {
 		accountName, accountKey, err := getStorageAccount(secrets)
 		if err != nil {
-			return accountName, err
+			return -1, err
 		}
 		fileClient, err := d.fileClient.getFileSvcClient(accountName, accountKey)
 		if err != nil {
-			return accountName, err
+			return -1, err
 		}
 		share := fileClient.GetShareReference(fileShareName)
 		exists, err := share.Exists()
 		if err != nil {
-			return accountName, err
+			return -1, err
 		}
 		if !exists {
-			return accountName, nil
+			return -1, nil
 		}
-		if share.Properties.Quota != requestGiB {
-			return accountName, status.Errorf(codes.AlreadyExists, "the request volume already exists, but its capacity(%v) is different from (%v)", share.Properties.Quota, requestGiB)
-		}
-		return accountName, nil
+		return share.Properties.Quota, nil
 	}
 
-	exists, fileshare, err := d.checkFileShareExists(accountName, resourceGroupName, fileShareName)
-	if err != nil {
-		return accountName, status.Errorf(codes.Internal, "failed to check file share(%s) if exists: %v", fileShareName, err)
-	} else if !exists {
-		return accountName, nil
-	}
-	if fileshare.FileShareProperties.ShareQuota != nil && int(*fileshare.FileShareProperties.ShareQuota) != requestGiB {
-		return accountName, status.Errorf(codes.AlreadyExists, "the request volume already exists, but its capacity(%v) is different from (%v)", int(*fileshare.FileShareProperties.ShareQuota), requestGiB)
-	}
-
-	return accountName, nil
-}
-
-func (d *Driver) checkFileShareExists(accountName, resourceGroup, fileShareName string) (bool, storage.FileShare, error) {
-	fileShare, err := d.cloud.GetFileShare(resourceGroup, accountName, fileShareName)
+	fileShare, err := d.cloud.GetFileShare(resourceGroupName, accountName, fileShareName)
 	if err != nil {
 		if strings.Contains(err.Error(), "ShareNotFound") {
-			return false, storage.FileShare{}, nil
+			return -1, nil
 		}
-		return false, storage.FileShare{}, fmt.Errorf("failed to get file share(%s) under rg(%s) account(%s): %v", fileShareName, resourceGroup, accountName, err)
+		return -1, err
 	}
 
-	return true, fileShare, nil
+	if fileShare.FileShareProperties == nil || fileShare.FileShareProperties.ShareQuota == nil {
+		return -1, fmt.Errorf("FileShareProperties or FileShareProperties.ShareQuota is nil")
+	}
+	return int(*fileShare.FileShareProperties.ShareQuota), nil
 }
 
 // get file share info according to volume id, e.g.
