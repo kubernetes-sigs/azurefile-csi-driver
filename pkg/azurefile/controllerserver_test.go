@@ -473,6 +473,7 @@ func TestCreateVolume(t *testing.T) {
 		{
 			name: "Create disk returns error",
 			testFunc: func(t *testing.T) {
+				skipIfTestingOnWindows(t)
 				name := "baz"
 				sku := "sku"
 				kind := "StorageV2"
