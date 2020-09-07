@@ -44,8 +44,8 @@ The following table lists the configurable parameters of the latest Azure File C
 
 | Parameter                                         | Description                                                | Default                                                           |
 |---------------------------------------------------|------------------------------------------------------------|-------------------------------------------------------------------|
-| `image.azurefile.repository`                       | azurefile-csi-driver docker image                           | mcr.microsoft.com/k8s/csi/azurefile-csi                            |
-| `image.azurefile.tag`                              | azurefile-csi-driver docker image tag                       | latest                                                            |
+| `image.azurefile.repository`                       | azurefile-csi-driver docker image                           | mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi                            |
+| `image.azurefile.tag`                              | azurefile-csi-driver docker image tag                       | master                                                            |
 | `image.azurefile.pullPolicy`                       | azurefile-csi-driver image pull policy                      | IfNotPresent                                                      |
 | `image.csiProvisioner.repository`                 | csi-provisioner docker image                               | mcr.microsoft.com/oss/kubernetes-csi/csi-provisioner              |
 | `image.csiProvisioner.tag`                        | csi-provisioner docker image tag                           | v1.4.0                                                            |
