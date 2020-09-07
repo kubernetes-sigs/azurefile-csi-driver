@@ -238,6 +238,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 }
 
 func TestNodeStageVolume(t *testing.T) {
+	skipIfTestingOnWindows(t)
 	stdVolCap := csi.VolumeCapability{
 		AccessType: &csi.VolumeCapability_Mount{
 			Mount: &csi.VolumeCapability_MountVolume{},
