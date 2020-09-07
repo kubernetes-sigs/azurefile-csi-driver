@@ -590,6 +590,7 @@ func TestGetAccountInfo(t *testing.T) {
 }
 
 func TestCreateDisk(t *testing.T) {
+	skipIfTestingOnWindows(t)
 	d := NewFakeDriver()
 	d.cloud = &azure.Cloud{}
 	tests := []struct {
