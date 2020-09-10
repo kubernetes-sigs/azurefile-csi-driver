@@ -93,7 +93,6 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 				Volumes: []testsuites.VolumeDetails{
 					{
 						VolumeID:  volumeID,
-						FSType:    "ext4",
 						ClaimSize: diskSize,
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
@@ -106,6 +105,45 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 			},
 		}
 		test := testsuites.PreProvisionedReadOnlyVolumeTest{
+			CSIDriver: testDriver,
+			Pods:      pods,
+		}
+		test.Run(cs, ns)
+	})
+
+	ginkgo.It("should use a pre-provisioned volume and mount it by multiple pods [file.csi.azure.com] [Windows]", func() {
+		// Az tests are not yet working for in-tree
+		skipIfUsingInTreeVolumePlugin()
+
+		req := makeCreateVolumeReq("pre-provisioned-multiple-pods")
+		resp, err := azurefileDriver.CreateVolume(context.Background(), req)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
+		}
+		volumeID = resp.Volume.VolumeId
+		ginkgo.By(fmt.Sprintf("Successfully provisioned AzureFile volume: %q\n", volumeID))
+
+		diskSize := fmt.Sprintf("%dGi", defaultDiskSize)
+		pods := []testsuites.PodDetails{}
+		for i := 1; i <= 6; i++ {
+			pod := testsuites.PodDetails{
+				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
+				Volumes: []testsuites.VolumeDetails{
+					{
+						VolumeID:  volumeID,
+						ClaimSize: diskSize,
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+					},
+				},
+				IsWindows: isWindowsCluster,
+			}
+			pods = append(pods, pod)
+		}
+
+		test := testsuites.PreProvisionedMultiplePods{
 			CSIDriver: testDriver,
 			Pods:      pods,
 		}
@@ -129,7 +167,6 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 		volumes := []testsuites.VolumeDetails{
 			{
 				VolumeID:      volumeID,
-				FSType:        "ext4",
 				ClaimSize:     diskSize,
 				ReclaimPolicy: &reclaimPolicy,
 			},
