@@ -19,6 +19,7 @@ package testsuites
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -46,6 +47,16 @@ type DynamicallyProvisionedResizeVolumeTest struct {
 	CSIDriver              driver.DynamicPVTestDriver
 	Pods                   []PodDetails
 	StorageClassParameters map[string]string
+}
+
+var secretNameFormatRE = regexp.MustCompile(`azure-storage-account-(.+)-secret`)
+
+func getStorageAccountName(secretName string) (string, error) {
+	matches := secretNameFormatRE.FindStringSubmatch(secretName)
+	if len(matches) != 2 {
+		return "", fmt.Errorf("could not get account name from %s, correct format: %s", secretName, secretNameFormatRE)
+	}
+	return matches[1], nil
 }
 
 func (t *DynamicallyProvisionedResizeVolumeTest) Run(client clientset.Interface, namespace *v1.Namespace) {
@@ -117,8 +128,12 @@ func (t *DynamicallyProvisionedResizeVolumeTest) Run(client clientset.Interface,
 			framework.ExpectNoError(err, fmt.Sprintf("Error getting filesource for azurefile %v", err))
 		} else if newPv.Spec.PersistentVolumeSource.AzureFile != nil {
 			resourceGroup = creds.ResourceGroup
-			accountName = newPv.Spec.PersistentVolumeSource.AzureFile.SecretName
-			shareName = newPv.Spec.PersistentVolumeSource.AzureFile.ShareName
+			azureSource := newPv.Spec.PersistentVolumeSource.AzureFile
+			accountName, err = getStorageAccountName(azureSource.SecretName)
+			if err != nil {
+				framework.Failf("getStorageAccountName(%s) returned with error: %v", azureSource.SecretName, err)
+			}
+			shareName = azureSource.ShareName
 		}
 
 		//get file information
