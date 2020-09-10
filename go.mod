@@ -10,9 +10,9 @@ require (
 	github.com/Azure/go-autorest/autorest/to v0.3.0
 	github.com/container-storage-interface/spec v1.3.0
 	github.com/golang/mock v1.4.3
-	github.com/golang/protobuf v1.3.5
+	github.com/golang/protobuf v1.4.1
 	github.com/kubernetes-csi/csi-lib-utils v0.7.0
-	github.com/kubernetes-csi/csi-proxy/client v0.0.0-20200330215040-9eff16441b2a
+	github.com/kubernetes-csi/csi-proxy/client v0.0.0-20200907051941-1c32ab57cb4f
 	github.com/kubernetes-csi/external-snapshotter/v2 v2.0.0-20200617021606-4800ca72d403
 	github.com/onsi/ginkgo v1.12.0
 	github.com/onsi/gomega v1.9.0
