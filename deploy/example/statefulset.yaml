@@ -36,7 +36,7 @@ spec:
         annotations:
           volume.beta.kubernetes.io/storage-class: azurefile-csi
       spec:
-        accessModes: ["ReadWriteOnce"]
+        accessModes: ["ReadWriteMany"]
         resources:
           requests:
             storage: 100Gi
