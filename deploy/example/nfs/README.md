@@ -54,7 +54,7 @@ kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-cs
 
  - enter pod to check
 ```console
-$ exec -it statefulset-azurefile-0 bash
+$ kubectl exec -it statefulset-azurefile-0 sh
 # df -h
 Filesystem      Size  Used Avail Use% Mounted on
 ...
