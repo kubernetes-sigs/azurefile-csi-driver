@@ -50,6 +50,7 @@ const (
 	secretNameTemplate = "azure-storage-account-%s-secret"
 	serviceURLTemplate = "https://%s.file.%s"
 	fileURLTemplate    = "https://%s.file.%s/%s/%s"
+	subnetTemplate     = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets/%s"
 	fileMode           = "file_mode"
 	dirMode            = "dir_mode"
 	vers               = "vers"
@@ -549,4 +550,19 @@ func (d *Driver) GetStorageAccesskeyFromSecret(accountName, secretNamespace stri
 	}
 
 	return string(secret.Data[defaultSecretAccountKey][:]), nil
+}
+
+// getSubnetResourceID get default subnet resource ID from cloud provider config
+func (d *Driver) getSubnetResourceID() string {
+	subsID := d.cloud.SubscriptionID
+	if len(d.cloud.NetworkResourceSubscriptionID) > 0 {
+		subsID = d.cloud.NetworkResourceSubscriptionID
+	}
+
+	rg := d.cloud.ResourceGroup
+	if len(d.cloud.VnetResourceGroup) > 0 {
+		rg = d.cloud.VnetResourceGroup
+	}
+
+	return fmt.Sprintf(subnetTemplate, subsID, rg, d.cloud.VnetName, d.cloud.SubnetName)
 }
