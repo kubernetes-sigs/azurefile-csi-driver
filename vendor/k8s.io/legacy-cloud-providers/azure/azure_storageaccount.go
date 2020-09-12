@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2019-06-01/storage"
+	"github.com/Azure/go-autorest/autorest/to"
 
 	"k8s.io/klog/v2"
 )
@@ -74,7 +75,7 @@ func (az *Cloud) getStorageAccounts(accountOptions *AccountOptions) ([]accountWi
 				found := false
 				for _, subnetID := range accountOptions.VirtualNetworkResourceIDs {
 					for _, rule := range *acct.AccountProperties.NetworkRuleSet.VirtualNetworkRules {
-						if strings.EqualFold(*rule.VirtualNetworkResourceID, subnetID) && rule.Action == storage.Allow {
+						if strings.EqualFold(to.String(rule.VirtualNetworkResourceID), subnetID) && rule.Action == storage.Allow {
 							found = true
 							break
 						}
@@ -151,10 +152,12 @@ func (az *Cloud) EnsureStorageAccount(accountOptions *AccountOptions, genAccount
 					Action:                   storage.Allow,
 				}
 				virtualNetworkRules = append(virtualNetworkRules, vnetRule)
+				klog.V(4).Infof("subnetID(%s) has been set", subnetID)
 			}
 			if len(virtualNetworkRules) > 0 {
 				networkRuleSet = &storage.NetworkRuleSet{
 					VirtualNetworkRules: &virtualNetworkRules,
+					DefaultAction:       storage.DefaultActionDeny,
 				}
 			}
 

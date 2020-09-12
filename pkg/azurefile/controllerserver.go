@@ -112,16 +112,21 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	shareProtocol := storage.SMB
+	enableHTTPSTrafficOnly := true
+	var vnetResourceIDs []string
 	if fsType == nfs || protocol == nfs {
 		protocol = nfs
-		if account == "" {
-			return nil, status.Errorf(codes.InvalidArgument, "storage account must be specified when provisioning nfs file share")
-		}
+		enableHTTPSTrafficOnly = false
 		shareProtocol = storage.NFS
 		// NFS protocol does not need account key
 		storeAccountKey = storeAccountKeyFalse
 		// reset protocol field (compatable with "fsType: nfs")
 		parameters[protocolField] = protocol
+
+		// set VirtualNetworkResourceIDs for storage account firewall setting
+		vnetResourceID := d.getSubnetResourceID()
+		klog.V(2).Infof("set vnetResourceID(%s) for NFS protocol", vnetResourceID)
+		vnetResourceIDs = []string{vnetResourceID}
 	}
 
 	fileShareSize := int(requestGiB)
@@ -151,21 +156,20 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		resourceGroup = d.cloud.ResourceGroup
 	}
 
-	enableHTTPSTrafficOnly := true
-
 	tags, err := azure.ConvertTagsToMap(customTags)
 	if err != nil {
 		return nil, err
 	}
 
 	accountOptions := &azure.AccountOptions{
-		Name:                   account,
-		Type:                   sku,
-		Kind:                   accountKind,
-		ResourceGroup:          resourceGroup,
-		Location:               location,
-		EnableHTTPSTrafficOnly: enableHTTPSTrafficOnly,
-		Tags:                   tags,
+		Name:                      account,
+		Type:                      sku,
+		Kind:                      accountKind,
+		ResourceGroup:             resourceGroup,
+		Location:                  location,
+		EnableHTTPSTrafficOnly:    enableHTTPSTrafficOnly,
+		Tags:                      tags,
+		VirtualNetworkResourceIDs: vnetResourceIDs,
 	}
 
 	var retAccount, retAccountKey string
