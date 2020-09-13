@@ -26,12 +26,11 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: csi-provisioner
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-provisioner:v1.4.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-provisioner:v2.0.1
           args:
             - "-v=5"
             - "--csi-address=$(ADDRESS)"
-            - "--enable-leader-election"
-            - "--leader-election-type=leases"
+            - "--leader-election"
             - "--timeout=30s"
           env:
             - name: ADDRESS
