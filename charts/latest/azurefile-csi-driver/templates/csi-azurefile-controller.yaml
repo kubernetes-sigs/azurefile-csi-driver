@@ -33,6 +33,7 @@ spec:
             - "--csi-address=$(ADDRESS)"
             - "--enable-leader-election"
             - "--leader-election-type=leases"
+            - "--timeout=30s"
           env:
             - name: ADDRESS
               value: /csi/csi.sock
