@@ -1,5 +1,5 @@
 ## NFS support
-[NFS volume on Azure Files](https://github.com/RenaShahMSFT/Azure-Files-NFS-Preview) is now in Private Preview. This service is optimized for random access workloads with in-place data updates and provides full POSIX file system support. This page shows how to use NFS feature by Azure File CSI driver on Azure Kubernetes cluster.
+[NFS 4.1 support for Azure Files](https://azure.microsoft.com/en-us/blog/nfs-41-support-for-azure-files-is-now-in-preview/preview/) is now in Public Preview. This service is optimized for random access workloads with in-place data updates and provides full POSIX file system support. This page shows how to use NFS feature by Azure File CSI driver on Azure Kubernetes cluster.
 
 #### Feature Status: Alpha
 > supported OS: Linux
@@ -7,16 +7,9 @@
 #### Supported CSI driver version: `v0.8.0`
 
 #### Available regions
-`eastus`
+`eastus`, `eastus2`, `southeastasia`, `uksouth`
 
 #### Prerequisite
- - [Register Azure Storage NFS Preview Program](https://aka.ms/azurefilesnfs/enrollment)
- - Register `AllowNfsFileShares` feature under your subscription
-```console
-az feature register --name AllowNfsFileShares --namespace Microsoft.Storage
-az feature list -o table --query "[?contains(name, 'Microsoft.Storage/AllowNfsFileShares')].{Name:name,State:properties.state}"
-az provider register --namespace Microsoft.Storage
-```
  - [install CSI driver](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/install-csi-driver-master.md)
  - Create a `Premium_LRS` Azure storage account with following configurations to support NFS share
    - account kind: `FileStorage`
