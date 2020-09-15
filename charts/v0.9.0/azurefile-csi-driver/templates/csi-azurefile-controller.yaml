@@ -1,17 +1,17 @@
----
 kind: Deployment
 apiVersion: apps/v1
 metadata:
   name: csi-azurefile-controller
-  namespace: kube-system
+  namespace: {{ .Release.Namespace }}
+{{ include "azurefile.labels" . | indent 2 }}
 spec:
-  replicas: 2
+  replicas: {{ .Values.controller.replicas }}
   selector:
     matchLabels:
       app: csi-azurefile-controller
   template:
     metadata:
-      labels:
+{{ include "azurefile.labels" . | indent 6 }}
         app: csi-azurefile-controller
     spec:
       hostNetwork: true  # only required for MSI enabled cluster
@@ -24,9 +24,10 @@ spec:
           operator: "Equal"
           value: "true"
           effect: "NoSchedule"
+      {{- include "azurefile.pullSecrets" . | indent 6 }}
       containers:
         - name: csi-provisioner
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-provisioner:v1.4.0
+          image: "{{ .Values.image.csiProvisioner.repository }}:{{ .Values.image.csiProvisioner.tag }}"
           args:
             - "-v=5"
             - "--csi-address=$(ADDRESS)"
@@ -36,6 +37,7 @@ spec:
           env:
             - name: ADDRESS
               value: /csi/csi.sock
+          imagePullPolicy: {{ .Values.image.csiProvisioner.pullPolicy }}
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
@@ -47,7 +49,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: csi-attacher
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-attacher:v2.2.0
+          image: "{{ .Values.image.csiAttacher.repository }}:{{ .Values.image.csiAttacher.tag }}"
           args:
             - "-v=5"
             - "-csi-address=$(ADDRESS)"
@@ -56,9 +58,10 @@ spec:
           env:
             - name: ADDRESS
               value: /csi/csi.sock
+          imagePullPolicy: {{ .Values.image.csiAttacher.pullPolicy }}
           volumeMounts:
-            - mountPath: /csi
-              name: socket-dir
+          - mountPath: /csi
+            name: socket-dir
           resources:
             limits:
               cpu: 100m
@@ -66,12 +69,13 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+        {{- if .Values.snapshot.enabled}}
         - name: csi-snapshotter
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-snapshotter:v2.0.1
+          image: "{{ .Values.snapshot.image.csiSnapshotter.repository }}:{{ .Values.snapshot.image.csiSnapshotter.tag }}"
           args:
-            - "-v=5"
             - "-csi-address=$(ADDRESS)"
             - "-leader-election"
+            - "-v=5"
           env:
             - name: ADDRESS
               value: /csi/csi.sock
@@ -85,8 +89,9 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+        {{- end}}
         - name: csi-resizer
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-resizer:v0.5.0
+          image: "{{ .Values.image.csiResizer.repository }}:{{ .Values.image.csiResizer.tag }}"
           args:
             - "-csi-address=$(ADDRESS)"
             - "-v=5"
@@ -94,6 +99,7 @@ spec:
           env:
             - name: ADDRESS
               value: /csi/csi.sock
+          imagePullPolicy: {{ .Values.image.csiResizer.pullPolicy }}
           volumeMounts:
             - name: socket-dir
               mountPath: /csi
@@ -105,12 +111,13 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: liveness-probe
-          image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v1.1.0
+          image: "{{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}"
           args:
             - --csi-address=/csi/csi.sock
             - --connection-timeout=3s
             - --health-port=29612
             - --v=5
+          imagePullPolicy: {{ .Values.image.livenessProbe.pullPolicy }}
           volumeMounts:
             - name: socket-dir
               mountPath: /csi
@@ -122,17 +129,16 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: azurefile
-          image: mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v0.9.0
-          imagePullPolicy: IfNotPresent
+          image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
           args:
             - "--v=5"
             - "--endpoint=$(CSI_ENDPOINT)"
-            - "--metrics-address=0.0.0.0:29614"
+            - "--metrics-address=0.0.0.0:{{ .Values.controller.metricsPort }}"
           ports:
             - containerPort: 29612
               name: healthz
               protocol: TCP
-            - containerPort: 29614
+            - containerPort: {{ .Values.controller.metricsPort }}
               name: metrics
               protocol: TCP
           livenessProbe:
@@ -152,6 +158,7 @@ spec:
                   optional: true
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
+          imagePullPolicy: {{ .Values.image.azurefile.pullPolicy }}
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
