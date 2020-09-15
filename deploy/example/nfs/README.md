@@ -6,11 +6,17 @@
 
 #### Supported CSI driver version: `v0.8.0`
 
-#### Available regions
+#### [Available regions](https://aka.ms/azurefiles/nfs/preview/regions)
 `eastus`, `eastus2`, `southeastasia`, `uksouth`
 
 #### Prerequisite
  - [install CSI driver](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/install-csi-driver-master.md)
+ - Register `AllowNfsFileShares` feature under your subscription
+```console
+az feature register --name AllowNfsFileShares --namespace Microsoft.Storage
+az feature list -o table --query "[?contains(name, 'Microsoft.Storage/AllowNfsFileShares')].{Name:name,State:properties.state}"
+az provider register --namespace Microsoft.Storage
+```
  - Create a `Premium_LRS` Azure storage account with following configurations to support NFS share
    - account kind: `FileStorage`
    - secure transfer required(enable HTTPS traffic only): `false`
@@ -32,7 +38,7 @@ parameters:
   protocol: nfs  # use "fsType: nfs" in v0.8.0
 ```
 
-run following command to create a storage class:
+run following commands to create a storage class:
 ```console
 wget https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-nfs.yaml
 # set `storageAccount` in storageclass-azurefile-nfs.yaml
