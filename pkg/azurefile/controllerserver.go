@@ -168,6 +168,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		Tags:                   tags,
 	}
 
+	lockKey := account + sku + accountKind + resourceGroup + location
+	d.volLockMap.LockEntry(lockKey)
+	defer d.volLockMap.UnlockEntry(lockKey)
+
 	var retAccount, retAccountKey string
 	if len(req.GetSecrets()) == 0 { // check whether account is provided by secret
 		err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
@@ -197,9 +201,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d) protocol(%s)", validFileShareName, retAccount, sku, resourceGroup, location, fileShareSize, shareProtocol)
-	lockKey := retAccount + sku + accountKind + resourceGroup + location
-	d.volLockMap.LockEntry(lockKey)
-	defer d.volLockMap.UnlockEntry(lockKey)
 	err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 		var retErr error
 		retAccount, retAccountKey, retErr = d.CreateFileShare(accountOptions, shareOptions, req.GetSecrets())
