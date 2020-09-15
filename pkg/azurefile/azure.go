@@ -21,6 +21,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"testing"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -104,4 +105,12 @@ func getKubeClient(kubeconfig string) (*kubernetes.Clientset, error) {
 	}
 
 	return kubernetes.NewForConfig(config)
+}
+
+func getWorkDirPath(dir string, t *testing.T) (string, error) {
+	path, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s%c%s", path, os.PathSeparator, dir), nil
 }
