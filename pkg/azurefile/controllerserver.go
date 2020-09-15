@@ -276,6 +276,10 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 		return &csi.DeleteVolumeResponse{}, nil
 	}
 
+	if resourceGroupName == "" {
+		resourceGroupName = d.cloud.ResourceGroup
+	}
+
 	if err := d.DeleteFileShare(resourceGroupName, accountName, fileShareName, req.GetSecrets()); err != nil {
 		return nil, status.Errorf(codes.Internal, "DeleteFileShare %s under account(%s) rg(%s) failed with error: %v", fileShareName, accountName, resourceGroupName, err)
 	}
