@@ -7,16 +7,15 @@
 This driver allows Kubernetes to use [Azure File](https://docs.microsoft.com/en-us/azure/storage/files/storage-files-introduction) volume, csi plugin name: `file.csi.azure.com`
 
 ### Container Images & Kubernetes Compatibility:
-|Azure File CSI Driver Version  | Image                                          | 1.14+  |
-|-------------------------------|------------------------------------------------|--------|
-|master branch                  |mcr.microsoft.com/k8s/csi/azurefile-csi:latest  | yes    |
-|v0.8.0                         |mcr.microsoft.com/k8s/csi/azurefile-csi:v0.8.0  | yes    |
-|v0.7.0                         |mcr.microsoft.com/k8s/csi/azurefile-csi:v0.7.0  | yes    |
-|v0.6.0                         |mcr.microsoft.com/k8s/csi/azurefile-csi:v0.6.0  | yes    |
+|Driver Version  |Image                                          | 1.14+  |
+|----------------|-----------------------------------------------|--------|
+|master branch   |mcr.microsoft.com/k8s/csi/azurefile-csi:latest | yes    |
+|v0.8.0          |mcr.microsoft.com/k8s/csi/azurefile-csi:v0.8.0 | yes    |
+|v0.7.0          |mcr.microsoft.com/k8s/csi/azurefile-csi:v0.7.0 | yes    |
+|v0.6.0          |mcr.microsoft.com/k8s/csi/azurefile-csi:v0.6.0 | yes    |
 
 ### Driver parameters
-Please refer to [`file.csi.azure.com` driver parameters](./docs/driver-parameters.md)
- > storage class `file.csi.azure.com` parameters are compatible with built-in [azurefile](https://kubernetes.io/docs/concepts/storage/volumes/#azurefile) plugin
+Please refer to [driver parameters](./docs/driver-parameters.md)
 
 ### Prerequisite
  - The driver depends on [cloud provider config file](https://github.com/kubernetes/cloud-provider-azure/blob/master/docs/cloud-provider-config.md), usually it's `/etc/kubernetes/azure.json` on all kubernetes nodes deployed by [AKS](https://docs.microsoft.com/en-us/azure/aks/) or [aks-engine](https://github.com/Azure/aks-engine), here is [azure.json example](./deploy/example/azure.json).
