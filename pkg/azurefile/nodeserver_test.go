@@ -25,6 +25,8 @@ import (
 	"syscall"
 	"testing"
 
+	"sigs.k8s.io/azurefile-csi-driver/test/utils/testutil"
+
 	azure2 "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/stretchr/testify/assert"
@@ -32,7 +34,7 @@ import (
 	"google.golang.org/grpc/status"
 	"k8s.io/legacy-cloud-providers/azure"
 	"k8s.io/utils/exec"
-	"k8s.io/utils/exec/testing"
+	testingexec "k8s.io/utils/exec/testing"
 	"k8s.io/utils/mount"
 )
 
@@ -78,39 +80,51 @@ func TestNodeGetCapabilities(t *testing.T) {
 }
 
 func TestNodePublishVolume(t *testing.T) {
-	skipIfTestingOnWindows(t)
 	volumeCap := csi.VolumeCapability_AccessMode{Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER}
-	errorMountSource := "./error_mount_source"
-	alreadyMountedTarget := "./false_is_likely_exist_target"
-	azureFile := "./azure.go"
+	var (
+		errorMountSource     = testutil.GetWorkDirPath("error_mount_source", t)
+		alreadyMountedTarget = testutil.GetWorkDirPath("false_is_likely_exist_target", t)
+		azureFile            = testutil.GetWorkDirPath("azure.go", t)
+
+		sourceTest = testutil.GetWorkDirPath("source_test", t)
+		targetTest = testutil.GetWorkDirPath("target_test", t)
+	)
 
 	tests := []struct {
 		desc        string
 		req         csi.NodePublishVolumeRequest
-		expectedErr error
+		expectedErr testutil.TestError
 	}{
 		{
-			desc:        "[Error] Volume capabilities missing",
-			req:         csi.NodePublishVolumeRequest{},
-			expectedErr: status.Error(codes.InvalidArgument, "Volume capability missing in request"),
+			desc: "[Error] Volume capabilities missing",
+			req:  csi.NodePublishVolumeRequest{},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "Volume capability missing in request"),
+			},
 		},
 		{
-			desc:        "[Error] Volume ID missing",
-			req:         csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap}},
-			expectedErr: status.Error(codes.InvalidArgument, "Volume ID missing in request"),
+			desc: "[Error] Volume ID missing",
+			req:  csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap}},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "Volume ID missing in request"),
+			},
 		},
 		{
 			desc: "[Error] Target path missing",
 			req: csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
 				VolumeId: "vol_1"},
-			expectedErr: status.Error(codes.InvalidArgument, "Target path not provided"),
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "Target path not provided"),
+			},
 		},
 		{
 			desc: "[Error] Stage target path missing",
 			req: csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
 				VolumeId:   "vol_1",
 				TargetPath: targetTest},
-			expectedErr: status.Error(codes.InvalidArgument, "Staging target not provided"),
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "Staging target not provided"),
+			},
 		},
 		{
 			desc: "[Error] Not a directory",
@@ -119,7 +133,10 @@ func TestNodePublishVolume(t *testing.T) {
 				TargetPath:        azureFile,
 				StagingTargetPath: sourceTest,
 				Readonly:          true},
-			expectedErr: status.Errorf(codes.Internal, "Could not mount target \"./azure.go\": mkdir ./azure.go: not a directory"),
+			expectedErr: testutil.TestError{
+				DefaultError: status.Errorf(codes.Internal, fmt.Sprintf("Could not mount target \"%s\": mkdir %s: not a directory", azureFile, azureFile)),
+				WindowsError: status.Errorf(codes.Internal, fmt.Sprintf("Could not mount target %#v: mkdir %s: The system cannot find the path specified.", azureFile, azureFile)),
+			},
 		},
 		{
 			desc: "[Error] Mount error mocked by Mount",
@@ -128,7 +145,11 @@ func TestNodePublishVolume(t *testing.T) {
 				TargetPath:        targetTest,
 				StagingTargetPath: errorMountSource,
 				Readonly:          true},
-			expectedErr: status.Errorf(codes.Internal, "Could not mount \"./error_mount_source\" at \"./target_test\": fake Mount: source error"),
+			expectedErr: testutil.TestError{
+				DefaultError: status.Errorf(codes.Internal, fmt.Sprintf("Could not mount \"%s\" at \"%s\": fake Mount: source error", errorMountSource, targetTest)),
+				// todo: Not a desired error. This will need a better fix
+				WindowsError: fmt.Errorf("prepare publish failed for %s with error: could not cast to csi proxy class", targetTest),
+			},
 		},
 		{
 			desc: "[Success] Valid request read only",
@@ -137,7 +158,10 @@ func TestNodePublishVolume(t *testing.T) {
 				TargetPath:        targetTest,
 				StagingTargetPath: sourceTest,
 				Readonly:          true},
-			expectedErr: nil,
+			expectedErr: testutil.TestError{
+				// todo: Not a desired error. This will need a better fix
+				WindowsError: fmt.Errorf("prepare publish failed for %s with error: could not cast to csi proxy class", targetTest),
+			},
 		},
 		{
 			desc: "[Success] Valid request already mounted",
@@ -146,7 +170,7 @@ func TestNodePublishVolume(t *testing.T) {
 				TargetPath:        alreadyMountedTarget,
 				StagingTargetPath: sourceTest,
 				Readonly:          true},
-			expectedErr: nil,
+			expectedErr: testutil.TestError{},
 		},
 		{
 			desc: "[Success] Valid request",
@@ -155,7 +179,9 @@ func TestNodePublishVolume(t *testing.T) {
 				TargetPath:        targetTest,
 				StagingTargetPath: sourceTest,
 				Readonly:          true},
-			expectedErr: nil,
+			expectedErr: testutil.TestError{
+				WindowsError: fmt.Errorf("prepare publish failed for %s with error: could not cast to csi proxy class", targetTest),
+			},
 		},
 	}
 
@@ -171,8 +197,8 @@ func TestNodePublishVolume(t *testing.T) {
 
 	for _, test := range tests {
 		_, err := d.NodePublishVolume(context.Background(), &test.req)
-		if !reflect.DeepEqual(err, test.expectedErr) {
-			t.Errorf("Unexpected error: %v", err)
+		if !testutil.AssertError(err, &test.expectedErr) {
+			t.Errorf("Desc: %s\nUnexpected error: %v\n Expected: %v", test.desc, err, test.expectedErr.GetExpectedError())
 		}
 	}
 
@@ -184,34 +210,44 @@ func TestNodePublishVolume(t *testing.T) {
 }
 
 func TestNodeUnpublishVolume(t *testing.T) {
-	skipIfTestingOnWindows(t)
-	errorTarget := "./error_is_likely_target"
-	targetFile := "./abc.go"
+	errorTarget := testutil.GetWorkDirPath("error_is_likely_target", t)
+	targetFile := testutil.GetWorkDirPath("abc.go", t)
 
 	tests := []struct {
 		desc        string
 		req         csi.NodeUnpublishVolumeRequest
-		expectedErr error
+		expectedErr testutil.TestError
 	}{
 		{
-			desc:        "[Error] Volume ID missing",
-			req:         csi.NodeUnpublishVolumeRequest{TargetPath: targetTest},
-			expectedErr: status.Error(codes.InvalidArgument, "Volume ID missing in request"),
+			desc: "[Error] Volume ID missing",
+			req:  csi.NodeUnpublishVolumeRequest{TargetPath: targetTest},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "Volume ID missing in request"),
+			},
 		},
 		{
-			desc:        "[Error] Target missing",
-			req:         csi.NodeUnpublishVolumeRequest{VolumeId: "vol_1"},
-			expectedErr: status.Error(codes.InvalidArgument, "Target path missing in request"),
+			desc: "[Error] Target missing",
+			req:  csi.NodeUnpublishVolumeRequest{VolumeId: "vol_1"},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "Target path missing in request"),
+			},
 		},
 		{
-			desc:        "[Error] Unmount error mocked by IsLikelyNotMountPoint",
-			req:         csi.NodeUnpublishVolumeRequest{TargetPath: errorTarget, VolumeId: "vol_1"},
-			expectedErr: status.Error(codes.Internal, "failed to unmount target \"./error_is_likely_target\": fake IsLikelyNotMountPoint: fake error"),
+			desc: "[Error] Unmount error mocked by IsLikelyNotMountPoint",
+			req:  csi.NodeUnpublishVolumeRequest{TargetPath: errorTarget, VolumeId: "vol_1"},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount target \"%s\": fake IsLikelyNotMountPoint: fake error", errorTarget)),
+				// todo: Not a desired error. This will need a better fix
+				WindowsError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount target %#v: could not cast to csi proxy class", errorTarget)),
+			},
 		},
 		{
-			desc:        "[Success] Valid request",
-			req:         csi.NodeUnpublishVolumeRequest{TargetPath: targetFile, VolumeId: "vol_1"},
-			expectedErr: nil,
+			desc: "[Success] Valid request",
+			req:  csi.NodeUnpublishVolumeRequest{TargetPath: targetFile, VolumeId: "vol_1"},
+			expectedErr: testutil.TestError{
+				// todo: Not a desired error. This will need a better fix
+				WindowsError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount target %#v: could not cast to csi proxy class", targetFile)),
+			},
 		},
 	}
 
@@ -227,8 +263,8 @@ func TestNodeUnpublishVolume(t *testing.T) {
 
 	for _, test := range tests {
 		_, err := d.NodeUnpublishVolume(context.Background(), &test.req)
-		if !reflect.DeepEqual(err, test.expectedErr) {
-			t.Errorf("Unexpected error: %v", err)
+		if !testutil.AssertError(err, &test.expectedErr) {
+			t.Errorf("Desc: %s\nUnexpected error: %v\nExpected: %v", test.desc, err, test.expectedErr.GetExpectedError())
 		}
 	}
 
@@ -238,14 +274,19 @@ func TestNodeUnpublishVolume(t *testing.T) {
 }
 
 func TestNodeStageVolume(t *testing.T) {
-	skipIfTestingOnWindows(t)
 	stdVolCap := csi.VolumeCapability{
 		AccessType: &csi.VolumeCapability_Mount{
 			Mount: &csi.VolumeCapability_MountVolume{},
 		},
 	}
 
-	errorMountSensSource := "./error_mount_sens_source"
+	var (
+		errorMountSensSource   = testutil.GetWorkDirPath("error_mount_sens_source", t)
+		sourceTest             = testutil.GetWorkDirPath("source_test", t)
+		azureStagingTargetPath = testutil.GetWorkDirPath("azure.go", t)
+		proxyMountPath         = testutil.GetWorkDirPath("proxy-mount", t)
+		testDiskPath           = fmt.Sprintf("%s/test_disk", proxyMountPath)
+	)
 
 	volContextEmptyDiskName := map[string]string{
 		fsTypeField:     "ext4",
@@ -287,37 +328,48 @@ func TestNodeStageVolume(t *testing.T) {
 		desc        string
 		req         csi.NodeStageVolumeRequest
 		execScripts []ExecArgs
-		expectedErr error
+		expectedErr testutil.TestError
 	}{
 		{
 			desc:        "[Error] Volume ID missing",
 			req:         csi.NodeStageVolumeRequest{},
 			execScripts: nil,
-			expectedErr: status.Error(codes.InvalidArgument, "Volume ID missing in request"),
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "Volume ID missing in request"),
+			},
 		},
 		{
-			desc:        "[Error] Stage target path missing",
-			req:         csi.NodeStageVolumeRequest{VolumeId: "vol_1"},
-			expectedErr: status.Error(codes.InvalidArgument, "Staging target not provided"),
+			desc: "[Error] Stage target path missing",
+			req:  csi.NodeStageVolumeRequest{VolumeId: "vol_1"},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "Staging target not provided"),
+			},
 		},
 		{
-			desc:        "[Error] Volume capabilities missing",
-			req:         csi.NodeStageVolumeRequest{VolumeId: "vol_1", StagingTargetPath: sourceTest},
-			expectedErr: status.Error(codes.InvalidArgument, "Volume capability not provided"),
+			desc: "[Error] Volume capabilities missing",
+			req:  csi.NodeStageVolumeRequest{VolumeId: "vol_1", StagingTargetPath: sourceTest},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "Volume capability not provided"),
+			},
 		},
 		{
 			desc: "[Error] GetAccountInfo error parsing volume id",
 			req: csi.NodeStageVolumeRequest{VolumeId: "vol_1", StagingTargetPath: sourceTest,
 				VolumeCapability: &stdVolCap},
-			expectedErr: status.Error(codes.InvalidArgument, "GetAccountInfo(vol_1) failed with error: error parsing volume id: \"vol_1\", should at least contain two #"),
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "GetAccountInfo(vol_1) failed with error: error parsing volume id: \"vol_1\", should at least contain two #"),
+			},
 		},
 		{
 			desc: "[Error] Not a Directory",
-			req: csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: "./azure.go",
+			req: csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: azureStagingTargetPath,
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContext,
 				Secrets:          secrets},
-			expectedErr: status.Error(codes.Internal, "MkdirAll ./azure.go failed with error: mkdir ./azure.go: not a directory"),
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.Internal, fmt.Sprintf("MkdirAll %s failed with error: mkdir %s: not a directory", azureStagingTargetPath, azureStagingTargetPath)),
+				WindowsError: status.Error(codes.Internal, fmt.Sprintf("Could not mount target %#v: mkdir %s: The system cannot find the path specified.", azureStagingTargetPath, azureStagingTargetPath)),
+			},
 		},
 		{
 			desc: "[Error] Empty Disk Name",
@@ -325,7 +377,9 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContextEmptyDiskName,
 				Secrets:          secrets},
-			expectedErr: status.Errorf(codes.Internal, "diskname could not be empty, targetPath: ./source_test"),
+			expectedErr: testutil.TestError{
+				DefaultError: status.Errorf(codes.Internal, fmt.Sprintf("diskname could not be empty, targetPath: %s", sourceTest)),
+			},
 		},
 		{
 			desc: "[Error] Failed SMB mount mocked by MountSensitive",
@@ -333,7 +387,10 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContext,
 				Secrets:          secrets},
-			expectedErr: status.Errorf(codes.Internal, "volume(vol_1##) mount \"//test_servername/test_sharename\" on \"./error_mount_sens_source\" failed with fake MountSensitive: target error"),
+			expectedErr: testutil.TestError{
+				DefaultError: status.Errorf(codes.Internal, fmt.Sprintf("volume(vol_1##) mount \"//test_servername/test_sharename\" on %#v failed with fake MountSensitive: target error", errorMountSensSource)),
+				WindowsError: fmt.Errorf("prepare stage path failed for %s with error: could not cast to csi proxy class", errorMountSensSource),
+			},
 		},
 		{
 			desc: "[Error] FormatAndMount mocked by exec commands",
@@ -342,10 +399,13 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeContext:    volContextFsType,
 				Secrets:          secrets},
 			execScripts: []ExecArgs{
-				{"blkid", []string{"-p", "-s", "TYPE", "-s", "PTTYPE", "-o", "export", "proxy-mount/test_disk"}, "", &testingexec.FakeExitError{Status: 2}},
-				{"mkfs.ext4", []string{"-F", "-m0", "proxy-mount/test_disk"}, "", fmt.Errorf("formatting failed")},
+				{"blkid", []string{"-p", "-s", "TYPE", "-s", "PTTYPE", "-o", "export", testDiskPath}, "", &testingexec.FakeExitError{Status: 2}},
+				{"mkfs.ext4", []string{"-F", "-m0", testDiskPath}, "", fmt.Errorf("formatting failed")},
 			},
-			expectedErr: status.Errorf(codes.Internal, "could not format \"./source_test\" and mount it at \"proxy-mount/test_disk\""),
+			expectedErr: testutil.TestError{
+				DefaultError: status.Errorf(codes.Internal, "could not format %#v and mount it at %#v", sourceTest, testDiskPath),
+				WindowsError: fmt.Errorf("prepare stage path failed for %s with error: could not cast to csi proxy class", proxyMountPath),
+			},
 		},
 		{
 			desc: "[Success] Valid request",
@@ -353,7 +413,9 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContext,
 				Secrets:          secrets},
-			expectedErr: nil,
+			expectedErr: testutil.TestError{
+				WindowsError: fmt.Errorf("prepare stage path failed for %s with error: could not cast to csi proxy class", sourceTest),
+			},
 		},
 		{
 			desc: "[Success] Valid request with share name empty",
@@ -361,7 +423,9 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContextEmptyShareName,
 				Secrets:          secrets},
-			expectedErr: nil,
+			expectedErr: testutil.TestError{
+				WindowsError: fmt.Errorf("prepare stage path failed for %s with error: could not cast to csi proxy class", sourceTest),
+			},
 		},
 		{
 			desc: "[Success] Valid request with fsType as nfs",
@@ -369,7 +433,9 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContextNfs,
 				Secrets:          secrets},
-			expectedErr: nil,
+			expectedErr: testutil.TestError{
+				WindowsError: fmt.Errorf("prepare stage path failed for %s with error: could not cast to csi proxy class", sourceTest),
+			},
 		},
 		{
 			desc: "[Success] Valid request with supported fsType disk",
@@ -378,10 +444,12 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeContext:    volContextFsType,
 				Secrets:          secrets},
 			execScripts: []ExecArgs{
-				{"blkid", []string{"-p", "-s", "TYPE", "-s", "PTTYPE", "-o", "export", "proxy-mount/test_disk"}, "", nil},
-				{"mkfs.ext4", []string{"-F", "-m0", "proxy-mount/test_disk"}, "", nil},
+				{"blkid", []string{"-p", "-s", "TYPE", "-s", "PTTYPE", "-o", "export", testDiskPath}, "", nil},
+				{"mkfs.ext4", []string{"-F", "-m0", testDiskPath}, "", nil},
 			},
-			expectedErr: nil,
+			expectedErr: testutil.TestError{
+				WindowsError: fmt.Errorf("prepare stage path failed for %s with error: could not cast to csi proxy class", proxyMountPath),
+			},
 		},
 	}
 
@@ -409,8 +477,8 @@ func TestNodeStageVolume(t *testing.T) {
 		}
 
 		_, err := d.NodeStageVolume(context.Background(), &test.req)
-		if !reflect.DeepEqual(err, test.expectedErr) {
-			t.Errorf("test case: %s, Unexpected error: %v", test.desc, err)
+		if !testutil.AssertError(err, &test.expectedErr) {
+			t.Errorf("Desc: %s\nUnexpected error: %v\nExpected: %v", test.desc, err, test.expectedErr.GetExpectedError())
 		}
 	}
 
@@ -424,34 +492,44 @@ func TestNodeStageVolume(t *testing.T) {
 }
 
 func TestNodeUnstageVolume(t *testing.T) {
-	skipIfTestingOnWindows(t)
-	errorTarget := "./error_is_likely_target"
-	targetFile := "./abc.go"
+	var (
+		errorTarget = testutil.GetWorkDirPath("error_is_likely_target", t)
+		targetFile  = testutil.GetWorkDirPath("abc.go", t)
+	)
 
 	tests := []struct {
 		desc        string
 		req         csi.NodeUnstageVolumeRequest
-		expectedErr error
+		expectedErr testutil.TestError
 	}{
 		{
-			desc:        "[Error] Volume ID missing",
-			req:         csi.NodeUnstageVolumeRequest{StagingTargetPath: targetTest},
-			expectedErr: status.Error(codes.InvalidArgument, "Volume ID missing in request"),
+			desc: "[Error] Volume ID missing",
+			req:  csi.NodeUnstageVolumeRequest{StagingTargetPath: targetTest},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "Volume ID missing in request"),
+			},
 		},
 		{
-			desc:        "[Error] Target missing",
-			req:         csi.NodeUnstageVolumeRequest{VolumeId: "vol_1"},
-			expectedErr: status.Error(codes.InvalidArgument, "Staging target not provided"),
+			desc: "[Error] Target missing",
+			req:  csi.NodeUnstageVolumeRequest{VolumeId: "vol_1"},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "Staging target not provided"),
+			},
 		},
 		{
-			desc:        "[Error] CleanupMountPoint error mocked by IsLikelyNotMountPoint",
-			req:         csi.NodeUnstageVolumeRequest{StagingTargetPath: errorTarget, VolumeId: "vol_1"},
-			expectedErr: status.Error(codes.Internal, "failed to unmount staging target \"./error_is_likely_target\": fake IsLikelyNotMountPoint: fake error"),
+			desc: "[Error] CleanupMountPoint error mocked by IsLikelyNotMountPoint",
+			req:  csi.NodeUnstageVolumeRequest{StagingTargetPath: errorTarget, VolumeId: "vol_1"},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount staging target %#v: fake IsLikelyNotMountPoint: fake error", errorTarget)),
+				WindowsError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount staging target %#v: could not cast to csi proxy class", errorTarget)),
+			},
 		},
 		{
-			desc:        "[Success] Valid request",
-			req:         csi.NodeUnstageVolumeRequest{StagingTargetPath: targetFile, VolumeId: "vol_1"},
-			expectedErr: nil,
+			desc: "[Success] Valid request",
+			req:  csi.NodeUnstageVolumeRequest{StagingTargetPath: targetFile, VolumeId: "vol_1"},
+			expectedErr: testutil.TestError{
+				WindowsError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount staging target %#v: could not cast to csi proxy class", targetFile)),
+			},
 		},
 	}
 
@@ -467,8 +545,8 @@ func TestNodeUnstageVolume(t *testing.T) {
 
 	for _, test := range tests {
 		_, err := d.NodeUnstageVolume(context.Background(), &test.req)
-		if !reflect.DeepEqual(err, test.expectedErr) {
-			t.Errorf("Unexcpected error: %v", err)
+		if !testutil.AssertError(err, &test.expectedErr) {
+			t.Errorf("Desc: %v\nUnexcpected error: %v\nExpected: %v", test.desc, err, test.expectedErr.GetExpectedError())
 		}
 	}
 
