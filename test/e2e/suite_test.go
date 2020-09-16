@@ -42,16 +42,18 @@ import (
 )
 
 const (
-	kubeconfigEnvVar   = "KUBECONFIG"
-	reportDirEnv       = "ARTIFACTS"
-	testWindowsEnvVar  = "TEST_WINDOWS"
-	defaultReportDir   = "/workspace/_artifacts"
-	inTreeStorageClass = "kubernetes.io/azure-file"
+	kubeconfigEnvVar    = "KUBECONFIG"
+	reportDirEnv        = "ARTIFACTS"
+	testMigrationEnvVar = "TEST_MIGRATION"
+	testWindowsEnvVar   = "TEST_WINDOWS"
+	defaultReportDir    = "/workspace/_artifacts"
+	inTreeStorageClass  = "kubernetes.io/azure-file"
 )
 
 var (
 	azurefileDriver           *azurefile.Driver
 	isUsingInTreeVolumePlugin = os.Getenv(driver.AzureDriverNameVar) == inTreeStorageClass
+	isTestingMigration        = os.Getenv(testMigrationEnvVar) != ""
 	isWindowsCluster          = os.Getenv(testWindowsEnvVar) != ""
 )
 
@@ -72,7 +74,9 @@ var _ = ginkgo.BeforeSuite(func() {
 	handleFlags()
 	framework.AfterReadingAllFlags(&framework.TestContext)
 
-	if !isUsingInTreeVolumePlugin && testutil.IsRunningInProw() {
+	// Default storage driver configuration is CSI. Freshly built
+	// CSI driver is installed for that case.
+	if testutil.IsRunningInProw() && (isTestingMigration || !isUsingInTreeVolumePlugin) {
 		creds, err := credentials.CreateAzureCredentialFile(false)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret)
@@ -108,7 +112,7 @@ var _ = ginkgo.BeforeSuite(func() {
 
 var _ = ginkgo.AfterSuite(func() {
 	if testutil.IsRunningInProw() {
-		if isUsingInTreeVolumePlugin {
+		if isTestingMigration || isUsingInTreeVolumePlugin {
 			cmLog := testCmd{
 				command:  "bash",
 				args:     []string{"test/utils/controller-manager-log.sh"},
@@ -116,7 +120,8 @@ var _ = ginkgo.AfterSuite(func() {
 				endLog:   "===================================================",
 			}
 			execTestCmd([]testCmd{cmLog})
-		} else {
+		}
+		if isTestingMigration || !isUsingInTreeVolumePlugin {
 			azurefileLog := testCmd{
 				command:  "bash",
 				args:     []string{"test/utils/azurefile_log.sh"},
