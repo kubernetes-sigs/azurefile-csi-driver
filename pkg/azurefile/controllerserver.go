@@ -168,12 +168,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		Tags:                   tags,
 	}
 
-	lockKey := account + sku + accountKind + resourceGroup + location
-	d.volLockMap.LockEntry(lockKey)
-	defer d.volLockMap.UnlockEntry(lockKey)
-
 	var retAccount, retAccountKey string
 	if len(req.GetSecrets()) == 0 { // check whether account is provided by secret
+		lockKey := account + sku + accountKind + resourceGroup + location
+		d.volLockMap.LockEntry(lockKey)
+		defer d.volLockMap.UnlockEntry(lockKey)
+
 		err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 			var retErr error
 			retAccount, retAccountKey, retErr = d.cloud.EnsureStorageAccount(accountOptions, fileShareAccountNamePrefix)
