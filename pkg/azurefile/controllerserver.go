@@ -111,6 +111,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Errorf(codes.InvalidArgument, "protocol(%s) is not supported, supported protocol list: %v", protocol, supportedProtocolList)
 	}
 
+	enableHTTPSTrafficOnly := true
 	shareProtocol := storage.SMB
 	if fsType == nfs || protocol == nfs {
 		protocol = nfs
@@ -122,6 +123,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		storeAccountKey = storeAccountKeyFalse
 		// reset protocol field (compatable with "fsType: nfs")
 		parameters[protocolField] = protocol
+		enableHTTPSTrafficOnly = false
 	}
 
 	fileShareSize := int(requestGiB)
@@ -151,8 +153,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		resourceGroup = d.cloud.ResourceGroup
 	}
 
-	enableHTTPSTrafficOnly := true
-
 	tags, err := azure.ConvertTagsToMap(customTags)
 	if err != nil {
 		return nil, err
@@ -168,15 +168,15 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		Tags:                   tags,
 	}
 
-	var retAccount, retAccountKey string
-	if len(req.GetSecrets()) == 0 { // check whether account is provided by secret
-		lockKey := account + sku + accountKind + resourceGroup + location
+	var accountName, accountKey string
+	if len(req.GetSecrets()) == 0 && accountName == "" {
+		lockKey := sku + accountKind + resourceGroup + location
 		d.volLockMap.LockEntry(lockKey)
 		defer d.volLockMap.UnlockEntry(lockKey)
 
 		err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 			var retErr error
-			retAccount, retAccountKey, retErr = d.cloud.EnsureStorageAccount(accountOptions, fileShareAccountNamePrefix)
+			accountName, accountKey, retErr = d.cloud.EnsureStorageAccount(accountOptions, fileShareAccountNamePrefix)
 			if isRetriableError(retErr) {
 				klog.Warningf("EnsureStorageAccount(%s) failed with error(%v), waiting for retring", account, retErr)
 				return false, nil
@@ -188,38 +188,38 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
-	if quota, err := d.getFileShareQuota(resourceGroup, retAccount, validFileShareName, req.GetSecrets()); err != nil {
+	if quota, err := d.getFileShareQuota(resourceGroup, accountName, validFileShareName, req.GetSecrets()); err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	} else if quota != -1 && quota != fileShareSize {
 		return nil, status.Errorf(codes.AlreadyExists, "request file share(%s) already exists, but its capacity(%v) is different from (%v)", validFileShareName, quota, fileShareSize)
 	}
-
+	accountOptions.Name = accountName
 	shareOptions := &fileclient.ShareOptions{
 		Name:       validFileShareName,
 		Protocol:   shareProtocol,
 		RequestGiB: fileShareSize,
 	}
 
-	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d) protocol(%s)", validFileShareName, retAccount, sku, resourceGroup, location, fileShareSize, shareProtocol)
+	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d) protocol(%s)", validFileShareName, accountName, sku, resourceGroup, location, fileShareSize, shareProtocol)
 	err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
-		var retErr error
-		retAccount, retAccountKey, retErr = d.CreateFileShare(accountOptions, shareOptions, req.GetSecrets())
-		if isRetriableError(retErr) {
-			klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), waiting for retring", validFileShareName, account, retErr)
+		err := d.CreateFileShare(accountOptions, shareOptions, req.GetSecrets())
+		if isRetriableError(err) {
+			klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), waiting for retring", validFileShareName, account, err)
 			return false, nil
 		}
-		return true, retErr
+		return true, err
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d), error: %v", validFileShareName, account, sku, resourceGroup, location, fileShareSize, err)
 	}
-	if retAccount == "" || retAccountKey == "" {
-		return nil, fmt.Errorf("create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d) timeout(3m)", validFileShareName, account, sku, resourceGroup, location, fileShareSize)
-	}
-	klog.V(2).Infof("create file share %s on storage account %s successfully", validFileShareName, retAccount)
+	klog.V(2).Infof("create file share %s on storage account %s successfully", validFileShareName, accountName)
 
-	isDiskMount := isDiskFsType(fsType)
-	if isDiskMount && diskName == "" {
+	if isDiskFsType(fsType) && diskName == "" {
+		if accountKey == "" {
+			if accountKey, err = d.GetStorageAccesskey(accountOptions, req.GetSecrets(), secretNamespace); err != nil {
+				return nil, fmt.Errorf("failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
+			}
+		}
 		if fileShareName == "" {
 			// use pvc name as vhd disk name if file share not specified
 			diskName = validFileShareName + vhdSuffix
@@ -230,7 +230,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		diskSizeBytes := volumehelper.GiBToBytes(requestGiB)
 		klog.V(2).Infof("begin to create vhd file(%s) size(%d) on share(%s) on account(%s) type(%s) rg(%s) location(%s)",
 			diskName, diskSizeBytes, validFileShareName, account, sku, resourceGroup, location)
-		if err := createDisk(ctx, retAccount, retAccountKey, d.cloud.Environment.StorageEndpointSuffix, validFileShareName, diskName, diskSizeBytes); err != nil {
+		if err := createDisk(ctx, accountName, accountKey, d.cloud.Environment.StorageEndpointSuffix, validFileShareName, diskName, diskSizeBytes); err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to create VHD disk: %v", err)
 		}
 		klog.V(2).Infof("create vhd file(%s) size(%d) on share(%s) on account(%s) type(%s) rg(%s) location(%s) successfully",
@@ -239,7 +239,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	if storeAccountKey != storeAccountKeyFalse && len(req.GetSecrets()) == 0 {
-		secretName, err := setAzureCredentials(d.cloud.KubeClient, retAccount, retAccountKey, secretNamespace)
+		if accountKey == "" {
+			if accountKey, err = d.GetStorageAccesskey(accountOptions, req.GetSecrets(), secretNamespace); err != nil {
+				return nil, fmt.Errorf("failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
+			}
+		}
+		secretName, err := setAzureCredentials(d.cloud.KubeClient, accountName, accountKey, secretNamespace)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to store storage account key: %v", err)
 		}
@@ -248,7 +253,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
-	volumeID := fmt.Sprintf(volumeIDTemplate, resourceGroup, retAccount, validFileShareName, diskName)
+	volumeID := fmt.Sprintf(volumeIDTemplate, resourceGroup, accountName, validFileShareName, diskName)
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
 			VolumeId:      volumeID,

@@ -408,6 +408,7 @@ func IsCorruptedDir(dir string) bool {
 	return pathErr != nil && mount.IsCorruptedMnt(pathErr)
 }
 
+// GetAccountInfo get account info
 func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]string) (rgName, accountName, accountKey, fileShareName, diskName string, err error) {
 	if len(secrets) == 0 {
 		rgName, accountName, fileShareName, diskName, err = GetFileShareInfo(volumeID)
@@ -471,18 +472,16 @@ func isSupportedProtocol(protocol string) bool {
 	return false
 }
 
-// CreateFileShare creates a file share, using a matching storage account type, account kind, etc.
-// storage account will be created if specified account is not found
-func (d *Driver) CreateFileShare(accountOptions *azure.AccountOptions, shareOptions *fileclient.ShareOptions, secrets map[string]string) (string, string, error) {
+// CreateFileShare creates a file share
+func (d *Driver) CreateFileShare(accountOptions *azure.AccountOptions, shareOptions *fileclient.ShareOptions, secrets map[string]string) error {
 	if len(secrets) > 0 {
 		accountName, accountKey, err := getStorageAccount(secrets)
 		if err != nil {
-			return accountName, accountKey, err
+			return err
 		}
-		err = d.fileClient.CreateFileShare(accountName, accountKey, shareOptions)
-		return accountName, accountKey, err
+		return d.fileClient.CreateFileShare(accountName, accountKey, shareOptions)
 	}
-	return d.cloud.CreateFileShare(accountOptions, shareOptions)
+	return d.cloud.FileClient.CreateFileShare(accountOptions.ResourceGroup, accountOptions.Name, shareOptions)
 }
 
 // DeleteFileShare deletes a file share using storage account name and key
@@ -507,4 +506,27 @@ func (d *Driver) ResizeFileShare(resourceGroup, accountName, shareName string, s
 		return d.fileClient.resizeFileShare(accountName, accountKey, shareName, sizeGiB)
 	}
 	return d.cloud.ResizeFileShare(resourceGroup, accountName, shareName, sizeGiB)
+}
+
+// GetStorageAccesskey get Azure storage account key
+func (d *Driver) GetStorageAccesskey(accountOptions *azure.AccountOptions, secrets map[string]string, secretNamespace string) (string, error) {
+	if len(secrets) > 0 {
+		_, accountKey, err := getStorageAccount(secrets)
+		return accountKey, err
+	}
+
+	// read from k8s secret first
+	if d.cloud.KubeClient != nil {
+		secretName := fmt.Sprintf(secretNameTemplate, accountOptions.Name)
+		if secretNamespace == "" {
+			secretNamespace = defaultSecretNamespace
+		}
+		secret, err := d.cloud.KubeClient.CoreV1().Secrets(secretNamespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+		if err != nil {
+			klog.V(5).Infof("could not get secret(%v): %v", secretName, err)
+		} else {
+			return string(secret.Data[defaultSecretAccountKey][:]), nil
+		}
+	}
+	return d.cloud.GetStorageAccesskey(accountOptions.Name, accountOptions.ResourceGroup)
 }
