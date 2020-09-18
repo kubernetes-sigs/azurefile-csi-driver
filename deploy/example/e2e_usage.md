@@ -2,12 +2,26 @@
 > refer to [driver parameters](../../docs/driver-parameters.md) for more detailed usage
 
 ### AzureFile Dynamic Provisioning
- - Create a CSI storage class
+#### Option#1: create storage account by CSI driver
+ - Create storage class
 ```console
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-csi.yaml
 ```
 
- - Create a statefulset with disk volume mount
+#### Option#2: bring your own storage account
+ > only available from `v0.9.0`
+ - Use `kubectl create secret` to create `azure-secret` with existing storage account name and key
+```console
+kubectl create secret generic azure-secret --from-literal accountname=NAME --from-literal accountkey="KEY" --type=Opaque
+```
+
+ - create storage class referencing `azure-secret`
+```console
+kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-secret.yaml
+```
+
+#### Create application
+ - Create a statefulset with volume mount
 ```
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/statefulset.yaml
 ```
@@ -23,7 +37,7 @@ Filesystem                                                                Size  
 ```
 
 ### AzureFile Static Provisioning(use an existing Azure file share)
-#### Option#1: Use storage class
+#### Option#1: storage class
 > make sure cluster identity could access to the file share
  - Download [Azure file CSI storage class](https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-existing-share.yaml), edit `resourceGroup`, `storageAccount`, `shareName` in storage class
 ```yaml
@@ -46,12 +60,7 @@ kubectl create -f storageclass-azurefile-existing-share.yaml
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/pvc-azurefile-csi.yaml
 ```
 
-#### Option#2: Use secret
- - Use `kubectl create secret` to create `azure-secret` with existing storage account name and key
-```console
-kubectl create secret generic azure-secret --from-literal accountname=NAME --from-literal accountkey="KEY" --type=Opaque
-```
-
+#### Option#2: PV/PVC
  - Create a PV, download `pv-azurefile-csi.yaml` file and edit `shareName` in `volumeAttributes`
 ```console
 wget https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/pv-azurefile-csi.yaml
@@ -69,7 +78,7 @@ kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-cs
 kubectl describe pvc pvc-azurefile
 ```
 
-#### create a pod with PVC mount
+#### Create application
 ```console
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/nginx-pod-azurefile.yaml
 ```
