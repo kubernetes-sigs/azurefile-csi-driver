@@ -196,19 +196,12 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		if protocol == nfs {
 			mountFsType = nfs
 		}
-		if err = prepareStagePath(cifsMountPath, d.mounter); err != nil {
+		if err := prepareStagePath(cifsMountPath, d.mounter); err != nil {
 			return nil, fmt.Errorf("prepare stage path failed for %s with error: %v", cifsMountPath, err)
 		}
-		mountComplete := false
-		err = wait.PollImmediate(1*time.Second, 2*time.Minute, func() (bool, error) {
-			err := SMBMount(d.mounter, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions)
-			mountComplete = true
-			return true, err
-		})
-		if !mountComplete {
-			return nil, status.Error(codes.Internal, fmt.Sprintf("volume(%s) mount %q on %q failed with timeout(10m)", volumeID, source, cifsMountPath))
-		}
-		if err != nil {
+		if err := wait.PollImmediate(1*time.Second, 2*time.Minute, func() (bool, error) {
+			return true, SMBMount(d.mounter, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions)
+		}); err != nil {
 			return nil, status.Error(codes.Internal, fmt.Sprintf("volume(%s) mount %q on %q failed with %v", volumeID, source, cifsMountPath, err))
 		}
 		klog.V(2).Infof("volume(%s) mount %q on %q succeeded", volumeID, source, cifsMountPath)
