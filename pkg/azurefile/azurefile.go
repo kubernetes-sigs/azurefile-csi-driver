@@ -416,20 +416,11 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 			if rgName == "" {
 				rgName = d.cloud.ResourceGroup
 			}
-			if d.cloud.KubeClient != nil {
-				secretName := fmt.Sprintf(secretNameTemplate, accountName)
-				secretNamespace := reqContext[secretNamespaceField]
-				if secretNamespace == "" {
-					secretNamespace = defaultSecretNamespace
-				}
-				secret, err := d.cloud.KubeClient.CoreV1().Secrets(secretNamespace).Get(context.TODO(), secretName, metav1.GetOptions{})
-				if err != nil {
-					klog.V(4).Infof("could not get secret(%v): %v", secretName, err)
-				} else {
-					accountKey = string(secret.Data[defaultSecretAccountKey][:])
-				}
-			}
-			if accountKey == "" {
+
+			// read from k8s secret first
+			accountKey, err = d.GetStorageAccesskeyFromSecret(accountName, reqContext[secretNamespaceField])
+			if err != nil {
+				klog.V(2).Infof("could not get account(%s) key from secret, error: %v, use cluster identity to get account key instead", accountName, err)
 				accountKey, err = d.cloud.GetStorageAccesskey(accountName, rgName)
 			}
 		}
@@ -516,17 +507,29 @@ func (d *Driver) GetStorageAccesskey(accountOptions *azure.AccountOptions, secre
 	}
 
 	// read from k8s secret first
-	if d.cloud.KubeClient != nil {
-		secretName := fmt.Sprintf(secretNameTemplate, accountOptions.Name)
-		if secretNamespace == "" {
-			secretNamespace = defaultSecretNamespace
-		}
-		secret, err := d.cloud.KubeClient.CoreV1().Secrets(secretNamespace).Get(context.TODO(), secretName, metav1.GetOptions{})
-		if err != nil {
-			klog.V(5).Infof("could not get secret(%v): %v", secretName, err)
-		} else {
-			return string(secret.Data[defaultSecretAccountKey][:]), nil
-		}
+	accountKey, err := d.GetStorageAccesskeyFromSecret(accountOptions.Name, secretNamespace)
+	if err != nil {
+		klog.V(2).Infof("could not get account(%s) key from secret, error: %v, use cluster identity to get account key instead", accountOptions.Name, err)
+		return d.cloud.GetStorageAccesskey(accountOptions.Name, accountOptions.ResourceGroup)
 	}
-	return d.cloud.GetStorageAccesskey(accountOptions.Name, accountOptions.ResourceGroup)
+
+	return accountKey, nil
+}
+
+// GetStorageAccesskeyFromSecret get storage account key from k8s secret
+func (d *Driver) GetStorageAccesskeyFromSecret(accountName, secretNamespace string) (string, error) {
+	if d.cloud.KubeClient == nil {
+		return "", fmt.Errorf("could not get account(%s) key from secret: KubeClient is nil", accountName)
+	}
+
+	secretName := fmt.Sprintf(secretNameTemplate, accountName)
+	if secretNamespace == "" {
+		secretNamespace = defaultSecretNamespace
+	}
+	secret, err := d.cloud.KubeClient.CoreV1().Secrets(secretNamespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("could not get secret(%v): %v", secretName, err)
+	}
+
+	return string(secret.Data[defaultSecretAccountKey][:]), nil
 }
