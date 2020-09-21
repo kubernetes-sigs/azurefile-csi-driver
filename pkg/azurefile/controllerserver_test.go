@@ -152,7 +152,7 @@ func TestCreateVolume(t *testing.T) {
 				allParam := map[string]string{
 					"skuname":            "premium",
 					"location":           "loc",
-					"storageaccount":     "stoacc",
+					"storageaccount":     "",
 					"resourcegroup":      "rg",
 					shareNameField:       "",
 					diskNameField:        "diskname",
@@ -221,7 +221,7 @@ func TestCreateVolume(t *testing.T) {
 					"skuname":            "premium",
 					"storageaccounttype": "stoacctype",
 					"location":           "loc",
-					"storageaccount":     "stoacc",
+					"storageaccount":     "",
 					"resourcegroup":      "rg",
 					shareNameField:       "",
 					diskNameField:        "diskname",

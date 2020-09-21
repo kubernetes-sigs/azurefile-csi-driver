@@ -168,7 +168,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		Tags:                   tags,
 	}
 
-	var accountName, accountKey string
+	var accountKey string
+	accountName := account
 	if len(req.GetSecrets()) == 0 && accountName == "" {
 		lockKey := sku + accountKind + resourceGroup + location
 		d.volLockMap.LockEntry(lockKey)
