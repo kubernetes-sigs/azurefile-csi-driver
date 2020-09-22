@@ -250,7 +250,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			return nil, status.Errorf(codes.Internal, "failed to store storage account key: %v", err)
 		}
 		if secretName != "" {
-			klog.V(2).Infof("store account key to k8s secret(%v) in kube-system namespace", secretName)
+			klog.V(2).Infof("store account key to k8s secret(%v) in %s namespace", secretName, secretNamespace)
 		}
 	}
 
