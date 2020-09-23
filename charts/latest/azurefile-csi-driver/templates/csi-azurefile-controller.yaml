@@ -129,6 +129,8 @@ spec:
               memory: 20Mi
         - name: azurefile
           image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
+          securityContext:
+            runAsUser: 0
           args:
             - "--v=5"
             - "--endpoint=$(CSI_ENDPOINT)"

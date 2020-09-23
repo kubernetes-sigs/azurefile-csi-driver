@@ -16,6 +16,9 @@ FROM mcr.microsoft.com/aks/fundamental/base-ubuntu:v0.0.5
 RUN apt-get update && apt-get install -y ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"
+# Create a nonroot user
+RUN useradd -u 10001 nonroot
+USER nonroot
 
 COPY ./_output/azurefileplugin /azurefileplugin
 ENTRYPOINT ["/azurefileplugin"]
