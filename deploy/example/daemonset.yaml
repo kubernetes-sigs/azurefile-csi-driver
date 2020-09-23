@@ -2,7 +2,7 @@
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: pvc-azurefile
+  name: pvc-azurefile-ds
 spec:
   accessModes:
     - ReadWriteMany
@@ -28,7 +28,7 @@ spec:
         kubernetes.io/os: linux
       containers:
         - name: nginx
-          image: nginx
+          image: mcr.microsoft.com/oss/nginx/nginx:1.17.3-alpine
           command:
             - "/bin/sh"
             - "-c"
@@ -40,4 +40,4 @@ spec:
       volumes:
         - name: azurefile
           persistentVolumeClaim:
-            claimName: pvc-azurefile
+            claimName: pvc-azurefile-ds
