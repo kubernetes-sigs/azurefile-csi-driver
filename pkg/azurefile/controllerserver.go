@@ -67,6 +67,9 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	parameters := req.GetParameters()
+	if parameters == nil {
+		parameters = make(map[string]string)
+	}
 	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, storeAccountKey, secretNamespace, protocol, customTags string
 
 	// Apply ProvisionerParameters (case-insensitive). We leave validation of

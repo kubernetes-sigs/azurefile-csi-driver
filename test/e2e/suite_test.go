@@ -52,10 +52,14 @@ const (
 )
 
 var (
-	azurefileDriver           *azurefile.Driver
-	isUsingInTreeVolumePlugin = os.Getenv(driver.AzureDriverNameVar) == inTreeStorageClass
-	isTestingMigration        = os.Getenv(testMigrationEnvVar) != ""
-	isWindowsCluster          = os.Getenv(testWindowsEnvVar) != ""
+	azurefileDriver                *azurefile.Driver
+	isUsingInTreeVolumePlugin      = os.Getenv(driver.AzureDriverNameVar) == inTreeStorageClass
+	isTestingMigration             = os.Getenv(testMigrationEnvVar) != ""
+	isWindowsCluster               = os.Getenv(testWindowsEnvVar) != ""
+	bringKeyStorageClassParameters = map[string]string{
+		"csi.storage.k8s.io/provisioner-secret-namespace": "default",
+		"csi.storage.k8s.io/node-stage-secret-namespace":  "default",
+	}
 )
 
 type testCmd struct {

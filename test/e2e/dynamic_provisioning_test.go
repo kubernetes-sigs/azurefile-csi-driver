@@ -18,11 +18,16 @@ package e2e
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"os/exec"
+	"strings"
 
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/testsuites"
 
 	"github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -573,6 +578,61 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			StorageClassParameters: map[string]string{"skuName": "Standard_LRS"},
 		}
 		test.Run(cs, snapshotrcs, ns)
+	})
+
+	ginkgo.It("should create a volume on demand with mount options (Bring Your Own Key) [file.csi.azure.com] [Windows]", func() {
+		skipIfUsingInTreeVolumePlugin()
+		// get storage account secret name
+		err := os.Chdir("../..")
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		defer func() {
+			err := os.Chdir("test/e2e")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		}()
+
+		getSecretNameScript := "test/utils/get_storage_account_secret_name.sh"
+		log.Printf("run script: %s\n", getSecretNameScript)
+
+		cmd := exec.Command("bash", getSecretNameScript)
+		output, err := cmd.CombinedOutput()
+		log.Printf("got output: %v, error: %v\n", string(output), err)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+		secretName := strings.TrimSuffix(string(output), "\n")
+		log.Printf("got storage account secret name: %v\n", secretName)
+		bringKeyStorageClassParameters["csi.storage.k8s.io/provisioner-secret-name"] = secretName
+		bringKeyStorageClassParameters["csi.storage.k8s.io/node-stage-secret-name"] = secretName
+
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize: "100Gi",
+						MountOptions: []string{
+							"dir_mode=0777",
+							"file_mode=0777",
+							"uid=0",
+							"gid=0",
+							"mfsymlinks",
+							"cache=strict",
+							"nosharesock",
+						},
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+					},
+				},
+				IsWindows: isWindowsCluster,
+			},
+		}
+		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
+			CSIDriver:              testDriver,
+			Pods:                   pods,
+			StorageClassParameters: bringKeyStorageClassParameters,
+		}
+		test.Run(cs, ns)
 	})
 })
 
