@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -e
+# set -e
 
 function get_array() {
     for value in ${1}
@@ -50,5 +50,4 @@ for ((i=0; i<${#processed_restarts[@]}; i++)); do
     fi
 done
 
-echo "no driver pods have restarted"
 echo "======================================================================================"
