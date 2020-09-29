@@ -40,11 +40,13 @@ for ((i=0; i<${#processed_restarts[@]}; i++)); do
         echo "there is a driver pod which has restarted"
 	    #disable pods restart check temporarily since there is driver restart in MSI enabled cluster
         #exit 3
-        kubectl describe po ${processed_pods[$i]} -n kube-system
-        echo "======================================================================================"
-        echo "print previous azurefile cotnainer logs since there is a restart"
-        kubectl logs ${processed_pods[$i]} -c azurefile -p -n kube-system
-        echo "======================================================================================"
+        if [[ "$1" == "log" ]]; then
+            kubectl describe po ${processed_pods[$i]} -n kube-system
+            echo "======================================================================================"
+            echo "print previous azurefile cotnainer logs since there is a restart"
+            kubectl logs ${processed_pods[$i]} -c azurefile -p -n kube-system
+            echo "======================================================================================"
+        fi
     fi
 done
 
