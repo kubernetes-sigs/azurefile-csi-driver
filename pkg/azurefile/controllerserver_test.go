@@ -150,10 +150,10 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				allParam := map[string]string{
-					"skuname":            "premium",
-					"location":           "loc",
-					"storageaccount":     "",
-					"resourcegroup":      "rg",
+					skuNameField:         "premium",
+					locationField:        "loc",
+					storageAccountField:  "",
+					resourceGroupField:   "rg",
 					shareNameField:       "",
 					diskNameField:        "diskname",
 					fsTypeField:          "",
@@ -218,17 +218,17 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				allParam := map[string]string{
-					"skuname":            "premium",
-					"storageaccounttype": "stoacctype",
-					"location":           "loc",
-					"storageaccount":     "",
-					"resourcegroup":      "rg",
-					shareNameField:       "",
-					diskNameField:        "diskname",
-					fsTypeField:          "",
-					storeAccountKeyField: "storeaccountkey",
-					secretNamespaceField: "secretnamespace",
-					"defaultparam":       "defaultvalue",
+					skuNameField:            "premium",
+					storageAccountTypeField: "stoacctype",
+					locationField:           "loc",
+					storageAccountField:     "",
+					resourceGroupField:      "rg",
+					shareNameField:          "",
+					diskNameField:           "diskname",
+					fsTypeField:             "",
+					storeAccountKeyField:    "storeaccountkey",
+					secretNamespaceField:    "secretnamespace",
+					"defaultparam":          "defaultvalue",
 				}
 
 				req := &csi.CreateVolumeRequest{
@@ -343,17 +343,17 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				allParam := map[string]string{
-					"skuname":            "premium",
-					"storageaccounttype": "stoacctype",
-					"location":           "loc",
-					"storageaccount":     "stoacc",
-					"resourcegroup":      "rg",
-					shareNameField:       "",
-					diskNameField:        "diskname",
-					fsTypeField:          "",
-					storeAccountKeyField: "storeaccountkey",
-					secretNamespaceField: "secretnamespace",
-					"defaultparam":       "defaultvalue",
+					skuNameField:            "premium",
+					storageAccountTypeField: "stoacctype",
+					locationField:           "loc",
+					storageAccountField:     "stoacc",
+					resourceGroupField:      "rg",
+					shareNameField:          "",
+					diskNameField:           "diskname",
+					fsTypeField:             "",
+					storeAccountKeyField:    "storeaccountkey",
+					secretNamespaceField:    "secretnamespace",
+					"defaultparam":          "defaultvalue",
 				}
 
 				req := &csi.CreateVolumeRequest{
@@ -417,17 +417,17 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				allParam := map[string]string{
-					"skuname":            "premium",
-					"storageaccounttype": "stoacctype",
-					"location":           "loc",
-					"storageaccount":     "stoacc",
-					"resourcegroup":      "rg",
-					shareNameField:       "",
-					diskNameField:        "diskname",
-					fsTypeField:          "",
-					storeAccountKeyField: "storeaccountkey",
-					secretNamespaceField: "secretnamespace",
-					"defaultparam":       "defaultvalue",
+					skuNameField:            "premium",
+					storageAccountTypeField: "stoacctype",
+					locationField:           "loc",
+					storageAccountField:     "stoacc",
+					resourceGroupField:      "rg",
+					shareNameField:          "",
+					diskNameField:           "diskname",
+					fsTypeField:             "",
+					storeAccountKeyField:    "storeaccountkey",
+					secretNamespaceField:    "secretnamespace",
+					"defaultparam":          "defaultvalue",
 				}
 
 				req := &csi.CreateVolumeRequest{
@@ -489,15 +489,15 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				allParam := map[string]string{
-					"skuname":            "premium",
-					"storageaccounttype": "stoacctype",
-					"location":           "loc",
-					"storageaccount":     "stoacc",
-					"resourcegroup":      "rg",
-					fsTypeField:          "ext4",
-					storeAccountKeyField: "storeaccountkey",
-					secretNamespaceField: "default",
-					"defaultparam":       "defaultvalue",
+					skuNameField:            "premium",
+					storageAccountTypeField: "stoacctype",
+					locationField:           "loc",
+					storageAccountField:     "stoacc",
+					resourceGroupField:      "rg",
+					fsTypeField:             "ext4",
+					storeAccountKeyField:    "storeaccountkey",
+					secretNamespaceField:    "default",
+					"defaultparam":          "defaultvalue",
 				}
 
 				req := &csi.CreateVolumeRequest{
@@ -576,17 +576,17 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				allParam := map[string]string{
-					"skuname":            "premium",
-					"storageaccounttype": "stoacctype",
-					"location":           "loc",
-					"storageaccount":     "stoacc",
-					"resourcegroup":      "rg",
-					shareNameField:       "",
-					diskNameField:        "diskname",
-					fsTypeField:          "",
-					storeAccountKeyField: "storeaccountkey",
-					secretNamespaceField: "default",
-					"defaultparam":       "defaultvalue",
+					skuNameField:            "premium",
+					storageAccountTypeField: "stoacctype",
+					locationField:           "loc",
+					storageAccountField:     "stoacc",
+					resourceGroupField:      "rg",
+					shareNameField:          "",
+					diskNameField:           "diskname",
+					fsTypeField:             "",
+					storeAccountKeyField:    "storeaccountkey",
+					secretNamespaceField:    "default",
+					"defaultparam":          "defaultvalue",
 				}
 
 				req := &csi.CreateVolumeRequest{

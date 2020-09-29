@@ -1,7 +1,7 @@
 ## CSI driver example
 > refer to [driver parameters](../../docs/driver-parameters.md) for more detailed usage
 
-### AzureFile Dynamic Provisioning
+### Dynamic Provisioning
 #### Option#1: create storage account by CSI driver
  - Create storage class
 ```console

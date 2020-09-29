@@ -49,7 +49,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 	ginkgo.BeforeEach(func() {
 		checkPodsRestart := testCmd{
-			command:  "sh",
+			command:  "bash",
 			args:     []string{"test/utils/check_driver_pods_restart.sh"},
 			startLog: "Check driver pods if restarts ...",
 			endLog:   "Check successfully",
