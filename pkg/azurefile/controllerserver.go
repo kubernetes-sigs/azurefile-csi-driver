@@ -76,15 +76,15 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	// the values to the cloud provider.
 	for k, v := range parameters {
 		switch strings.ToLower(k) {
-		case "skuname":
+		case skuNameField:
 			sku = v
-		case "storageaccounttype":
+		case storageAccountTypeField:
 			sku = v
-		case "location":
+		case locationField:
 			location = v
-		case "storageaccount":
+		case storageAccountField:
 			account = v
-		case "resourcegroup":
+		case resourceGroupField:
 			resourceGroup = v
 		case shareNameField:
 			fileShareName = v
