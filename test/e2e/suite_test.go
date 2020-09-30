@@ -127,6 +127,14 @@ var _ = ginkgo.AfterSuite(func() {
 			execTestCmd([]testCmd{cmLog})
 		}
 		if isTestingMigration || !isUsingInTreeVolumePlugin {
+			checkPodsRestart := testCmd{
+				command:  "bash",
+				args:     []string{"test/utils/check_driver_pods_restart.sh", "log"},
+				startLog: "Check driver pods if restarts ...",
+				endLog:   "Check successfully",
+			}
+			execTestCmd([]testCmd{checkPodsRestart})
+
 			createExampleDeployment := testCmd{
 				command:  "make",
 				args:     []string{"create-example-deployment"},

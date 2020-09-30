@@ -14,7 +14,7 @@
 
 #!/bin/bash
 
-set -e
+# set -e
 
 NS=kube-system
 CONTAINER=azurefile
