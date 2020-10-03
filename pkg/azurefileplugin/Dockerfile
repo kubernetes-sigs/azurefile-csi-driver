@@ -20,8 +20,5 @@ RUN apt update && apt install nfs-common -y || true
 
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"
-# Create a nonroot user
-RUN useradd -u 10001 nonroot
-USER nonroot
 
 ENTRYPOINT ["/azurefileplugin"]
