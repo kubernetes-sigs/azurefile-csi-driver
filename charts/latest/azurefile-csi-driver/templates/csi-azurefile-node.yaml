@@ -15,6 +15,7 @@ spec:
         app: csi-azurefile-node
     spec:
       hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       serviceAccountName: csi-azurefile-node-sa
       nodeSelector:
         kubernetes.io/os: linux
