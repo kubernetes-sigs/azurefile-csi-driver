@@ -26,3 +26,18 @@ csi-azurefile-node-dr4s4                        3/3     Running   0          7m4
 ```console
 $ kubectl logs csi-azurefile-node-cvgbs -c azurefile -n kube-system > csi-azurefile-node.log
 ```
+
+### troubleshooting connection failure on agent node
+ - SMB
+
+```console
+mkdir /tmp/test
+sudo mount -t cifs //accountname.blob.core.windows.net/filesharename /tmp/test -o vers=3.0,username=accountname,password=accountkey,dir_mode=0777,file_mode=0777,cache=strict,actimeo=30
+```
+
+ - NFSv4
+ 
+```console
+mkdir /tmp/test
+mount -t nfs -o vers=4,minorversion=1,sec=sys accountname.blob.core.windows.net:/accountname/filesharename /tmp/test
+```
