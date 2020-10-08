@@ -28,6 +28,7 @@ $ kubectl logs csi-azurefile-node-cvgbs -c azurefile -n kube-system > csi-azuref
 ```
 
 ### troubleshooting connection failure on agent node
+> for sovereign cloud, server address: accountname.blob.core.chinacloudapi.cn
  - SMB
 
 ```console
