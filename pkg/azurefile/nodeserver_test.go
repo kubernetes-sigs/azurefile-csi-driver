@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"runtime"
 	"syscall"
 	"testing"
 
@@ -214,9 +215,10 @@ func TestNodeUnpublishVolume(t *testing.T) {
 	targetFile := testutil.GetWorkDirPath("abc.go", t)
 
 	tests := []struct {
-		desc        string
-		req         csi.NodeUnpublishVolumeRequest
-		expectedErr testutil.TestError
+		desc         string
+		req          csi.NodeUnpublishVolumeRequest
+		skipOnDarwin bool
+		expectedErr  testutil.TestError
 	}{
 		{
 			desc: "[Error] Volume ID missing",
@@ -233,8 +235,9 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			},
 		},
 		{
-			desc: "[Error] Unmount error mocked by IsLikelyNotMountPoint",
-			req:  csi.NodeUnpublishVolumeRequest{TargetPath: errorTarget, VolumeId: "vol_1"},
+			desc:         "[Error] Unmount error mocked by IsLikelyNotMountPoint",
+			req:          csi.NodeUnpublishVolumeRequest{TargetPath: errorTarget, VolumeId: "vol_1"},
+			skipOnDarwin: true,
 			expectedErr: testutil.TestError{
 				DefaultError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount target \"%s\": fake IsLikelyNotMountPoint: fake error", errorTarget)),
 				// todo: Not a desired error. This will need a better fix
@@ -262,10 +265,14 @@ func TestNodeUnpublishVolume(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		if test.skipOnDarwin && runtime.GOOS == "darwin" {
+			continue
+		}
 		_, err := d.NodeUnpublishVolume(context.Background(), &test.req)
 		if !testutil.AssertError(err, &test.expectedErr) {
 			t.Errorf("Desc: %s\nUnexpected error: %v\nExpected: %v", test.desc, err, test.expectedErr.GetExpectedError())
 		}
+
 	}
 
 	// Clean up
@@ -325,10 +332,11 @@ func TestNodeStageVolume(t *testing.T) {
 	}
 
 	tests := []struct {
-		desc        string
-		req         csi.NodeStageVolumeRequest
-		execScripts []ExecArgs
-		expectedErr testutil.TestError
+		desc         string
+		req          csi.NodeStageVolumeRequest
+		execScripts  []ExecArgs
+		skipOnDarwin bool
+		expectedErr  testutil.TestError
 	}{
 		{
 			desc:        "[Error] Volume ID missing",
@@ -387,6 +395,7 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContext,
 				Secrets:          secrets},
+			skipOnDarwin: true,
 			expectedErr: testutil.TestError{
 				DefaultError: status.Errorf(codes.Internal, fmt.Sprintf("volume(vol_1##) mount \"//test_servername/test_sharename\" on %#v failed with fake MountSensitive: target error", errorMountSensSource)),
 				WindowsError: fmt.Errorf("prepare stage path failed for %s with error: could not cast to csi proxy class", errorMountSensSource),
@@ -402,6 +411,7 @@ func TestNodeStageVolume(t *testing.T) {
 				{"blkid", []string{"-p", "-s", "TYPE", "-s", "PTTYPE", "-o", "export", testDiskPath}, "", &testingexec.FakeExitError{Status: 2}},
 				{"mkfs.ext4", []string{"-F", "-m0", testDiskPath}, "", fmt.Errorf("formatting failed")},
 			},
+			skipOnDarwin: true,
 			expectedErr: testutil.TestError{
 				DefaultError: status.Errorf(codes.Internal, "could not format %#v and mount it at %#v", sourceTest, testDiskPath),
 				WindowsError: fmt.Errorf("prepare stage path failed for %s with error: could not cast to csi proxy class", proxyMountPath),
@@ -457,6 +467,9 @@ func TestNodeStageVolume(t *testing.T) {
 	d := NewFakeDriver()
 
 	for _, test := range tests {
+		if test.skipOnDarwin && runtime.GOOS == "darwin" {
+			continue
+		}
 		fakeMounter := &fakeMounter{}
 		fakeExec := &testingexec.FakeExec{ExactOrder: true}
 
@@ -480,6 +493,7 @@ func TestNodeStageVolume(t *testing.T) {
 		if !testutil.AssertError(err, &test.expectedErr) {
 			t.Errorf("Desc: %s\nUnexpected error: %v\nExpected: %v", test.desc, err, test.expectedErr.GetExpectedError())
 		}
+
 	}
 
 	// Clean up
@@ -498,9 +512,10 @@ func TestNodeUnstageVolume(t *testing.T) {
 	)
 
 	tests := []struct {
-		desc        string
-		req         csi.NodeUnstageVolumeRequest
-		expectedErr testutil.TestError
+		desc         string
+		req          csi.NodeUnstageVolumeRequest
+		skipOnDarwin bool
+		expectedErr  testutil.TestError
 	}{
 		{
 			desc: "[Error] Volume ID missing",
@@ -517,8 +532,9 @@ func TestNodeUnstageVolume(t *testing.T) {
 			},
 		},
 		{
-			desc: "[Error] CleanupMountPoint error mocked by IsLikelyNotMountPoint",
-			req:  csi.NodeUnstageVolumeRequest{StagingTargetPath: errorTarget, VolumeId: "vol_1"},
+			desc:         "[Error] CleanupMountPoint error mocked by IsLikelyNotMountPoint",
+			req:          csi.NodeUnstageVolumeRequest{StagingTargetPath: errorTarget, VolumeId: "vol_1"},
+			skipOnDarwin: true,
 			expectedErr: testutil.TestError{
 				DefaultError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount staging target %#v: fake IsLikelyNotMountPoint: fake error", errorTarget)),
 				WindowsError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount staging target %#v: could not cast to csi proxy class", errorTarget)),
@@ -544,6 +560,9 @@ func TestNodeUnstageVolume(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		if test.skipOnDarwin && runtime.GOOS == "darwin" {
+			continue
+		}
 		_, err := d.NodeUnstageVolume(context.Background(), &test.req)
 		if !testutil.AssertError(err, &test.expectedErr) {
 			t.Errorf("Desc: %v\nUnexcpected error: %v\nExpected: %v", test.desc, err, test.expectedErr.GetExpectedError())

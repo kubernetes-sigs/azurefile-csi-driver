@@ -97,6 +97,10 @@ azurefile:
 azurefile-windows:
 	CGO_ENABLED=0 GOOS=windows go build -a -ldflags ${LDFLAGS} -o _output/azurefileplugin.exe ./pkg/azurefileplugin
 
+.PHONY: azurefile-darwin
+azurefile-darwin:
+	CGO_ENABLED=0 GOOS=darwin go build -a -ldflags ${LDFLAGS} -o _output/azurefileplugin ./pkg/azurefileplugin
+
 .PHONY: container
 container: azurefile
 	docker build --no-cache -t $(IMAGE_TAG) -f ./pkg/azurefileplugin/dev.Dockerfile .
