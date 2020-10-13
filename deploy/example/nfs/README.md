@@ -7,7 +7,7 @@
 #### Supported CSI driver version: `v0.8.0`
 
 #### [Available regions](https://aka.ms/azurefiles/nfs/preview/regions)
-`eastus`, `eastus2`, `southeastasia`, `uksouth`
+We are continually adding more regions. Latest region list is available on [Azure NFS documentation](https://aka.ms/azurefiles/nfs/preview/regions)
 
 #### Prerequisite
  - [install CSI driver](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/install-csi-driver-master.md)
