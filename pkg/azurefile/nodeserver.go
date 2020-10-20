@@ -180,6 +180,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			}
 			// parameters suggested by https://azure.microsoft.com/en-us/documentation/articles/storage-how-to-use-files-linux/
 			sensitiveMountOptions = []string{fmt.Sprintf("username=%s,password=%s", accountName, accountKey)}
+			cifsMountFlags = util.JoinMountOptions(cifsMountFlags, []string{"actimeo=30"})
 			mountOptions = appendDefaultMountOptions(cifsMountFlags)
 		}
 	}
