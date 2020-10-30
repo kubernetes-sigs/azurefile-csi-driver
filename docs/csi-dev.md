@@ -95,12 +95,15 @@ $  csc controller delete-snapshot
 
 ## How to test CSI driver in a Kubernetes cluster
 
- - Build continer image and push image to dockerhub
+ - Build container image and push image to dockerhub
 ```
 # run `docker login` first
 export REGISTRY=<dockerhub-alias>
-make container
-make push-latest
+export IMAGE_VERSION=latest
+# build linux, windows 1809, 1903, 1909, and 2004 images
+make container-all
+# create a manifest list for the images above
+make push-manifest
 ```
 
  - Replace `mcr.microsoft.com/k8s/csi/azurefile-csi:latest` in [`csi-azurefile-controller.yaml`](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/deploy/csi-azurefile-controller.yaml) and [`csi-azurefile-node.yaml`](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/deploy/csi-azurefile-node.yaml) with above dockerhub image urls and then follow [install CSI driver master version](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/install-csi-driver-master.md)

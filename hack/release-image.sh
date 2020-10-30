@@ -17,19 +17,17 @@
 set -euo pipefail
 
 if [[ "$#" -lt 1 ]]; then
-  echo "please provide a registry name"  
+  echo "please provide a registry name"
   exit 1
 fi
 
 export REGISTRY_NAME="$1"
 export REGISTRY=$REGISTRY_NAME.azurecr.io
 export IMAGE_NAME=public/k8s/csi/azurefile-csi
-export CI=1
-export PUBLISH=1
+export IMAGE_VERSION=latest
+
 az acr login --name $REGISTRY_NAME
-make azurefile-container
-make push
-make push-latest
+make azurefile-container-all push-manifest
 
 echo "sleep 60s ..."
 sleep 60
