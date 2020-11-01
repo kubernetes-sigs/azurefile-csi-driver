@@ -9,14 +9,6 @@ spec:
   accessModes:
     - ReadWriteMany
   persistentVolumeReclaimPolicy: Retain  # if set as "Delete" file share would be removed in pvc deletion
-  mountOptions:
-    - dir_mode=0777
-    - file_mode=0777
-    - uid=0
-    - gid=0
-    - mfsymlinks
-    - cache=strict  # https://linux.die.net/man/8/mount.cifs
-    - nosharesock
   csi:
     driver: file.csi.azure.com
     readOnly: false
@@ -25,6 +17,4 @@ spec:
       resourceGroup: EXISTING_RESOURCE_GROUP_NAME  # optional, only set this when storage account is not in the same resource group as agent node
       storageAccount: EXISTING_STORAGE_ACCOUNT_NAME
       shareName: EXISTING_FILE_SHARE_NAME  # only file share name, don't use full path
-    nodeStageSecretRef:
-      name: azure-secret
-      namespace: default
+      protocol: nfs

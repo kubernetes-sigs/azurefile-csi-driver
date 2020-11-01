@@ -415,6 +415,26 @@ func IsCorruptedDir(dir string) bool {
 
 // GetAccountInfo get account info
 func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]string) (rgName, accountName, accountKey, fileShareName, diskName string, err error) {
+	var protocol string
+	for k, v := range reqContext {
+		switch strings.ToLower(k) {
+		case resourceGroupField:
+			rgName = v
+		case storageAccountField:
+			accountName = v
+		case shareNameField:
+			fileShareName = v
+		case diskNameField:
+			diskName = v
+		case protocolField:
+			protocol = v
+		}
+	}
+
+	if protocol == nfs {
+		return rgName, accountName, accountKey, fileShareName, diskName, err
+	}
+
 	if len(secrets) == 0 {
 		rgName, accountName, fileShareName, diskName, err = GetFileShareInfo(volumeID)
 		if err == nil {
@@ -430,14 +450,6 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 			}
 		}
 	} else {
-		for k, v := range reqContext {
-			switch strings.ToLower(k) {
-			case shareNameField:
-				fileShareName = v
-			case diskNameField:
-				diskName = v
-			}
-		}
 		accountName, accountKey, err = getStorageAccount(secrets)
 		// if volumeID is valid, get info from volumeID, ignore volumeID parsing error
 		if rg, _, fileShare, disk, err := GetFileShareInfo(volumeID); err == nil {
