@@ -17,10 +17,13 @@ limitations under the License.
 package azurefile
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"runtime"
 	"strings"
+
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2019-06-01/network"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -33,6 +36,8 @@ var (
 	DefaultAzureCredentialFileEnv = "AZURE_CREDENTIAL_FILE"
 	DefaultCredFilePathLinux      = "/etc/kubernetes/azure.json"
 	DefaultCredFilePathWindows    = "C:\\k\\azure.json"
+
+	storageService = "Microsoft.Storage"
 )
 
 // GetCloudProvider get Azure Cloud Provider
@@ -101,4 +106,54 @@ func getKubeClient(kubeconfig string) (*kubernetes.Clientset, error) {
 	}
 
 	return kubernetes.NewForConfig(config)
+}
+
+func updateSubnetServiceEndpoints(az *azure.Cloud, subnetLockMap *lockMap) error {
+	resourceGroup := az.ResourceGroup
+	location := az.Location
+	vnetName := az.VnetName
+	subnetName := az.SubnetName
+
+	subnet, err := az.SubnetsClient.Get(context.Background(), resourceGroup, vnetName, subnetName, "")
+	if err != nil {
+		return fmt.Errorf("failed to get the subnet %s under vnet %s: %v", subnetName, vnetName, err)
+	}
+	endpointLocaions := []string{location}
+	storageServiceEndpoint := network.ServiceEndpointPropertiesFormat{
+		Service:   &storageService,
+		Locations: &endpointLocaions,
+	}
+	isStorageExisted := false
+	if subnet.SubnetPropertiesFormat != nil {
+		if subnet.SubnetPropertiesFormat.ServiceEndpoints != nil {
+			serviceEndpoints := *subnet.SubnetPropertiesFormat.ServiceEndpoints
+			for _, v := range serviceEndpoints {
+				if *v.Service == storageService {
+					isStorageExisted = true
+					klog.V(4).Infof("serviceEndpoint(%s) is already in subnet(%s)", storageService, subnetName)
+					break
+				}
+			}
+			if !isStorageExisted {
+				serviceEndpoints = append(serviceEndpoints, storageServiceEndpoint)
+				subnet.SubnetPropertiesFormat.ServiceEndpoints = &serviceEndpoints
+			}
+		} else {
+			serviceEndpoints := []network.ServiceEndpointPropertiesFormat{storageServiceEndpoint}
+			subnet.SubnetPropertiesFormat.ServiceEndpoints = &serviceEndpoints
+		}
+	}
+
+	if !isStorageExisted {
+		lockKey := resourceGroup + vnetName + subnetName
+		subnetLockMap.LockEntry(lockKey)
+		defer subnetLockMap.UnlockEntry(lockKey)
+		err = az.SubnetsClient.CreateOrUpdate(context.Background(), resourceGroup, vnetName, subnetName, subnet)
+		if err != nil {
+			return fmt.Errorf("failed to update the subnet %s under vnet %s: %v", subnetName, vnetName, err)
+		}
+		klog.V(4).Infof("serviceEndpoint(%s) is appended in subnet(%s)", storageService, subnetName)
+	}
+
+	return nil
 }

@@ -130,6 +130,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		vnetResourceID := d.getSubnetResourceID()
 		klog.V(2).Infof("set vnetResourceID(%s) for NFS protocol", vnetResourceID)
 		vnetResourceIDs = []string{vnetResourceID}
+
+		err := updateSubnetServiceEndpoints(d.cloud, d.subnetLockMap)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to update the sevice endpoints: %v", err)
+		}
 	}
 
 	fileShareSize := int(requestGiB)

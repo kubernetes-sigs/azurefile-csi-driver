@@ -124,6 +124,8 @@ type Driver struct {
 	mounter    *mount.SafeFormatAndMount
 	// lock per volume attach (only for vhd disk feature)
 	volLockMap *lockMap
+	// only for nfs feature
+	subnetLockMap *lockMap
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -134,6 +136,7 @@ func NewDriver(nodeID string) *Driver {
 	driver.Version = driverVersion
 	driver.NodeID = nodeID
 	driver.volLockMap = newLockMap()
+	driver.subnetLockMap = newLockMap()
 	return &driver
 }
 
