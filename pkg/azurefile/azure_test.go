@@ -17,12 +17,20 @@ limitations under the License.
 package azurefile
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"runtime"
 	"testing"
 
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2019-06-01/network"
+	"github.com/golang/mock/gomock"
+
+	"k8s.io/legacy-cloud-providers/azure"
+	"k8s.io/legacy-cloud-providers/azure/clients/subnetclient/mocksubnetclient"
+	"k8s.io/legacy-cloud-providers/azure/retry"
 	"sigs.k8s.io/azurefile-csi-driver/test/utils/testutil"
 )
 
@@ -169,4 +177,196 @@ func createTestFile(path string) error {
 	defer f.Close()
 
 	return nil
+}
+
+func TestUpdateSubnetServiceEndpoints(t *testing.T) {
+
+	fakeSubnetLockMap := newLockMap()
+	ctx := context.TODO()
+
+	testCases := []struct {
+		name     string
+		testFunc func(t *testing.T)
+	}{
+		{
+			name: "[fail]  nil cloud parameter",
+			testFunc: func(t *testing.T) {
+				expectedErr := fmt.Errorf("the cloud parameter is nil")
+				err := updateSubnetServiceEndpoints(ctx, nil, nil)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "[fail]  nil subnetLockMap parameter",
+			testFunc: func(t *testing.T) {
+				fakeCloud := &azure.Cloud{
+					Config: azure.Config{
+						ResourceGroup: "rg",
+						Location:      "loc",
+						VnetName:      "fake-vnet",
+						SubnetName:    "fake-subnet",
+					},
+				}
+
+				expectedErr := fmt.Errorf("the subnet lockMap parameter is nil")
+				err := updateSubnetServiceEndpoints(ctx, fakeCloud, nil)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "[fail] no subnet",
+			testFunc: func(t *testing.T) {
+				retErr := retry.NewError(false, fmt.Errorf("the subnet does not exist"))
+				fakeCloud := &azure.Cloud{
+					Config: azure.Config{
+						ResourceGroup: "rg",
+						Location:      "loc",
+						VnetName:      "fake-vnet",
+						SubnetName:    "fake-subnet",
+					},
+				}
+
+				ctrl := gomock.NewController(t)
+				defer ctrl.Finish()
+				mockSubnetClient := mocksubnetclient.NewMockInterface(ctrl)
+				fakeCloud.SubnetsClient = mockSubnetClient
+
+				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(network.Subnet{}, retErr).Times(1)
+
+				expectedErr := fmt.Errorf("failed to get the subnet %s under vnet %s: %v", fakeCloud.SubnetName, fakeCloud.VnetName, retErr)
+				err := updateSubnetServiceEndpoints(ctx, fakeCloud, fakeSubnetLockMap)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "[success] subnetPropertiesFormat is nil",
+			testFunc: func(t *testing.T) {
+				fakeCloud := &azure.Cloud{
+					Config: azure.Config{
+						ResourceGroup: "rg",
+						Location:      "loc",
+						VnetName:      "fake-vnet",
+						SubnetName:    "fake-subnet",
+					},
+				}
+
+				ctrl := gomock.NewController(t)
+				defer ctrl.Finish()
+				mockSubnetClient := mocksubnetclient.NewMockInterface(ctrl)
+				fakeCloud.SubnetsClient = mockSubnetClient
+
+				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(network.Subnet{}, nil).Times(1)
+				mockSubnetClient.EXPECT().CreateOrUpdate(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
+
+				err := updateSubnetServiceEndpoints(ctx, fakeCloud, fakeSubnetLockMap)
+				if !reflect.DeepEqual(err, nil) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "[success] ServiceEndpoints is nil",
+			testFunc: func(t *testing.T) {
+				fakeSubnet := network.Subnet{
+					SubnetPropertiesFormat: &network.SubnetPropertiesFormat{},
+				}
+				fakeCloud := &azure.Cloud{
+					Config: azure.Config{
+						ResourceGroup: "rg",
+						Location:      "loc",
+						VnetName:      "fake-vnet",
+						SubnetName:    "fake-subnet",
+					},
+				}
+
+				ctrl := gomock.NewController(t)
+				defer ctrl.Finish()
+				mockSubnetClient := mocksubnetclient.NewMockInterface(ctrl)
+				fakeCloud.SubnetsClient = mockSubnetClient
+
+				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeSubnet, nil).Times(1)
+				mockSubnetClient.EXPECT().CreateOrUpdate(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
+
+				err := updateSubnetServiceEndpoints(ctx, fakeCloud, fakeSubnetLockMap)
+				if !reflect.DeepEqual(err, nil) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "[success] storageService does not exists",
+			testFunc: func(t *testing.T) {
+				fakeSubnet := network.Subnet{
+					SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
+						ServiceEndpoints: &[]network.ServiceEndpointPropertiesFormat{},
+					},
+				}
+				fakeCloud := &azure.Cloud{
+					Config: azure.Config{
+						ResourceGroup: "rg",
+						Location:      "loc",
+						VnetName:      "fake-vnet",
+						SubnetName:    "fake-subnet",
+					},
+				}
+
+				ctrl := gomock.NewController(t)
+				defer ctrl.Finish()
+				mockSubnetClient := mocksubnetclient.NewMockInterface(ctrl)
+				fakeCloud.SubnetsClient = mockSubnetClient
+
+				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeSubnet, nil).Times(1)
+				mockSubnetClient.EXPECT().CreateOrUpdate(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
+
+				err := updateSubnetServiceEndpoints(ctx, fakeCloud, fakeSubnetLockMap)
+				if !reflect.DeepEqual(err, nil) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "[success] storageService already exists",
+			testFunc: func(t *testing.T) {
+				fakeSubnet := network.Subnet{
+					SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
+						ServiceEndpoints: &[]network.ServiceEndpointPropertiesFormat{
+							{
+								Service: &storageService,
+							},
+						},
+					},
+				}
+				fakeCloud := &azure.Cloud{
+					Config: azure.Config{
+						ResourceGroup: "rg",
+						Location:      "loc",
+						VnetName:      "fake-vnet",
+						SubnetName:    "fake-subnet",
+					},
+				}
+
+				ctrl := gomock.NewController(t)
+				defer ctrl.Finish()
+				mockSubnetClient := mocksubnetclient.NewMockInterface(ctrl)
+				fakeCloud.SubnetsClient = mockSubnetClient
+
+				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeSubnet, nil).Times(1)
+
+				err := updateSubnetServiceEndpoints(ctx, fakeCloud, fakeSubnetLockMap)
+				if !reflect.DeepEqual(err, nil) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, tc.testFunc)
+	}
 }

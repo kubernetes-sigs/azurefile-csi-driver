@@ -108,13 +108,20 @@ func getKubeClient(kubeconfig string) (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(config)
 }
 
-func updateSubnetServiceEndpoints(az *azure.Cloud, subnetLockMap *lockMap) error {
+func updateSubnetServiceEndpoints(ctx context.Context, az *azure.Cloud, subnetLockMap *lockMap) error {
+	if az == nil {
+		return fmt.Errorf("the cloud parameter is nil")
+	}
+	if subnetLockMap == nil {
+		return fmt.Errorf("the subnet lockMap parameter is nil")
+	}
+
 	resourceGroup := az.ResourceGroup
 	location := az.Location
 	vnetName := az.VnetName
 	subnetName := az.SubnetName
 
-	subnet, err := az.SubnetsClient.Get(context.Background(), resourceGroup, vnetName, subnetName, "")
+	subnet, err := az.SubnetsClient.Get(ctx, resourceGroup, vnetName, subnetName, "")
 	if err != nil {
 		return fmt.Errorf("failed to get the subnet %s under vnet %s: %v", subnetName, vnetName, err)
 	}
@@ -123,28 +130,31 @@ func updateSubnetServiceEndpoints(az *azure.Cloud, subnetLockMap *lockMap) error
 		Service:   &storageService,
 		Locations: &endpointLocaions,
 	}
-	isStorageExisted := false
+	storageServiceExists := false
 	if subnet.SubnetPropertiesFormat != nil {
 		if subnet.SubnetPropertiesFormat.ServiceEndpoints != nil {
 			serviceEndpoints := *subnet.SubnetPropertiesFormat.ServiceEndpoints
 			for _, v := range serviceEndpoints {
-				if *v.Service == storageService {
-					isStorageExisted = true
+				if v.Service != nil && *v.Service == storageService {
+					storageServiceExists = true
 					klog.V(4).Infof("serviceEndpoint(%s) is already in subnet(%s)", storageService, subnetName)
 					break
 				}
 			}
-			if !isStorageExisted {
+			if !storageServiceExists {
 				serviceEndpoints = append(serviceEndpoints, storageServiceEndpoint)
 				subnet.SubnetPropertiesFormat.ServiceEndpoints = &serviceEndpoints
 			}
 		} else {
-			serviceEndpoints := []network.ServiceEndpointPropertiesFormat{storageServiceEndpoint}
-			subnet.SubnetPropertiesFormat.ServiceEndpoints = &serviceEndpoints
+			subnet.SubnetPropertiesFormat.ServiceEndpoints = &[]network.ServiceEndpointPropertiesFormat{storageServiceEndpoint}
+		}
+	} else {
+		subnet.SubnetPropertiesFormat = &network.SubnetPropertiesFormat{
+			ServiceEndpoints: &[]network.ServiceEndpointPropertiesFormat{storageServiceEndpoint},
 		}
 	}
 
-	if !isStorageExisted {
+	if !storageServiceExists {
 		lockKey := resourceGroup + vnetName + subnetName
 		subnetLockMap.LockEntry(lockKey)
 		defer subnetLockMap.UnlockEntry(lockKey)
