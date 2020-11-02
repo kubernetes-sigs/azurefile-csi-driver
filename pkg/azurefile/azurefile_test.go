@@ -530,45 +530,73 @@ func TestGetAccountInfo(t *testing.T) {
 	clientSet := fake.NewSimpleClientset()
 
 	tests := []struct {
-		volumeID   string
-		resGroup   string
-		secrets    map[string]string
-		reqContext map[string]string
-		expectErr  bool
-		err        error
+		volumeID            string
+		rgName              string
+		secrets             map[string]string
+		reqContext          map[string]string
+		expectErr           bool
+		err                 error
+		expectAccountName   string
+		expectFileShareName string
+		expectDiskName      string
 	}{
 		{
 			volumeID: "##",
-			resGroup: "",
+			rgName:   "",
 			secrets:  emptySecret,
 			reqContext: map[string]string{
 				shareNameField: "test_sharename",
 				diskNameField:  "test_diskname",
 			},
-			expectErr: false,
-			err:       nil,
+			expectErr:           false,
+			err:                 nil,
+			expectAccountName:   "",
+			expectFileShareName: "",
+			expectDiskName:      "",
 		},
 		{
 			volumeID: "vol_1##",
-			resGroup: "vol_1",
+			rgName:   "vol_1",
 			secrets:  validSecret,
 			reqContext: map[string]string{
 				shareNameField: "test_sharename",
 				diskNameField:  "test_diskname",
 			},
-			expectErr: false,
-			err:       nil,
+			expectErr:           false,
+			err:                 nil,
+			expectAccountName:   "testaccount",
+			expectFileShareName: "test_sharename",
+			expectDiskName:      "test_diskname",
 		},
 		{
-			volumeID: "vol_1##",
-			resGroup: "vol_1",
+			volumeID: "vol_2##",
+			rgName:   "vol_2",
 			secrets:  emptySecret,
 			reqContext: map[string]string{
 				shareNameField: "test_sharename",
 				diskNameField:  "test_diskname",
 			},
-			expectErr: false,
-			err:       nil,
+			expectErr:           false,
+			err:                 nil,
+			expectAccountName:   "",
+			expectFileShareName: "",
+			expectDiskName:      "",
+		},
+		{
+			volumeID: "uniqe-volumeid-nfs",
+			rgName:   "vol_nfs",
+			secrets:  emptySecret,
+			reqContext: map[string]string{
+				resourceGroupField:  "vol_nfs",
+				storageAccountField: "test_accountname",
+				shareNameField:      "test_sharename",
+				protocolField:       "nfs",
+			},
+			expectErr:           false,
+			err:                 nil,
+			expectAccountName:   "test_accountname",
+			expectFileShareName: "test_sharename",
+			expectDiskName:      "",
 		},
 	}
 
@@ -577,8 +605,8 @@ func TestGetAccountInfo(t *testing.T) {
 		d.cloud.StorageAccountClient = mockStorageAccountsClient
 		d.cloud.KubeClient = clientSet
 		d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
-		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), test.resGroup, gomock.Any()).Return(key, nil).AnyTimes()
-		_, _, _, _, _, err := d.GetAccountInfo(test.volumeID, test.secrets, test.reqContext)
+		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), test.rgName, gomock.Any()).Return(key, nil).AnyTimes()
+		rgName, accountName, _, fileShareName, diskName, err := d.GetAccountInfo(test.volumeID, test.secrets, test.reqContext)
 		if test.expectErr && err == nil {
 			t.Errorf("Unexpected non-error")
 			continue
@@ -586,6 +614,13 @@ func TestGetAccountInfo(t *testing.T) {
 		if !test.expectErr && err != nil {
 			t.Errorf("Unexpected error: %v", err)
 			continue
+		}
+
+		if err == nil {
+			assert.Equal(t, test.rgName, rgName, test.volumeID)
+			assert.Equal(t, test.expectAccountName, accountName, test.volumeID)
+			assert.Equal(t, test.expectFileShareName, fileShareName, test.volumeID)
+			assert.Equal(t, test.expectDiskName, diskName, test.volumeID)
 		}
 	}
 }

@@ -22,12 +22,21 @@ diskName | existing VHD disk file name | `pvc-062196a6-6436-11ea-ab51-9efb888c0a
 fsType | File System Type | `nfs` | Yes | `nfs`
 
 ### Static Provision(bring your own file share)
-  > get a [example](../deploy/example/pv-azurefile-csi.yaml)
+  > get a [smb pv example](../deploy/example/pv-azurefile-csi.yaml)
+
+  > get a [nfs pv example](../deploy/example/pv-azurefile-nfs.yaml)
 
 Name | Meaning | Available Value | Mandatory | Default value
 --- | --- | --- | --- | ---
-volumeAttributes.sharename | Azure file share name | existing Azure file share name | Yes |
+volumeAttributes.resourceGroup | Azure resource group name | existing resource group name | No | if empty, driver will use the same resource group name as current k8s cluster
+volumeAttributes.storageAccount | existing storage account name | existing storage account name | Yes |
+volumeAttributes.shareName | Azure file share name | existing Azure file share name | Yes |
 volumeAttributes.protocol | specify file share protocol | `smb`, `nfs` | No | `smb`
 server | specify Azure storage account server address | existing server address, e.g. `accountname.privatelink.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
 nodeStageSecretRef.name | secret name that stores storage account name and key | existing secret name |  Yes  |
 nodeStageSecretRef.namespace | namespace where the secret is | k8s namespace  |  Yes  |
+
+ - create a Kubernetes secret for `nodeStageSecretRef.name`
+ ```console
+kubectl create secret generic azure-secret --from-literal azurestorageaccountkey="xxx" --type=Opaque
+ ```
