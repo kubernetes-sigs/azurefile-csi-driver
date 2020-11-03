@@ -20,7 +20,9 @@ IMAGE_NAME ?= azurefile-csi
 IMAGE_VERSION ?= v0.10.0
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
+ifndef PUBLISH
 override IMAGE_VERSION := e2e-$(GIT_COMMIT)
+endif
 endif
 IMAGE_TAG ?= $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
 IMAGE_TAG_LATEST = $(REGISTRY)/$(IMAGE_NAME):latest
@@ -155,6 +157,18 @@ push-manifest:
 	done
 	docker manifest push --purge $(IMAGE_TAG)
 	docker manifest inspect $(IMAGE_TAG)
+ifdef PUBLISH
+	docker manifest create $(IMAGE_TAG_LATEST) $(IMAGE_TAG)-linux-amd64 $(IMAGE_TAG)-windows-1809-amd64 $(IMAGE_TAG)-windows-1903-amd64 $(IMAGE_TAG)-windows-1909-amd64 $(IMAGE_TAG)-windows-2004-amd64
+	docker manifest inspect $(IMAGE_TAG_LATEST)
+endif
+
+.PHONY: push-latest
+push-latest:
+ifdef CI
+	docker manifest push --purge $(IMAGE_TAG_LATEST)
+else
+	docker push $(IMAGE_TAG_LATEST)
+endif
 
 .PHONY: clean
 clean:

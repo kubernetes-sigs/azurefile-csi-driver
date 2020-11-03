@@ -24,10 +24,11 @@ fi
 export REGISTRY_NAME="$1"
 export REGISTRY=$REGISTRY_NAME.azurecr.io
 export IMAGE_NAME=public/k8s/csi/azurefile-csi
-export IMAGE_VERSION=latest
+export CI=1
+export PUBLISH=1
 
 az acr login --name $REGISTRY_NAME
-make azurefile-container-all push-manifest
+make container-all push-manifest push-latest
 
 echo "sleep 60s ..."
 sleep 60
