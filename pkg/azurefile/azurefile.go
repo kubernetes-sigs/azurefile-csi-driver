@@ -435,7 +435,7 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 		}
 	}
 
-	if protocol == nfs {
+	if protocol == nfs && fileShareName != "" {
 		return rgName, accountName, accountKey, fileShareName, diskName, err
 	}
 
