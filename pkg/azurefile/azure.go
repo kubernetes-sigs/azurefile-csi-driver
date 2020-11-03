@@ -131,26 +131,24 @@ func updateSubnetServiceEndpoints(ctx context.Context, az *azure.Cloud, subnetLo
 		Locations: &endpointLocaions,
 	}
 	storageServiceExists := false
-	if subnet.SubnetPropertiesFormat != nil {
-		if subnet.SubnetPropertiesFormat.ServiceEndpoints != nil {
-			serviceEndpoints := *subnet.SubnetPropertiesFormat.ServiceEndpoints
-			for _, v := range serviceEndpoints {
-				if v.Service != nil && *v.Service == storageService {
-					storageServiceExists = true
-					klog.V(4).Infof("serviceEndpoint(%s) is already in subnet(%s)", storageService, subnetName)
-					break
-				}
-			}
-			if !storageServiceExists {
-				serviceEndpoints = append(serviceEndpoints, storageServiceEndpoint)
-				subnet.SubnetPropertiesFormat.ServiceEndpoints = &serviceEndpoints
-			}
-		} else {
-			subnet.SubnetPropertiesFormat.ServiceEndpoints = &[]network.ServiceEndpointPropertiesFormat{storageServiceEndpoint}
-		}
-	} else {
+	if subnet.SubnetPropertiesFormat == nil {
 		subnet.SubnetPropertiesFormat = &network.SubnetPropertiesFormat{
 			ServiceEndpoints: &[]network.ServiceEndpointPropertiesFormat{storageServiceEndpoint},
+		}
+	} else if subnet.SubnetPropertiesFormat.ServiceEndpoints == nil {
+		subnet.SubnetPropertiesFormat.ServiceEndpoints = &[]network.ServiceEndpointPropertiesFormat{storageServiceEndpoint}
+	} else {
+		serviceEndpoints := *subnet.SubnetPropertiesFormat.ServiceEndpoints
+		for _, v := range serviceEndpoints {
+			if v.Service != nil && *v.Service == storageService {
+				storageServiceExists = true
+				klog.V(4).Infof("serviceEndpoint(%s) is already in subnet(%s)", storageService, subnetName)
+				break
+			}
+		}
+		if !storageServiceExists {
+			serviceEndpoints = append(serviceEndpoints, storageServiceEndpoint)
+			subnet.SubnetPropertiesFormat.ServiceEndpoints = &serviceEndpoints
 		}
 	}
 
