@@ -635,7 +635,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(cs, ns)
 	})
 
-	ginkgo.It("should create a NFS volume on demand with mount options [kubernetes.io/azure-file] [file.csi.azure.com] [nfs]", func() {
+	ginkgo.It("should create a NFS volume on demand with mount options [file.csi.azure.com] [nfs]", func() {
 		skipIfTestingInWindowsCluster()
 		skipIfUsingInTreeVolumePlugin()
 
@@ -645,9 +645,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				Volumes: []testsuites.VolumeDetails{
 					{
 						ClaimSize: "100Gi",
-						MountOptions: []string{
-							"remount",
-						},
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
 							MountPathGenerate: "/mnt/test-",
