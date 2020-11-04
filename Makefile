@@ -158,7 +158,7 @@ push-manifest:
 	docker manifest push --purge $(IMAGE_TAG)
 	docker manifest inspect $(IMAGE_TAG)
 ifdef PUBLISH
-	docker manifest create $(IMAGE_TAG_LATEST) $(IMAGE_TAG)-linux-amd64 $(IMAGE_TAG)-windows-1809-amd64 $(IMAGE_TAG)-windows-1903-amd64 $(IMAGE_TAG)-windows-1909-amd64 $(IMAGE_TAG)-windows-2004-amd64
+	docker tag $(IMAGE_TAG) $(IMAGE_TAG_LATEST)
 	docker manifest inspect $(IMAGE_TAG_LATEST)
 endif
 
