@@ -158,7 +158,7 @@ push-manifest:
 	docker manifest push --purge $(IMAGE_TAG)
 	docker manifest inspect $(IMAGE_TAG)
 ifdef PUBLISH
-	docker tag $(IMAGE_TAG) $(IMAGE_TAG_LATEST)
+	docker manifest create $(IMAGE_TAG_LATEST) $(foreach osarch, $(ALL_OS_ARCH), $(IMAGE_TAG)-${osarch})
 	docker manifest inspect $(IMAGE_TAG_LATEST)
 endif
 
