@@ -132,30 +132,28 @@ func updateSubnetServiceEndpoints(ctx context.Context, az *azure.Cloud, subnetLo
 	}
 	storageServiceExists := false
 	if subnet.SubnetPropertiesFormat == nil {
-		subnet.SubnetPropertiesFormat = &network.SubnetPropertiesFormat{
-			ServiceEndpoints: &[]network.ServiceEndpointPropertiesFormat{storageServiceEndpoint},
-		}
-	} else if subnet.SubnetPropertiesFormat.ServiceEndpoints == nil {
-		subnet.SubnetPropertiesFormat.ServiceEndpoints = &[]network.ServiceEndpointPropertiesFormat{storageServiceEndpoint}
-	} else {
-		serviceEndpoints := *subnet.SubnetPropertiesFormat.ServiceEndpoints
-		for _, v := range serviceEndpoints {
-			if v.Service != nil && *v.Service == storageService {
-				storageServiceExists = true
-				klog.V(4).Infof("serviceEndpoint(%s) is already in subnet(%s)", storageService, subnetName)
-				break
-			}
-		}
-		if !storageServiceExists {
-			serviceEndpoints = append(serviceEndpoints, storageServiceEndpoint)
-			subnet.SubnetPropertiesFormat.ServiceEndpoints = &serviceEndpoints
+		subnet.SubnetPropertiesFormat = &network.SubnetPropertiesFormat{}
+	}
+	if subnet.SubnetPropertiesFormat.ServiceEndpoints == nil {
+		subnet.SubnetPropertiesFormat.ServiceEndpoints = &[]network.ServiceEndpointPropertiesFormat{}
+	}
+	serviceEndpoints := *subnet.SubnetPropertiesFormat.ServiceEndpoints
+	for _, v := range serviceEndpoints {
+		if v.Service != nil && *v.Service == storageService {
+			storageServiceExists = true
+			klog.V(4).Infof("serviceEndpoint(%s) is already in subnet(%s)", storageService, subnetName)
+			break
 		}
 	}
 
 	if !storageServiceExists {
+		serviceEndpoints = append(serviceEndpoints, storageServiceEndpoint)
+		subnet.SubnetPropertiesFormat.ServiceEndpoints = &serviceEndpoints
+
 		lockKey := resourceGroup + vnetName + subnetName
 		subnetLockMap.LockEntry(lockKey)
 		defer subnetLockMap.UnlockEntry(lockKey)
+
 		err = az.SubnetsClient.CreateOrUpdate(context.Background(), resourceGroup, vnetName, subnetName, subnet)
 		if err != nil {
 			return fmt.Errorf("failed to update the subnet %s under vnet %s: %v", subnetName, vnetName, err)
