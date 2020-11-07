@@ -50,6 +50,7 @@ const (
 	secretNameTemplate = "azure-storage-account-%s-secret"
 	serviceURLTemplate = "https://%s.file.%s"
 	fileURLTemplate    = "https://%s.file.%s/%s/%s"
+	subnetTemplate     = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets/%s"
 	fileMode           = "file_mode"
 	dirMode            = "dir_mode"
 	vers               = "vers"
@@ -123,6 +124,8 @@ type Driver struct {
 	mounter    *mount.SafeFormatAndMount
 	// lock per volume attach (only for vhd disk feature)
 	volLockMap *lockMap
+	// only for nfs feature
+	subnetLockMap *lockMap
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -133,6 +136,7 @@ func NewDriver(nodeID string) *Driver {
 	driver.Version = driverVersion
 	driver.NodeID = nodeID
 	driver.volLockMap = newLockMap()
+	driver.subnetLockMap = newLockMap()
 	return &driver
 }
 
@@ -431,7 +435,7 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 		}
 	}
 
-	if protocol == nfs {
+	if protocol == nfs && fileShareName != "" {
 		return rgName, accountName, accountKey, fileShareName, diskName, err
 	}
 
@@ -549,4 +553,19 @@ func (d *Driver) GetStorageAccesskeyFromSecret(accountName, secretNamespace stri
 	}
 
 	return string(secret.Data[defaultSecretAccountKey][:]), nil
+}
+
+// getSubnetResourceID get default subnet resource ID from cloud provider config
+func (d *Driver) getSubnetResourceID() string {
+	subsID := d.cloud.SubscriptionID
+	if len(d.cloud.NetworkResourceSubscriptionID) > 0 {
+		subsID = d.cloud.NetworkResourceSubscriptionID
+	}
+
+	rg := d.cloud.ResourceGroup
+	if len(d.cloud.VnetResourceGroup) > 0 {
+		rg = d.cloud.VnetResourceGroup
+	}
+
+	return fmt.Sprintf(subnetTemplate, subsID, rg, d.cloud.VnetName, d.cloud.SubnetName)
 }
