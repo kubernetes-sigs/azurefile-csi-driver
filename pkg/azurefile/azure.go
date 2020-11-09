@@ -117,6 +117,9 @@ func updateSubnetServiceEndpoints(ctx context.Context, az *azure.Cloud, subnetLo
 	}
 
 	resourceGroup := az.ResourceGroup
+	if len(az.VnetResourceGroup) > 0 {
+		resourceGroup = az.VnetResourceGroup
+	}
 	location := az.Location
 	vnetName := az.VnetName
 	subnetName := az.SubnetName
