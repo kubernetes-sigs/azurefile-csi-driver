@@ -1,0 +1,46 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: statefulset-azurefile
+  labels:
+    app: nginx
+spec:
+  serviceName: statefulset-azurefile
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      securityContext:  # optional just to make sure user is non-root
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      nodeSelector:
+        "kubernetes.io/os": linux
+      containers:
+        - name: statefulset-azurefile
+          image: andyzhangx/ubuntu1604:nonroot
+          command:
+            - "/bin/sh"
+            - "-c"
+            - while true; do echo $(date) >> /mnt/azurefile/outfile; sleep 1; done
+          volumeMounts:
+            - name: persistent-storage
+              mountPath: /mnt/azurefile
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: nginx
+  volumeClaimTemplates:
+    - metadata:
+        name: persistent-storage
+        annotations:
+          volume.beta.kubernetes.io/storage-class: azurefile-csi
+      spec:
+        accessModes: ["ReadWriteMany"]
+        resources:
+          requests:
+            storage: 100Gi
