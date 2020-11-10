@@ -312,6 +312,7 @@ func getStorageAccount(secrets map[string]string) (string, string, error) {
 	if accountKey == "" {
 		return "", "", fmt.Errorf("could not find accountkey or azurestorageaccountkey field in secrets(%v)", secrets)
 	}
+	accountName = strings.TrimSpace(accountName)
 
 	klog.V(4).Infof("got storage account(%s) from secret", accountName)
 	return accountName, accountKey, nil
