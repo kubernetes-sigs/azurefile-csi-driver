@@ -68,30 +68,45 @@ func TestAppendDefaultMountOptions(t *testing.T) {
 			options: []string{"dir_mode=0777"},
 			expected: []string{"dir_mode=0777",
 				fmt.Sprintf("%s=%s", fileMode, defaultFileMode),
-				fmt.Sprintf("%s=%s", vers, defaultVers)},
+				fmt.Sprintf("%s=%s", vers, defaultVers),
+				fmt.Sprintf("%s=%s", actimeo, defaultActimeo)},
 		},
 		{
 			options: []string{"file_mode=0777"},
 			expected: []string{"file_mode=0777",
 				fmt.Sprintf("%s=%s", dirMode, defaultDirMode),
-				fmt.Sprintf("%s=%s", vers, defaultVers)},
+				fmt.Sprintf("%s=%s", vers, defaultVers),
+				fmt.Sprintf("%s=%s", actimeo, defaultActimeo)},
 		},
 		{
 			options: []string{"vers=2.1"},
 			expected: []string{"vers=2.1",
 				fmt.Sprintf("%s=%s", fileMode, defaultFileMode),
-				fmt.Sprintf("%s=%s", dirMode, defaultDirMode)},
+				fmt.Sprintf("%s=%s", dirMode, defaultDirMode),
+				fmt.Sprintf("%s=%s", actimeo, defaultActimeo)},
+		},
+		{
+			options: []string{"file_mode=0777", "dir_mode=0777"},
+			expected: []string{
+				"file_mode=0777", "dir_mode=0777",
+				fmt.Sprintf("%s=%s", vers, defaultVers),
+				fmt.Sprintf("%s=%s", actimeo, defaultActimeo)},
+		},
+		{
+			options: []string{"actimeo=3"},
+			expected: []string{
+				"actimeo=3",
+				fmt.Sprintf("%s=%s", fileMode, defaultFileMode),
+				fmt.Sprintf("%s=%s", dirMode, defaultDirMode),
+				fmt.Sprintf("%s=%s", vers, defaultVers)},
 		},
 		{
 			options: []string{""},
 			expected: []string{"", fmt.Sprintf("%s=%s",
 				fileMode, defaultFileMode),
 				fmt.Sprintf("%s=%s", dirMode, defaultDirMode),
-				fmt.Sprintf("%s=%s", vers, defaultVers)},
-		},
-		{
-			options:  []string{"file_mode=0777", "dir_mode=0777"},
-			expected: []string{"file_mode=0777", "dir_mode=0777", fmt.Sprintf("%s=%s", vers, defaultVers)},
+				fmt.Sprintf("%s=%s", vers, defaultVers),
+				fmt.Sprintf("%s=%s", actimeo, defaultActimeo)},
 		},
 	}
 

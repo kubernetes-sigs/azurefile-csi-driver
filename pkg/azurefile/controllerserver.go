@@ -120,6 +120,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if fsType == nfs || protocol == nfs {
 		protocol = nfs
 		enableHTTPSTrafficOnly = false
+		// default to Premium_LRS
+		sku = string(storage.PremiumLRS)
 		shareProtocol = storage.NFS
 		// NFS protocol does not need account key
 		storeAccountKey = storeAccountKeyFalse
