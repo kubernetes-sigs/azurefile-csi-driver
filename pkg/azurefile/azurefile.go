@@ -54,9 +54,11 @@ const (
 	fileMode           = "file_mode"
 	dirMode            = "dir_mode"
 	vers               = "vers"
+	actimeo            = "actimeo"
 	defaultFileMode    = "0777"
 	defaultDirMode     = "0777"
 	defaultVers        = "3.0"
+	defaultActimeo     = "30"
 
 	// See https://docs.microsoft.com/en-us/rest/api/storageservices/naming-and-referencing-shares--directories--files--and-metadata#share-names
 	fileShareNameMinLength = 3
@@ -252,6 +254,7 @@ func appendDefaultMountOptions(mountOptions []string) []string {
 	fileModeFlag := false
 	dirModeFlag := false
 	versFlag := false
+	actimeoFlag := false
 
 	for _, mountOption := range mountOptions {
 		if strings.HasPrefix(mountOption, fileMode) {
@@ -262,6 +265,9 @@ func appendDefaultMountOptions(mountOptions []string) []string {
 		}
 		if strings.HasPrefix(mountOption, vers) {
 			versFlag = true
+		}
+		if strings.HasPrefix(mountOption, actimeo) {
+			actimeoFlag = true
 		}
 	}
 
@@ -276,6 +282,10 @@ func appendDefaultMountOptions(mountOptions []string) []string {
 
 	if !versFlag {
 		allMountOptions = append(allMountOptions, fmt.Sprintf("%s=%s", vers, defaultVers))
+	}
+
+	if !actimeoFlag {
+		allMountOptions = append(allMountOptions, fmt.Sprintf("%s=%s", actimeo, defaultActimeo))
 	}
 
 	/* todo: looks like fsGroup is not included in CSI
