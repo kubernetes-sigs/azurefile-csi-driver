@@ -30,7 +30,7 @@ az provider register --namespace Microsoft.Storage
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: azurefile-csi
+  name: azurefile-csi-nfs
 provisioner: file.csi.azure.com
 parameters:
   resourceGroup: EXISTING_RESOURCE_GROUP_NAME  # optional, only set this when storage account is not in the same resource group as agent node
@@ -48,7 +48,7 @@ kubectl create -f storageclass-azurefile-nfs.yaml
 ### Example#1
  - Create a deployment with NFS volume
 ```console
-kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/statefulset.yaml
+kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/nfs/statefulset.yaml
 ```
 
  - enter pod to check
