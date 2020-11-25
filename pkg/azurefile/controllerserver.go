@@ -632,8 +632,8 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 		return nil, status.Errorf(codes.Internal, "expand volume error: %v", err)
 	}
 
-	klog.V(2).Infof("ControllerExpandVolume(%s) successfully, currentQuota: %d", volumeID, int(requestGiB))
-	return &csi.ControllerExpandVolumeResponse{CapacityBytes: requestGiB}, nil
+	klog.V(2).Infof("ControllerExpandVolume(%s) successfully, currentQuota: %d Gi", volumeID, int(requestGiB))
+	return &csi.ControllerExpandVolumeResponse{CapacityBytes: capacityBytes}, nil
 }
 
 // getShareURL: sourceVolumeID is the id of source file share, returns a ShareURL of source file share.

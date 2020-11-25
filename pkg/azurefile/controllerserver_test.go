@@ -1419,9 +1419,9 @@ func TestControllerExpandVolume(t *testing.T) {
 				mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &shareQuota}}, nil).AnyTimes()
 				d.cloud.FileClient = mockFileClient
 
-				expectedResp := &csi.ControllerExpandVolumeResponse{CapacityBytes: int64(0)}
+				expectedResp := &csi.ControllerExpandVolumeResponse{CapacityBytes: stdVolSize}
 				resp, err := d.ControllerExpandVolume(ctx, req)
-				if !(reflect.DeepEqual(err, nil) || reflect.DeepEqual(resp, expectedResp)) {
+				if !(reflect.DeepEqual(err, nil) && reflect.DeepEqual(resp, expectedResp)) {
 					t.Errorf("Expected response: %v received response: %v expected error: %v received error: %v", expectedResp, resp, nil, err)
 				}
 			},
