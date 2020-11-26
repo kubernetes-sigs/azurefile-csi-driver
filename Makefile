@@ -91,6 +91,7 @@ ifdef TEST_WINDOWS
 		${E2E_HELM_OPTIONS} \
 		--set windows.enabled=true \
 		--set linux.enabled=false \
+		--set controller.runOnMaster=true \
 		--set controller.replicas=1
 else
 	helm install azurefile-csi-driver charts/latest/azurefile-csi-driver --namespace kube-system --wait --timeout=15m -v=5 --debug \
@@ -108,15 +109,15 @@ e2e-teardown:
 
 .PHONY: azurefile
 azurefile:
-	CGO_ENABLED=0 GOOS=linux go build -a -ldflags ${LDFLAGS} -o _output/azurefileplugin ./pkg/azurefileplugin
+	CGO_ENABLED=0 GOOS=linux go build -a -ldflags ${LDFLAGS} -mod vendor -o _output/azurefileplugin ./pkg/azurefileplugin
 
 .PHONY: azurefile-windows
 azurefile-windows:
-	CGO_ENABLED=0 GOOS=windows go build -a -ldflags ${LDFLAGS} -o _output/azurefileplugin.exe ./pkg/azurefileplugin
+	CGO_ENABLED=0 GOOS=windows go build -a -ldflags ${LDFLAGS} -mod vendor -o _output/azurefileplugin.exe ./pkg/azurefileplugin
 
 .PHONY: azurefile-darwin
 azurefile-darwin:
-	CGO_ENABLED=0 GOOS=darwin go build -a -ldflags ${LDFLAGS} -o _output/azurefileplugin ./pkg/azurefileplugin
+	CGO_ENABLED=0 GOOS=darwin go build -a -ldflags ${LDFLAGS} -mod vendor -o _output/azurefileplugin ./pkg/azurefileplugin
 
 .PHONY: container
 container: azurefile
