@@ -412,6 +412,7 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 		// don't lock vhd disk here since it's readonly, while it's user's responsibility to make sure
 		// volume is used as ReadOnly, otherwise there would be data corruption for MULTI_NODE_MULTI_WRITER
 		klog.V(2).Infof("skip ControllerPublishVolume(%s) since volume is readonly mode", volumeID)
+		isOperationSucceeded = true
 		return &csi.ControllerPublishVolumeResponse{}, nil
 	}
 
@@ -468,6 +469,7 @@ func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.Control
 	// always check diskName first since if it's not vhd disk detach, ControllerUnpublishVolume is not necessary
 	if diskName == "" {
 		klog.V(2).Infof("skip ControllerUnpublishVolume(%s) since it's not vhd disk detach", volumeID)
+		isOperationSucceeded = true
 		return &csi.ControllerUnpublishVolumeResponse{}, nil
 	}
 	if err != nil {
