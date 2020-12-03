@@ -70,7 +70,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if parameters == nil {
 		parameters = make(map[string]string)
 	}
-	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, storeAccountKey, secretNamespace, protocol, customTags string
+	var sku, resourceGroup, location, account, fileShareName, diskName, vhdFsType, storeAccountKey, secretNamespace, protocol, customTags string
 
 	// Apply ProvisionerParameters (case-insensitive). We leave validation of
 	// the values to the cloud provider.
@@ -90,8 +90,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			fileShareName = v
 		case diskNameField:
 			diskName = v
-		case fsTypeField:
-			fsType = v
+		case vhdFsTypeField:
+			vhdFsType = v
 		case storeAccountKeyField:
 			storeAccountKey = v
 		case secretNamespaceField:
@@ -106,6 +106,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
+	// TODO: right now only one type of FsType can be passed from VolumeCapabilies. We should validate
+	// that there is no conflict in the validate capability function.
+	fsType := volumeCapabilities[0].GetMount().GetFsType()
+
 	if !isSupportedFsType(fsType) {
 		return nil, status.Errorf(codes.InvalidArgument, "fsType(%s) is not supported, supported fsType list: %v", fsType, supportedFsTypeList)
 	}
@@ -117,16 +121,13 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	enableHTTPSTrafficOnly := true
 	shareProtocol := storage.SMB
 	var vnetResourceIDs []string
-	if fsType == nfs || protocol == nfs {
-		protocol = nfs
+	if protocol == nfs {
 		enableHTTPSTrafficOnly = false
 		// default to Premium_LRS
 		sku = string(storage.PremiumLRS)
 		shareProtocol = storage.NFS
 		// NFS protocol does not need account key
 		storeAccountKey = storeAccountKeyFalse
-		// reset protocol field (compatable with "fsType: nfs")
-		parameters[protocolField] = protocol
 
 		// set VirtualNetworkResourceIDs for storage account firewall setting
 		vnetResourceID := d.getSubnetResourceID()
@@ -155,7 +156,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		if protocol == nfs {
 			// use "pvcn" prefix for nfs protocol file share
 			name = strings.Replace(name, "pvc", "pvcn", 1)
-		} else if isDiskFsType(fsType) {
+		} else if isDiskFsType(vhdFsType) {
 			// use "pvcd" prefix for vhd disk file share
 			name = strings.Replace(name, "pvc", "pvcd", 1)
 		}
@@ -229,7 +230,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 	klog.V(2).Infof("create file share %s on storage account %s successfully", validFileShareName, accountName)
 
-	if isDiskFsType(fsType) && diskName == "" {
+	if isDiskFsType(vhdFsType) && diskName == "" {
 		if accountKey == "" {
 			if accountKey, err = d.GetStorageAccesskey(accountOptions, req.GetSecrets(), secretNamespace); err != nil {
 				return nil, fmt.Errorf("failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)

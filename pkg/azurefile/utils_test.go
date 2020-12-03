@@ -205,19 +205,19 @@ func TestIsSupportedFsType(t *testing.T) {
 	}{
 		{
 			fsType:         "ext4",
-			expectedResult: true,
+			expectedResult: false,
 		},
 		{
 			fsType:         "ext3",
-			expectedResult: true,
+			expectedResult: false,
 		},
 		{
 			fsType:         "ext2",
-			expectedResult: true,
+			expectedResult: false,
 		},
 		{
 			fsType:         "xfs",
-			expectedResult: true,
+			expectedResult: false,
 		},
 		{
 			fsType:         "",
@@ -229,7 +229,7 @@ func TestIsSupportedFsType(t *testing.T) {
 		},
 		{
 			fsType:         "smb",
-			expectedResult: true,
+			expectedResult: false,
 		},
 		{
 			fsType:         "invalid",

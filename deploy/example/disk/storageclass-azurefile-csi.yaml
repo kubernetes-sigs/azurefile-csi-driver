@@ -6,6 +6,6 @@ metadata:
 provisioner: file.csi.azure.com
 parameters:
   skuName: Premium_LRS  # available values: Standard_LRS, Standard_GRS, Standard_ZRS, Standard_RAGRS, Premium_LRS
-  fsType: ext4  # available values: cifs, ext4, ext3, ext2, xfs
+  vhdFsType: ext4  # available values: cifs, ext4, ext3, ext2, xfs
 reclaimPolicy: Delete
 volumeBindingMode: Immediate

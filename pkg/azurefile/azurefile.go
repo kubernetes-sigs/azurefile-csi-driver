@@ -75,7 +75,7 @@ const (
 	shareNameField           = "sharename"
 	diskNameField            = "diskname"
 	serverNameField          = "server"
-	fsTypeField              = "fstype"
+	vhdFsTypeField           = "vhdfstype"
 	protocolField            = "protocol"
 	tagsField                = "tags"
 	storageAccountField      = "storageaccount"
@@ -111,7 +111,7 @@ const (
 )
 
 var (
-	supportedFsTypeList     = []string{cifs, smb, nfs, ext4, ext3, ext2, xfs}
+	supportedFsTypeList     = []string{cifs}
 	supportedProtocolList   = []string{smb, nfs}
 	supportedDiskFsTypeList = []string{ext4, ext3, ext2, xfs}
 

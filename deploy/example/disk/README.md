@@ -24,7 +24,7 @@ Scheduling 20 pods with one vhd disk each on **one** node **in parallel** could 
  
 #### How to use VHD feature
  - Create an Azure File storage class
-> specify `fsType` in storage class `parameters`
+> specify `vhdFsType` in storage class `parameters`
 > </br>for more details, refer to [driver parameters](../../../docs/driver-parameters.md)
 ```yaml
 apiVersion: storage.k8s.io/v1
@@ -34,7 +34,7 @@ metadata:
 provisioner: file.csi.azure.com
 parameters:
   skuName: Premium_LRS
-  fsType: ext4  # available values: ext4, ext3, ext2, xfs
+  vhdFsType: ext4  # available values: ext4, ext3, ext2, xfs
 ```
 
 To make it easier, run following command to create a storage class directly:
@@ -87,5 +87,5 @@ metadata:
 provisioner: file.csi.azure.com
 parameters:
   storageAccount: EXISTING_STORAGE_ACCOUNT_NAME
-  fsType: ext4  # available values: ext4, ext3, ext2, xfs
+  vhdFsType: ext4  # available values: ext4, ext3, ext2, xfs
 ```

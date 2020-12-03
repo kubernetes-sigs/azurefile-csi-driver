@@ -130,13 +130,12 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("GetAccountInfo(%s) failed with error: %v", volumeID, err))
 	}
-	// don't respect fsType from req.GetVolumeCapability().GetMount().GetFsType()
-	// since it's ext4 by default on Linux
-	var fsType, server, protocol string
+
+	var vhdFsType, server, protocol string
 	for k, v := range context {
 		switch strings.ToLower(k) {
-		case fsTypeField:
-			fsType = v
+		case vhdFsTypeField:
+			vhdFsType = v
 		case protocolField:
 			protocol = v
 		case diskNameField:
@@ -158,12 +157,12 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	cifsMountPath := targetPath
 	cifsMountFlags := mountFlags
-	isDiskMount := isDiskFsType(fsType)
+	isDiskMount := isDiskFsType(vhdFsType)
 	if isDiskMount {
 		if diskName == "" {
 			return nil, status.Errorf(codes.Internal, "diskname could not be empty, targetPath: %s", targetPath)
 		}
-		cifsMountFlags = []string{"dir_mode=0777,file_mode=0777,cache=strict,actimeo=30", "nostrictsync"}
+		cifsMountFlags = []string{"dir_mode=0777,file_mode=0777,cache=strict,actimeo=30", "nostrictsync", "mfsymlinks"}
 		cifsMountPath = filepath.Join(filepath.Dir(targetPath), proxyMount)
 	}
 
@@ -184,7 +183,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}
 	}
 
-	klog.V(2).Infof("cifsMountPath(%v) fstype(%v) volumeID(%v) context(%v) mountflags(%v) mountOptions(%v)", cifsMountPath, fsType, volumeID, context, mountFlags, mountOptions)
+	klog.V(2).Infof("cifsMountPath(%v) vhdfstype(%v) volumeID(%v) context(%v) mountflags(%v) mountOptions(%v)", cifsMountPath, vhdFsType, volumeID, context, mountFlags, mountOptions)
 
 	isDirMounted, err := d.ensureMountPoint(cifsMountPath)
 	if err != nil {
@@ -192,7 +191,14 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 
 	if !isDirMounted {
-		mountFsType := cifs
+		mountFsType := volumeCapability.GetMount().GetFsType()
+		if !isSupportedFsType(mountFsType) {
+			return nil, fmt.Errorf("unsupported mountFsType %s. Supported fsType: %v", mountFsType, supportedFsTypeList)
+		}
+		// if no fsType was specifies, it should use the default one which is cifs
+		if mountFsType == "" {
+			mountFsType = cifs
+		}
 		if protocol == nfs {
 			mountFsType = nfs
 		}
@@ -210,14 +216,14 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	if isDiskMount {
 		diskPath := filepath.Join(cifsMountPath, diskName)
 		options := util.JoinMountOptions(mountFlags, []string{"loop"})
-		if strings.HasPrefix(fsType, "ext") {
+		if strings.HasPrefix(vhdFsType, "ext") {
 			// following mount options are only valid for ext2/ext3/ext4 file systems
 			options = util.JoinMountOptions(options, []string{"noatime", "barrier=1", "errors=remount-ro"})
 		}
 
 		klog.V(2).Infof("NodeStageVolume: formatting %s and mounting at %s with mount options(%s)", targetPath, diskPath, options)
 		// FormatAndMount will format only if needed
-		if err := d.mounter.FormatAndMount(diskPath, targetPath, fsType, options); err != nil {
+		if err := d.mounter.FormatAndMount(diskPath, targetPath, vhdFsType, options); err != nil {
 			return nil, status.Error(codes.Internal, fmt.Sprintf("could not format %q and mount it at %q", targetPath, diskPath))
 		}
 		klog.V(2).Infof("NodeStageVolume: format %s and mounting at %s successfully.", targetPath, diskPath)

@@ -9,6 +9,6 @@ parameters:
   storageAccount: EXISTING_STORAGE_ACCOUNT_NAME
   shareName: SHARE_NAME
   diskName: EXISTING_DISK_NAME
-  fsType: ext4  # available values: cifs, ext4, ext3, ext2, xfs
+  vhdFsType: ext4  # available values: cifs, ext4, ext3, ext2, xfs
 reclaimPolicy: Delete
 volumeBindingMode: Immediate

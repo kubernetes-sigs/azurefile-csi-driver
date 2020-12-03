@@ -296,31 +296,31 @@ func TestNodeStageVolume(t *testing.T) {
 	)
 
 	volContextEmptyDiskName := map[string]string{
-		fsTypeField:     "ext4",
+		vhdFsTypeField:  "ext4",
 		diskNameField:   "",
 		shareNameField:  "test_sharename",
 		serverNameField: "test_servername",
 	}
 	volContextEmptyShareName := map[string]string{
-		fsTypeField:     "test_field",
+		vhdFsTypeField:  "test_field",
 		diskNameField:   "test_disk",
 		shareNameField:  "test_sharename",
 		serverNameField: "",
 	}
 	volContextNfs := map[string]string{
-		fsTypeField:     "nfs",
+		vhdFsTypeField:  "nfs",
 		diskNameField:   "test_disk",
 		shareNameField:  "test_sharename",
 		serverNameField: "test_servername",
 	}
 	volContext := map[string]string{
-		fsTypeField:     "test_field",
+		vhdFsTypeField:  "test_field",
 		diskNameField:   "test_disk",
 		shareNameField:  "test_sharename",
 		serverNameField: "test_servername",
 	}
 	volContextFsType := map[string]string{
-		fsTypeField:     "ext4",
+		vhdFsTypeField:  "ext4",
 		diskNameField:   "test_disk",
 		shareNameField:  "test_sharename",
 		serverNameField: "test_servername",
