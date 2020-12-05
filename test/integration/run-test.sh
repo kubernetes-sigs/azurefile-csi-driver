@@ -62,22 +62,22 @@ fi
 
 # Begin to run CSI functions one by one
 echo 'Create volume test:'
-readonly value=$("$CSC_BIN" controller new --endpoint "$endpoint" --cap 1,block "$volname" --req-bytes 2147483648 --params "$params")
+readonly value=$("$CSC_BIN" controller new --endpoint "$endpoint" --cap 1,mount,cifs "$volname" --req-bytes 2147483648 --params "$params")
 sleep 15
 
 readonly volumeid=$(echo "$value" | awk '{print $1}' | sed 's/"//g')
 echo "Got volume id: $volumeid"
 
-"$CSC_BIN" controller validate-volume-capabilities --endpoint "$endpoint" --cap 1,block "$volumeid"
+"$CSC_BIN" controller validate-volume-capabilities --endpoint "$endpoint" --cap 1,mount,cifs "$volumeid"
 
 if [[ "$cloud" != 'AzureChinaCloud' ]]; then
   # azure file mount/unmount on travis VM does not work against AzureChinaCloud
   echo "stage volume test:"
-  "$CSC_BIN" node stage --endpoint "$endpoint" --cap 1,block --staging-target-path "$staging_target_path" "$volumeid"
+  "$CSC_BIN" node stage --endpoint "$endpoint" --cap 1,mount,cifs --staging-target-path "$staging_target_path" "$volumeid"
   sleep 2
 
   echo 'Mount volume test:'
-  "$CSC_BIN" node publish --endpoint "$endpoint" --cap 1,block --staging-target-path "$staging_target_path" --target-path "$target_path" "$volumeid"
+  "$CSC_BIN" node publish --endpoint "$endpoint" --cap 1,mount,cifs --staging-target-path "$staging_target_path" --target-path "$target_path" "$volumeid"
   sleep 2
 
   echo 'Unmount volume test:'

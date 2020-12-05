@@ -125,7 +125,40 @@ func TestCreateVolume(t *testing.T) {
 						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 					})
 
-				expectedErr := status.Error(codes.InvalidArgument, "CreateVolume Volume capabilities must be provided")
+				expectedErr := status.Error(codes.InvalidArgument, "CreateVolume Volume capabilities not valid: CreateVolume Volume capabilities must be provided")
+				_, err := d.CreateVolume(ctx, req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "Invalid volume capabilities",
+			testFunc: func(t *testing.T) {
+				req := &csi.CreateVolumeRequest{
+					Name:          "random-vol-name-vol-cap-invalid",
+					CapacityRange: stdCapRange,
+					VolumeCapabilities: []*csi.VolumeCapability{
+						{
+							AccessType: &csi.VolumeCapability_Block{
+								Block: &csi.VolumeCapability_BlockVolume{},
+							},
+							AccessMode: &csi.VolumeCapability_AccessMode{
+								Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+							},
+						},
+					},
+					Parameters: nil,
+				}
+
+				ctx := context.Background()
+				d := NewFakeDriver()
+				d.AddControllerServiceCapabilities(
+					[]csi.ControllerServiceCapability_RPC_Type{
+						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					})
+
+				expectedErr := status.Error(codes.InvalidArgument, "CreateVolume Volume capabilities not valid: driver only supports mount access type volume capability")
 				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)

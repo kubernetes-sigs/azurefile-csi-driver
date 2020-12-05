@@ -44,6 +44,26 @@ const (
 	azureFileCSIDriverName = "azurefile_csi_driver"
 )
 
+var (
+	volumeCaps = []csi.VolumeCapability_AccessMode{
+		{
+			Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+		},
+		{
+			Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY,
+		},
+		{
+			Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY,
+		},
+		{
+			Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_SINGLE_WRITER,
+		},
+		{
+			Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER,
+		},
+	}
+)
+
 // CreateVolume provisions an azure file
 func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 	if err := d.ValidateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME); err != nil {
@@ -55,8 +75,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Error(codes.InvalidArgument, "CreateVolume Name must be provided")
 	}
 	volumeCapabilities := req.GetVolumeCapabilities()
-	if len(volumeCapabilities) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "CreateVolume Volume capabilities must be provided")
+	if err := isValidVolumeCapabilities(volumeCapabilities); err != nil {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("CreateVolume Volume capabilities not valid: %v", err))
 	}
 
 	capacityBytes := req.GetCapacityRange().GetRequiredBytes()
@@ -703,4 +723,29 @@ func (d *Driver) snapshotExists(ctx context.Context, sourceVolumeID, snapshotNam
 	}
 
 	return false, azfile.ShareItem{}, nil
+}
+
+// isValidVolumeCapabilities validates the given VolumeCapability array is valid
+func isValidVolumeCapabilities(volCaps []*csi.VolumeCapability) error {
+	if len(volCaps) == 0 {
+		return fmt.Errorf("CreateVolume Volume capabilities must be provided")
+	}
+	hasSupport := func(cap *csi.VolumeCapability) error {
+		if blk := cap.GetBlock(); blk != nil {
+			return fmt.Errorf("driver only supports mount access type volume capability")
+		}
+		for _, c := range volumeCaps {
+			if c.GetMode() == cap.AccessMode.GetMode() {
+				return nil
+			}
+		}
+		return fmt.Errorf("driver does not support access mode %v", cap.AccessMode.GetMode())
+	}
+
+	for _, c := range volCaps {
+		if err := hasSupport(c); err != nil {
+			return err
+		}
+	}
+	return nil
 }
