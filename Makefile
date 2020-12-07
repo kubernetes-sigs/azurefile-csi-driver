@@ -138,6 +138,11 @@ container-all: azurefile azurefile-windows
 	docker buildx rm container-builder || true
 	docker buildx create --use --name=container-builder
 	$(MAKE) container-linux
+	# only moby/buildkit:foreign-mediatype works on building Windows image now
+	# https://github.com/moby/buildkit/pull/1879
+	docker buildx rm container-builder || true
+	docker buildx create --use --name=container-builder
+	docker run --privileged --name buildx_buildkit_container-builder0 -d andyzhangx/buildkit:v0.8.0-foreign-mediatype || true
 	for osversion in $(ALL_OSVERSIONS.windows); do \
 		OSVERSION=$${osversion} $(MAKE) container-windows; \
 	done
