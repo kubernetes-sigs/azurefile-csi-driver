@@ -55,6 +55,7 @@ const (
 	dirMode            = "dir_mode"
 	vers               = "vers"
 	actimeo            = "actimeo"
+	mfsymlinks         = "mfsymlinks"
 	defaultFileMode    = "0777"
 	defaultDirMode     = "0777"
 	defaultVers        = "3.0"
@@ -255,6 +256,7 @@ func appendDefaultMountOptions(mountOptions []string) []string {
 	dirModeFlag := false
 	versFlag := false
 	actimeoFlag := false
+	mfsymlinksFlag := false
 
 	for _, mountOption := range mountOptions {
 		if strings.HasPrefix(mountOption, fileMode) {
@@ -268,6 +270,9 @@ func appendDefaultMountOptions(mountOptions []string) []string {
 		}
 		if strings.HasPrefix(mountOption, actimeo) {
 			actimeoFlag = true
+		}
+		if strings.HasPrefix(mountOption, mfsymlinks) {
+			mfsymlinksFlag = true
 		}
 	}
 
@@ -286,6 +291,10 @@ func appendDefaultMountOptions(mountOptions []string) []string {
 
 	if !actimeoFlag {
 		allMountOptions = append(allMountOptions, fmt.Sprintf("%s=%s", actimeo, defaultActimeo))
+	}
+
+	if !mfsymlinksFlag {
+		allMountOptions = append(allMountOptions, mfsymlinks)
 	}
 
 	/* todo: looks like fsGroup is not included in CSI
