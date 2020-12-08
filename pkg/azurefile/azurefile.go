@@ -280,7 +280,7 @@ func appendDefaultMountOptions(mountOptions []string) []string {
 			if v, found := defaultMountOptions[k]; found {
 				allMountOptions = append(allMountOptions, fmt.Sprintf("%s=%s", k, v))
 			} else {
-				allMountOptions = append(allMountOptions, fmt.Sprintf("%s", k))
+				allMountOptions = append(allMountOptions, k)
 			}
 		}
 	}
