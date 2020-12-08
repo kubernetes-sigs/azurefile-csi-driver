@@ -260,7 +260,7 @@ func appendDefaultMountOptions(mountOptions []string) []string {
 	}
 
 	// required for maintaing the order.
-	var keys = [5]string{fileMode, dirMode, vers, actimeo, mfsymlinks}
+	var keys = []string{fileMode, dirMode, vers, actimeo, mfsymlinks}
 
 	// stores the mount options already included in mountOptions
 	included := make(map[string]bool)
