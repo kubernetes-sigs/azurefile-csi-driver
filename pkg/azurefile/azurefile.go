@@ -253,10 +253,11 @@ func GetFileShareInfo(id string) (string, string, string, string, error) {
 // check whether mountOptions contains file_mode, dir_mode, vers, if not, append default mode
 func appendDefaultMountOptions(mountOptions []string) []string {
 	var defaultMountOptions = map[string]string{
-		fileMode: defaultFileMode,
-		dirMode:  defaultDirMode,
-		vers:     defaultVers,
-		actimeo:  defaultActimeo,
+		fileMode:   defaultFileMode,
+		dirMode:    defaultDirMode,
+		vers:       defaultVers,
+		actimeo:    defaultActimeo,
+		mfsymlinks: "",
 	}
 
 	// required for maintaing the order.
@@ -277,8 +278,8 @@ func appendDefaultMountOptions(mountOptions []string) []string {
 
 	for _, k := range keys {
 		if _, isIncluded := included[k]; !isIncluded {
-			if v, found := defaultMountOptions[k]; found {
-				allMountOptions = append(allMountOptions, fmt.Sprintf("%s=%s", k, v))
+			if defaultMountOptions[k] != "" {
+				allMountOptions = append(allMountOptions, fmt.Sprintf("%s=%s", k, defaultMountOptions[k]))
 			} else {
 				allMountOptions = append(allMountOptions, k)
 			}
