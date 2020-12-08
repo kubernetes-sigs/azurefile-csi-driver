@@ -56,7 +56,7 @@ spec:
           image: "{{ .Values.windows.image.nodeDriverRegistrar.repository }}:{{ .Values.windows.image.nodeDriverRegistrar.tag }}"
           args:
             - "--csi-address=$(CSI_ENDPOINT)"
-            - "--kubelet-registration-path=C:\\var\\lib\\kubelet\\plugins\\file.csi.azure.com\\csi.sock"
+            - "--kubelet-registration-path={{ .Values.kubelet.windowsPath }}\\plugins\\file.csi.azure.com\\csi.sock"
             - "--v=5"
           env:
             - name: CSI_ENDPOINT
