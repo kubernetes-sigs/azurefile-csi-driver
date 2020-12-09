@@ -264,7 +264,7 @@ func appendDefaultMountOptions(mountOptions []string) []string {
 	included := make(map[string]bool)
 
 	for _, mountOption := range mountOptions {
-		for k, _ := range defaultMountOptions {
+		for k := range defaultMountOptions {
 			if strings.HasPrefix(mountOption, k) {
 				included[k] = true
 			}
