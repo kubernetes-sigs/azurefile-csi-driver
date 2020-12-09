@@ -260,14 +260,11 @@ func appendDefaultMountOptions(mountOptions []string) []string {
 		mfsymlinks: "",
 	}
 
-	// required for maintaing the order.
-	var keys = []string{fileMode, dirMode, vers, actimeo, mfsymlinks}
-
 	// stores the mount options already included in mountOptions
 	included := make(map[string]bool)
 
 	for _, mountOption := range mountOptions {
-		for _, k := range keys {
+		for k, _ := range defaultMountOptions {
 			if strings.HasPrefix(mountOption, k) {
 				included[k] = true
 			}
@@ -276,10 +273,10 @@ func appendDefaultMountOptions(mountOptions []string) []string {
 
 	allMountOptions := mountOptions
 
-	for _, k := range keys {
+	for k, v := range defaultMountOptions {
 		if _, isIncluded := included[k]; !isIncluded {
-			if defaultMountOptions[k] != "" {
-				allMountOptions = append(allMountOptions, fmt.Sprintf("%s=%s", k, defaultMountOptions[k]))
+			if v != "" {
+				allMountOptions = append(allMountOptions, fmt.Sprintf("%s=%s", k, v))
 			} else {
 				allMountOptions = append(allMountOptions, k)
 			}
