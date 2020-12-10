@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2019-06-01/storage"
@@ -134,6 +135,9 @@ func TestAppendDefaultMountOptions(t *testing.T) {
 
 	for _, test := range tests {
 		result := appendDefaultMountOptions(test.options)
+		sort.Strings(result)
+		sort.Strings(test.expected)
+
 		if !reflect.DeepEqual(result, test.expected) {
 			t.Errorf("input: %q, appendDefaultMountOptions result: %q, expected: %q", test.options, result, test.expected)
 		}

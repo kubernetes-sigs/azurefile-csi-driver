@@ -252,49 +252,35 @@ func GetFileShareInfo(id string) (string, string, string, string, error) {
 
 // check whether mountOptions contains file_mode, dir_mode, vers, if not, append default mode
 func appendDefaultMountOptions(mountOptions []string) []string {
-	fileModeFlag := false
-	dirModeFlag := false
-	versFlag := false
-	actimeoFlag := false
-	mfsymlinksFlag := false
+	var defaultMountOptions = map[string]string{
+		fileMode:   defaultFileMode,
+		dirMode:    defaultDirMode,
+		vers:       defaultVers,
+		actimeo:    defaultActimeo,
+		mfsymlinks: "",
+	}
+
+	// stores the mount options already included in mountOptions
+	included := make(map[string]bool)
 
 	for _, mountOption := range mountOptions {
-		if strings.HasPrefix(mountOption, fileMode) {
-			fileModeFlag = true
-		}
-		if strings.HasPrefix(mountOption, dirMode) {
-			dirModeFlag = true
-		}
-		if strings.HasPrefix(mountOption, vers) {
-			versFlag = true
-		}
-		if strings.HasPrefix(mountOption, actimeo) {
-			actimeoFlag = true
-		}
-		if strings.HasPrefix(mountOption, mfsymlinks) {
-			mfsymlinksFlag = true
+		for k := range defaultMountOptions {
+			if strings.HasPrefix(mountOption, k) {
+				included[k] = true
+			}
 		}
 	}
 
 	allMountOptions := mountOptions
-	if !fileModeFlag {
-		allMountOptions = append(allMountOptions, fmt.Sprintf("%s=%s", fileMode, defaultFileMode))
-	}
 
-	if !dirModeFlag {
-		allMountOptions = append(allMountOptions, fmt.Sprintf("%s=%s", dirMode, defaultDirMode))
-	}
-
-	if !versFlag {
-		allMountOptions = append(allMountOptions, fmt.Sprintf("%s=%s", vers, defaultVers))
-	}
-
-	if !actimeoFlag {
-		allMountOptions = append(allMountOptions, fmt.Sprintf("%s=%s", actimeo, defaultActimeo))
-	}
-
-	if !mfsymlinksFlag {
-		allMountOptions = append(allMountOptions, mfsymlinks)
+	for k, v := range defaultMountOptions {
+		if _, isIncluded := included[k]; !isIncluded {
+			if v != "" {
+				allMountOptions = append(allMountOptions, fmt.Sprintf("%s=%s", k, v))
+			} else {
+				allMountOptions = append(allMountOptions, k)
+			}
+		}
 	}
 
 	/* todo: looks like fsGroup is not included in CSI
