@@ -26,8 +26,9 @@ Please refer to [driver parameters](./docs/driver-parameters.md)
  - This driver also supports [read cloud config from kuberenetes secret](./docs/read-from-secret.md).
  - If cluster identity is [Managed Service Identity(MSI)](https://docs.microsoft.com/en-us/azure/aks/use-managed-identity), make sure user assigned identity has `Contributor` role on node resource group
 
-### Install azurefile CSI driver on a kubernetes cluster
-Please refer to [install azurefile csi driver](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/install-azurefile-csi-driver.md)
+### Install driver on a Kubernetes cluster
+ - install by [kubectl](./docs/install-azurefile-csi-driver.md)
+ - install by [helm charts](./charts)
 
 ### Examples
  - [Basic usage](./deploy/example/e2e_usage.md)
