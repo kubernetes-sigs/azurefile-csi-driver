@@ -23,8 +23,9 @@ import (
 	azs "github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"k8s.io/klog/v2"
-	"k8s.io/legacy-cloud-providers/azure/clients/fileclient"
-	"k8s.io/legacy-cloud-providers/azure/retry"
+
+	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
 )
 
 const (
