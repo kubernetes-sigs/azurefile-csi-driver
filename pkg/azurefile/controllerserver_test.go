@@ -37,11 +37,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/fake"
 	cloudprovider "k8s.io/cloud-provider"
-	"k8s.io/legacy-cloud-providers/azure"
-	"k8s.io/legacy-cloud-providers/azure/clients/fileclient/mockfileclient"
-	"k8s.io/legacy-cloud-providers/azure/clients/storageaccountclient/mockstorageaccountclient"
-	"k8s.io/legacy-cloud-providers/azure/clients/vmclient/mockvmclient"
-	"k8s.io/legacy-cloud-providers/azure/retry"
+
+	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient/mockfileclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/storageaccountclient/mockstorageaccountclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/vmclient/mockvmclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
 )
 
 func TestCreateVolume(t *testing.T) {

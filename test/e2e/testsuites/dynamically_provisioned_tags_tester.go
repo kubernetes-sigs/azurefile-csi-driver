@@ -27,12 +27,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
-	"k8s.io/legacy-cloud-providers/azure"
 
 	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 	azureUtils "sigs.k8s.io/azurefile-csi-driver/test/utils/azure"
 	"sigs.k8s.io/azurefile-csi-driver/test/utils/credentials"
+	"sigs.k8s.io/cloud-provider-azure/pkg/provider"
 )
 
 // DynamicallyProvisionedAccountWithTags will provision required StorageClass(es), PVC(s) and Pod(s)

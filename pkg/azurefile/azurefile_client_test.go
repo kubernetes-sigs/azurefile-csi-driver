@@ -25,8 +25,8 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/stretchr/testify/assert"
 
-	"k8s.io/legacy-cloud-providers/azure/clients/fileclient"
-	"k8s.io/legacy-cloud-providers/azure/retry"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
 )
 
 func TestGetFileSvcClient(t *testing.T) {

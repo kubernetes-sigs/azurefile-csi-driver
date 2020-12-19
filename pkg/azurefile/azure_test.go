@@ -28,10 +28,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2019-06-01/network"
 	"github.com/golang/mock/gomock"
 
-	"k8s.io/legacy-cloud-providers/azure"
-	"k8s.io/legacy-cloud-providers/azure/clients/subnetclient/mocksubnetclient"
-	"k8s.io/legacy-cloud-providers/azure/retry"
 	"sigs.k8s.io/azurefile-csi-driver/test/utils/testutil"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/subnetclient/mocksubnetclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
 )
 
 func skipIfTestingOnWindows(t *testing.T) {

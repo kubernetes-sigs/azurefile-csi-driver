@@ -33,10 +33,11 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/legacy-cloud-providers/azure"
-	"k8s.io/legacy-cloud-providers/azure/clients/fileclient/mockfileclient"
-	"k8s.io/legacy-cloud-providers/azure/clients/storageaccountclient/mockstorageaccountclient"
+
 	csicommon "sigs.k8s.io/azurefile-csi-driver/pkg/csi-common"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient/mockfileclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/storageaccountclient/mockstorageaccountclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/provider"
 )
 
 const (

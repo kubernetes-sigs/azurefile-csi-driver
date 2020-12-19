@@ -35,9 +35,10 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
-	"k8s.io/legacy-cloud-providers/azure"
-	"k8s.io/legacy-cloud-providers/azure/clients/fileclient"
-	"k8s.io/legacy-cloud-providers/azure/metrics"
+
+	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/metrics"
+	"sigs.k8s.io/cloud-provider-azure/pkg/provider"
 )
 
 const (
