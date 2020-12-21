@@ -43,8 +43,13 @@ Please refer to [driver parameters](./docs/driver-parameters.md)
 ### Troubleshooting
  - [CSI driver troubleshooting guide](./docs/csi-debug.md) 
 
+### Support
+ - Please see our [support policy][support-policy]
+
 ## Kubernetes Development
 Please refer to [development guide](./docs/csi-dev.md)
+
+[support-policy]: support.md
 
 ### View CI Results
 Check testgrid [provider-azure-azurefile-csi-driver](https://testgrid.k8s.io/provider-azure-azurefile-csi-driver) dashboard.
