@@ -80,6 +80,7 @@ func (client GroupsClient) CheckExistence(ctx context.Context, resourceGroupName
 	result, err = client.CheckExistenceResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "resources.GroupsClient", "CheckExistence", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -116,7 +117,6 @@ func (client GroupsClient) CheckExistenceSender(req *http.Request) (*http.Respon
 func (client GroupsClient) CheckExistenceResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusNoContent, http.StatusNotFound),
 		autorest.ByClosing())
 	result.Response = resp
@@ -166,6 +166,7 @@ func (client GroupsClient) CreateOrUpdate(ctx context.Context, resourceGroupName
 	result, err = client.CreateOrUpdateResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "resources.GroupsClient", "CreateOrUpdate", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -207,7 +208,6 @@ func (client GroupsClient) CreateOrUpdateSender(req *http.Request) (*http.Respon
 func (client GroupsClient) CreateOrUpdateResponder(resp *http.Response) (result Group, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusCreated),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -290,7 +290,6 @@ func (client GroupsClient) DeleteSender(req *http.Request) (future GroupsDeleteF
 func (client GroupsClient) DeleteResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
 		autorest.ByClosing())
 	result.Response = resp
@@ -336,6 +335,7 @@ func (client GroupsClient) ExportTemplate(ctx context.Context, resourceGroupName
 	result, err = client.ExportTemplateResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "resources.GroupsClient", "ExportTemplate", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -374,7 +374,6 @@ func (client GroupsClient) ExportTemplateSender(req *http.Request) (*http.Respon
 func (client GroupsClient) ExportTemplateResponder(resp *http.Response) (result GroupExportResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -420,6 +419,7 @@ func (client GroupsClient) Get(ctx context.Context, resourceGroupName string) (r
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "resources.GroupsClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -456,7 +456,6 @@ func (client GroupsClient) GetSender(req *http.Request) (*http.Response, error) 
 func (client GroupsClient) GetResponder(resp *http.Response) (result Group, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -497,6 +496,10 @@ func (client GroupsClient) List(ctx context.Context, filter string, top *int32) 
 	result.glr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "resources.GroupsClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.glr.hasNextLink() && result.glr.IsEmpty() {
+		err = result.NextWithContext(ctx)
 	}
 
 	return
@@ -538,7 +541,6 @@ func (client GroupsClient) ListSender(req *http.Request) (*http.Response, error)
 func (client GroupsClient) ListResponder(resp *http.Response) (result GroupListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -563,6 +565,7 @@ func (client GroupsClient) listNextResults(ctx context.Context, lastResults Grou
 	result, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "resources.GroupsClient", "listNextResults", resp, "Failure responding to next results request")
+		return
 	}
 	return
 }
@@ -623,6 +626,7 @@ func (client GroupsClient) Update(ctx context.Context, resourceGroupName string,
 	result, err = client.UpdateResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "resources.GroupsClient", "Update", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -661,7 +665,6 @@ func (client GroupsClient) UpdateSender(req *http.Request) (*http.Response, erro
 func (client GroupsClient) UpdateResponder(resp *http.Response) (result Group, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())

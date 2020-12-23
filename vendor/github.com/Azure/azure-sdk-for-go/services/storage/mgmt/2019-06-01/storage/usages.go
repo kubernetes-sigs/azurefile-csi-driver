@@ -78,6 +78,7 @@ func (client UsagesClient) ListByLocation(ctx context.Context, location string) 
 	result, err = client.ListByLocationResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.UsagesClient", "ListByLocation", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -114,7 +115,6 @@ func (client UsagesClient) ListByLocationSender(req *http.Request) (*http.Respon
 func (client UsagesClient) ListByLocationResponder(resp *http.Response) (result UsageListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())

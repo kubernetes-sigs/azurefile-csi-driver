@@ -115,7 +115,6 @@ func (client VirtualMachineExtensionsClient) CreateOrUpdateSender(req *http.Requ
 func (client VirtualMachineExtensionsClient) CreateOrUpdateResponder(resp *http.Response) (result VirtualMachineExtension, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusCreated),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -193,7 +192,6 @@ func (client VirtualMachineExtensionsClient) DeleteSender(req *http.Request) (fu
 func (client VirtualMachineExtensionsClient) DeleteResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted, http.StatusNoContent),
 		autorest.ByClosing())
 	result.Response = resp
@@ -233,6 +231,7 @@ func (client VirtualMachineExtensionsClient) Get(ctx context.Context, resourceGr
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "compute.VirtualMachineExtensionsClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -274,7 +273,6 @@ func (client VirtualMachineExtensionsClient) GetSender(req *http.Request) (*http
 func (client VirtualMachineExtensionsClient) GetResponder(resp *http.Response) (result VirtualMachineExtension, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -314,6 +312,7 @@ func (client VirtualMachineExtensionsClient) List(ctx context.Context, resourceG
 	result, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "compute.VirtualMachineExtensionsClient", "List", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -354,7 +353,6 @@ func (client VirtualMachineExtensionsClient) ListSender(req *http.Request) (*htt
 func (client VirtualMachineExtensionsClient) ListResponder(resp *http.Response) (result VirtualMachineExtensionsListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -435,7 +433,6 @@ func (client VirtualMachineExtensionsClient) UpdateSender(req *http.Request) (fu
 func (client VirtualMachineExtensionsClient) UpdateResponder(resp *http.Response) (result VirtualMachineExtension, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())

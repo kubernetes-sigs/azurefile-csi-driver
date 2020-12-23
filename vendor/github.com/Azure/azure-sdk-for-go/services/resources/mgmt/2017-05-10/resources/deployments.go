@@ -72,6 +72,7 @@ func (client DeploymentsClient) CalculateTemplateHash(ctx context.Context, templ
 	result, err = client.CalculateTemplateHashResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "resources.DeploymentsClient", "CalculateTemplateHash", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -105,7 +106,6 @@ func (client DeploymentsClient) CalculateTemplateHashSender(req *http.Request) (
 func (client DeploymentsClient) CalculateTemplateHashResponder(resp *http.Response) (result TemplateHashResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -158,6 +158,7 @@ func (client DeploymentsClient) Cancel(ctx context.Context, resourceGroupName st
 	result, err = client.CancelResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "resources.DeploymentsClient", "Cancel", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -195,7 +196,6 @@ func (client DeploymentsClient) CancelSender(req *http.Request) (*http.Response,
 func (client DeploymentsClient) CancelResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusNoContent),
 		autorest.ByClosing())
 	result.Response = resp
@@ -246,6 +246,7 @@ func (client DeploymentsClient) CheckExistence(ctx context.Context, resourceGrou
 	result, err = client.CheckExistenceResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "resources.DeploymentsClient", "CheckExistence", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -283,7 +284,6 @@ func (client DeploymentsClient) CheckExistenceSender(req *http.Request) (*http.R
 func (client DeploymentsClient) CheckExistenceResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusNoContent, http.StatusNotFound),
 		autorest.ByClosing())
 	result.Response = resp
@@ -381,7 +381,6 @@ func (client DeploymentsClient) CreateOrUpdateSender(req *http.Request) (future 
 func (client DeploymentsClient) CreateOrUpdateResponder(resp *http.Response) (result DeploymentExtended, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusCreated),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -476,7 +475,6 @@ func (client DeploymentsClient) DeleteSender(req *http.Request) (future Deployme
 func (client DeploymentsClient) DeleteResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted, http.StatusNoContent),
 		autorest.ByClosing())
 	result.Response = resp
@@ -526,6 +524,7 @@ func (client DeploymentsClient) ExportTemplate(ctx context.Context, resourceGrou
 	result, err = client.ExportTemplateResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "resources.DeploymentsClient", "ExportTemplate", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -563,7 +562,6 @@ func (client DeploymentsClient) ExportTemplateSender(req *http.Request) (*http.R
 func (client DeploymentsClient) ExportTemplateResponder(resp *http.Response) (result DeploymentExportResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -614,6 +612,7 @@ func (client DeploymentsClient) Get(ctx context.Context, resourceGroupName strin
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "resources.DeploymentsClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -651,7 +650,6 @@ func (client DeploymentsClient) GetSender(req *http.Request) (*http.Response, er
 func (client DeploymentsClient) GetResponder(resp *http.Response) (result DeploymentExtended, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -702,6 +700,10 @@ func (client DeploymentsClient) ListByResourceGroup(ctx context.Context, resourc
 	result.dlr, err = client.ListByResourceGroupResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "resources.DeploymentsClient", "ListByResourceGroup", resp, "Failure responding to request")
+		return
+	}
+	if result.dlr.hasNextLink() && result.dlr.IsEmpty() {
+		err = result.NextWithContext(ctx)
 	}
 
 	return
@@ -744,7 +746,6 @@ func (client DeploymentsClient) ListByResourceGroupSender(req *http.Request) (*h
 func (client DeploymentsClient) ListByResourceGroupResponder(resp *http.Response) (result DeploymentListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -769,6 +770,7 @@ func (client DeploymentsClient) listByResourceGroupNextResults(ctx context.Conte
 	result, err = client.ListByResourceGroupResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "resources.DeploymentsClient", "listByResourceGroupNextResults", resp, "Failure responding to next results request")
+		return
 	}
 	return
 }
@@ -842,6 +844,7 @@ func (client DeploymentsClient) Validate(ctx context.Context, resourceGroupName 
 	result, err = client.ValidateResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "resources.DeploymentsClient", "Validate", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -881,7 +884,6 @@ func (client DeploymentsClient) ValidateSender(req *http.Request) (*http.Respons
 func (client DeploymentsClient) ValidateResponder(resp *http.Response) (result DeploymentValidateResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusBadRequest),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())

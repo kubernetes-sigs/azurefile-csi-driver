@@ -112,7 +112,6 @@ func (client SecurityGroupsClient) CreateOrUpdateSender(req *http.Request) (futu
 func (client SecurityGroupsClient) CreateOrUpdateResponder(resp *http.Response) (result SecurityGroup, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusCreated),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -188,7 +187,6 @@ func (client SecurityGroupsClient) DeleteSender(req *http.Request) (future Secur
 func (client SecurityGroupsClient) DeleteResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted, http.StatusNoContent),
 		autorest.ByClosing())
 	result.Response = resp
@@ -227,6 +225,7 @@ func (client SecurityGroupsClient) Get(ctx context.Context, resourceGroupName st
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.SecurityGroupsClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -267,7 +266,6 @@ func (client SecurityGroupsClient) GetSender(req *http.Request) (*http.Response,
 func (client SecurityGroupsClient) GetResponder(resp *http.Response) (result SecurityGroup, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -306,6 +304,10 @@ func (client SecurityGroupsClient) List(ctx context.Context, resourceGroupName s
 	result.sglr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.SecurityGroupsClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.sglr.hasNextLink() && result.sglr.IsEmpty() {
+		err = result.NextWithContext(ctx)
 	}
 
 	return
@@ -342,7 +344,6 @@ func (client SecurityGroupsClient) ListSender(req *http.Request) (*http.Response
 func (client SecurityGroupsClient) ListResponder(resp *http.Response) (result SecurityGroupListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -367,6 +368,7 @@ func (client SecurityGroupsClient) listNextResults(ctx context.Context, lastResu
 	result, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.SecurityGroupsClient", "listNextResults", resp, "Failure responding to next results request")
+		return
 	}
 	return
 }
@@ -416,6 +418,10 @@ func (client SecurityGroupsClient) ListAll(ctx context.Context) (result Security
 	result.sglr, err = client.ListAllResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.SecurityGroupsClient", "ListAll", resp, "Failure responding to request")
+		return
+	}
+	if result.sglr.hasNextLink() && result.sglr.IsEmpty() {
+		err = result.NextWithContext(ctx)
 	}
 
 	return
@@ -451,7 +457,6 @@ func (client SecurityGroupsClient) ListAllSender(req *http.Request) (*http.Respo
 func (client SecurityGroupsClient) ListAllResponder(resp *http.Response) (result SecurityGroupListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -476,6 +481,7 @@ func (client SecurityGroupsClient) listAllNextResults(ctx context.Context, lastR
 	result, err = client.ListAllResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.SecurityGroupsClient", "listAllNextResults", resp, "Failure responding to next results request")
+		return
 	}
 	return
 }
@@ -567,7 +573,6 @@ func (client SecurityGroupsClient) UpdateTagsSender(req *http.Request) (future S
 func (client SecurityGroupsClient) UpdateTagsResponder(resp *http.Response) (result SecurityGroup, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())

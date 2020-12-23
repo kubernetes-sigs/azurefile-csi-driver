@@ -114,7 +114,6 @@ func (client DdosCustomPoliciesClient) CreateOrUpdateSender(req *http.Request) (
 func (client DdosCustomPoliciesClient) CreateOrUpdateResponder(resp *http.Response) (result DdosCustomPolicy, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusCreated),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -190,7 +189,6 @@ func (client DdosCustomPoliciesClient) DeleteSender(req *http.Request) (future D
 func (client DdosCustomPoliciesClient) DeleteResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted, http.StatusNoContent),
 		autorest.ByClosing())
 	result.Response = resp
@@ -228,6 +226,7 @@ func (client DdosCustomPoliciesClient) Get(ctx context.Context, resourceGroupNam
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.DdosCustomPoliciesClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -265,7 +264,6 @@ func (client DdosCustomPoliciesClient) GetSender(req *http.Request) (*http.Respo
 func (client DdosCustomPoliciesClient) GetResponder(resp *http.Response) (result DdosCustomPolicy, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -344,7 +342,6 @@ func (client DdosCustomPoliciesClient) UpdateTagsSender(req *http.Request) (futu
 func (client DdosCustomPoliciesClient) UpdateTagsResponder(resp *http.Response) (result DdosCustomPolicy, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())

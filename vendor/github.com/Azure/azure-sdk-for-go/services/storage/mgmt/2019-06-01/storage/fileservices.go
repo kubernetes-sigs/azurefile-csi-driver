@@ -89,6 +89,7 @@ func (client FileServicesClient) GetServiceProperties(ctx context.Context, resou
 	result, err = client.GetServicePropertiesResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.FileServicesClient", "GetServiceProperties", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -127,7 +128,6 @@ func (client FileServicesClient) GetServicePropertiesSender(req *http.Request) (
 func (client FileServicesClient) GetServicePropertiesResponder(resp *http.Response) (result FileServiceProperties, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -181,6 +181,7 @@ func (client FileServicesClient) List(ctx context.Context, resourceGroupName str
 	result, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.FileServicesClient", "List", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -218,7 +219,6 @@ func (client FileServicesClient) ListSender(req *http.Request) (*http.Response, 
 func (client FileServicesClient) ListResponder(resp *http.Response) (result FileServiceItems, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -284,6 +284,7 @@ func (client FileServicesClient) SetServiceProperties(ctx context.Context, resou
 	result, err = client.SetServicePropertiesResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.FileServicesClient", "SetServiceProperties", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -325,7 +326,6 @@ func (client FileServicesClient) SetServicePropertiesSender(req *http.Request) (
 func (client FileServicesClient) SetServicePropertiesResponder(resp *http.Response) (result FileServiceProperties, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())

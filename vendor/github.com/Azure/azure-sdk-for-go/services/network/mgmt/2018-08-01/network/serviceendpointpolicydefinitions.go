@@ -116,7 +116,6 @@ func (client ServiceEndpointPolicyDefinitionsClient) CreateOrUpdateSender(req *h
 func (client ServiceEndpointPolicyDefinitionsClient) CreateOrUpdateResponder(resp *http.Response) (result ServiceEndpointPolicyDefinition, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusCreated),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -194,7 +193,6 @@ func (client ServiceEndpointPolicyDefinitionsClient) DeleteSender(req *http.Requ
 func (client ServiceEndpointPolicyDefinitionsClient) DeleteResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted, http.StatusNoContent),
 		autorest.ByClosing())
 	result.Response = resp
@@ -233,6 +231,7 @@ func (client ServiceEndpointPolicyDefinitionsClient) Get(ctx context.Context, re
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.ServiceEndpointPolicyDefinitionsClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -271,7 +270,6 @@ func (client ServiceEndpointPolicyDefinitionsClient) GetSender(req *http.Request
 func (client ServiceEndpointPolicyDefinitionsClient) GetResponder(resp *http.Response) (result ServiceEndpointPolicyDefinition, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -311,6 +309,10 @@ func (client ServiceEndpointPolicyDefinitionsClient) ListByResourceGroup(ctx con
 	result.sepdlr, err = client.ListByResourceGroupResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.ServiceEndpointPolicyDefinitionsClient", "ListByResourceGroup", resp, "Failure responding to request")
+		return
+	}
+	if result.sepdlr.hasNextLink() && result.sepdlr.IsEmpty() {
+		err = result.NextWithContext(ctx)
 	}
 
 	return
@@ -348,7 +350,6 @@ func (client ServiceEndpointPolicyDefinitionsClient) ListByResourceGroupSender(r
 func (client ServiceEndpointPolicyDefinitionsClient) ListByResourceGroupResponder(resp *http.Response) (result ServiceEndpointPolicyDefinitionListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -373,6 +374,7 @@ func (client ServiceEndpointPolicyDefinitionsClient) listByResourceGroupNextResu
 	result, err = client.ListByResourceGroupResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.ServiceEndpointPolicyDefinitionsClient", "listByResourceGroupNextResults", resp, "Failure responding to next results request")
+		return
 	}
 	return
 }

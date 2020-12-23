@@ -135,7 +135,6 @@ func (client GalleryApplicationVersionsClient) CreateOrUpdateSender(req *http.Re
 func (client GalleryApplicationVersionsClient) CreateOrUpdateResponder(resp *http.Response) (result GalleryApplicationVersion, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusCreated, http.StatusAccepted),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -216,7 +215,6 @@ func (client GalleryApplicationVersionsClient) DeleteSender(req *http.Request) (
 func (client GalleryApplicationVersionsClient) DeleteResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted, http.StatusNoContent),
 		autorest.ByClosing())
 	result.Response = resp
@@ -258,6 +256,7 @@ func (client GalleryApplicationVersionsClient) Get(ctx context.Context, resource
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "compute.GalleryApplicationVersionsClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -300,7 +299,6 @@ func (client GalleryApplicationVersionsClient) GetSender(req *http.Request) (*ht
 func (client GalleryApplicationVersionsClient) GetResponder(resp *http.Response) (result GalleryApplicationVersion, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -342,6 +340,10 @@ func (client GalleryApplicationVersionsClient) ListByGalleryApplication(ctx cont
 	result.gavl, err = client.ListByGalleryApplicationResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "compute.GalleryApplicationVersionsClient", "ListByGalleryApplication", resp, "Failure responding to request")
+		return
+	}
+	if result.gavl.hasNextLink() && result.gavl.IsEmpty() {
+		err = result.NextWithContext(ctx)
 	}
 
 	return
@@ -380,7 +382,6 @@ func (client GalleryApplicationVersionsClient) ListByGalleryApplicationSender(re
 func (client GalleryApplicationVersionsClient) ListByGalleryApplicationResponder(resp *http.Response) (result GalleryApplicationVersionList, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -405,6 +406,7 @@ func (client GalleryApplicationVersionsClient) listByGalleryApplicationNextResul
 	result, err = client.ListByGalleryApplicationResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "compute.GalleryApplicationVersionsClient", "listByGalleryApplicationNextResults", resp, "Failure responding to next results request")
+		return
 	}
 	return
 }

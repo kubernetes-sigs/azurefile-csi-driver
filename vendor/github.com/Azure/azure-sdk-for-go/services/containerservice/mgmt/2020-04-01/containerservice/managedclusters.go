@@ -75,9 +75,7 @@ func (client ManagedClustersClient) CreateOrUpdate(ctx context.Context, resource
 							Chain: []validation.Constraint{{Target: "parameters.ManagedClusterProperties.LinuxProfile.SSH.PublicKeys", Name: validation.Null, Rule: true, Chain: nil}}},
 					}},
 					{Target: "parameters.ManagedClusterProperties.WindowsProfile", Name: validation.Null, Rule: false,
-						Chain: []validation.Constraint{{Target: "parameters.ManagedClusterProperties.WindowsProfile.AdminUsername", Name: validation.Null, Rule: true,
-							Chain: []validation.Constraint{{Target: "parameters.ManagedClusterProperties.WindowsProfile.AdminUsername", Name: validation.Pattern, Rule: `^[a-zA-Z0-9]+([._]?[a-zA-Z0-9]+)*$`, Chain: nil}}},
-						}},
+						Chain: []validation.Constraint{{Target: "parameters.ManagedClusterProperties.WindowsProfile.AdminUsername", Name: validation.Null, Rule: true, Chain: nil}}},
 					{Target: "parameters.ManagedClusterProperties.ServicePrincipalProfile", Name: validation.Null, Rule: false,
 						Chain: []validation.Constraint{{Target: "parameters.ManagedClusterProperties.ServicePrincipalProfile.ClientID", Name: validation.Null, Rule: true, Chain: nil}}},
 					{Target: "parameters.ManagedClusterProperties.NetworkProfile", Name: validation.Null, Rule: false,
@@ -165,7 +163,6 @@ func (client ManagedClustersClient) CreateOrUpdateSender(req *http.Request) (fut
 func (client ManagedClustersClient) CreateOrUpdateResponder(resp *http.Response) (result ManagedCluster, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusCreated),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -251,7 +248,6 @@ func (client ManagedClustersClient) DeleteSender(req *http.Request) (future Mana
 func (client ManagedClustersClient) DeleteResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted, http.StatusNoContent),
 		autorest.ByClosing())
 	result.Response = resp
@@ -299,6 +295,7 @@ func (client ManagedClustersClient) Get(ctx context.Context, resourceGroupName s
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "containerservice.ManagedClustersClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -336,7 +333,6 @@ func (client ManagedClustersClient) GetSender(req *http.Request) (*http.Response
 func (client ManagedClustersClient) GetResponder(resp *http.Response) (result ManagedCluster, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -391,6 +387,7 @@ func (client ManagedClustersClient) GetAccessProfile(ctx context.Context, resour
 	result, err = client.GetAccessProfileResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "containerservice.ManagedClustersClient", "GetAccessProfile", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -429,7 +426,6 @@ func (client ManagedClustersClient) GetAccessProfileSender(req *http.Request) (*
 func (client ManagedClustersClient) GetAccessProfileResponder(resp *http.Response) (result ManagedClusterAccessProfile, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -479,6 +475,7 @@ func (client ManagedClustersClient) GetUpgradeProfile(ctx context.Context, resou
 	result, err = client.GetUpgradeProfileResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "containerservice.ManagedClustersClient", "GetUpgradeProfile", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -516,7 +513,6 @@ func (client ManagedClustersClient) GetUpgradeProfileSender(req *http.Request) (
 func (client ManagedClustersClient) GetUpgradeProfileResponder(resp *http.Response) (result ManagedClusterUpgradeProfile, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -554,6 +550,10 @@ func (client ManagedClustersClient) List(ctx context.Context) (result ManagedClu
 	result.mclr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "containerservice.ManagedClustersClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.mclr.hasNextLink() && result.mclr.IsEmpty() {
+		err = result.NextWithContext(ctx)
 	}
 
 	return
@@ -589,7 +589,6 @@ func (client ManagedClustersClient) ListSender(req *http.Request) (*http.Respons
 func (client ManagedClustersClient) ListResponder(resp *http.Response) (result ManagedClusterListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -614,6 +613,7 @@ func (client ManagedClustersClient) listNextResults(ctx context.Context, lastRes
 	result, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "containerservice.ManagedClustersClient", "listNextResults", resp, "Failure responding to next results request")
+		return
 	}
 	return
 }
@@ -672,6 +672,10 @@ func (client ManagedClustersClient) ListByResourceGroup(ctx context.Context, res
 	result.mclr, err = client.ListByResourceGroupResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "containerservice.ManagedClustersClient", "ListByResourceGroup", resp, "Failure responding to request")
+		return
+	}
+	if result.mclr.hasNextLink() && result.mclr.IsEmpty() {
+		err = result.NextWithContext(ctx)
 	}
 
 	return
@@ -708,7 +712,6 @@ func (client ManagedClustersClient) ListByResourceGroupSender(req *http.Request)
 func (client ManagedClustersClient) ListByResourceGroupResponder(resp *http.Response) (result ManagedClusterListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -733,6 +736,7 @@ func (client ManagedClustersClient) listByResourceGroupNextResults(ctx context.C
 	result, err = client.ListByResourceGroupResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "containerservice.ManagedClustersClient", "listByResourceGroupNextResults", resp, "Failure responding to next results request")
+		return
 	}
 	return
 }
@@ -795,6 +799,7 @@ func (client ManagedClustersClient) ListClusterAdminCredentials(ctx context.Cont
 	result, err = client.ListClusterAdminCredentialsResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "containerservice.ManagedClustersClient", "ListClusterAdminCredentials", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -832,7 +837,6 @@ func (client ManagedClustersClient) ListClusterAdminCredentialsSender(req *http.
 func (client ManagedClustersClient) ListClusterAdminCredentialsResponder(resp *http.Response) (result CredentialResults, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -882,6 +886,7 @@ func (client ManagedClustersClient) ListClusterMonitoringUserCredentials(ctx con
 	result, err = client.ListClusterMonitoringUserCredentialsResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "containerservice.ManagedClustersClient", "ListClusterMonitoringUserCredentials", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -919,7 +924,6 @@ func (client ManagedClustersClient) ListClusterMonitoringUserCredentialsSender(r
 func (client ManagedClustersClient) ListClusterMonitoringUserCredentialsResponder(resp *http.Response) (result CredentialResults, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -969,6 +973,7 @@ func (client ManagedClustersClient) ListClusterUserCredentials(ctx context.Conte
 	result, err = client.ListClusterUserCredentialsResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "containerservice.ManagedClustersClient", "ListClusterUserCredentials", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -1006,7 +1011,6 @@ func (client ManagedClustersClient) ListClusterUserCredentialsSender(req *http.R
 func (client ManagedClustersClient) ListClusterUserCredentialsResponder(resp *http.Response) (result CredentialResults, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -1095,7 +1099,6 @@ func (client ManagedClustersClient) ResetAADProfileSender(req *http.Request) (fu
 func (client ManagedClustersClient) ResetAADProfileResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
 		autorest.ByClosing())
 	result.Response = resp
@@ -1185,7 +1188,6 @@ func (client ManagedClustersClient) ResetServicePrincipalProfileSender(req *http
 func (client ManagedClustersClient) ResetServicePrincipalProfileResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
 		autorest.ByClosing())
 	result.Response = resp
@@ -1270,7 +1272,6 @@ func (client ManagedClustersClient) RotateClusterCertificatesSender(req *http.Re
 func (client ManagedClustersClient) RotateClusterCertificatesResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted, http.StatusNoContent),
 		autorest.ByClosing())
 	result.Response = resp
@@ -1358,7 +1359,6 @@ func (client ManagedClustersClient) UpdateTagsSender(req *http.Request) (future 
 func (client ManagedClustersClient) UpdateTagsResponder(resp *http.Response) (result ManagedCluster, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())

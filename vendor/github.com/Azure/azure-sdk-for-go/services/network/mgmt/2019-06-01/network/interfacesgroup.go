@@ -112,7 +112,6 @@ func (client InterfacesClient) CreateOrUpdateSender(req *http.Request) (future I
 func (client InterfacesClient) CreateOrUpdateResponder(resp *http.Response) (result Interface, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusCreated),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -188,7 +187,6 @@ func (client InterfacesClient) DeleteSender(req *http.Request) (future Interface
 func (client InterfacesClient) DeleteResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted, http.StatusNoContent),
 		autorest.ByClosing())
 	result.Response = resp
@@ -227,6 +225,7 @@ func (client InterfacesClient) Get(ctx context.Context, resourceGroupName string
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.InterfacesClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -267,7 +266,6 @@ func (client InterfacesClient) GetSender(req *http.Request) (*http.Response, err
 func (client InterfacesClient) GetResponder(resp *http.Response) (result Interface, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -343,7 +341,6 @@ func (client InterfacesClient) GetEffectiveRouteTableSender(req *http.Request) (
 func (client InterfacesClient) GetEffectiveRouteTableResponder(resp *http.Response) (result EffectiveRouteListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -387,6 +384,7 @@ func (client InterfacesClient) GetVirtualMachineScaleSetIPConfiguration(ctx cont
 	result, err = client.GetVirtualMachineScaleSetIPConfigurationResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.InterfacesClient", "GetVirtualMachineScaleSetIPConfiguration", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -430,7 +428,6 @@ func (client InterfacesClient) GetVirtualMachineScaleSetIPConfigurationSender(re
 func (client InterfacesClient) GetVirtualMachineScaleSetIPConfigurationResponder(resp *http.Response) (result InterfaceIPConfiguration, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -472,6 +469,7 @@ func (client InterfacesClient) GetVirtualMachineScaleSetNetworkInterface(ctx con
 	result, err = client.GetVirtualMachineScaleSetNetworkInterfaceResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.InterfacesClient", "GetVirtualMachineScaleSetNetworkInterface", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -514,7 +512,6 @@ func (client InterfacesClient) GetVirtualMachineScaleSetNetworkInterfaceSender(r
 func (client InterfacesClient) GetVirtualMachineScaleSetNetworkInterfaceResponder(resp *http.Response) (result Interface, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -553,6 +550,10 @@ func (client InterfacesClient) List(ctx context.Context, resourceGroupName strin
 	result.ilr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.InterfacesClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.ilr.hasNextLink() && result.ilr.IsEmpty() {
+		err = result.NextWithContext(ctx)
 	}
 
 	return
@@ -589,7 +590,6 @@ func (client InterfacesClient) ListSender(req *http.Request) (*http.Response, er
 func (client InterfacesClient) ListResponder(resp *http.Response) (result InterfaceListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -614,6 +614,7 @@ func (client InterfacesClient) listNextResults(ctx context.Context, lastResults 
 	result, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.InterfacesClient", "listNextResults", resp, "Failure responding to next results request")
+		return
 	}
 	return
 }
@@ -663,6 +664,10 @@ func (client InterfacesClient) ListAll(ctx context.Context) (result InterfaceLis
 	result.ilr, err = client.ListAllResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.InterfacesClient", "ListAll", resp, "Failure responding to request")
+		return
+	}
+	if result.ilr.hasNextLink() && result.ilr.IsEmpty() {
+		err = result.NextWithContext(ctx)
 	}
 
 	return
@@ -698,7 +703,6 @@ func (client InterfacesClient) ListAllSender(req *http.Request) (*http.Response,
 func (client InterfacesClient) ListAllResponder(resp *http.Response) (result InterfaceListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -723,6 +727,7 @@ func (client InterfacesClient) listAllNextResults(ctx context.Context, lastResul
 	result, err = client.ListAllResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.InterfacesClient", "listAllNextResults", resp, "Failure responding to next results request")
+		return
 	}
 	return
 }
@@ -811,7 +816,6 @@ func (client InterfacesClient) ListEffectiveNetworkSecurityGroupsSender(req *htt
 func (client InterfacesClient) ListEffectiveNetworkSecurityGroupsResponder(resp *http.Response) (result EffectiveNetworkSecurityGroupListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -855,6 +859,10 @@ func (client InterfacesClient) ListVirtualMachineScaleSetIPConfigurations(ctx co
 	result.iiclr, err = client.ListVirtualMachineScaleSetIPConfigurationsResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.InterfacesClient", "ListVirtualMachineScaleSetIPConfigurations", resp, "Failure responding to request")
+		return
+	}
+	if result.iiclr.hasNextLink() && result.iiclr.IsEmpty() {
+		err = result.NextWithContext(ctx)
 	}
 
 	return
@@ -897,7 +905,6 @@ func (client InterfacesClient) ListVirtualMachineScaleSetIPConfigurationsSender(
 func (client InterfacesClient) ListVirtualMachineScaleSetIPConfigurationsResponder(resp *http.Response) (result InterfaceIPConfigurationListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -922,6 +929,7 @@ func (client InterfacesClient) listVirtualMachineScaleSetIPConfigurationsNextRes
 	result, err = client.ListVirtualMachineScaleSetIPConfigurationsResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.InterfacesClient", "listVirtualMachineScaleSetIPConfigurationsNextResults", resp, "Failure responding to next results request")
+		return
 	}
 	return
 }
@@ -974,6 +982,10 @@ func (client InterfacesClient) ListVirtualMachineScaleSetNetworkInterfaces(ctx c
 	result.ilr, err = client.ListVirtualMachineScaleSetNetworkInterfacesResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.InterfacesClient", "ListVirtualMachineScaleSetNetworkInterfaces", resp, "Failure responding to request")
+		return
+	}
+	if result.ilr.hasNextLink() && result.ilr.IsEmpty() {
+		err = result.NextWithContext(ctx)
 	}
 
 	return
@@ -1011,7 +1023,6 @@ func (client InterfacesClient) ListVirtualMachineScaleSetNetworkInterfacesSender
 func (client InterfacesClient) ListVirtualMachineScaleSetNetworkInterfacesResponder(resp *http.Response) (result InterfaceListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -1036,6 +1047,7 @@ func (client InterfacesClient) listVirtualMachineScaleSetNetworkInterfacesNextRe
 	result, err = client.ListVirtualMachineScaleSetNetworkInterfacesResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.InterfacesClient", "listVirtualMachineScaleSetNetworkInterfacesNextResults", resp, "Failure responding to next results request")
+		return
 	}
 	return
 }
@@ -1090,6 +1102,10 @@ func (client InterfacesClient) ListVirtualMachineScaleSetVMNetworkInterfaces(ctx
 	result.ilr, err = client.ListVirtualMachineScaleSetVMNetworkInterfacesResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.InterfacesClient", "ListVirtualMachineScaleSetVMNetworkInterfaces", resp, "Failure responding to request")
+		return
+	}
+	if result.ilr.hasNextLink() && result.ilr.IsEmpty() {
+		err = result.NextWithContext(ctx)
 	}
 
 	return
@@ -1128,7 +1144,6 @@ func (client InterfacesClient) ListVirtualMachineScaleSetVMNetworkInterfacesSend
 func (client InterfacesClient) ListVirtualMachineScaleSetVMNetworkInterfacesResponder(resp *http.Response) (result InterfaceListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -1153,6 +1168,7 @@ func (client InterfacesClient) listVirtualMachineScaleSetVMNetworkInterfacesNext
 	result, err = client.ListVirtualMachineScaleSetVMNetworkInterfacesResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.InterfacesClient", "listVirtualMachineScaleSetVMNetworkInterfacesNextResults", resp, "Failure responding to next results request")
+		return
 	}
 	return
 }
@@ -1244,7 +1260,6 @@ func (client InterfacesClient) UpdateTagsSender(req *http.Request) (future Inter
 func (client InterfacesClient) UpdateTagsResponder(resp *http.Response) (result Interface, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())

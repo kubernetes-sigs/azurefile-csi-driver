@@ -95,6 +95,7 @@ func (client EncryptionScopesClient) Get(ctx context.Context, resourceGroupName 
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.EncryptionScopesClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -133,7 +134,6 @@ func (client EncryptionScopesClient) GetSender(req *http.Request) (*http.Respons
 func (client EncryptionScopesClient) GetResponder(resp *http.Response) (result EncryptionScope, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -188,6 +188,10 @@ func (client EncryptionScopesClient) List(ctx context.Context, resourceGroupName
 	result.eslr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.EncryptionScopesClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.eslr.hasNextLink() && result.eslr.IsEmpty() {
+		err = result.NextWithContext(ctx)
 	}
 
 	return
@@ -225,7 +229,6 @@ func (client EncryptionScopesClient) ListSender(req *http.Request) (*http.Respon
 func (client EncryptionScopesClient) ListResponder(resp *http.Response) (result EncryptionScopeListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -250,6 +253,7 @@ func (client EncryptionScopesClient) listNextResults(ctx context.Context, lastRe
 	result, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.EncryptionScopesClient", "listNextResults", resp, "Failure responding to next results request")
+		return
 	}
 	return
 }
@@ -324,6 +328,7 @@ func (client EncryptionScopesClient) Patch(ctx context.Context, resourceGroupNam
 	result, err = client.PatchResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.EncryptionScopesClient", "Patch", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -364,7 +369,6 @@ func (client EncryptionScopesClient) PatchSender(req *http.Request) (*http.Respo
 func (client EncryptionScopesClient) PatchResponder(resp *http.Response) (result EncryptionScope, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -427,6 +431,7 @@ func (client EncryptionScopesClient) Put(ctx context.Context, resourceGroupName 
 	result, err = client.PutResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.EncryptionScopesClient", "Put", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -467,7 +472,6 @@ func (client EncryptionScopesClient) PutSender(req *http.Request) (*http.Respons
 func (client EncryptionScopesClient) PutResponder(resp *http.Response) (result EncryptionScope, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusCreated),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())

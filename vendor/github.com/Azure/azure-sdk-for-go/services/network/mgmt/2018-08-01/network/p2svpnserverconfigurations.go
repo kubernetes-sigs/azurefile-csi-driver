@@ -117,7 +117,6 @@ func (client P2sVpnServerConfigurationsClient) CreateOrUpdateSender(req *http.Re
 func (client P2sVpnServerConfigurationsClient) CreateOrUpdateResponder(resp *http.Response) (result P2SVpnServerConfiguration, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusCreated),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -195,7 +194,6 @@ func (client P2sVpnServerConfigurationsClient) DeleteSender(req *http.Request) (
 func (client P2sVpnServerConfigurationsClient) DeleteResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted, http.StatusNoContent),
 		autorest.ByClosing())
 	result.Response = resp
@@ -234,6 +232,7 @@ func (client P2sVpnServerConfigurationsClient) Get(ctx context.Context, resource
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.P2sVpnServerConfigurationsClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -272,7 +271,6 @@ func (client P2sVpnServerConfigurationsClient) GetSender(req *http.Request) (*ht
 func (client P2sVpnServerConfigurationsClient) GetResponder(resp *http.Response) (result P2SVpnServerConfiguration, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -312,6 +310,10 @@ func (client P2sVpnServerConfigurationsClient) ListByVirtualWan(ctx context.Cont
 	result.lpvscr, err = client.ListByVirtualWanResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.P2sVpnServerConfigurationsClient", "ListByVirtualWan", resp, "Failure responding to request")
+		return
+	}
+	if result.lpvscr.hasNextLink() && result.lpvscr.IsEmpty() {
+		err = result.NextWithContext(ctx)
 	}
 
 	return
@@ -349,7 +351,6 @@ func (client P2sVpnServerConfigurationsClient) ListByVirtualWanSender(req *http.
 func (client P2sVpnServerConfigurationsClient) ListByVirtualWanResponder(resp *http.Response) (result ListP2SVpnServerConfigurationsResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -374,6 +375,7 @@ func (client P2sVpnServerConfigurationsClient) listByVirtualWanNextResults(ctx c
 	result, err = client.ListByVirtualWanResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.P2sVpnServerConfigurationsClient", "listByVirtualWanNextResults", resp, "Failure responding to next results request")
+		return
 	}
 	return
 }

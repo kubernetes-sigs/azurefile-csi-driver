@@ -149,7 +149,6 @@ func (client ContainerServicesClient) CreateOrUpdateSender(req *http.Request) (f
 func (client ContainerServicesClient) CreateOrUpdateResponder(resp *http.Response) (result ContainerService, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusCreated, http.StatusAccepted),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -228,7 +227,6 @@ func (client ContainerServicesClient) DeleteSender(req *http.Request) (future Co
 func (client ContainerServicesClient) DeleteResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted, http.StatusNoContent),
 		autorest.ByClosing())
 	result.Response = resp
@@ -268,6 +266,7 @@ func (client ContainerServicesClient) Get(ctx context.Context, resourceGroupName
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "containerservice.ContainerServicesClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -305,7 +304,6 @@ func (client ContainerServicesClient) GetSender(req *http.Request) (*http.Respon
 func (client ContainerServicesClient) GetResponder(resp *http.Response) (result ContainerService, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -343,6 +341,10 @@ func (client ContainerServicesClient) List(ctx context.Context) (result ListResu
 	result.lr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "containerservice.ContainerServicesClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.lr.hasNextLink() && result.lr.IsEmpty() {
+		err = result.NextWithContext(ctx)
 	}
 
 	return
@@ -378,7 +380,6 @@ func (client ContainerServicesClient) ListSender(req *http.Request) (*http.Respo
 func (client ContainerServicesClient) ListResponder(resp *http.Response) (result ListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -403,6 +404,7 @@ func (client ContainerServicesClient) listNextResults(ctx context.Context, lastR
 	result, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "containerservice.ContainerServicesClient", "listNextResults", resp, "Failure responding to next results request")
+		return
 	}
 	return
 }
@@ -456,6 +458,10 @@ func (client ContainerServicesClient) ListByResourceGroup(ctx context.Context, r
 	result.lr, err = client.ListByResourceGroupResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "containerservice.ContainerServicesClient", "ListByResourceGroup", resp, "Failure responding to request")
+		return
+	}
+	if result.lr.hasNextLink() && result.lr.IsEmpty() {
+		err = result.NextWithContext(ctx)
 	}
 
 	return
@@ -492,7 +498,6 @@ func (client ContainerServicesClient) ListByResourceGroupSender(req *http.Reques
 func (client ContainerServicesClient) ListByResourceGroupResponder(resp *http.Response) (result ListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -517,6 +522,7 @@ func (client ContainerServicesClient) listByResourceGroupNextResults(ctx context
 	result, err = client.ListByResourceGroupResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "containerservice.ContainerServicesClient", "listByResourceGroupNextResults", resp, "Failure responding to next results request")
+		return
 	}
 	return
 }
@@ -570,6 +576,7 @@ func (client ContainerServicesClient) ListOrchestrators(ctx context.Context, loc
 	result, err = client.ListOrchestratorsResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "containerservice.ContainerServicesClient", "ListOrchestrators", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -609,7 +616,6 @@ func (client ContainerServicesClient) ListOrchestratorsSender(req *http.Request)
 func (client ContainerServicesClient) ListOrchestratorsResponder(resp *http.Response) (result OrchestratorVersionProfileListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
