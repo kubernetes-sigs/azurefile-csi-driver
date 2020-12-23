@@ -95,6 +95,7 @@ func (client ManagementPoliciesClient) CreateOrUpdate(ctx context.Context, resou
 	result, err = client.CreateOrUpdateResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.ManagementPoliciesClient", "CreateOrUpdate", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -135,7 +136,6 @@ func (client ManagementPoliciesClient) CreateOrUpdateSender(req *http.Request) (
 func (client ManagementPoliciesClient) CreateOrUpdateResponder(resp *http.Response) (result ManagementPolicy, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -189,6 +189,7 @@ func (client ManagementPoliciesClient) Delete(ctx context.Context, resourceGroup
 	result, err = client.DeleteResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.ManagementPoliciesClient", "Delete", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -227,7 +228,6 @@ func (client ManagementPoliciesClient) DeleteSender(req *http.Request) (*http.Re
 func (client ManagementPoliciesClient) DeleteResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusNoContent),
 		autorest.ByClosing())
 	result.Response = resp
@@ -280,6 +280,7 @@ func (client ManagementPoliciesClient) Get(ctx context.Context, resourceGroupNam
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.ManagementPoliciesClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -318,7 +319,6 @@ func (client ManagementPoliciesClient) GetSender(req *http.Request) (*http.Respo
 func (client ManagementPoliciesClient) GetResponder(resp *http.Response) (result ManagementPolicy, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())

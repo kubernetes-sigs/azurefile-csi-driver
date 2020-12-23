@@ -95,6 +95,7 @@ func (client QueueClient) Create(ctx context.Context, resourceGroupName string, 
 	result, err = client.CreateResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.QueueClient", "Create", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -135,7 +136,6 @@ func (client QueueClient) CreateSender(req *http.Request) (*http.Response, error
 func (client QueueClient) CreateResponder(resp *http.Response) (result Queue, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -195,6 +195,7 @@ func (client QueueClient) Delete(ctx context.Context, resourceGroupName string, 
 	result, err = client.DeleteResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.QueueClient", "Delete", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -233,7 +234,6 @@ func (client QueueClient) DeleteSender(req *http.Request) (*http.Response, error
 func (client QueueClient) DeleteResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusNoContent),
 		autorest.ByClosing())
 	result.Response = resp
@@ -292,6 +292,7 @@ func (client QueueClient) Get(ctx context.Context, resourceGroupName string, acc
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.QueueClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -330,7 +331,6 @@ func (client QueueClient) GetSender(req *http.Request) (*http.Response, error) {
 func (client QueueClient) GetResponder(resp *http.Response) (result Queue, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -388,6 +388,10 @@ func (client QueueClient) List(ctx context.Context, resourceGroupName string, ac
 	result.lqr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.QueueClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.lqr.hasNextLink() && result.lqr.IsEmpty() {
+		err = result.NextWithContext(ctx)
 	}
 
 	return
@@ -431,7 +435,6 @@ func (client QueueClient) ListSender(req *http.Request) (*http.Response, error) 
 func (client QueueClient) ListResponder(resp *http.Response) (result ListQueueResource, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -456,6 +459,7 @@ func (client QueueClient) listNextResults(ctx context.Context, lastResults ListQ
 	result, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.QueueClient", "listNextResults", resp, "Failure responding to next results request")
+		return
 	}
 	return
 }
@@ -529,6 +533,7 @@ func (client QueueClient) Update(ctx context.Context, resourceGroupName string, 
 	result, err = client.UpdateResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.QueueClient", "Update", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -569,7 +574,6 @@ func (client QueueClient) UpdateSender(req *http.Request) (*http.Response, error
 func (client QueueClient) UpdateResponder(resp *http.Response) (result Queue, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())

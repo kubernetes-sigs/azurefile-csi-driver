@@ -99,6 +99,7 @@ func (client ObjectReplicationPoliciesClient) CreateOrUpdate(ctx context.Context
 	result, err = client.CreateOrUpdateResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.ObjectReplicationPoliciesClient", "CreateOrUpdate", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -139,7 +140,6 @@ func (client ObjectReplicationPoliciesClient) CreateOrUpdateSender(req *http.Req
 func (client ObjectReplicationPoliciesClient) CreateOrUpdateResponder(resp *http.Response) (result ObjectReplicationPolicy, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -196,6 +196,7 @@ func (client ObjectReplicationPoliciesClient) Delete(ctx context.Context, resour
 	result, err = client.DeleteResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.ObjectReplicationPoliciesClient", "Delete", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -234,7 +235,6 @@ func (client ObjectReplicationPoliciesClient) DeleteSender(req *http.Request) (*
 func (client ObjectReplicationPoliciesClient) DeleteResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusNoContent),
 		autorest.ByClosing())
 	result.Response = resp
@@ -290,6 +290,7 @@ func (client ObjectReplicationPoliciesClient) Get(ctx context.Context, resourceG
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.ObjectReplicationPoliciesClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -328,7 +329,6 @@ func (client ObjectReplicationPoliciesClient) GetSender(req *http.Request) (*htt
 func (client ObjectReplicationPoliciesClient) GetResponder(resp *http.Response) (result ObjectReplicationPolicy, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -382,6 +382,7 @@ func (client ObjectReplicationPoliciesClient) List(ctx context.Context, resource
 	result, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "storage.ObjectReplicationPoliciesClient", "List", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -419,7 +420,6 @@ func (client ObjectReplicationPoliciesClient) ListSender(req *http.Request) (*ht
 func (client ObjectReplicationPoliciesClient) ListResponder(resp *http.Response) (result ObjectReplicationPolicies, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
