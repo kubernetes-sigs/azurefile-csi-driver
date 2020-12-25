@@ -43,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 	restclientset "k8s.io/client-go/rest"
+	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/kubelet/events"
 	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/framework/deployment"
@@ -59,7 +60,10 @@ const (
 	slowPodStartTimeout = 15 * time.Minute
 	// Description that will printed during tests
 	failedConditionDescription = "Error status code"
-	pollLongTimeout            = 5 * time.Minute
+
+	poll            = 2 * time.Second
+	pollLongTimeout = 5 * time.Minute
+	pollTimeout     = 10 * time.Minute
 )
 
 type TestStorageClass struct {
@@ -227,6 +231,28 @@ func generatePVC(namespace, storageClassName, claimSize string, volumeMode v1.Pe
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "pvc-",
 			Namespace:    namespace,
+		},
+		Spec: v1.PersistentVolumeClaimSpec{
+			StorageClassName: &storageClassName,
+			AccessModes: []v1.PersistentVolumeAccessMode{
+				v1.ReadWriteOnce,
+			},
+			Resources: v1.ResourceRequirements{
+				Requests: v1.ResourceList{
+					v1.ResourceName(v1.ResourceStorage): resource.MustParse(claimSize),
+				},
+			},
+			VolumeMode: &volumeMode,
+			DataSource: dataSource,
+		},
+	}
+}
+
+func generateStatefulSetPVC(namespace, storageClassName, claimSize string, volumeMode v1.PersistentVolumeMode, dataSource *v1.TypedLocalObjectReference) *v1.PersistentVolumeClaim {
+	return &v1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pvc",
+			Namespace: namespace,
 		},
 		Spec: v1.PersistentVolumeClaimSpec{
 			StorageClassName: &storageClassName,
@@ -459,6 +485,155 @@ func (t *TestDeployment) Cleanup() {
 
 func (t *TestDeployment) Logs() ([]byte, error) {
 	return podLogs(t.client, t.podName, t.namespace.Name)
+}
+
+type TestStatefulset struct {
+	client      clientset.Interface
+	statefulset *apps.StatefulSet
+	namespace   *v1.Namespace
+	podName     string
+}
+
+func NewTestStatefulset(c clientset.Interface, ns *v1.Namespace, command string, pvc *v1.PersistentVolumeClaim, volumeName, mountPath string, readOnly, isWindows, useCMD bool) *TestStatefulset {
+	generateName := "azurefile-volume-tester-"
+	selectorValue := fmt.Sprintf("%s%d", generateName, rand.Int())
+	replicas := int32(1)
+	var volumeClainTest []v1.PersistentVolumeClaim
+	volumeClainTest = append(volumeClainTest, *pvc)
+	testStatefulset := &TestStatefulset{
+		client:    c,
+		namespace: ns,
+		statefulset: &apps.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: generateName,
+			},
+			Spec: apps.StatefulSetSpec{
+				Replicas: &replicas,
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"app": selectorValue},
+				},
+				Template: v1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"app": selectorValue},
+					},
+					Spec: v1.PodSpec{
+						NodeSelector: map[string]string{"kubernetes.io/os": "linux"},
+						Containers: []v1.Container{
+							{
+								Name:    "volume-tester",
+								Image:   imageutils.GetE2EImage(imageutils.BusyBox),
+								Command: []string{"/bin/sh"},
+								Args:    []string{"-c", command},
+								VolumeMounts: []v1.VolumeMount{
+									{
+										Name:      volumeName,
+										MountPath: mountPath,
+										ReadOnly:  readOnly,
+									},
+								},
+							},
+						},
+						RestartPolicy: v1.RestartPolicyAlways,
+					},
+				},
+				VolumeClaimTemplates: volumeClainTest,
+			},
+		},
+	}
+
+	if isWindows {
+		testStatefulset.statefulset.Spec.Template.Spec.NodeSelector = map[string]string{
+			"kubernetes.io/os": "windows",
+		}
+		testStatefulset.statefulset.Spec.Template.Spec.Containers[0].Image = "e2eteam/busybox:1.29"
+		if useCMD {
+			testStatefulset.statefulset.Spec.Template.Spec.Containers[0].Command = []string{"cmd"}
+			testStatefulset.statefulset.Spec.Template.Spec.Containers[0].Args = []string{"/c", command}
+		} else {
+			testStatefulset.statefulset.Spec.Template.Spec.Containers[0].Command = []string{"powershell.exe"}
+			testStatefulset.statefulset.Spec.Template.Spec.Containers[0].Args = []string{"-Command", command}
+		}
+	}
+
+	return testStatefulset
+}
+
+func (t *TestStatefulset) Create() {
+	var err error
+	t.statefulset, err = t.client.AppsV1().StatefulSets(t.namespace.Name).Create(context.TODO(), t.statefulset, metav1.CreateOptions{})
+	framework.ExpectNoError(err)
+	err = waitForStatefulSetComplete(t.client, t.namespace, t.statefulset)
+	framework.ExpectNoError(err)
+	selector, err := metav1.LabelSelectorAsSelector(t.statefulset.Spec.Selector)
+	framework.ExpectNoError(err)
+	options := metav1.ListOptions{LabelSelector: selector.String()}
+	statefulSetPods, err := t.client.CoreV1().Pods(t.namespace.Name).List(context.TODO(), options)
+	framework.ExpectNoError(err)
+	// always get first pod as there should only be one
+	t.podName = statefulSetPods.Items[0].Name
+}
+
+func (t *TestStatefulset) WaitForPodReady() {
+	selector, err := metav1.LabelSelectorAsSelector(t.statefulset.Spec.Selector)
+	framework.ExpectNoError(err)
+	options := metav1.ListOptions{LabelSelector: selector.String()}
+	statefulSetPods, err := t.client.CoreV1().Pods(t.namespace.Name).List(context.TODO(), options)
+	framework.ExpectNoError(err)
+	// always get first pod as there should only be one
+	pod := statefulSetPods.Items[0]
+	t.podName = pod.Name
+	err = e2epod.WaitForPodRunningInNamespace(t.client, &pod)
+	framework.ExpectNoError(err)
+}
+
+func (t *TestStatefulset) Exec(command []string, expectedString string) {
+	_, err := framework.LookForStringInPodExec(t.namespace.Name, t.podName, command, expectedString, execTimeout)
+	framework.ExpectNoError(err)
+}
+
+func (t *TestStatefulset) DeletePodAndWait() {
+	e2elog.Logf("Deleting pod %q in namespace %q", t.podName, t.namespace.Name)
+	err := t.client.CoreV1().Pods(t.namespace.Name).Delete(context.TODO(), t.podName, metav1.DeleteOptions{})
+	if err != nil {
+		if !apierrs.IsNotFound(err) {
+			framework.ExpectNoError(fmt.Errorf("pod %q Delete API error: %v", t.podName, err))
+		}
+		return
+	}
+	//sleep ensure waitForPodready will not be passed before old pod is deleted.
+	time.Sleep(60 * time.Second)
+}
+
+func (t *TestStatefulset) Cleanup() {
+	e2elog.Logf("deleting StatefulSet %q/%q", t.namespace.Name, t.statefulset.Name)
+	body, err := t.Logs()
+	if err != nil {
+		e2elog.Logf("Error getting logs for pod %s: %v", t.podName, err)
+	} else {
+		e2elog.Logf("Pod %s has the following logs: %s", t.podName, body)
+	}
+	err = t.client.AppsV1().StatefulSets(t.namespace.Name).Delete(context.TODO(), t.statefulset.Name, metav1.DeleteOptions{})
+	framework.ExpectNoError(err)
+}
+
+func (t *TestStatefulset) Logs() ([]byte, error) {
+	return podLogs(t.client, t.podName, t.namespace.Name)
+}
+func waitForStatefulSetComplete(cs clientset.Interface, ns *v1.Namespace, ss *apps.StatefulSet) error {
+	err := wait.PollImmediate(poll, pollTimeout, func() (bool, error) {
+		var err error
+		statefulSet, err := cs.AppsV1().StatefulSets(ns.Name).Get(context.TODO(), ss.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		klog.Infof("%d/%d replicas in the StatefulSet are ready", statefulSet.Status.ReadyReplicas, *statefulSet.Spec.Replicas)
+		if statefulSet.Status.ReadyReplicas == *statefulSet.Spec.Replicas {
+			return true, nil
+		}
+		return false, nil
+	})
+
+	return err
 }
 
 type TestPod struct {
