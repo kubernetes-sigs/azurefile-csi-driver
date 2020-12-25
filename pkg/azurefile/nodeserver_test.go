@@ -37,7 +37,7 @@ import (
 	testingexec "k8s.io/utils/exec/testing"
 	"k8s.io/utils/mount"
 
-	"sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
 )
 
 const (
@@ -674,7 +674,7 @@ func TestEnsureMountPoint(t *testing.T) {
 	for _, test := range tests {
 		_, err := d.ensureMountPoint(test.target)
 		if !reflect.DeepEqual(err, test.expectedErr) {
-			t.Errorf("Unexpected Error is: %v", err)
+			t.Errorf("[%s]: Unexpected Error: %v, expected error: %v", test.desc, err, test.expectedErr)
 		}
 	}
 
