@@ -208,6 +208,15 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 
 	if isDiskMount {
+		mnt, err := d.ensureMountPoint(targetPath)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "Could not mount target %q: %v", targetPath, err)
+		}
+		if mnt {
+			klog.V(2).Infof("NodeStageVolume: %s is already mounted", targetPath)
+			return &csi.NodeStageVolumeResponse{}, nil
+		}
+
 		diskPath := filepath.Join(cifsMountPath, diskName)
 		options := util.JoinMountOptions(mountFlags, []string{"loop"})
 		if strings.HasPrefix(fsType, "ext") {
@@ -366,13 +375,11 @@ func (d *Driver) ensureMountPoint(target string) (bool, error) {
 		notMnt = true
 		return !notMnt, err
 	}
-
 	if err := makeDir(target); err != nil {
 		klog.Errorf("MakeDir failed on target: %s (%v)", target, err)
 		return !notMnt, err
 	}
-
-	return false, nil
+	return !notMnt, nil
 }
 
 func makeDir(pathname string) error {
