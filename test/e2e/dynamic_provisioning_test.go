@@ -664,6 +664,42 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		}
 		test.Run(cs, ns)
 	})
+
+	ginkgo.It("should create a statefulset object, write and read to it, delete the pod and write and read to it again [file.csi.azure.com]", func() {
+		skipIfUsingInTreeVolumePlugin()
+
+		pod := testsuites.PodDetails{
+			Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' >> /mnt/test-1/data && while true; do sleep 3600; done"),
+			Volumes: []testsuites.VolumeDetails{
+				{
+					FSType:    "ext4",
+					ClaimSize: "10Gi",
+					VolumeMount: testsuites.VolumeMountDetails{
+						NameGenerate:      "test-volume-",
+						MountPathGenerate: "/mnt/test-",
+					},
+				},
+			},
+			IsWindows: isWindowsCluster,
+			UseCMD:    false,
+		}
+		podCheckCmd := []string{"cat", "/mnt/test-1/data"}
+		expectedString := "hello world\n"
+		if isWindowsCluster {
+			podCheckCmd = []string{"cmd", "/c", "type C:\\mnt\\test-1\\data.txt"}
+			expectedString = "hello world\r\n"
+		}
+		test := testsuites.DynamicallyProvisionedStatefulSetTest{
+			CSIDriver: testDriver,
+			Pod:       pod,
+			PodCheck: &testsuites.PodExecCheck{
+				Cmd:            podCheckCmd,
+				ExpectedString: expectedString, // pod will be restarted so expect to see 2 instances of string
+			},
+		}
+		test.Run(cs, ns)
+	})
+
 })
 
 func restClient(group string, version string) (restclientset.Interface, error) {
