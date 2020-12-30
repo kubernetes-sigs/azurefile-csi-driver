@@ -336,7 +336,6 @@ func (d *Driver) ControllerGetVolume(context.Context, *csi.ControllerGetVolumeRe
 
 // ValidateVolumeCapabilities return the capabilities of the volume
 func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
-	klog.V(4).Infof("ValidateVolumeCapabilities: called with args %+v", *req)
 	volumeID := req.GetVolumeId()
 	if len(volumeID) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID not provided")
@@ -347,8 +346,8 @@ func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.Valida
 	}
 
 	resourceGroupName, accountName, _, fileShareName, diskName, err := d.GetAccountInfo(volumeID, req.GetSecrets(), req.GetVolumeContext())
-	if err != nil {
-		return nil, status.Errorf(codes.NotFound, "error getting volume(%s) info: %v", volumeID, err)
+	if err != nil || accountName == "" || fileShareName == "" {
+		return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
 	}
 	if resourceGroupName == "" {
 		resourceGroupName = d.cloud.ResourceGroup
@@ -454,7 +453,7 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 	}
 
 	attachedNodeID, ok := properties.NewMetadata()[metaDataNode]
-	if ok && nodeID != "" && !strings.EqualFold(attachedNodeID, nodeID) {
+	if ok && attachedNodeID != "" && !strings.EqualFold(attachedNodeID, nodeID) {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("volume(%s) cannot be attached to node(%s) since it's already attached to node(%s)", volumeID, nodeID, attachedNodeID))
 	}
 	if _, err = fileURL.SetMetadata(ctx, azfile.Metadata{metaDataNode: nodeID}); err != nil {
@@ -589,7 +588,6 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 
 // DeleteSnapshot delete a snapshot (todo)
 func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
-	klog.V(2).Infof("DeleteSnapshot: called with args %+v", *req)
 	if len(req.SnapshotId) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Snapshot ID must be provided")
 	}
@@ -665,6 +663,9 @@ func (d *Driver) getShareURL(sourceVolumeID string, secrets map[string]string) (
 	if err != nil {
 		return azfile.ShareURL{}, err
 	}
+	if fileShareName == "" {
+		return azfile.ShareURL{}, fmt.Errorf("failed to get file share from %s", sourceVolumeID)
+	}
 
 	return serviceURL.NewShareURL(fileShareName), nil
 }
@@ -704,6 +705,9 @@ func (d *Driver) snapshotExists(ctx context.Context, sourceVolumeID, snapshotNam
 	serviceURL, fileShareName, err := d.getServiceURL(sourceVolumeID, secrets)
 	if err != nil {
 		return false, azfile.ShareItem{}, err
+	}
+	if fileShareName == "" {
+		return false, azfile.ShareItem{}, fmt.Errorf("file share is empty after parsing sourceVolumeID: %s", sourceVolumeID)
 	}
 
 	// List share snapshots.
