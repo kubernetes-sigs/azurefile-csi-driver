@@ -37,7 +37,7 @@ import (
 	csicommon "sigs.k8s.io/azurefile-csi-driver/pkg/csi-common"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient/mockfileclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/storageaccountclient/mockstorageaccountclient"
-	"sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
 )
 
 const (
@@ -593,8 +593,8 @@ func TestGetAccountInfo(t *testing.T) {
 			expectErr:           false,
 			err:                 nil,
 			expectAccountName:   "",
-			expectFileShareName: "",
-			expectDiskName:      "",
+			expectFileShareName: "test_sharename",
+			expectDiskName:      "test_diskname",
 		},
 		{
 			volumeID: "vol_1##",
@@ -621,8 +621,8 @@ func TestGetAccountInfo(t *testing.T) {
 			expectErr:           false,
 			err:                 nil,
 			expectAccountName:   "",
-			expectFileShareName: "",
-			expectDiskName:      "",
+			expectFileShareName: "test_sharename",
+			expectDiskName:      "test_diskname",
 		},
 		{
 			volumeID: "uniqe-volumeid-nfs",

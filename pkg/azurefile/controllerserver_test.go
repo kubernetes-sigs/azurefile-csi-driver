@@ -41,7 +41,7 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient/mockfileclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/storageaccountclient/mockstorageaccountclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/vmclient/mockvmclient"
-	"sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
 	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
 )
 
@@ -886,7 +886,7 @@ func TestValidateVolumeCapabilities(t *testing.T) {
 				VolumeId:           "vol_1",
 				VolumeCapabilities: stdVolCap,
 			},
-			expectedErr:        status.Errorf(codes.NotFound, "error getting volume(vol_1) info: error parsing volume id: \"vol_1\", should at least contain two #"),
+			expectedErr:        status.Errorf(codes.NotFound, "get account info from(vol_1) failed with error: <nil>"),
 			mockedFileShareErr: nil,
 		},
 		{
@@ -961,7 +961,7 @@ func TestValidateVolumeCapabilities(t *testing.T) {
 
 		_, err := d.ValidateVolumeCapabilities(context.Background(), &test.req)
 		if !reflect.DeepEqual(err, test.expectedErr) {
-			t.Errorf("Unexpected error: %v, expected error: %v", err, test.expectedErr)
+			t.Errorf("test[%s]: unexpected error: %v, expected error: %v", test.desc, err, test.expectedErr)
 		}
 	}
 }
@@ -1190,14 +1190,14 @@ func TestCreateSnapshot(t *testing.T) {
 				SourceVolumeId: "vol_1",
 				Name:           "snapname",
 			},
-			expectedErr: status.Errorf(codes.Internal, "failed to check if snapshot(snapname) exists: error parsing volume id: \"vol_1\", should at least contain two #"),
+			expectedErr: status.Errorf(codes.Internal, "failed to check if snapshot(snapname) exists: file share is empty after parsing sourceVolumeID: vol_1"),
 		},
 	}
 
 	for _, test := range tests {
 		_, err := d.CreateSnapshot(context.Background(), test.req)
 		if !reflect.DeepEqual(err, test.expectedErr) {
-			t.Errorf("Unexpected error: %v", err)
+			t.Errorf("test[%s]: unexpected error: %v, expected error: %v", test.desc, err, test.expectedErr)
 		}
 	}
 }
@@ -1240,7 +1240,7 @@ func TestDeleteSnapshot(t *testing.T) {
 				SnapshotId: "vol_1##",
 				Secrets:    validSecret,
 			},
-			expectedErr: status.Errorf(codes.Internal, "failed to get snapshot name with (vol_1##): error parsing volume id: \"vol_1##\", should at least contain four #"),
+			expectedErr: nil,
 		},
 	}
 
@@ -1253,7 +1253,7 @@ func TestDeleteSnapshot(t *testing.T) {
 
 		_, err := d.DeleteSnapshot(context.Background(), test.req)
 		if !reflect.DeepEqual(err, test.expectedErr) {
-			t.Errorf("Unexpected error: %v", err)
+			t.Errorf("test[%s]: unexpected error: %v, expected error: %v", test.desc, err, test.expectedErr)
 		}
 	}
 }
@@ -1489,11 +1489,16 @@ func TestGetShareURL(t *testing.T) {
 		{
 			desc:           "Volume ID error",
 			sourceVolumeID: "vol_1",
-			expectedErr:    fmt.Errorf("error parsing volume id: \"vol_1\", should at least contain two #"),
+			expectedErr:    fmt.Errorf("failed to get file share from vol_1"),
+		},
+		{
+			desc:           "Volume ID error2",
+			sourceVolumeID: "vol_1###",
+			expectedErr:    fmt.Errorf("failed to get file share from vol_1###"),
 		},
 		{
 			desc:           "Valid request",
-			sourceVolumeID: "vol_1##",
+			sourceVolumeID: "rg#accountname#fileshare#",
 			expectedErr:    nil,
 		},
 	}
@@ -1503,11 +1508,10 @@ func TestGetShareURL(t *testing.T) {
 		d.cloud.StorageAccountClient = mockStorageAccountsClient
 		d.cloud.KubeClient = clientSet
 		d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
-		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), "vol_1", gomock.Any()).Return(key, nil).AnyTimes()
-
+		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), "rg", gomock.Any()).Return(key, nil).AnyTimes()
 		_, err := d.getShareURL(test.sourceVolumeID, validSecret)
 		if !reflect.DeepEqual(err, test.expectedErr) {
-			t.Errorf("Unexpected error: %v", err)
+			t.Errorf("test[%s]: unexpected error: %v, expected error: %v", test.desc, err, test.expectedErr)
 		}
 	}
 }
@@ -1542,13 +1546,13 @@ func TestGetServiceURL(t *testing.T) {
 			desc:           "Invalid volume ID",
 			sourceVolumeID: "vol_1",
 			key:            validKey,
-			expectedErr:    fmt.Errorf("error parsing volume id: \"vol_1\", should at least contain two #"),
+			expectedErr:    nil,
 		},
 		{
 			desc:           "Invalid Key",
 			sourceVolumeID: "vol_1##",
 			key:            errKey,
-			expectedErr:    base64.CorruptInputError(3),
+			expectedErr:    nil,
 		},
 		{
 			desc:           "Invalid URL",
@@ -1573,7 +1577,7 @@ func TestGetServiceURL(t *testing.T) {
 
 		_, _, err := d.getServiceURL(test.sourceVolumeID, validSecret)
 		if !reflect.DeepEqual(err, test.expectedErr) {
-			t.Errorf("Unexpected error: %v", err)
+			t.Errorf("test[%s]: unexpected error: %v, expected error: %v", test.desc, err, test.expectedErr)
 		}
 	}
 }
@@ -1604,7 +1608,7 @@ func TestSnapshotExists(t *testing.T) {
 			desc:           "Invalid volume ID",
 			sourceVolumeID: "vol_1",
 			key:            validKey,
-			expectedErr:    fmt.Errorf("error parsing volume id: \"vol_1\", should at least contain two #"),
+			expectedErr:    fmt.Errorf("file share is empty after parsing sourceVolumeID: vol_1"),
 		},
 	}
 
@@ -1617,7 +1621,7 @@ func TestSnapshotExists(t *testing.T) {
 
 		_, _, err := d.snapshotExists(context.Background(), test.sourceVolumeID, "sname", validSecret)
 		if !reflect.DeepEqual(err, test.expectedErr) {
-			t.Errorf("Unexpected error: %v", err)
+			t.Errorf("test[%s]: unexpected error: %v, expected error: %v", test.desc, err, test.expectedErr)
 		}
 	}
 }

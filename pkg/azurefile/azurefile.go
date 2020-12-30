@@ -39,7 +39,7 @@ import (
 	csicommon "sigs.k8s.io/azurefile-csi-driver/pkg/csi-common"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/mounter"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
-	"sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
 	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
 )
 
@@ -424,8 +424,16 @@ func IsCorruptedDir(dir string) bool {
 }
 
 // GetAccountInfo get account info
-func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]string) (rgName, accountName, accountKey, fileShareName, diskName string, err error) {
-	var protocol string
+// return <rgName, accountName, accountKey, fileShareName, diskName, err>
+func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]string) (string, string, string, string, string, error) {
+	rgName, accountName, fileShareName, diskName, err := GetFileShareInfo(volumeID)
+	if err != nil {
+		// ignore volumeID parsing error
+		klog.Warningf("parsing volumeID(%s) return with error: %v", volumeID, err)
+		err = nil
+	}
+
+	var protocol, accountKey string
 	for k, v := range reqContext {
 		switch strings.ToLower(k) {
 		case resourceGroupField:
@@ -441,40 +449,30 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 		}
 	}
 
+	if rgName == "" {
+		rgName = d.cloud.ResourceGroup
+	}
 	if protocol == nfs && fileShareName != "" {
+		// nfs protocol does not need account key, return directly
 		return rgName, accountName, accountKey, fileShareName, diskName, err
 	}
 
 	if len(secrets) == 0 {
-		rgName, accountName, fileShareName, diskName, err = GetFileShareInfo(volumeID)
-		if err == nil {
-			if rgName == "" {
-				rgName = d.cloud.ResourceGroup
-			}
-
+		if accountName != "" {
 			// read from k8s secret first
 			accountKey, err = d.GetStorageAccesskeyFromSecret(accountName, reqContext[secretNamespaceField])
-			if err != nil {
+			if err != nil && d.cloud.StorageAccountClient != nil {
 				klog.V(2).Infof("could not get account(%s) key from secret, error: %v, use cluster identity to get account key instead", accountName, err)
 				accountKey, err = d.cloud.GetStorageAccesskey(accountName, rgName)
 			}
 		}
 	} else {
-		accountName, accountKey, err = getStorageAccount(secrets)
-		// if volumeID is valid, get info from volumeID, ignore volumeID parsing error
-		if rg, _, fileShare, disk, err := GetFileShareInfo(volumeID); err == nil {
-			if rg != "" && rgName == "" {
-				rgName = rg
-			}
-			if fileShare != "" && fileShareName == "" {
-				fileShareName = fileShare
-			}
-			if disk != "" && diskName == "" {
-				diskName = disk
-			}
+		var account string
+		account, accountKey, err = getStorageAccount(secrets)
+		if account != "" {
+			accountName = account
 		}
 	}
-
 	return rgName, accountName, accountKey, fileShareName, diskName, err
 }
 
