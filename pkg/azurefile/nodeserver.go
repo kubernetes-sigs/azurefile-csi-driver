@@ -196,8 +196,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Could not mount target %q: %v", cifsMountPath, err)
 	}
-
-	if !isDirMounted {
+	if isDirMounted {
+		klog.V(2).Infof("NodeStageVolume: volume %s is already mounted on %s", volumeID, targetPath)
+	} else {
 		mountFsType := cifs
 		if protocol == nfs {
 			mountFsType = nfs
@@ -216,10 +217,10 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	if isDiskMount {
 		mnt, err := d.ensureMountPoint(targetPath)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "Could not mount target %q: %v", targetPath, err)
+			return nil, status.Errorf(codes.Internal, "mount %s on target %s failed with %v", volumeID, targetPath, err)
 		}
 		if mnt {
-			klog.V(2).Infof("NodeStageVolume: %s is already mounted", targetPath)
+			klog.V(2).Infof("NodeStageVolume: volume %s is already mounted on %s", volumeID, targetPath)
 			return &csi.NodeStageVolumeResponse{}, nil
 		}
 
@@ -230,20 +231,20 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			options = util.JoinMountOptions(options, []string{"noatime", "barrier=1", "errors=remount-ro"})
 		}
 
-		klog.V(2).Infof("NodeStageVolume: formatting %s and mounting at %s with mount options(%s)", targetPath, diskPath, options)
+		klog.V(2).Infof("NodeStageVolume: volume %s formatting %s and mounting at %s with mount options(%s)", volumeID, targetPath, diskPath, options)
 		// FormatAndMount will format only if needed
 		if err := d.mounter.FormatAndMount(diskPath, targetPath, fsType, options); err != nil {
 			return nil, status.Error(codes.Internal, fmt.Sprintf("could not format %q and mount it at %q", targetPath, diskPath))
 		}
-		klog.V(2).Infof("NodeStageVolume: format %s and mounting at %s successfully.", targetPath, diskPath)
+		klog.V(2).Infof("NodeStageVolume: volume %s format %s and mounting at %s successfully", volumeID, targetPath, diskPath)
 	}
 	return &csi.NodeStageVolumeResponse{}, nil
 }
 
 // NodeUnstageVolume unmount the volume from the staging path
 func (d *Driver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
-	klog.V(2).Infof("NodeUnstageVolume: called with args %+v", *req)
-	if len(req.GetVolumeId()) == 0 {
+	volumeID := req.GetVolumeId()
+	if len(volumeID) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
 	}
 	stagingTargetPath := req.GetStagingTargetPath()
@@ -251,17 +252,17 @@ func (d *Driver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolu
 		return nil, status.Error(codes.InvalidArgument, "Staging target not provided")
 	}
 
-	klog.V(2).Infof("NodeUnstageVolume: CleanupMountPoint %s", stagingTargetPath)
+	klog.V(2).Infof("NodeUnstageVolume: CleanupMountPoint volume %s on %s", volumeID, stagingTargetPath)
 	if err := CleanupSMBMountPoint(d.mounter, stagingTargetPath, false); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to unmount staging target %q: %v", stagingTargetPath, err)
 	}
 
 	targetPath := filepath.Join(filepath.Dir(stagingTargetPath), proxyMount)
-	klog.V(2).Infof("NodeUnstageVolume: CleanupMountPoint %s", targetPath)
+	klog.V(2).Infof("NodeUnstageVolume: CleanupMountPoint volume %s on %s", volumeID, targetPath)
 	if err := CleanupMountPoint(d.mounter, targetPath, false); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to unmount staging target %q: %v", targetPath, err)
 	}
-	klog.V(2).Infof("NodeUnstageVolume: unmount %s successfully", stagingTargetPath)
+	klog.V(2).Infof("NodeUnstageVolume: unmount volume %s on %s successfully", volumeID, stagingTargetPath)
 
 	return &csi.NodeUnstageVolumeResponse{}, nil
 }
