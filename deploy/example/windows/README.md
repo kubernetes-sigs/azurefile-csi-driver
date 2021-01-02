@@ -1,7 +1,7 @@
 # CSI Driver on Windows
 
-## Feature Status: Alpha
-CSI on Windows support is an alpha feature since Kubernetes v1.18, refer to [Windows-CSI-Support](https://github.com/kubernetes/enhancements/blob/master/keps/sig-windows/20190714-windows-csi-support.md) for more details.
+## Feature Status: Beta
+Refer to [Windows-CSI-Support](https://github.com/kubernetes/enhancements/blob/master/keps/sig-windows/20190714-windows-csi-support.md) for more details.
 
 ## Prerequisite
 - Install CSI-Proxy on Windows Node

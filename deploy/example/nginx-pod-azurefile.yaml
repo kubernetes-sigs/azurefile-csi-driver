@@ -7,16 +7,16 @@ spec:
   nodeSelector:
     "kubernetes.io/os": linux
   containers:
-    - image: mcr.microsoft.com/oss/nginx/nginx:1.17.3-alpine
+    - image: mcr.microsoft.com/oss/nginx/nginx:1.19.5
       name: nginx-azurefile
       command:
-        - "/bin/sh"
+        - "/bin/bash"
         - "-c"
-        - while true; do echo $(date) >> /mnt/azurefile/outfile; sleep 1; done
+        - set -euo pipefail; while true; do echo $(date) >> /mnt/azurefile/outfile; sleep 1; done
       volumeMounts:
-        - name: azurefile01
+        - name: persistent-storage
           mountPath: "/mnt/azurefile"
   volumes:
-    - name: azurefile01
+    - name: persistent-storage
       persistentVolumeClaim:
         claimName: pvc-azurefile

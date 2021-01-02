@@ -1,10 +1,11 @@
 ## NFS support
 [NFS 4.1 support for Azure Files](https://azure.microsoft.com/en-us/blog/nfs-41-support-for-azure-files-is-now-in-preview/preview/) is now in Public Preview. This service is optimized for random access workloads with in-place data updates and provides full POSIX file system support. This page shows how to use NFS feature by Azure File CSI driver on Azure Kubernetes cluster.
 
-#### Feature Status: Alpha
+#### Feature Status: Beta
 > supported OS: Linux
 
-#### Supported CSI driver version: `v0.8.0`
+#### Supported CSI driver version: `v0.9.0`
+> storage account dynamic provisioning is supported from `v0.10.0`.
 
 #### [Available regions](https://aka.ms/azurefiles/nfs/preview/regions)
 We are continually adding more regions. Latest region list is available on [Azure NFS documentation](https://aka.ms/azurefiles/nfs/preview/regions)
@@ -17,14 +18,15 @@ az feature register --name AllowNfsFileShares --namespace Microsoft.Storage
 az feature list -o table --query "[?contains(name, 'Microsoft.Storage/AllowNfsFileShares')].{Name:name,State:properties.state}"
 az provider register --namespace Microsoft.Storage
 ```
- - Create a `Premium_LRS` Azure storage account with following configurations to support NFS share
+ - [Optional] Create a `Premium_LRS` Azure storage account with following configurations to support NFS share
    - account kind: `FileStorage`
    - secure transfer required(enable HTTPS traffic only): `false`
    - select virtual network of agent nodes in `Firewalls and virtual networks`
+   - specify `storageAccount` in below storage class `parameters`
 
 #### How to use NFS feature
  - Create an Azure File storage class
-> specify `storageAccount` and `protocol: nfs` in storage class `parameters`
+> specify `protocol: nfs` in storage class `parameters`
 > </br>for more details, refer to [driver parameters](../../../docs/driver-parameters.md)
 ```yaml
 apiVersion: storage.k8s.io/v1
@@ -33,9 +35,7 @@ metadata:
   name: azurefile-csi-nfs
 provisioner: file.csi.azure.com
 parameters:
-  resourceGroup: EXISTING_RESOURCE_GROUP_NAME  # optional, only set this when storage account is not in the same resource group as agent node
-  storageAccount: EXISTING_STORAGE_ACCOUNT_NAME
-  protocol: nfs  # use "fsType: nfs" in v0.8.0
+  protocol: nfs
 ```
 
 run following commands to create a storage class:

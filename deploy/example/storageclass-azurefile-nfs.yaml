@@ -5,8 +5,7 @@ metadata:
   name: azurefile-csi-nfs
 provisioner: file.csi.azure.com
 parameters:
-  storageAccount: EXISTING_STORAGE_ACCOUNT_NAME
-  protocol: nfs  # use "fsType: nfs" in v0.8.0
+  protocol: nfs
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
 allowVolumeExpansion: true
