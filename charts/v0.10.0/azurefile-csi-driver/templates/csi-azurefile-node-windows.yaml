@@ -1,16 +1,17 @@
----
+{{- if .Values.windows.enabled}}
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
   name: csi-azurefile-node-win
-  namespace: kube-system
+  namespace: {{ .Release.Namespace }}
+{{ include "azurefile.labels" . | indent 2 }}
 spec:
   selector:
     matchLabels:
       app: csi-azurefile-node-win
   template:
     metadata:
-      labels:
+{{ include "azurefile.labels" . | indent 6 }}
         app: csi-azurefile-node-win
     spec:
       serviceAccountName: csi-azurefile-node-sa
@@ -26,20 +27,24 @@ spec:
                     values:
                       - virtual-kubelet
       priorityClassName: system-node-critical
+      tolerations:
+        - operator: "Exists"
+      {{- include "azurefile.pullSecrets" . | indent 6 }}
       containers:
         - name: liveness-probe
           volumeMounts:
             - mountPath: C:\csi
               name: plugin-dir
-          image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.0.1-alpha.1-windows-1809-amd64
+          image: "{{ .Values.windows.image.livenessProbe.repository }}:{{ .Values.windows.image.livenessProbe.tag }}"
           args:
-            - --csi-address=$(CSI_ENDPOINT)
-            - --probe-timeout=3s
-            - --health-port=29613
-            - --v=5
+            - "--csi-address=$(CSI_ENDPOINT)"
+            - "--probe-timeout=3s"
+            - "--health-port=29613"
+            - "--v=5"
           env:
             - name: CSI_ENDPOINT
               value: unix://C:\\csi\\csi.sock
+          imagePullPolicy: {{ .Values.windows.image.livenessProbe.pullPolicy }}
           resources:
             limits:
               cpu: 200m
@@ -48,11 +53,11 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: node-driver-registrar
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.0.1
+          image: "{{ .Values.windows.image.nodeDriverRegistrar.repository }}:{{ .Values.windows.image.nodeDriverRegistrar.tag }}"
           args:
-            - --v=5
-            - --csi-address=$(CSI_ENDPOINT)
-            - --kubelet-registration-path=C:\\var\\lib\\kubelet\\plugins\\file.csi.azure.com\\csi.sock
+            - "--csi-address=$(CSI_ENDPOINT)"
+            - "--kubelet-registration-path=C:\\var\\lib\\kubelet\\plugins\\file.csi.azure.com\\csi.sock"
+            - "--v=5"
           env:
             - name: CSI_ENDPOINT
               value: unix://C:\\csi\\csi.sock
@@ -60,6 +65,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+          imagePullPolicy: {{ .Values.windows.image.nodeDriverRegistrar.pullPolicy }}
           volumeMounts:
             - name: kubelet-dir
               mountPath: "C:\\var\\lib\\kubelet"
@@ -75,17 +81,17 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: azurefile
-          image: mcr.microsoft.com/k8s/csi/azurefile-csi:v0.10.0
-          imagePullPolicy: IfNotPresent
+          image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
           args:
-            - --v=5
-            - --endpoint=$(CSI_ENDPOINT)
-            - --nodeid=$(KUBE_NODE_NAME)
+            - "--v=5"
+            - "--endpoint=$(CSI_ENDPOINT)"
+            - "--nodeid=$(KUBE_NODE_NAME)"
+            - "--metrics-address=0.0.0.0:{{ .Values.node.metricsPort }}"
           ports:
             - containerPort: 29613
               name: healthz
               protocol: TCP
-            - containerPort: 29615
+            - containerPort: {{ .Values.node.metricsPort }}
               name: metrics
               protocol: TCP
           livenessProbe:
@@ -110,6 +116,7 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             privileged: true
           volumeMounts:
@@ -155,3 +162,4 @@ spec:
           hostPath:
             path: C:\k
             type: Directory
+{{- end -}}
