@@ -60,7 +60,7 @@ func (t TestError) GetExpectedError() error {
 func AssertError(actual error, expected *TestError) bool {
 	if isWindows() {
 		if expected.WindowsError == nil {
-			return reflect.DeepEqual(expected.DefaultError, actual)
+			return actual == nil || reflect.DeepEqual(expected.DefaultError, actual)
 		}
 		return reflect.DeepEqual(expected.WindowsError, actual)
 	}

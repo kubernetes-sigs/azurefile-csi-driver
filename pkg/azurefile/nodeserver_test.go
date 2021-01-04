@@ -161,8 +161,6 @@ func TestNodePublishVolume(t *testing.T) {
 				Readonly:          true},
 			expectedErr: testutil.TestError{
 				DefaultError: status.Errorf(codes.Internal, fmt.Sprintf("Could not mount \"%s\" at \"%s\": fake Mount: source error", errorMountSource, targetTest)),
-				// todo: Not a desired error. This will need a better fix
-				WindowsError: fmt.Errorf("prepare publish failed for %s with error: could not cast to csi proxy class", targetTest),
 			},
 		},
 		{
@@ -172,10 +170,7 @@ func TestNodePublishVolume(t *testing.T) {
 				TargetPath:        targetTest,
 				StagingTargetPath: sourceTest,
 				Readonly:          true},
-			expectedErr: testutil.TestError{
-				// todo: Not a desired error. This will need a better fix
-				WindowsError: fmt.Errorf("prepare publish failed for %s with error: could not cast to csi proxy class", targetTest),
-			},
+			expectedErr: testutil.TestError{},
 		},
 		{
 			desc: "[Success] Valid request already mounted",
@@ -193,31 +188,31 @@ func TestNodePublishVolume(t *testing.T) {
 				TargetPath:        targetTest,
 				StagingTargetPath: sourceTest,
 				Readonly:          true},
-			expectedErr: testutil.TestError{
-				WindowsError: fmt.Errorf("prepare publish failed for %s with error: could not cast to csi proxy class", targetTest),
-			},
+			expectedErr: testutil.TestError{},
 		},
 	}
 
 	// Setup
 	_ = makeDir(alreadyMountedTarget)
 	d := NewFakeDriver()
-	fakeMounter := &fakeMounter{}
-	fakeExec := &testingexec.FakeExec{ExactOrder: true}
-	d.mounter = &mount.SafeFormatAndMount{
-		Interface: fakeMounter,
-		Exec:      fakeExec,
+	mounter, err := NewFakeMounter()
+	if err != nil {
+		t.Fatalf(fmt.Sprintf("failed to get fake mounter: %v", err))
 	}
+	if runtime.GOOS != "windows" {
+		mounter.Exec = &testingexec.FakeExec{ExactOrder: true}
+	}
+	d.mounter = mounter
 
 	for _, test := range tests {
 		_, err := d.NodePublishVolume(context.Background(), &test.req)
 		if !testutil.AssertError(err, &test.expectedErr) {
-			t.Errorf("Desc: %s\nUnexpected error: %v\n Expected: %v", test.desc, err, test.expectedErr.GetExpectedError())
+			t.Errorf("test case: %s, \nUnexpected error: %v\nExpected error: %v", test.desc, err, test.expectedErr.GetExpectedError())
 		}
 	}
 
 	// Clean up
-	err := os.RemoveAll(targetTest)
+	err = os.RemoveAll(targetTest)
 	assert.NoError(t, err)
 	err = os.RemoveAll(alreadyMountedTarget)
 	assert.NoError(t, err)
@@ -249,33 +244,30 @@ func TestNodeUnpublishVolume(t *testing.T) {
 		},
 		{
 			desc:         "[Error] Unmount error mocked by IsLikelyNotMountPoint",
-			req:          csi.NodeUnpublishVolumeRequest{TargetPath: errorTarget, VolumeId: "vol_1"},
 			skipOnDarwin: true,
+			req:          csi.NodeUnpublishVolumeRequest{TargetPath: errorTarget, VolumeId: "vol_1"},
 			expectedErr: testutil.TestError{
 				DefaultError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount target \"%s\": fake IsLikelyNotMountPoint: fake error", errorTarget)),
-				// todo: Not a desired error. This will need a better fix
-				WindowsError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount target %#v: could not cast to csi proxy class", errorTarget)),
 			},
 		},
 		{
-			desc: "[Success] Valid request",
-			req:  csi.NodeUnpublishVolumeRequest{TargetPath: targetFile, VolumeId: "vol_1"},
-			expectedErr: testutil.TestError{
-				// todo: Not a desired error. This will need a better fix
-				WindowsError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount target %#v: could not cast to csi proxy class", targetFile)),
-			},
+			desc:        "[Success] Valid request",
+			req:         csi.NodeUnpublishVolumeRequest{TargetPath: targetFile, VolumeId: "vol_1"},
+			expectedErr: testutil.TestError{},
 		},
 	}
 
 	// Setup
 	_ = makeDir(errorTarget)
 	d := NewFakeDriver()
-	fakeMounter := &fakeMounter{}
-	fakeExec := &testingexec.FakeExec{ExactOrder: true}
-	d.mounter = &mount.SafeFormatAndMount{
-		Interface: fakeMounter,
-		Exec:      fakeExec,
+	mounter, err := NewFakeMounter()
+	if err != nil {
+		t.Fatalf(fmt.Sprintf("failed to get fake mounter: %v", err))
 	}
+	if runtime.GOOS != "windows" {
+		mounter.Exec = &testingexec.FakeExec{ExactOrder: true}
+	}
+	d.mounter = mounter
 
 	for _, test := range tests {
 		if test.skipOnDarwin && runtime.GOOS == "darwin" {
@@ -283,13 +275,12 @@ func TestNodeUnpublishVolume(t *testing.T) {
 		}
 		_, err := d.NodeUnpublishVolume(context.Background(), &test.req)
 		if !testutil.AssertError(err, &test.expectedErr) {
-			t.Errorf("Desc: %s\nUnexpected error: %v\nExpected: %v", test.desc, err, test.expectedErr.GetExpectedError())
+			t.Errorf("test case: %s, \nUnexpected error: %v\nExpected error: %v", test.desc, err, test.expectedErr.GetExpectedError())
 		}
-
 	}
 
 	// Clean up
-	err := os.RemoveAll(errorTarget)
+	err = os.RemoveAll(errorTarget)
 	assert.NoError(t, err)
 }
 
@@ -338,7 +329,7 @@ func TestNodeStageVolume(t *testing.T) {
 		shareNameField:  "test_sharename",
 		serverNameField: "test_servername",
 	}
-	errorSource := "\\\\\\\\test_servername\\\\test_sharename"
+	errorSource := `\\\\test_servername\\test_sharename`
 
 	secrets := map[string]string{
 		"accountname": "k8s",
@@ -494,7 +485,6 @@ func TestNodeStageVolume(t *testing.T) {
 
 	// Setup
 	d := NewFakeDriver()
-
 	for _, test := range tests {
 		if test.skipOnDarwin && runtime.GOOS == "darwin" {
 			continue
@@ -575,27 +565,26 @@ func TestNodeUnstageVolume(t *testing.T) {
 			skipOnDarwin: true,
 			expectedErr: testutil.TestError{
 				DefaultError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount staging target %#v: fake IsLikelyNotMountPoint: fake error", errorTarget)),
-				WindowsError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount staging target %#v: could not cast to csi proxy class", errorTarget)),
 			},
 		},
 		{
-			desc: "[Success] Valid request",
-			req:  csi.NodeUnstageVolumeRequest{StagingTargetPath: targetFile, VolumeId: "vol_1"},
-			expectedErr: testutil.TestError{
-				WindowsError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount staging target %#v: could not cast to csi proxy class", targetFile)),
-			},
+			desc:        "[Success] Valid request",
+			req:         csi.NodeUnstageVolumeRequest{StagingTargetPath: targetFile, VolumeId: "vol_1"},
+			expectedErr: testutil.TestError{},
 		},
 	}
 
 	// Setup
 	_ = makeDir(errorTarget)
 	d := NewFakeDriver()
-	fakeMounter := &fakeMounter{}
-	fakeExec := &testingexec.FakeExec{ExactOrder: true}
-	d.mounter = &mount.SafeFormatAndMount{
-		Interface: fakeMounter,
-		Exec:      fakeExec,
+	mounter, err := NewFakeMounter()
+	if err != nil {
+		t.Fatalf(fmt.Sprintf("failed to get fake mounter: %v", err))
 	}
+	if runtime.GOOS != "windows" {
+		mounter.Exec = &testingexec.FakeExec{ExactOrder: true}
+	}
+	d.mounter = mounter
 
 	for _, test := range tests {
 		if test.skipOnDarwin && runtime.GOOS == "darwin" {
@@ -608,7 +597,7 @@ func TestNodeUnstageVolume(t *testing.T) {
 	}
 
 	// Clean up
-	err := os.RemoveAll(errorTarget)
+	err = os.RemoveAll(errorTarget)
 	assert.NoError(t, err)
 }
 
