@@ -1,10 +1,8 @@
 name: Ubuntu Build & Unit Test
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    pull_request: {}
+    push: {}
 
 jobs:
 

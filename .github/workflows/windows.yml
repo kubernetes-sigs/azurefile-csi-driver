@@ -1,10 +1,8 @@
 name: Windows Build & Unit Test
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    pull_request: {}
+    push: {}
 
 jobs:
   build:
@@ -25,4 +23,16 @@ jobs:
           go build -a -o _output/azurefileplugin.exe ./pkg/azurefileplugin    
       - name: Run Windows Unit Tests
         run: |
+          # start the CSI Proxy before running tests on windows
+          Start-Job -Name CSIProxy -ScriptBlock {
+            Invoke-WebRequest https://kubernetesartifacts.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy.tar.gz -OutFile csi-proxy.tar.gz;
+            tar -xvf csi-proxy.tar.gz
+            .\bin\csi-proxy.exe --kubelet-csi-plugins-path $pwd --kubelet-pod-path $pwd
+          };
+
+          Start-Sleep -Seconds 30;
+
+          Write-Output "getting named pipes"
+          [System.IO.Directory]::GetFiles("\\.\\pipe\\")
+
           go test -v -race ./pkg/...
