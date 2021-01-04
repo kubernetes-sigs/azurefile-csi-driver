@@ -23,6 +23,7 @@ import (
 	"os"
 	"reflect"
 	"runtime"
+	"strings"
 	"syscall"
 	"testing"
 
@@ -50,6 +51,17 @@ type ExecArgs struct {
 	args    []string
 	output  string
 	err     error
+}
+
+func matchFlakyWindowsError(mainError error, substr string) bool {
+	var errorMessage string
+	if mainError == nil {
+		errorMessage = ""
+	} else {
+		errorMessage = mainError.Error()
+	}
+
+	return strings.Contains(errorMessage, substr)
 }
 
 func TestNodeGetInfo(t *testing.T) {
@@ -326,6 +338,7 @@ func TestNodeStageVolume(t *testing.T) {
 		shareNameField:  "test_sharename",
 		serverNameField: "test_servername",
 	}
+	errorSource := "\\\\\\\\test_servername\\\\test_sharename"
 
 	secrets := map[string]string{
 		"accountname": "k8s",
@@ -338,6 +351,13 @@ func TestNodeStageVolume(t *testing.T) {
 		execScripts  []ExecArgs
 		skipOnDarwin bool
 		expectedErr  testutil.TestError
+		// use this field only when Windows
+		// gives flaky error messages due
+		// to CSI proxy
+		// This field holds the base error message
+		// that is common amongst all other flaky
+		// error messages
+		flakyWindowsErrorMessage string
 	}{
 		{
 			desc:        "[Error] Volume ID missing",
@@ -397,9 +417,11 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeContext:    volContext,
 				Secrets:          secrets},
 			skipOnDarwin: true,
+			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount \"%s\" on %#v failed "+
+				"with smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
+				errorSource, errorMountSensSource),
 			expectedErr: testutil.TestError{
 				DefaultError: status.Errorf(codes.Internal, fmt.Sprintf("volume(vol_1##) mount \"//test_servername/test_sharename\" on %#v failed with fake MountSensitive: target error", errorMountSensSource)),
-				WindowsError: fmt.Errorf("prepare stage path failed for %s with error: could not cast to csi proxy class", errorMountSensSource),
 			},
 		},
 		{
@@ -413,9 +435,11 @@ func TestNodeStageVolume(t *testing.T) {
 				{"mkfs.ext4", []string{"-F", "-m0", testDiskPath}, "", fmt.Errorf("formatting failed")},
 			},
 			skipOnDarwin: true,
+			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount \"%s\" on %#v failed with "+
+				"smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
+				errorSource, proxyMountPath),
 			expectedErr: testutil.TestError{
 				DefaultError: status.Errorf(codes.Internal, "could not format %#v and mount it at %#v", sourceTest, testDiskPath),
-				WindowsError: fmt.Errorf("prepare stage path failed for %s with error: could not cast to csi proxy class", proxyMountPath),
 			},
 		},
 		{
@@ -424,9 +448,10 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContext,
 				Secrets:          secrets},
-			expectedErr: testutil.TestError{
-				WindowsError: fmt.Errorf("prepare stage path failed for %s with error: could not cast to csi proxy class", sourceTest),
-			},
+			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount \"%s\" on %#v failed with "+
+				"smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
+				errorSource, sourceTest),
+			expectedErr: testutil.TestError{},
 		},
 		{
 			desc: "[Success] Valid request with share name empty",
@@ -434,9 +459,10 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContextEmptyShareName,
 				Secrets:          secrets},
-			expectedErr: testutil.TestError{
-				WindowsError: fmt.Errorf("prepare stage path failed for %s with error: could not cast to csi proxy class", sourceTest),
-			},
+			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount \"\\\\\\\\k8s.file.test_suffix\\\\test_sharename\" on %#v failed with "+
+				"smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
+				sourceTest),
+			expectedErr: testutil.TestError{},
 		},
 		{
 			desc: "[Success] Valid request with fsType as nfs",
@@ -444,9 +470,10 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContextNfs,
 				Secrets:          secrets},
-			expectedErr: testutil.TestError{
-				WindowsError: fmt.Errorf("prepare stage path failed for %s with error: could not cast to csi proxy class", sourceTest),
-			},
+			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount \"%s\" on %#v failed with "+
+				"smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
+				errorSource, sourceTest),
+			expectedErr: testutil.TestError{},
 		},
 		{
 			desc: "[Success] Valid request with supported fsType disk",
@@ -458,9 +485,10 @@ func TestNodeStageVolume(t *testing.T) {
 				{"blkid", []string{"-p", "-s", "TYPE", "-s", "PTTYPE", "-o", "export", testDiskPath}, "", nil},
 				{"mkfs.ext4", []string{"-F", "-m0", testDiskPath}, "", nil},
 			},
-			expectedErr: testutil.TestError{
-				WindowsError: fmt.Errorf("prepare stage path failed for %s with error: could not cast to csi proxy class", proxyMountPath),
-			},
+			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount \"%s\" on %#v failed with "+
+				"smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
+				errorSource, proxyMountPath),
+			expectedErr: testutil.TestError{},
 		},
 	}
 
@@ -471,30 +499,39 @@ func TestNodeStageVolume(t *testing.T) {
 		if test.skipOnDarwin && runtime.GOOS == "darwin" {
 			continue
 		}
-		fakeMounter := &fakeMounter{}
-		fakeExec := &testingexec.FakeExec{ExactOrder: true}
-
-		for _, script := range test.execScripts {
-			fakeCmd := &testingexec.FakeCmd{}
-			cmdAction := makeFakeCmd(fakeCmd, script.command, script.args...)
-			outputAction := makeFakeOutput(script.output, script.err)
-			fakeCmd.CombinedOutputScript = append(fakeCmd.CombinedOutputScript, outputAction)
-			fakeExec.CommandScript = append(fakeExec.CommandScript, cmdAction)
+		mounter, err := NewFakeMounter()
+		if err != nil {
+			t.Fatalf(fmt.Sprintf("failed to get fake mounter: %v", err))
 		}
 
-		d.mounter = &mount.SafeFormatAndMount{
-			Interface: fakeMounter,
-			Exec:      fakeExec,
+		if runtime.GOOS != "windows" {
+			fakeExec := &testingexec.FakeExec{ExactOrder: true}
+			for _, script := range test.execScripts {
+				fakeCmd := &testingexec.FakeCmd{}
+				cmdAction := makeFakeCmd(fakeCmd, script.command, script.args...)
+				outputAction := makeFakeOutput(script.output, script.err)
+				fakeCmd.CombinedOutputScript = append(fakeCmd.CombinedOutputScript, outputAction)
+				fakeExec.CommandScript = append(fakeExec.CommandScript, cmdAction)
+			}
+			mounter.Exec = fakeExec
 		}
+
+		d.mounter = mounter
 		d.cloud = &azure.Cloud{
 			Environment: azure2.Environment{StorageEndpointSuffix: "test_suffix"},
 		}
 
-		_, err := d.NodeStageVolume(context.Background(), &test.req)
-		if !testutil.AssertError(err, &test.expectedErr) {
-			t.Errorf("Desc: %s\nUnexpected error: %v\nExpected: %v", test.desc, err, test.expectedErr.GetExpectedError())
+		_, err = d.NodeStageVolume(context.Background(), &test.req)
+		// separate assertion for flaky error messages
+		if test.flakyWindowsErrorMessage != "" && runtime.GOOS == "windows" {
+			if !matchFlakyWindowsError(err, test.flakyWindowsErrorMessage) {
+				t.Errorf("test case: %s, \nUnexpected error: %v\nExpected error: %v", test.desc, err, test.flakyWindowsErrorMessage)
+			}
+		} else {
+			if !testutil.AssertError(err, &test.expectedErr) {
+				t.Errorf("test case: %s, \nUnexpected error: %v\nExpected error: %v", test.desc, err, test.expectedErr.GetExpectedError())
+			}
 		}
-
 	}
 
 	// Clean up
