@@ -18,9 +18,11 @@ package azurefile
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 
 	"k8s.io/utils/mount"
+	"sigs.k8s.io/azurefile-csi-driver/pkg/mounter"
 )
 
 type fakeMounter struct {
@@ -58,4 +60,14 @@ func (f *fakeMounter) IsLikelyNotMountPoint(file string) (bool, error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+//NewFakeMounter fake mounter
+func NewFakeMounter() (*mount.SafeFormatAndMount, error) {
+	if runtime.GOOS == "windows" {
+		return mounter.NewSafeMounter()
+	}
+	return &mount.SafeFormatAndMount{
+		Interface: &fakeMounter{},
+	}, nil
 }
