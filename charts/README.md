@@ -4,7 +4,7 @@ Quick start instructions for the setup and configuration of azurefile CSI driver
 
 ## Prerequisites
 
- - [install Helm Client 3.0+ ](https://helm.sh/docs/intro/quickstart/#install-helm)
+ - [install Helm](https://helm.sh/docs/intro/quickstart/#install-helm)
 
 ## Install latest CSI Driver via `helm install`
 
@@ -87,6 +87,5 @@ The following table lists the configurable parameters of the latest Azure File C
 | `windows.image.nodeDriverRegistrar.pullPolicy`    | windows csi-node-driver-registrar image pull policy        | IfNotPresent                                                      |
 
 ## Troubleshooting
- - Add `--wait -v=5 --debug` in `helm install` command to get detailed error.
- - Use `kubectl describe` to acquire more info.
- - Check the related resource of the pod, such as serviceaacount, rbac, etc.
+ - Add `--wait -v=5 --debug` in `helm install` command to get detailed error
+ - Use `kubectl describe` to acquire more info
