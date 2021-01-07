@@ -33,11 +33,11 @@ volumeAttributes.resourceGroup | Azure resource group name | existing resource g
 volumeAttributes.storageAccount | existing storage account name | existing storage account name | Yes |
 volumeAttributes.shareName | Azure file share name | existing Azure file share name | Yes |
 volumeAttributes.protocol | specify file share protocol | `smb`, `nfs` | No | `smb`
-server | specify Azure storage account server address | existing server address, e.g. `accountname.privatelink.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
+volumeAttributes.server | specify Azure storage account server address | existing server address, e.g. `accountname.privatelink.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
 nodeStageSecretRef.name | secret name that stores storage account name and key | existing secret name |  Yes  |
 nodeStageSecretRef.namespace | namespace where the secret is | k8s namespace  |  Yes  |
 
  - create a Kubernetes secret for `nodeStageSecretRef.name`
  ```console
-kubectl create secret generic azure-secret --from-literal accountkey="xxx" --type=Opaque
+kubectl create secret generic azure-secret --from-literal azurestorageaccountkey="xxx" --type=Opaque
  ```
