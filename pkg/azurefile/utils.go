@@ -77,7 +77,7 @@ func (lm *lockMap) unlockEntry(entry string) {
 	lm.mutexMap[entry].Unlock()
 }
 
-func setAzureCredentials(kubeClient kubernetes.Interface, accountName, accountKey, secretNamespace string) (string, error) {
+func setAzureCredentials(kubeClient kubernetes.Interface, accountName, accountKey, secretName, secretNamespace string) (string, error) {
 	if kubeClient == nil {
 		klog.Warningf("could not create secret: kubeClient is nil")
 		return "", nil
@@ -88,10 +88,12 @@ func setAzureCredentials(kubeClient kubernetes.Interface, accountName, accountKe
 	if secretNamespace == "" {
 		secretNamespace = defaultSecretNamespace
 	}
-	secretName := fmt.Sprintf(secretNameTemplate, accountName)
+	if secretName == "" {
+		secretName = fmt.Sprintf(secretNameTemplate, accountName)
+	}
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: defaultSecretNamespace,
+			Namespace: secretNamespace,
 			Name:      secretName,
 		},
 		Data: map[string][]byte{

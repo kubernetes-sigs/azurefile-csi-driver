@@ -91,7 +91,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if parameters == nil {
 		parameters = make(map[string]string)
 	}
-	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, storeAccountKey, secretNamespace, protocol, customTags string
+	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, storeAccountKey, secretName, secretNamespace, protocol, customTags string
 
 	// Apply ProvisionerParameters (case-insensitive). We leave validation of
 	// the values to the cloud provider.
@@ -115,6 +115,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			fsType = v
 		case storeAccountKeyField:
 			storeAccountKey = v
+		case secretNameField:
+			secretName = v
 		case secretNamespaceField:
 			secretNamespace = v
 		case protocolField:
@@ -252,7 +254,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	if isDiskFsType(fsType) && diskName == "" {
 		if accountKey == "" {
-			if accountKey, err = d.GetStorageAccesskey(accountOptions, req.GetSecrets(), secretNamespace); err != nil {
+			if accountKey, err = d.GetStorageAccesskey(accountOptions, req.GetSecrets(), secretName, secretNamespace); err != nil {
 				return nil, fmt.Errorf("failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
 			}
 		}
@@ -276,16 +278,16 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	if storeAccountKey != storeAccountKeyFalse && len(req.GetSecrets()) == 0 {
 		if accountKey == "" {
-			if accountKey, err = d.GetStorageAccesskey(accountOptions, req.GetSecrets(), secretNamespace); err != nil {
+			if accountKey, err = d.GetStorageAccesskey(accountOptions, req.GetSecrets(), secretName, secretNamespace); err != nil {
 				return nil, fmt.Errorf("failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
 			}
 		}
-		secretName, err := setAzureCredentials(d.cloud.KubeClient, accountName, accountKey, secretNamespace)
+		storeSecretName, err := setAzureCredentials(d.cloud.KubeClient, accountName, accountKey, secretName, secretNamespace)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to store storage account key: %v", err)
 		}
-		if secretName != "" {
-			klog.V(2).Infof("store account key to k8s secret(%v) in %s namespace", secretName, secretNamespace)
+		if storeSecretName != "" {
+			klog.V(2).Infof("store account key to k8s secret(%v) in %s namespace", storeSecretName, secretNamespace)
 		}
 	}
 
