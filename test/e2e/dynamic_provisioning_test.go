@@ -119,9 +119,13 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			},
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
-			CSIDriver:              testDriver,
-			Pods:                   pods,
-			StorageClassParameters: map[string]string{"skuName": "Standard_LRS"},
+			CSIDriver: testDriver,
+			Pods:      pods,
+			StorageClassParameters: map[string]string{
+				"skuName":         "Standard_LRS",
+				"secretName":      "sercet-test",
+				"sectetNamespace": "test",
+			},
 		}
 		test.Run(cs, ns)
 	})

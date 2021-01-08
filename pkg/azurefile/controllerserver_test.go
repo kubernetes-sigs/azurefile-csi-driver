@@ -497,9 +497,9 @@ func TestCreateVolume(t *testing.T) {
 
 				ctx := context.Background()
 
-				expectedErr := status.Error(codes.Internal, "failed to store storage account key: couldn't create secret request namespace does not match object namespace, request: \"secretnamespace\" object: \"default\"")
+				// expectedErr := status.Error(codes.Internal, "failed to store storage account key: couldn't create secret request namespace does not match object namespace, request: \"secretnamespace\" object: \"default\"")
 				_, err := d.CreateVolume(ctx, req)
-				if !reflect.DeepEqual(err, expectedErr) {
+				if !reflect.DeepEqual(err, nil) {
 					t.Errorf("Unexpected error: %v", err)
 				}
 			},
@@ -1617,7 +1617,7 @@ func TestSnapshotExists(t *testing.T) {
 		d.cloud.StorageAccountClient = mockStorageAccountsClient
 		d.cloud.KubeClient = clientSet
 		d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
-		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), "vol_1", gomock.Any()).Return(test.key, nil).AnyTimes()
+		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), "", gomock.Any()).Return(test.key, nil).AnyTimes()
 
 		_, _, err := d.snapshotExists(context.Background(), test.sourceVolumeID, "sname", validSecret)
 		if !reflect.DeepEqual(err, test.expectedErr) {
