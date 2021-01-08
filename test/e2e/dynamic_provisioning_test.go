@@ -124,7 +124,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			StorageClassParameters: map[string]string{
 				"skuName":         "Standard_LRS",
 				"secretName":      "sercet-test",
-				"sectetNamespace": "test",
+				"secretNamespace": "kube-system",
 			},
 		}
 		test.Run(cs, ns)
