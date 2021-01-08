@@ -4,16 +4,16 @@ image:
     tag: latest
     pullPolicy: IfNotPresent
   csiProvisioner:
-    repository: mcr.microsoft.com/oss/kubernetes-csi/csi-provisioner
-    tag: v2.0.4
+    repository: andyzhangx/csi-provisioner
+    tag: v2.0.4-2
     pullPolicy: IfNotPresent
   csiAttacher:
-    repository: mcr.microsoft.com/oss/kubernetes-csi/csi-attacher
-    tag: v3.0.2
+    repository: andyzhangx/csi-attacher
+    tag: v3.0.2-2
     pullPolicy: IfNotPresent
   csiResizer:
-    repository: mcr.microsoft.com/oss/kubernetes-csi/csi-resizer
-    tag: v0.5.0
+    repository: andyzhangx/csi-resizer
+    tag: v1.1.0
     pullPolicy: IfNotPresent
   livenessProbe:
     repository: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe
