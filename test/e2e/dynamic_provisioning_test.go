@@ -118,14 +118,18 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				IsWindows: isWindowsCluster,
 			},
 		}
+
+		scParameters := map[string]string{
+			"skuName":         "Standard_LRS",
+			"sectetNamespace": "test",
+		}
+		if !isUsingInTreeVolumePlugin {
+			scParameters["secretName"] = "sercet-test"
+		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
-			CSIDriver: testDriver,
-			Pods:      pods,
-			StorageClassParameters: map[string]string{
-				"skuName":         "Standard_LRS",
-				"secretName":      "sercet-test",
-				"secretNamespace": "kube-system",
-			},
+			CSIDriver:              testDriver,
+			Pods:                   pods,
+			StorageClassParameters: scParameters,
 		}
 		test.Run(cs, ns)
 	})
