@@ -121,7 +121,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 		scParameters := map[string]string{
 			"skuName":         "Standard_LRS",
-			"secretNamespace": "test",
+			"secretNamespace": "kube-system",
 		}
 		if !isUsingInTreeVolumePlugin {
 			scParameters["secretName"] = "sercet-test"
