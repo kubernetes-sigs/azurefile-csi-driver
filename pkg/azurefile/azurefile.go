@@ -86,6 +86,7 @@ const (
 	locationField            = "location"
 	secretNamespaceField     = "secretnamespace"
 	secretNameField          = "secretname"
+	createAccountField       = "createaccount"
 	storeAccountKeyField     = "storeaccountkey"
 	storeAccountKeyFalse     = "false"
 	defaultSecretAccountName = "azurestorageaccountname"
@@ -104,10 +105,11 @@ const (
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
 	// this is a workaround fix for 429 throttling issue, will update cloud provider for better fix later
-	tooManyRequests   = "TooManyRequests"
-	shareNotFound     = "The specified share does not exist"
-	shareBeingDeleted = "The specified share is being deleted"
-	clientThrottled   = "client throttled"
+	tooManyRequests    = "TooManyRequests"
+	shareNotFound      = "The specified share does not exist"
+	shareBeingDeleted  = "The specified share is being deleted"
+	clientThrottled    = "client throttled"
+	accountLimitExceed = "TotalSharesProvisionedCapacityExceedsAccountLimit"
 
 	fileShareAccountNamePrefix = "f"
 )

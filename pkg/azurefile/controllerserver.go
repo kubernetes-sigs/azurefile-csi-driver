@@ -92,6 +92,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		parameters = make(map[string]string)
 	}
 	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, storeAccountKey, secretName, secretNamespace, protocol, customTags string
+	var createAccount bool
 
 	// Apply ProvisionerParameters (case-insensitive). We leave validation of
 	// the values to the cloud provider.
@@ -123,6 +124,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			protocol = v
 		case tagsField:
 			customTags = v
+		case createAccountField:
+			createAccount = strings.EqualFold(v, "true")
 		default:
 			//don't return error here since there are some parameters(e.g. fsType) used in later process
 			//return nil, fmt.Errorf("invalid option %q", k)
@@ -203,6 +206,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		EnableHTTPSTrafficOnly:    enableHTTPSTrafficOnly,
 		Tags:                      tags,
 		VirtualNetworkResourceIDs: vnetResourceIDs,
+		CreateAccount:             createAccount,
 	}
 
 	var accountKey string
@@ -242,12 +246,20 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 		err := d.CreateFileShare(accountOptions, shareOptions, req.GetSecrets())
 		if isRetriableError(err) {
-			klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), waiting for retring", validFileShareName, account, err)
+			klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", validFileShareName, account, err)
 			return false, nil
 		}
 		return true, err
 	})
 	if err != nil {
+		if strings.Contains(err.Error(), accountLimitExceed) {
+			klog.Warningf("create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d), error: %v", validFileShareName, account, sku, resourceGroup, location, fileShareSize, err)
+			if req.Parameters == nil {
+				req.Parameters = make(map[string]string)
+			}
+			req.Parameters[createAccountField] = "true"
+			return d.CreateVolume(ctx, req)
+		}
 		return nil, fmt.Errorf("failed to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d), error: %v", validFileShareName, account, sku, resourceGroup, location, fileShareSize, err)
 	}
 	klog.V(2).Infof("create file share %s on storage account %s successfully", validFileShareName, accountName)
