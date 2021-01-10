@@ -23,9 +23,9 @@ spec:
         - name: statefulset-azurefile
           image: andyzhangx/ubuntu1604:nonroot
           command:
-            - "/bin/sh"
+            - "/bin/bash"
             - "-c"
-            - while true; do echo $(date) >> /mnt/azurefile/outfile; sleep 1; done
+            - set -euo pipefail; while true; do echo $(date) >> /mnt/azurefile/outfile; sleep 1; done
           volumeMounts:
             - name: persistent-storage
               mountPath: /mnt/azurefile
