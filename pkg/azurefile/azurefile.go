@@ -132,6 +132,9 @@ type Driver struct {
 	volLockMap *lockMap
 	// only for nfs feature
 	subnetLockMap *lockMap
+	// A map storing all volumes with ongoing operations so that additional operations
+	// for that same volume (as defined by VolumeID) return an Aborted error
+	volumeLocks *volumeLocks
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -143,6 +146,7 @@ func NewDriver(nodeID string) *Driver {
 	driver.NodeID = nodeID
 	driver.volLockMap = newLockMap()
 	driver.subnetLockMap = newLockMap()
+	driver.volumeLocks = newVolumeLocks()
 	return &driver
 }
 

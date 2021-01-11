@@ -94,6 +94,7 @@ func TestNodeGetCapabilities(t *testing.T) {
 }
 
 func TestNodePublishVolume(t *testing.T) {
+	d := NewFakeDriver()
 	volumeCap := csi.VolumeCapability_AccessMode{Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER}
 	var (
 		errorMountSource     = testutil.GetWorkDirPath("error_mount_source", t)
@@ -106,8 +107,10 @@ func TestNodePublishVolume(t *testing.T) {
 
 	tests := []struct {
 		desc        string
+		setup       func()
 		req         csi.NodePublishVolumeRequest
 		expectedErr testutil.TestError
+		cleanup     func()
 	}{
 		{
 			desc: "[Error] Volume capabilities missing",
@@ -138,6 +141,23 @@ func TestNodePublishVolume(t *testing.T) {
 				TargetPath: targetTest},
 			expectedErr: testutil.TestError{
 				DefaultError: status.Error(codes.InvalidArgument, "Staging target not provided"),
+			},
+		},
+		{
+			desc: "[Error] Volume operation in progress",
+			setup: func() {
+				d.volumeLocks.TryAcquire("vol_1")
+			},
+			req: csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "vol_1",
+				TargetPath:        targetTest,
+				StagingTargetPath: sourceTest,
+				Readonly:          true},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.Aborted, fmt.Sprintf(volumeOperationAlreadyExistsFmt, "vol_1")),
+			},
+			cleanup: func() {
+				d.volumeLocks.Release("vol_1")
 			},
 		},
 		{
@@ -194,7 +214,6 @@ func TestNodePublishVolume(t *testing.T) {
 
 	// Setup
 	_ = makeDir(alreadyMountedTarget)
-	d := NewFakeDriver()
 	mounter, err := NewFakeMounter()
 	if err != nil {
 		t.Fatalf(fmt.Sprintf("failed to get fake mounter: %v", err))
@@ -205,9 +224,15 @@ func TestNodePublishVolume(t *testing.T) {
 	d.mounter = mounter
 
 	for _, test := range tests {
+		if test.setup != nil {
+			test.setup()
+		}
 		_, err := d.NodePublishVolume(context.Background(), &test.req)
 		if !testutil.AssertError(err, &test.expectedErr) {
 			t.Errorf("test case: %s, \nUnexpected error: %v\nExpected error: %v", test.desc, err, test.expectedErr.GetExpectedError())
+		}
+		if test.cleanup != nil {
+			test.cleanup()
 		}
 	}
 
@@ -221,12 +246,15 @@ func TestNodePublishVolume(t *testing.T) {
 func TestNodeUnpublishVolume(t *testing.T) {
 	errorTarget := testutil.GetWorkDirPath("error_is_likely_target", t)
 	targetFile := testutil.GetWorkDirPath("abc.go", t)
+	d := NewFakeDriver()
 
 	tests := []struct {
 		desc         string
+		setup        func()
 		req          csi.NodeUnpublishVolumeRequest
 		skipOnDarwin bool
 		expectedErr  testutil.TestError
+		cleanup      func()
 	}{
 		{
 			desc: "[Error] Volume ID missing",
@@ -240,6 +268,19 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			req:  csi.NodeUnpublishVolumeRequest{VolumeId: "vol_1"},
 			expectedErr: testutil.TestError{
 				DefaultError: status.Error(codes.InvalidArgument, "Target path missing in request"),
+			},
+		},
+		{
+			desc: "[Error] Volume operation in progress",
+			setup: func() {
+				d.volumeLocks.TryAcquire("vol_1")
+			},
+			req: csi.NodeUnpublishVolumeRequest{TargetPath: targetFile, VolumeId: "vol_1"},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.Aborted, fmt.Sprintf(volumeOperationAlreadyExistsFmt, "vol_1")),
+			},
+			cleanup: func() {
+				d.volumeLocks.Release("vol_1")
 			},
 		},
 		{
@@ -259,7 +300,6 @@ func TestNodeUnpublishVolume(t *testing.T) {
 
 	// Setup
 	_ = makeDir(errorTarget)
-	d := NewFakeDriver()
 	mounter, err := NewFakeMounter()
 	if err != nil {
 		t.Fatalf(fmt.Sprintf("failed to get fake mounter: %v", err))
@@ -270,12 +310,18 @@ func TestNodeUnpublishVolume(t *testing.T) {
 	d.mounter = mounter
 
 	for _, test := range tests {
+		if test.setup != nil {
+			test.setup()
+		}
 		if test.skipOnDarwin && runtime.GOOS == "darwin" {
 			continue
 		}
 		_, err := d.NodeUnpublishVolume(context.Background(), &test.req)
 		if !testutil.AssertError(err, &test.expectedErr) {
 			t.Errorf("test case: %s, \nUnexpected error: %v\nExpected error: %v", test.desc, err, test.expectedErr.GetExpectedError())
+		}
+		if test.cleanup != nil {
+			test.cleanup()
 		}
 	}
 
@@ -290,6 +336,7 @@ func TestNodeStageVolume(t *testing.T) {
 			Mount: &csi.VolumeCapability_MountVolume{},
 		},
 	}
+	d := NewFakeDriver()
 
 	var (
 		errorMountSensSource   = testutil.GetWorkDirPath("error_mount_sens_source", t)
@@ -338,6 +385,7 @@ func TestNodeStageVolume(t *testing.T) {
 
 	tests := []struct {
 		desc         string
+		setup        func()
 		req          csi.NodeStageVolumeRequest
 		execScripts  []ExecArgs
 		skipOnDarwin bool
@@ -349,6 +397,7 @@ func TestNodeStageVolume(t *testing.T) {
 		// that is common amongst all other flaky
 		// error messages
 		flakyWindowsErrorMessage string
+		cleanup                  func()
 	}{
 		{
 			desc:        "[Error] Volume ID missing",
@@ -378,6 +427,22 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap},
 			expectedErr: testutil.TestError{
 				DefaultError: status.Error(codes.InvalidArgument, "failed to get account name from vol_1"),
+			},
+		},
+		{
+			desc: "[Error] Volume operation in progress",
+			setup: func() {
+				d.volumeLocks.TryAcquire("vol_1##")
+			},
+			req: csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext:    volContext,
+				Secrets:          secrets},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.Aborted, fmt.Sprintf(volumeOperationAlreadyExistsFmt, "vol_1##")),
+			},
+			cleanup: func() {
+				d.volumeLocks.Release("vol_1##")
 			},
 		},
 		{
@@ -484,8 +549,10 @@ func TestNodeStageVolume(t *testing.T) {
 	}
 
 	// Setup
-	d := NewFakeDriver()
 	for _, test := range tests {
+		if test.setup != nil {
+			test.setup()
+		}
 		if test.skipOnDarwin && runtime.GOOS == "darwin" {
 			continue
 		}
@@ -522,6 +589,9 @@ func TestNodeStageVolume(t *testing.T) {
 				t.Errorf("test case: %s, \nUnexpected error: %v\nExpected error: %v", test.desc, err, test.expectedErr.GetExpectedError())
 			}
 		}
+		if test.cleanup != nil {
+			test.cleanup()
+		}
 	}
 
 	// Clean up
@@ -538,12 +608,15 @@ func TestNodeUnstageVolume(t *testing.T) {
 		errorTarget = testutil.GetWorkDirPath("error_is_likely_target", t)
 		targetFile  = testutil.GetWorkDirPath("abc.go", t)
 	)
+	d := NewFakeDriver()
 
 	tests := []struct {
 		desc         string
+		setup        func()
 		req          csi.NodeUnstageVolumeRequest
 		skipOnDarwin bool
 		expectedErr  testutil.TestError
+		cleanup      func()
 	}{
 		{
 			desc: "[Error] Volume ID missing",
@@ -557,6 +630,19 @@ func TestNodeUnstageVolume(t *testing.T) {
 			req:  csi.NodeUnstageVolumeRequest{VolumeId: "vol_1"},
 			expectedErr: testutil.TestError{
 				DefaultError: status.Error(codes.InvalidArgument, "Staging target not provided"),
+			},
+		},
+		{
+			desc: "[Error] Volume operation in progress",
+			setup: func() {
+				d.volumeLocks.TryAcquire("vol_1")
+			},
+			req: csi.NodeUnstageVolumeRequest{StagingTargetPath: targetFile, VolumeId: "vol_1"},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.Aborted, fmt.Sprintf(volumeOperationAlreadyExistsFmt, "vol_1")),
+			},
+			cleanup: func() {
+				d.volumeLocks.Release("vol_1")
 			},
 		},
 		{
@@ -576,7 +662,6 @@ func TestNodeUnstageVolume(t *testing.T) {
 
 	// Setup
 	_ = makeDir(errorTarget)
-	d := NewFakeDriver()
 	mounter, err := NewFakeMounter()
 	if err != nil {
 		t.Fatalf(fmt.Sprintf("failed to get fake mounter: %v", err))
@@ -587,12 +672,18 @@ func TestNodeUnstageVolume(t *testing.T) {
 	d.mounter = mounter
 
 	for _, test := range tests {
+		if test.setup != nil {
+			test.setup()
+		}
 		if test.skipOnDarwin && runtime.GOOS == "darwin" {
 			continue
 		}
 		_, err := d.NodeUnstageVolume(context.Background(), &test.req)
 		if !testutil.AssertError(err, &test.expectedErr) {
 			t.Errorf("Desc: %v\nUnexcpected error: %v\nExpected: %v", test.desc, err, test.expectedErr.GetExpectedError())
+		}
+		if test.cleanup != nil {
+			test.cleanup()
 		}
 	}
 
