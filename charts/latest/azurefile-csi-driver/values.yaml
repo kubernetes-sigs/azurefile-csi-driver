@@ -68,3 +68,7 @@ windows:
       repository: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar
       tag: v2.0.1
       pullPolicy: IfNotPresent
+
+kubelet:
+  windowsPath: 'C:\var\lib\kubelet'
+  linuxPath: /var/lib/kubelet

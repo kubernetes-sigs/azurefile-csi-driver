@@ -148,15 +148,15 @@ spec:
             type: ""
         - name: registration-dir
           hostPath:
-            path: C:\var\lib\kubelet\plugins_registry\
+            path: {{ .Values.kubelet.windowsPath }}\plugins_registry\
             type: Directory
         - name: kubelet-dir
           hostPath:
-            path: C:\var\lib\kubelet\
+            path: {{ .Values.kubelet.windowsPath }}\
             type: Directory
         - name: plugin-dir
           hostPath:
-            path: C:\var\lib\kubelet\plugins\file.csi.azure.com\
+            path: {{ .Values.kubelet.windowsPath }}\plugins\file.csi.azure.com\
             type: DirectoryOrCreate
         - name: azure-config
           hostPath:
