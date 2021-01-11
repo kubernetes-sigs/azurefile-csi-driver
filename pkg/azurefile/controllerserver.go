@@ -210,8 +210,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if len(req.GetSecrets()) == 0 && accountName == "" {
 		lockKey := sku + accountKind + resourceGroup + location
 		d.volLockMap.LockEntry(lockKey)
-		defer d.volLockMap.UnlockEntry(lockKey)
-
 		err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 			var retErr error
 			accountName, accountKey, retErr = d.cloud.EnsureStorageAccount(accountOptions, fileShareAccountNamePrefix)
@@ -221,6 +219,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			}
 			return true, retErr
 		})
+		d.volLockMap.UnlockEntry(lockKey)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to ensure storage account: %v", err)
 		}
