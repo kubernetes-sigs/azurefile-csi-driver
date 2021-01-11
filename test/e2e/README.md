@@ -19,4 +19,9 @@ make e2e-test
 # Run in a Windows cluster
 export TEST_WINDOWS="true"
 make e2e-test
+
+# Run migration test
+export TEST_MIGRATION="true"
+export AZURE_STORAGE_DRIVER="kubernetes.io/azure-file"
+make e2e-test
 ```
