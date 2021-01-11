@@ -8,7 +8,7 @@
 
 ### How to run E2E tests
 
-```bash
+```console
 # Using CSI Driver
 make e2e-test
 
@@ -24,4 +24,14 @@ make e2e-test
 export TEST_MIGRATION="true"
 export AZURE_STORAGE_DRIVER="kubernetes.io/azure-file"
 make e2e-test
+```
+
+ - resize e2e test needs more environment setting, export following environment variables from `azure.json`
+```console
+export AZURE_TENANT_ID=
+export AZURE_SUBSCRIPTION_ID=
+export AZURE_CLIENT_ID=
+export AZURE_CLIENT_SECRET=
+export AZURE_RESOURCE_GROUP=
+export AZURE_LOCATION=
 ```
