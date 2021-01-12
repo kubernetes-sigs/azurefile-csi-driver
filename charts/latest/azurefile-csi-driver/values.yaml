@@ -43,11 +43,11 @@ snapshot:
   image:
     csiSnapshotter:
       repository: mcr.microsoft.com/oss/kubernetes-csi/csi-snapshotter
-      tag: v2.0.1
+      tag: v3.0.3
       pullPolicy: IfNotPresent
     csiSnapshotController:
       repository: mcr.microsoft.com/oss/kubernetes-csi/snapshot-controller
-      tag: v2.1.1
+      tag: v3.0.3
       pullPolicy: IfNotPresent
   snapshotController:
     replicas: 1
