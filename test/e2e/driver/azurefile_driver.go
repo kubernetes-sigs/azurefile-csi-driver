@@ -21,7 +21,7 @@ import (
 	"os"
 	"strings"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	azurefile "sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
 
 	"github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
