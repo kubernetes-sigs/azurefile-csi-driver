@@ -2,11 +2,11 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: busybox-azurefile-win
+  name: statefulset-azurefile-win
   labels:
     app: busybox
 spec:
-  serviceName: busybox-azurefile-win
+  serviceName: statefulset-azurefile-win
   replicas: 1
   template:
     metadata:
@@ -16,7 +16,7 @@ spec:
       nodeSelector:
         "kubernetes.io/os": windows
       containers:
-        - name: busybox-azurefile
+        - name: statefulset-azurefile
           image: e2eteam/busybox:1.29
           command:
             - "powershell.exe"

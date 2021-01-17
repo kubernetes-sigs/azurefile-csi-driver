@@ -14,7 +14,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: busybox-azurefile-win
+  name: deployment-azurefile-win
   labels:
     app: busybox
 spec:

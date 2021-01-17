@@ -2,11 +2,11 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: statefulset-azurefile
+  name: statefulset-azurefile-nonroot
   labels:
     app: nginx
 spec:
-  serviceName: statefulset-azurefile
+  serviceName: statefulset-azurefile-nonroot
   replicas: 1
   template:
     metadata:
