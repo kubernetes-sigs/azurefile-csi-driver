@@ -14,15 +14,15 @@ spec:
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: azurefile-ds
+  name: daemonset-azurefile
 spec:
   selector:
     matchLabels:
-      app: azurefile-ds
+      app: daemonset-azurefile
   template:
     metadata:
       labels:
-        app: azurefile-ds
+        app: daemonset-azurefile
     spec:
       nodeSelector:
         kubernetes.io/os: linux

@@ -179,12 +179,3 @@ clean:
 .PHONY: create-metrics-svc
 create-metrics-svc:
 	kubectl create -f deploy/example/metrics/csi-azurefile-controller-svc.yaml
-
-.PHONY: create-example-deployment
-create-example-deployment:
-	kubectl apply -f deploy/example/storageclass-azurefile-csi.yaml
-	kubectl apply -f deploy/example/deployment.yaml
-	kubectl apply -f deploy/example/daemonset.yaml
-	kubectl apply -f deploy/example/statefulset.yaml
-	kubectl apply -f deploy/example/windows/deployment.yaml
-	kubectl apply -f deploy/example/windows/statefulset.yaml

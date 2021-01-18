@@ -27,7 +27,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
@@ -135,15 +134,17 @@ var _ = ginkgo.AfterSuite(func() {
 			}
 			execTestCmd([]testCmd{checkPodsRestart})
 
+			os := "linux"
+			if isWindowsCluster {
+				os = "windows"
+			}
 			createExampleDeployment := testCmd{
-				command:  "make",
-				args:     []string{"create-example-deployment"},
+				command:  "bash",
+				args:     []string{"hack/verify-examples.sh", os},
 				startLog: "create example deployments",
 				endLog:   "example deployments created",
 			}
 			execTestCmd([]testCmd{createExampleDeployment})
-			// sleep 120s waiting for deployment running complete
-			time.Sleep(120 * time.Second)
 
 			azurefileLog := testCmd{
 				command:  "bash",
