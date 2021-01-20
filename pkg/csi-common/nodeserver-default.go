@@ -19,7 +19,6 @@ package csicommon
 import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"golang.org/x/net/context"
-	"k8s.io/klog/v2"
 )
 
 type DefaultNodeServer struct {
@@ -27,16 +26,12 @@ type DefaultNodeServer struct {
 }
 
 func (ns *DefaultNodeServer) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
-	klog.V(5).Infof("Using default NodeGetInfo")
-
 	return &csi.NodeGetInfoResponse{
 		NodeId: ns.Driver.NodeID,
 	}, nil
 }
 
 func (ns *DefaultNodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
-	klog.V(2).Infof("Using default NodeGetCapabilities")
-
 	return &csi.NodeGetCapabilitiesResponse{
 		Capabilities: ns.Driver.NSCap,
 	}, nil

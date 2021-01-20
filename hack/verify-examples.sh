@@ -35,6 +35,9 @@ if [[ "$1" == "windows" ]]; then
     sleep 120
 fi
 
+echo "begin to check pod status ..."
+kubectl get pods -o wide
+
 if [[ "$1" == "linux" ]]; then
     kubectl get pods --field-selector status.phase=Running | grep daemonset-azurefile
     kubectl get pods --field-selector status.phase=Running | grep deployment-azurefile

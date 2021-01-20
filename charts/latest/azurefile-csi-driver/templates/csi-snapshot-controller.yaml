@@ -29,7 +29,7 @@ spec:
         - name: csi-snapshot-controller
           image: "{{ .Values.snapshot.image.csiSnapshotController.repository }}:{{ .Values.snapshot.image.csiSnapshotController.tag }}"
           args:
-            - "--v=5"
+            - "--v=2"
             - "--leader-election=false"
           resources:
             limits:

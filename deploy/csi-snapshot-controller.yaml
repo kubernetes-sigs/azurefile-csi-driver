@@ -27,7 +27,7 @@ spec:
         - name: csi-snapshot-controller
           image: mcr.microsoft.com/oss/kubernetes-csi/snapshot-controller:v3.0.3
           args:
-            - "--v=5"
+            - "--v=2"
             - "--leader-election=false"
           resources:
             limits:
