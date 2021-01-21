@@ -4,7 +4,7 @@ image:
     tag: latest
     pullPolicy: IfNotPresent
   csiProvisioner:
-    repository: andyzhangx/csi-provisioner:v2.0.4-fix5
+    repository: andyzhangx/csi-provisioner
     tag: v2.0.4-fix5
     pullPolicy: IfNotPresent
   csiAttacher:
