@@ -241,6 +241,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		RequestGiB: fileShareSize,
 	}
 
+	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_create_volume", d.cloud.ResourceGroup, d.cloud.SubscriptionID, d.Name)
+	isOperationSucceeded := false
+	defer func() {
+		mc.ObserveOperationWithResult(isOperationSucceeded)
+	}()
+
 	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d) protocol(%s)", validFileShareName, accountName, sku, resourceGroup, location, fileShareSize, shareProtocol)
 	err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 		err := d.CreateFileShare(accountOptions, shareOptions, req.GetSecrets())
@@ -302,6 +308,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
+	isOperationSucceeded = true
 	volumeID := fmt.Sprintf(volumeIDTemplate, resourceGroup, accountName, validFileShareName, diskName)
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
@@ -334,11 +341,18 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 		resourceGroupName = d.cloud.ResourceGroup
 	}
 
+	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_delete_volume", d.cloud.ResourceGroup, d.cloud.SubscriptionID, d.Name)
+	isOperationSucceeded := false
+	defer func() {
+		mc.ObserveOperationWithResult(isOperationSucceeded)
+	}()
+
 	if err := d.DeleteFileShare(resourceGroupName, accountName, fileShareName, req.GetSecrets()); err != nil {
 		return nil, status.Errorf(codes.Internal, "DeleteFileShare %s under account(%s) rg(%s) failed with error: %v", fileShareName, accountName, resourceGroupName, err)
 	}
 	klog.V(2).Infof("azure file(%s) under rg(%s) account(%s) volume(%s) is deleted successfully", fileShareName, resourceGroupName, accountName, volumeID)
 
+	isOperationSucceeded = true
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
@@ -403,13 +417,6 @@ func (d *Driver) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (
 
 // ControllerPublishVolume make a volume available on some required node
 func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
-	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_publish_volume", d.cloud.ResourceGroup, d.cloud.SubscriptionID, d.Name)
-	isOperationSucceeded := false
-	defer func() {
-		mc.ObserveOperationWithResult(isOperationSucceeded)
-	}()
-
-	klog.V(2).Infof("ControllerPublishVolume: called with args %+v", *req)
 	volumeID := req.GetVolumeId()
 	if len(volumeID) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID not provided")
@@ -445,7 +452,6 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 		// don't lock vhd disk here since it's readonly, while it's user's responsibility to make sure
 		// volume is used as ReadOnly, otherwise there would be data corruption for MULTI_NODE_MULTI_WRITER
 		klog.V(2).Infof("skip ControllerPublishVolume(%s) since volume is readonly mode", volumeID)
-		isOperationSucceeded = true
 		return &csi.ControllerPublishVolumeResponse{}, nil
 	}
 
@@ -473,19 +479,11 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 		return nil, status.Error(codes.Internal, fmt.Sprintf("SetMetadata for volume(%s) on node(%s) returned with error: %v", volumeID, nodeID, err))
 	}
 	klog.V(2).Infof("ControllerPublishVolume: volume(%s) attached to node(%s) successfully", volumeID, nodeID)
-	isOperationSucceeded = true
 	return &csi.ControllerPublishVolumeResponse{}, nil
 }
 
 // ControllerUnpublishVolume detach the volume on a specified node
 func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
-	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_unpublish_volume", d.cloud.ResourceGroup, d.cloud.SubscriptionID, d.Name)
-	isOperationSucceeded := false
-	defer func() {
-		mc.ObserveOperationWithResult(isOperationSucceeded)
-	}()
-
-	klog.V(2).Infof("ControllerUnpublishVolume: called with args %+v", *req)
 	volumeID := req.GetVolumeId()
 	if len(volumeID) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID not provided")
@@ -500,7 +498,6 @@ func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.Control
 	// always check diskName first since if it's not vhd disk detach, ControllerUnpublishVolume is not necessary
 	if diskName == "" {
 		klog.V(2).Infof("skip ControllerUnpublishVolume(%s) since it's not vhd disk detach", volumeID)
-		isOperationSucceeded = true
 		return &csi.ControllerUnpublishVolumeResponse{}, nil
 	}
 	if err != nil {
@@ -523,7 +520,6 @@ func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.Control
 		return nil, status.Error(codes.Internal, fmt.Sprintf("SetMetadata for volume(%s) on node(%s) returned with error: %v", volumeID, nodeID, err))
 	}
 	klog.V(2).Infof("ControllerUnpublishVolume: volume(%s) detached from node(%s) successfully", volumeID, nodeID)
-	isOperationSucceeded = true
 	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 
@@ -537,6 +533,12 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 	if len(sourceVolumeID) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "CreateSnapshot Source Volume ID must be provided")
 	}
+
+	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_create_snapshot", d.cloud.ResourceGroup, d.cloud.SubscriptionID, d.Name)
+	isOperationSucceeded := false
+	defer func() {
+		mc.ObserveOperationWithResult(isOperationSucceeded)
+	}()
 
 	exists, item, err := d.snapshotExists(ctx, sourceVolumeID, snapshotName, req.GetSecrets())
 	if err != nil {
@@ -595,7 +597,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 			ReadyToUse: true,
 		},
 	}
-
+	isOperationSucceeded = true
 	return createResp, nil
 }
 
@@ -617,8 +619,13 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 		return nil, status.Errorf(codes.Internal, "failed to get snapshot name with (%s): %v", req.SnapshotId, err)
 	}
 
-	_, err = shareURL.WithSnapshot(snapshot).Delete(ctx, azfile.DeleteSnapshotsOptionNone)
-	if err != nil {
+	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_delete_snapshot", d.cloud.ResourceGroup, d.cloud.SubscriptionID, d.Name)
+	isOperationSucceeded := false
+	defer func() {
+		mc.ObserveOperationWithResult(isOperationSucceeded)
+	}()
+
+	if _, err := shareURL.WithSnapshot(snapshot).Delete(ctx, azfile.DeleteSnapshotsOptionNone); err != nil {
 		if strings.Contains(err.Error(), "ShareSnapshotNotFound") {
 			klog.Warningf("the specify snapshot(%s) was not found", snapshot)
 			return &csi.DeleteSnapshotResponse{}, nil
@@ -627,6 +634,7 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 	}
 
 	klog.V(2).Infof("delete snapshot(%s) successfully", snapshot)
+	isOperationSucceeded = true
 	return &csi.DeleteSnapshotResponse{}, nil
 }
 
@@ -637,7 +645,6 @@ func (d *Driver) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsReques
 
 // ControllerExpandVolume controller expand volume
 func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
-	klog.V(2).Infof("ControllerExpandVolume: called with args %+v", *req)
 	volumeID := req.GetVolumeId()
 	if len(volumeID) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
@@ -660,10 +667,17 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 		return nil, status.Error(codes.Unimplemented, fmt.Sprintf("vhd disk volume(%s) is not supported on ControllerExpandVolume", volumeID))
 	}
 
+	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_expand_volume", d.cloud.ResourceGroup, d.cloud.SubscriptionID, d.Name)
+	isOperationSucceeded := false
+	defer func() {
+		mc.ObserveOperationWithResult(isOperationSucceeded)
+	}()
+
 	if err = d.ResizeFileShare(resourceGroupName, accountName, fileShareName, int(requestGiB), req.GetSecrets()); err != nil {
 		return nil, status.Errorf(codes.Internal, "expand volume error: %v", err)
 	}
 
+	isOperationSucceeded = true
 	klog.V(2).Infof("ControllerExpandVolume(%s) successfully, currentQuota: %d Gi", volumeID, int(requestGiB))
 	return &csi.ControllerExpandVolumeResponse{CapacityBytes: capacityBytes}, nil
 }
