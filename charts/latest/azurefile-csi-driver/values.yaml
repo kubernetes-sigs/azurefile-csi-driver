@@ -17,7 +17,7 @@ image:
     pullPolicy: IfNotPresent
   livenessProbe:
     repository: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe
-    tag: v2.0.0
+    tag: v2.2.0
     pullPolicy: IfNotPresent
   nodeDriverRegistrar:
     repository: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar
@@ -62,7 +62,7 @@ windows:
   image:
     livenessProbe:
       repository: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe
-      tag: v2.0.1-alpha.1-windows-1809-amd64
+      tag: v2.2.0
       pullPolicy: IfNotPresent
     nodeDriverRegistrar:
       repository: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar
