@@ -18,7 +18,6 @@ require (
 	github.com/onsi/gomega v1.9.0
 	github.com/pborman/uuid v1.2.0
 	github.com/pelletier/go-toml v1.7.0
-	github.com/prometheus/client_golang v1.7.1
 	github.com/rubiojr/go-vhd v0.0.0-20200706105327-02e210299021
 	github.com/stretchr/testify v1.6.1
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
@@ -27,6 +26,7 @@ require (
 	k8s.io/apimachinery v0.20.0
 	k8s.io/client-go v0.20.0
 	k8s.io/cloud-provider v0.20.0
+	k8s.io/component-base v0.20.0
 	k8s.io/klog/v2 v2.4.0
 	k8s.io/kubernetes v1.21.0-alpha.0.0.20201210005053-f58c4d8cd725
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
