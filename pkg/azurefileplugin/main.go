@@ -27,7 +27,7 @@ import (
 
 	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/klog/v2"
 )
 
@@ -53,10 +53,12 @@ func main() {
 		fmt.Println(info)
 		os.Exit(0)
 	}
+
 	if *nodeID == "" {
 		// nodeid is not needed in controller component
 		klog.Warning("nodeid is empty")
 	}
+
 	exportMetrics()
 	handle()
 	os.Exit(0)
@@ -92,7 +94,7 @@ func serve(ctx context.Context, l net.Listener, serveFunc func(net.Listener) err
 
 func serveMetrics(l net.Listener) error {
 	m := http.NewServeMux()
-	m.Handle("/metrics", promhttp.Handler())
+	m.Handle("/metrics", legacyregistry.Handler()) //nolint, because azure cloud provider uses legacyregistry currently
 	return trapClosedConnErr(http.Serve(l, m))
 }
 
