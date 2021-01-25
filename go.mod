@@ -45,7 +45,7 @@ replace (
 	k8s.io/apiserver => k8s.io/apiserver v0.20.0
 	k8s.io/cli-runtime => k8s.io/cli-runtime v0.20.0
 	k8s.io/client-go => k8s.io/client-go v0.0.0-20201209050023-e24efdc77f15
-	k8s.io/cloud-provider => k8s.io/cloud-provider v0.0.0-20200711020125-52e5381d8dd1
+	k8s.io/cloud-provider => k8s.io/cloud-provider v0.0.0-20201021002512-82fca6d2b013
 	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.20.0
 	k8s.io/code-generator => k8s.io/code-generator v0.20.0
 	k8s.io/component-base => k8s.io/component-base v0.20.0
@@ -67,7 +67,7 @@ replace (
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.20.0
 	k8s.io/sample-controller => k8s.io/sample-controller v0.20.0
 	sigs.k8s.io/azurefile-csi-driver => ./
-	sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.6.1-0.20210111081805-d909dec591fe
+	sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.6.1-0.20210126023816-9807b3f4662f
 )
 
 replace github.com/niemeyer/pretty => github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e
