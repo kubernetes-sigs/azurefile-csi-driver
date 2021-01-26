@@ -26,6 +26,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2019-06-01/storage"
 	"github.com/Azure/azure-storage-file-go/azfile"
+	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/pborman/uuid"
@@ -264,11 +265,15 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), accountLimitExceed) {
-			klog.Warningf("create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d), error: %v", validFileShareName, account, sku, resourceGroup, location, fileShareSize, err)
-			if req.Parameters == nil {
-				req.Parameters = make(map[string]string)
+			klog.Warningf("create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d), error: %v, skip matching current account", validFileShareName, account, sku, resourceGroup, location, fileShareSize, err)
+			tags := map[string]*string{
+				azure.SkipMatchingTag: to.StringPtr(""),
 			}
-			req.Parameters[createAccountField] = "true"
+			if rerr := d.cloud.AddStorageAccountTags(resourceGroup, accountName, tags); rerr != nil {
+				return nil, rerr.Error()
+			}
+			// release volume lock first to prevent deadlock
+			d.volumeLocks.Release(volName)
 			return d.CreateVolume(ctx, req)
 		}
 		return nil, fmt.Errorf("failed to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d), error: %v", validFileShareName, account, sku, resourceGroup, location, fileShareSize, err)
