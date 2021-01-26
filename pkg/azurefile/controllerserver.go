@@ -367,6 +367,9 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 		return nil, status.Errorf(codes.Internal, "DeleteFileShare %s under account(%s) rg(%s) failed with error: %v", fileShareName, accountName, resourceGroupName, err)
 	}
 	klog.V(2).Infof("azure file(%s) under rg(%s) account(%s) volume(%s) is deleted successfully", fileShareName, resourceGroupName, accountName, volumeID)
+	if rerr := d.cloud.RemoveStorageAccountTag(resourceGroupName, accountName, azure.SkipMatchingTag); rerr != nil {
+		klog.Warningf("RemoveStorageAccountTag(%s) under rg(%s) account(%s) failed with %v", azure.SkipMatchingTag, resourceGroupName, accountName, rerr.Error())
+	}
 
 	isOperationSucceeded = true
 	return &csi.DeleteVolumeResponse{}, nil
