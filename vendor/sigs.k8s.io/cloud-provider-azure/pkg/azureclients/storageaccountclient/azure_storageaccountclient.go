@@ -43,6 +43,7 @@ var _ Interface = &Client{}
 type Client struct {
 	armClient      armclient.Interface
 	subscriptionID string
+	cloudName      string
 
 	// Rate limiting configures.
 	rateLimiterReader flowcontrol.RateLimiter
@@ -76,6 +77,7 @@ func New(config *azclients.ClientConfig) *Client {
 		rateLimiterReader: rateLimiterReader,
 		rateLimiterWriter: rateLimiterWriter,
 		subscriptionID:    config.SubscriptionID,
+		cloudName:         config.CloudName,
 	}
 
 	return client
@@ -262,6 +264,72 @@ func (c *Client) createStorageAccount(ctx context.Context, resourceGroupName str
 }
 
 func (c *Client) createResponder(resp *http.Response) (*storage.Account, *retry.Error) {
+	result := &storage.Account{}
+	err := autorest.Respond(
+		resp,
+		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
+		autorest.ByUnmarshallingJSON(&result))
+	result.Response = autorest.Response{Response: resp}
+	return result, retry.GetError(resp, err)
+}
+
+// Update updates a storage account.
+func (c *Client) Update(ctx context.Context, resourceGroupName string, accountName string, parameters storage.AccountUpdateParameters) *retry.Error {
+	mc := metrics.NewMetricContext("storage_account", "update", resourceGroupName, c.subscriptionID, "")
+
+	// Report errors if the client is rate limited.
+	if !c.rateLimiterWriter.TryAccept() {
+		mc.RateLimitedCount()
+		return retry.GetRateLimitError(true, "StorageAccountUpdate")
+	}
+
+	// Report errors if the client is throttled.
+	if c.RetryAfterWriter.After(time.Now()) {
+		mc.ThrottledCount()
+		rerr := retry.GetThrottlingError("StorageAccountUpdate", "client throttled", c.RetryAfterWriter)
+		return rerr
+	}
+
+	rerr := c.updateStorageAccount(ctx, resourceGroupName, accountName, parameters)
+	_ = mc.Observe(rerr.Error())
+	if rerr != nil {
+		if rerr.IsThrottled() {
+			// Update RetryAfterReader so that no more requests would be sent until RetryAfter expires.
+			c.RetryAfterWriter = rerr.RetryAfter
+		}
+		return rerr
+	}
+	return nil
+}
+
+// updateStorageAccount updates a StorageAccount.
+func (c *Client) updateStorageAccount(ctx context.Context, resourceGroupName string, accountName string, parameters storage.AccountUpdateParameters) *retry.Error {
+	resourceID := armclient.GetResourceID(
+		c.subscriptionID,
+		resourceGroupName,
+		"Microsoft.Storage/storageAccounts",
+		accountName,
+	)
+
+	response, rerr := c.armClient.PatchResource(ctx, resourceID, parameters)
+	defer c.armClient.CloseResponse(ctx, response)
+	if rerr != nil {
+		klog.V(5).Infof("Received error in %s: resourceID: %s, error: %s", "storageAccount.patch.request", resourceID, rerr.Error())
+		return rerr
+	}
+
+	if response != nil && response.StatusCode != http.StatusNoContent {
+		_, rerr = c.updateResponder(response)
+		if rerr != nil {
+			klog.V(5).Infof("Received error in %s: resourceID: %s, error: %s", "storageAccount.patch.respond", resourceID, rerr.Error())
+			return rerr
+		}
+	}
+
+	return nil
+}
+
+func (c *Client) updateResponder(resp *http.Response) (*storage.Account, *retry.Error) {
 	result := &storage.Account{}
 	err := autorest.Respond(
 		resp,
