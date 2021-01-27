@@ -110,8 +110,6 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
-          securityContext:
-            privileged: true
           volumeMounts:
             - name: kubelet-dir
               mountPath: "C:\\var\\lib\\kubelet"
