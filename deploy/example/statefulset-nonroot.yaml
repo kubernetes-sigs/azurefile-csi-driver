@@ -6,6 +6,7 @@ metadata:
   labels:
     app: nginx
 spec:
+  podManagementPolicy: Parallel  # default is OrderedReady
   serviceName: statefulset-azurefile-nonroot
   replicas: 1
   template:
