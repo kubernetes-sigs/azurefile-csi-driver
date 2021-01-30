@@ -9,6 +9,11 @@ helm repo add azurefile-csi-driver https://raw.githubusercontent.com/kubernetes-
 helm install azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system
 ```
 
+## install on Azure Stack
+```console
+helm install azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system --set cloud=AzureStackCloud
+```
+
 ### install a specific version
 ```console
 helm repo add azurefile-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts
