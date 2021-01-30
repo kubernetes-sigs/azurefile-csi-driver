@@ -1,18 +1,15 @@
 # Install CSI driver with Helm 3
 
 ## Prerequisites
-
  - [install Helm](https://helm.sh/docs/intro/quickstart/#install-helm)
 
 ## install latest version
-
 ```console
 helm repo add azurefile-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts
 helm install azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system
 ```
 
 ### install a specific version
-
 ```console
 helm repo add azurefile-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts
 helm install azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system --version v0.10.0
@@ -24,7 +21,6 @@ helm search repo -l azurefile-csi-driver
 ```
 
 ## uninstall CSI driver
-
 ```console
 helm uninstall azurefile-csi-driver -n kube-system
 ```
