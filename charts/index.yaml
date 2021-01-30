@@ -80,6 +80,6 @@ entries:
     digest: c749deceab8643f0b35b9fdaa11c3cf0fc1be738703114cad7bf0b29bdaf6845
     name: azurefile-csi-driver
     urls:
-    - https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts/latest/azurefile-csi-driver-latest.tgz
-    version: latest
+    - https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts/latest/azurefile-csi-driver-v1.0.0.tgz
+    version: v1.0.0
 generated: "2020-09-15T14:07:34.271731695Z"
