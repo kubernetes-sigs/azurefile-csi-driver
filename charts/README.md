@@ -1,40 +1,37 @@
-# Installation with Helm 3
-
-Quick start instructions for the setup and configuration of azurefile CSI driver using Helm.
+# Install CSI driver with Helm 3
 
 ## Prerequisites
 
  - [install Helm](https://helm.sh/docs/intro/quickstart/#install-helm)
 
-## Install latest CSI Driver via `helm install`
+## install latest version
 
 ```console
-$ cd $GOPATH/src/sigs.k8s.io/azurefile-csi-driver/charts/latest
-$ helm package azurefile-csi-driver
-$ helm install azurefile-csi-driver azurefile-csi-driver-latest.tgz --namespace kube-system
+helm repo add azurefile-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts
+helm install azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system
 ```
 
-### Install a specific version
+### install a specific version
 
 ```console
-$ helm repo add azurefile-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts
-$ helm install  azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system --version v0.10.0
+helm repo add azurefile-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts
+helm install azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system --version v0.10.0
 ```
 
-### Search for all available charts versions
+### search for all available chart versions
 ```console
-$ helm search repo -l azurefile-csi-driver/
+helm search repo -l azurefile-csi-driver
 ```
 
-## Uninstall
+## uninstall CSI driver
 
 ```console
-$ helm uninstall azurefile-csi-driver -n kube-system
+helm uninstall azurefile-csi-driver -n kube-system
 ```
 
-## The Latest Helm Chart Configuration
+## latest chart configuration
 
-The following table lists the configurable parameters of the latest Azure File CSI Driver chart and their default values.
+The following table lists the configurable parameters of the latest Azure File CSI Driver chart and default values.
 
 | Parameter                                         | Description                                                | Default                                                           |
 |---------------------------------------------------|------------------------------------------------------------|-------------------------------------------------------------------|
@@ -88,6 +85,6 @@ The following table lists the configurable parameters of the latest Azure File C
 | `kubelet.linuxPath`                               | configure the kubelet path for Linux node                  | `/var/lib/kubelet`                                                |
 | `kubelet.windowsPath`                             | configure the kubelet path for Windows node                | `'C:\var\lib\kubelet'`                                            |
 
-## Troubleshooting
+## troubleshooting
  - Add `--wait -v=5 --debug` in `helm install` command to get detailed error
  - Use `kubectl describe` to acquire more info
