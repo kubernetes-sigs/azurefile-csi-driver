@@ -80,6 +80,11 @@ if [[ "$cloud" != 'AzureChinaCloud' ]]; then
   "$CSC_BIN" node publish --endpoint "$endpoint" --cap 1,mount,cifs --staging-target-path "$staging_target_path" --target-path "$target_path" "$volumeid"
   sleep 2
 
+  if [[ ! "$params" =~ "fsType" ]]; then
+    echo 'Expand volume test'
+    "$CSC_BIN" controller expand-volume --endpoint "$endpoint" --req-bytes 21474836480 --cap 1,mount,cifs "$volumeid"
+  fi
+
   echo 'Unmount volume test:'
   "$CSC_BIN" node unpublish --endpoint "$endpoint" --target-path "$target_path" "$volumeid"
   sleep 2
