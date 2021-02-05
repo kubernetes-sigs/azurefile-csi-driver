@@ -85,30 +85,3 @@ snapshot_controller_image="$(get_image_from_helm_chart ".snapshot.image.csiSnaps
 validate_image "${expected_snapshot_controller_image}" "${snapshot_controller_image}"
 
 echo "Images in deploy/ matches those in the latest helm chart."
-
-# verify whether chart config has changed
-diff=`git diff`
-if [[ -n "${diff}" ]]; then
-  echo "${diff}"
-  exit 1
-fi
-
-for dir in charts/*
-do
-  if [ -d $dir ]; then
-    if [ -f $dir/*.tgz ]; then
-      echo "verify $dir ..."
-      tar -xvf $dir/*.tgz -C $dir/
-    fi
-  fi
-done
-
-diff=`git diff`
-if [[ -n "${diff}" ]]; then
-  echo "${diff}"
-  echo
-  echo "latest chart config has changed, pls run \"helm package charts/latest/azurefile-csi-driver -d charts/latest/\" to update tgz file"
-  exit 1
-fi
-
-echo "chart tgz files verified."
