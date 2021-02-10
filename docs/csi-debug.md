@@ -29,11 +29,19 @@ $ kubectl logs csi-azurefile-node-cvgbs -c azurefile -n kube-system > csi-azuref
 
 ### troubleshooting connection failure on agent node
 > for sovereign cloud, server address: accountname.blob.core.chinacloudapi.cn
- - SMB
-
+##### SMB
+ - On Linux node
 ```console
 mkdir /tmp/test
 sudo mount -v -t cifs //accountname.blob.core.windows.net/filesharename /tmp/test -o vers=3.0,username=accountname,password=accountkey,dir_mode=0777,file_mode=0777,cache=strict,actimeo=30
+```
+
+ - On Windows node
+```console
+$User = "AZURE\accountname"
+$PWord = ConvertTo-SecureString -String "xxx" -AsPlainText -Force
+$Credential = New-Object –TypeName System.Management.Automation.PSCredential –ArgumentList $User, $Pword
+New-SmbGlobalMapping -LocalPath x: -RemotePath \\accountname.file.core.windows.net\sharename -Credential $Credential
 ```
 
  - NFSv4
