@@ -62,9 +62,10 @@ The following table lists the configurable parameters of the latest Azure File C
 | `rbac.create`                                     | whether create rbac of csi-azurefile-controller             | true                                                              |
 | `controller.replicas`                             | the replicas of csi-azurefile-controller                    | 2                                                                 |
 | `controller.metricsPort`                          | metrics port of csi-azurefile-controller                   |29614                                                        |
-| `controller.runOnMaster`                          | run controller on master node                                                          |
-`false`                                                           |
+| `controller.runOnMaster`                          | run controller on master node                                                          |`false`                                                           |
+| `controller.logLevel`                             | controller driver log level                                                          |`5`                                                           |
 | `node.metricsPort`                                | metrics port of csi-azurefile-node                         |29615                                                        |
+| `node.logLevel`                                   | node driver log level                                                          |`5`                                                           |
 | `snapshot.enabled`                                | whether enable snapshot feature                            | false                                                        |
 | `snapshot.image.csiSnapshotter.repository`        | csi-snapshotter docker image                               | mcr.microsoft.com/oss/kubernetes-csi/csi-snapshotter         |
 | `snapshot.image.csiSnapshotter.tag`               | csi-snapshotter docker image tag                           | v2.0.1                                                       |

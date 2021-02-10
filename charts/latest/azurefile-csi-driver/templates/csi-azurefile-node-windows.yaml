@@ -83,7 +83,7 @@ spec:
         - name: azurefile
           image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
           args:
-            - "--v=5"
+            - "--v={{ .Values.node.logLevel }}"
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
             - "--metrics-address=0.0.0.0:{{ .Values.node.metricsPort }}"
