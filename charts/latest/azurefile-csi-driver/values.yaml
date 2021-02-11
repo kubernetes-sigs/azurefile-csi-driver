@@ -34,9 +34,11 @@ controller:
   replicas: 2
   metricsPort: 29614
   runOnMaster: false
+  logLevel: 5
 
 node:
   metricsPort: 29615
+  logLevel: 5
 
 snapshot:
   enabled: false

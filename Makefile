@@ -28,7 +28,7 @@ IMAGE_TAG ?= $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
 IMAGE_TAG_LATEST = $(REGISTRY)/$(IMAGE_NAME):latest
 BUILD_DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS ?= "-X ${PKG}/pkg/azurefile.driverVersion=${IMAGE_VERSION} -X ${PKG}/pkg/azurefile.gitCommit=${GIT_COMMIT} -X ${PKG}/pkg/azurefile.buildDate=${BUILD_DATE} -s -w -extldflags '-static'"
-E2E_HELM_OPTIONS ?= --set image.azurefile.repository=$(REGISTRY)/$(IMAGE_NAME) --set image.azurefile.tag=$(IMAGE_VERSION)
+E2E_HELM_OPTIONS ?= --set image.azurefile.repository=$(REGISTRY)/$(IMAGE_NAME) --set image.azurefile.tag=$(IMAGE_VERSION) --set controller.logLevel=8 --set node.logLevel=8
 GINKGO_FLAGS = -ginkgo.v
 GO111MODULE = on
 GOPATH ?= $(shell go env GOPATH)
