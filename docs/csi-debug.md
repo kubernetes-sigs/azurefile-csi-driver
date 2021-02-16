@@ -42,6 +42,9 @@ $User = "AZURE\accountname"
 $PWord = ConvertTo-SecureString -String "xxx" -AsPlainText -Force
 $Credential = New-Object –TypeName System.Management.Automation.PSCredential –ArgumentList $User, $Pword
 New-SmbGlobalMapping -LocalPath x: -RemotePath \\accountname.file.core.windows.net\sharename -Credential $Credential
+Get-SmbGlobalMapping
+cd x:
+dir
 ```
 
  - NFSv4
