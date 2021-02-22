@@ -20,9 +20,11 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2019-06-01/network"
 	"net/http"
 	"net/url"
 	"reflect"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/subnetclient/mocksubnetclient"
 	"strings"
 	"testing"
 
@@ -160,6 +162,174 @@ func TestCreateVolume(t *testing.T) {
 					})
 
 				expectedErr := status.Error(codes.InvalidArgument, "CreateVolume Volume capabilities not valid: driver only supports mount access type volume capability")
+				_, err := d.CreateVolume(ctx, req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "Volume lock already present",
+			testFunc: func(t *testing.T) {
+				req := &csi.CreateVolumeRequest{
+					Name:          "random-vol-name-vol-cap-invalid",
+					CapacityRange: stdCapRange,
+					VolumeCapabilities: []*csi.VolumeCapability{
+						{
+							AccessType: &csi.VolumeCapability_Block{
+								Block: nil,
+							},
+							AccessMode: &csi.VolumeCapability_AccessMode{
+								Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+							},
+						},
+					},
+					Parameters: nil,
+				}
+
+				ctx := context.Background()
+				d := NewFakeDriver()
+				locks := newVolumeLocks()
+				locks.locks.Insert(req.GetName())
+				d.volumeLocks = locks
+
+				d.AddControllerServiceCapabilities(
+					[]csi.ControllerServiceCapability_RPC_Type{
+						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					})
+
+				expectedErr := status.Error(codes.Aborted, "An operation with the given Volume ID random-vol-name-vol-cap-invalid already exists")
+				_, err := d.CreateVolume(ctx, req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "Invalid fsType",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{
+					fsTypeField: "test_fs",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:          "random-vol-name-vol-cap-invalid",
+					CapacityRange: stdCapRange,
+					VolumeCapabilities: []*csi.VolumeCapability{
+						{
+							AccessType: &csi.VolumeCapability_Block{
+								Block: nil,
+							},
+							AccessMode: &csi.VolumeCapability_AccessMode{
+								Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+							},
+						},
+					},
+					Parameters: allParam,
+				}
+
+				ctx := context.Background()
+				d := NewFakeDriver()
+
+				d.AddControllerServiceCapabilities(
+					[]csi.ControllerServiceCapability_RPC_Type{
+						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					})
+
+				expectedErr := status.Errorf(codes.InvalidArgument, "fsType(test_fs) is not supported, supported fsType list: [cifs smb nfs ext4 ext3 ext2 xfs]")
+				_, err := d.CreateVolume(ctx, req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "Invalid protocol",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{
+					protocolField: "test_protocol",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:          "random-vol-name-vol-cap-invalid",
+					CapacityRange: stdCapRange,
+					VolumeCapabilities: []*csi.VolumeCapability{
+						{
+							AccessType: &csi.VolumeCapability_Block{
+								Block: nil,
+							},
+							AccessMode: &csi.VolumeCapability_AccessMode{
+								Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+							},
+						},
+					},
+					Parameters: allParam,
+				}
+
+				ctx := context.Background()
+				d := NewFakeDriver()
+
+				d.AddControllerServiceCapabilities(
+					[]csi.ControllerServiceCapability_RPC_Type{
+						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					})
+
+				expectedErr := status.Errorf(codes.InvalidArgument, "protocol(test_protocol) is not supported, supported protocol list: [smb nfs]")
+				_, err := d.CreateVolume(ctx, req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "Failed to update subnet service endpoints",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{
+					protocolField: "nfs",
+				}
+
+				fakeCloud := &azure.Cloud{
+					Config: azure.Config{
+						ResourceGroup: "rg",
+						Location:      "loc",
+						VnetName:      "fake-vnet",
+						SubnetName:    "fake-subnet",
+					},
+				}
+				retErr := retry.NewError(false, fmt.Errorf("the subnet does not exist"))
+
+				req := &csi.CreateVolumeRequest{
+					Name:          "random-vol-name-vol-cap-invalid",
+					CapacityRange: stdCapRange,
+					VolumeCapabilities: []*csi.VolumeCapability{
+						{
+							AccessType: &csi.VolumeCapability_Block{
+								Block: nil,
+							},
+							AccessMode: &csi.VolumeCapability_AccessMode{
+								Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+							},
+						},
+					},
+					Parameters: allParam,
+				}
+				ctx := context.Background()
+				d := NewFakeDriver()
+
+				d.cloud = fakeCloud
+				ctrl := gomock.NewController(t)
+				defer ctrl.Finish()
+				mockSubnetClient := mocksubnetclient.NewMockInterface(ctrl)
+				fakeCloud.SubnetsClient = mockSubnetClient
+
+				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(network.Subnet{}, retErr).Times(1)
+
+				d.AddControllerServiceCapabilities(
+					[]csi.ControllerServiceCapability_RPC_Type{
+						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					})
+
+				expectedErr := status.Errorf(codes.Internal, "failed to update the service endpoints: failed to get the subnet fake-subnet under vnet fake-vnet: &{false 0 0001-01-01 00:00:00 +0000 UTC the subnet does not exist}")
 				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
