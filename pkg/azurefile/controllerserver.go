@@ -147,6 +147,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Errorf(codes.InvalidArgument, "protocol(%s) is not supported, supported protocol list: %v", protocol, supportedProtocolList)
 	}
 
+	if protocol == nfs && fsType != "" && fsType != nfs {
+		return nil, status.Errorf(codes.InvalidArgument, "fsType(%s) is not supported with protocol(%s)", fsType, protocol)
+	}
+
 	enableHTTPSTrafficOnly := true
 	shareProtocol := storage.SMB
 	var vnetResourceIDs []string
