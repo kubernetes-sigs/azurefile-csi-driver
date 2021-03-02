@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 	azureUtils "sigs.k8s.io/azurefile-csi-driver/test/utils/azure"
 	"sigs.k8s.io/azurefile-csi-driver/test/utils/credentials"
-	"sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
 )
 
 // DynamicallyProvisionedAccountWithTags will provision required StorageClass(es), PVC(s) and Pod(s)

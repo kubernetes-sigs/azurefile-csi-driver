@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package azure
+package provider
 
 import (
 	"fmt"
@@ -92,5 +92,13 @@ func GetTestCloud(ctrl *gomock.Controller) (az *Cloud) {
 	az.controllerCommon = common
 	az.ManagedDiskController = &ManagedDiskController{common: common}
 
+	return az
+}
+
+// GetTestCloudWithExtendedLocation returns a fake azure cloud for unit tests in Azure related CSI drivers with extended location.
+func GetTestCloudWithExtendedLocation(ctrl *gomock.Controller) (az *Cloud) {
+	az = GetTestCloud(ctrl)
+	az.Config.ExtendedLocationName = "microsoftlosangeles1"
+	az.Config.ExtendedLocationType = "EdgeZone"
 	return az
 }
