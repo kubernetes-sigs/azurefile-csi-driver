@@ -1,10 +1,10 @@
 # github.com/Azure/azure-pipeline-go v0.2.1
 github.com/Azure/azure-pipeline-go/pipeline
-# github.com/Azure/azure-sdk-for-go v49.1.0+incompatible
+# github.com/Azure/azure-sdk-for-go v51.2.0+incompatible
 ## explicit
 github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2020-06-30/compute
 github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2020-04-01/containerservice
-github.com/Azure/azure-sdk-for-go/services/network/mgmt/2019-06-01/network
+github.com/Azure/azure-sdk-for-go/services/network/mgmt/2020-07-01/network
 github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2017-05-10/resources
 github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources
 github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2019-06-01/storage
@@ -15,11 +15,11 @@ github.com/Azure/azure-sdk-for-go/version
 github.com/Azure/azure-storage-file-go/azfile
 # github.com/Azure/go-autorest v14.2.0+incompatible
 github.com/Azure/go-autorest
-# github.com/Azure/go-autorest/autorest v0.11.1
+# github.com/Azure/go-autorest/autorest v0.11.17
 ## explicit
 github.com/Azure/go-autorest/autorest
 github.com/Azure/go-autorest/autorest/azure
-# github.com/Azure/go-autorest/autorest/adal v0.9.5
+# github.com/Azure/go-autorest/autorest/adal v0.9.10
 ## explicit
 github.com/Azure/go-autorest/autorest/adal
 # github.com/Azure/go-autorest/autorest/date v0.3.0
@@ -874,7 +874,7 @@ k8s.io/utils/trace
 # sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.14
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client
-# sigs.k8s.io/cloud-provider-azure v0.0.0 => sigs.k8s.io/cloud-provider-azure v0.6.1-0.20210126144046-5fd383b6667a
+# sigs.k8s.io/cloud-provider-azure v0.0.0 => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20210302121119-c391db0d30c5
 ## explicit
 sigs.k8s.io/cloud-provider-azure/pkg/auth
 sigs.k8s.io/cloud-provider-azure/pkg/azureclients
@@ -950,5 +950,5 @@ sigs.k8s.io/yaml
 # k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.20.0
 # k8s.io/sample-controller => k8s.io/sample-controller v0.20.0
 # sigs.k8s.io/azurefile-csi-driver => ./
-# sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.6.1-0.20210126144046-5fd383b6667a
+# sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20210302121119-c391db0d30c5
 # github.com/niemeyer/pretty => github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e

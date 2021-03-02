@@ -14,9 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package azure
+package provider
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -98,6 +99,8 @@ const (
 
 	// LabelFailureDomainBetaRegion failure-domain region label
 	LabelFailureDomainBetaRegion = "failure-domain.beta.kubernetes.io/region"
+
+	falseLabel = "false"
 )
 
 const (
@@ -133,6 +136,12 @@ type Config struct {
 	ResourceGroup string `json:"resourceGroup,omitempty" yaml:"resourceGroup,omitempty"`
 	// The location of the resource group that the cluster is deployed in
 	Location string `json:"location,omitempty" yaml:"location,omitempty"`
+	// The name of site where the cluster will be deployed to that is more granular than the region specified by the "location" field.
+	// Currently only public ip and load balancer support this.
+	ExtendedLocationName string `json:"extendedLocationName,omitempty" yaml:"extendedLocationName,omitempty"`
+	// The type of site that is being targeted.
+	// Currently only public ip and load balancer support this.
+	ExtendedLocationType string `json:"extendedLocationType,omitempty" yaml:"extendedLocationType,omitempty"`
 	// The name of the VNet that the cluster is deployed in
 	VnetName string `json:"vnetName,omitempty" yaml:"vnetName,omitempty"`
 	// The name of the resource group that the Vnet is deployed in
@@ -230,10 +239,20 @@ type Config struct {
 	// DisableAvailabilitySetNodes disables VMAS nodes support when "VMType" is set to "vmss".
 	DisableAvailabilitySetNodes bool `json:"disableAvailabilitySetNodes,omitempty" yaml:"disableAvailabilitySetNodes,omitempty"`
 
+	// DisableAzureStackCloud disables AzureStackCloud support. It should be used
+	// when setting AzureAuthConfig.Cloud with "AZURESTACKCLOUD" to customize ARM endpoints
+	// while the cluster is not running on AzureStack.
+	DisableAzureStackCloud bool `json:"disableAzureStackCloud,omitempty" yaml:"disableAzureStackCloud,omitempty"`
+
 	// Tags determines what tags shall be applied to the shared resources managed by controller manager, which
 	// includes load balancer, security group and route table. The supported format is `a=b,c=d,...`. After updated
 	// this config, the old tags would be replaced by the new ones.
 	Tags string `json:"tags,omitempty" yaml:"tags,omitempty"`
+}
+
+// HasExtendedLocation returns true if extendedlocation prop are specified.
+func (config *Config) HasExtendedLocation() bool {
+	return config.ExtendedLocationName != "" && config.ExtendedLocationType != ""
 }
 
 var (
@@ -400,11 +419,11 @@ func (az *Cloud) InitializeCloudFromConfig(config *Config, fromSecret bool) erro
 	}
 
 	servicePrincipalToken, err := auth.GetServicePrincipalToken(&config.AzureAuthConfig, env)
-	if err == auth.ErrorNoAuth {
+	if errors.Is(err, auth.ErrorNoAuth) {
 		// Only controller-manager would lazy-initialize from secret, and credentials are required for such case.
 		if fromSecret {
 			err := fmt.Errorf("no credentials provided for Azure cloud provider")
-			klog.Fatalf("%v", err)
+			klog.Fatal(err)
 			return err
 		}
 
@@ -629,6 +648,7 @@ func (az *Cloud) getAzureClientConfig(servicePrincipalToken *adal.ServicePrincip
 		ResourceManagerEndpoint: az.Environment.ResourceManagerEndpoint,
 		Authorizer:              autorest.NewBearerAuthorizer(servicePrincipalToken),
 		Backoff:                 &retry.Backoff{Steps: 1},
+		DisableAzureStackCloud:  az.Config.DisableAzureStackCloud,
 	}
 
 	if az.Config.CloudProviderBackoff {
@@ -798,7 +818,7 @@ func (az *Cloud) updateNodeCaches(prevNode, newNode *v1.Node) {
 
 		// Remove from unmanagedNodes cache.
 		managed, ok := prevNode.ObjectMeta.Labels[managedByAzureLabel]
-		if ok && managed == "false" {
+		if ok && managed == falseLabel {
 			az.unmanagedNodes.Delete(prevNode.ObjectMeta.Name)
 		}
 	}
@@ -821,7 +841,7 @@ func (az *Cloud) updateNodeCaches(prevNode, newNode *v1.Node) {
 
 		// Add to unmanagedNodes cache.
 		managed, ok := newNode.ObjectMeta.Labels[managedByAzureLabel]
-		if ok && managed == "false" {
+		if ok && managed == falseLabel {
 			az.unmanagedNodes.Insert(newNode.ObjectMeta.Name)
 		}
 	}
@@ -919,9 +939,14 @@ func (az *Cloud) ShouldNodeExcludedFromLoadBalancer(node *v1.Node) bool {
 		return true
 	}
 
-	if managed, ok := labels[managedByAzureLabel]; ok && managed == "false" {
+	if managed, ok := labels[managedByAzureLabel]; ok && managed == falseLabel {
 		return true
 	}
 
 	return false
+}
+
+// AliasRangesByProviderID to be implemented
+func (az *Cloud) AliasRangesByProviderID(id string) ([]string, error) {
+	return nil, nil
 }

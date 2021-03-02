@@ -23,14 +23,14 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2019-06-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2020-07-01/network"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
-	"sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
 )
 
 var (

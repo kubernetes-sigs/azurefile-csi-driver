@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package azure
+package provider
 
 import (
 	"context"
@@ -68,7 +68,7 @@ func (az *Cloud) GetZone(ctx context.Context) (cloudprovider.Zone, error) {
 		if metadata.Compute.Zone != "" {
 			zoneID, err := strconv.Atoi(metadata.Compute.Zone)
 			if err != nil {
-				return cloudprovider.Zone{}, fmt.Errorf("failed to parse zone ID %q: %v", metadata.Compute.Zone, err)
+				return cloudprovider.Zone{}, fmt.Errorf("failed to parse zone ID %q: %w", metadata.Compute.Zone, err)
 			}
 			zone = az.makeZone(location, zoneID)
 		} else {

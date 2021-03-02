@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package azure
+package provider
 
 import (
 	"fmt"
@@ -96,7 +96,7 @@ func (az *Cloud) getStorageAccounts(accountOptions *AccountOptions) ([]accountWi
 			if acct.Tags != nil {
 				// skip account with SkipMatchingTag tag
 				if _, ok := acct.Tags[SkipMatchingTag]; ok {
-					klog.V(2).Infof("found %s tag for account %s, skip matching", SkipMatchingTag, acct.Name)
+					klog.V(2).Infof("found %s tag for account %s, skip matching", SkipMatchingTag, *acct.Name)
 					continue
 				}
 			}
@@ -152,7 +152,7 @@ func (az *Cloud) EnsureStorageAccount(accountOptions *AccountOptions, genAccount
 			// find a storage account that matches accountType
 			accounts, err := az.getStorageAccounts(accountOptions)
 			if err != nil {
-				return "", "", fmt.Errorf("could not list storage accounts for account type %s: %v", accountType, err)
+				return "", "", fmt.Errorf("could not list storage accounts for account type %s: %w", accountType, err)
 			}
 
 			if len(accounts) > 0 {
@@ -220,7 +220,7 @@ func (az *Cloud) EnsureStorageAccount(accountOptions *AccountOptions, genAccount
 			defer cancel()
 			rerr := az.StorageAccountClient.Create(ctx, resourceGroup, accountName, cp)
 			if rerr != nil {
-				return "", "", fmt.Errorf(fmt.Sprintf("Failed to create storage account %s, error: %v", accountName, rerr))
+				return "", "", fmt.Errorf("failed to create storage account %s, error: %v", accountName, rerr)
 			}
 		}
 	}
@@ -228,7 +228,7 @@ func (az *Cloud) EnsureStorageAccount(accountOptions *AccountOptions, genAccount
 	// find the access key with this account
 	accountKey, err := az.GetStorageAccesskey(accountName, resourceGroup)
 	if err != nil {
-		return "", "", fmt.Errorf("could not get storage key for storage account %s: %v", accountName, err)
+		return "", "", fmt.Errorf("could not get storage key for storage account %s: %w", accountName, err)
 	}
 
 	return accountName, accountKey, nil
