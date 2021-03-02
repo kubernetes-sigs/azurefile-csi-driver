@@ -105,11 +105,12 @@ const (
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
 	// this is a workaround fix for 429 throttling issue, will update cloud provider for better fix later
-	tooManyRequests    = "TooManyRequests"
-	shareNotFound      = "The specified share does not exist"
-	shareBeingDeleted  = "The specified share is being deleted"
-	clientThrottled    = "client throttled"
-	accountLimitExceed = "TotalSharesProvisionedCapacityExceedsAccountLimit"
+	tooManyRequests        = "TooManyRequests"
+	shareNotFound          = "The specified share does not exist"
+	shareBeingDeleted      = "The specified share is being deleted"
+	clientThrottled        = "client throttled"
+	accountLimitExceed     = "TotalSharesProvisionedCapacityExceedsAccountLimit"
+	throttlingSleepSeconds = 16
 
 	fileShareAccountNamePrefix = "f"
 )
