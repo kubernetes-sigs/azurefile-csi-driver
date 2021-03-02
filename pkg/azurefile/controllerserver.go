@@ -224,24 +224,29 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	var accountKey string
 	accountName := account
 	if len(req.GetSecrets()) == 0 && accountName == "" {
-		lockKey := sku + accountKind + resourceGroup + location
-		d.volLockMap.LockEntry(lockKey)
-		err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
-			var retErr error
-			accountName, accountKey, retErr = d.cloud.EnsureStorageAccount(accountOptions, fileShareAccountNamePrefix)
-			if isRetriableError(retErr) {
-				klog.Warningf("EnsureStorageAccount(%s) failed with error(%v), waiting for retrying", account, retErr)
-				if strings.Contains(strings.ToLower(retErr.Error()), strings.ToLower(tooManyRequests)) {
-					klog.Warningf("sleep %d more seconds, waiting for throttling end", throttlingSleepSeconds)
-					time.Sleep(throttlingSleepSeconds * time.Second)
+		// get accountName from cache(volumeMap) first, to make sure CreateVolume is idemponent
+		if v, ok := d.volumeMap.Load(volName); ok {
+			accountName = v.(string)
+		} else {
+			lockKey := sku + accountKind + resourceGroup + location
+			d.volLockMap.LockEntry(lockKey)
+			err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
+				var retErr error
+				accountName, accountKey, retErr = d.cloud.EnsureStorageAccount(accountOptions, fileShareAccountNamePrefix)
+				if isRetriableError(retErr) {
+					klog.Warningf("EnsureStorageAccount(%s) failed with error(%v), waiting for retrying", account, retErr)
+					if strings.Contains(strings.ToLower(retErr.Error()), strings.ToLower(tooManyRequests)) {
+						klog.Warningf("sleep %d more seconds, waiting for account list throttling complete", throttlingSleepSeconds)
+						time.Sleep(throttlingSleepSeconds * time.Second)
+					}
+					return false, nil
 				}
-				return false, nil
+				return true, retErr
+			})
+			d.volLockMap.UnlockEntry(lockKey)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "failed to ensure storage account: %v", err)
 			}
-			return true, retErr
-		})
-		d.volLockMap.UnlockEntry(lockKey)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to ensure storage account: %v", err)
 		}
 	}
 
@@ -268,6 +273,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		err := d.CreateFileShare(accountOptions, shareOptions, req.GetSecrets())
 		if isRetriableError(err) {
 			klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", validFileShareName, account, err)
+			if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tooManyRequests)) {
+				klog.Warningf("sleep %d more seconds, waiting for file creation throttling complete", throttlingSleepSeconds)
+				time.Sleep(throttlingSleepSeconds * time.Second)
+			}
 			return false, nil
 		}
 		return true, err
@@ -328,6 +337,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
+	d.volumeMap.Store(volName, accountName)
 	isOperationSucceeded = true
 	volumeID := fmt.Sprintf(volumeIDTemplate, resourceGroup, accountName, validFileShareName, diskName)
 	return &csi.CreateVolumeResponse{
