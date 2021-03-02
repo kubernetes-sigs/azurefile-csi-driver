@@ -14,15 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package azure
+package provider
 
 import (
+	"errors"
 	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2020-06-30/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2019-06-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2020-07-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 
 	v1 "k8s.io/api/core/v1"
@@ -79,7 +80,7 @@ func (az *Cloud) GetVirtualMachineWithRetry(name types.NodeName, crt azcache.Azu
 	var retryErr error
 	err := wait.ExponentialBackoff(az.RequestBackoff(), func() (bool, error) {
 		machine, retryErr = az.getVirtualMachine(name, crt)
-		if retryErr == cloudprovider.InstanceNotFound {
+		if errors.Is(retryErr, cloudprovider.InstanceNotFound) {
 			return true, cloudprovider.InstanceNotFound
 		}
 		if retryErr != nil {
@@ -89,7 +90,7 @@ func (az *Cloud) GetVirtualMachineWithRetry(name types.NodeName, crt azcache.Azu
 		klog.V(2).Infof("GetVirtualMachineWithRetry(%s): backoff success", name)
 		return true, nil
 	})
-	if err == wait.ErrWaitTimeout {
+	if errors.Is(err, wait.ErrWaitTimeout) {
 		err = retryErr
 	}
 	return machine, err
@@ -122,7 +123,7 @@ func (az *Cloud) getPrivateIPsForMachineWithRetry(nodeName types.NodeName) ([]st
 		privateIPs, retryErr = az.VMSet.GetPrivateIPsByNodeName(string(nodeName))
 		if retryErr != nil {
 			// won't retry since the instance doesn't exist on Azure.
-			if retryErr == cloudprovider.InstanceNotFound {
+			if errors.Is(retryErr, cloudprovider.InstanceNotFound) {
 				return true, retryErr
 			}
 			klog.Errorf("GetPrivateIPsByNodeName(%s): backoff failure, will retry,err=%v", nodeName, retryErr)

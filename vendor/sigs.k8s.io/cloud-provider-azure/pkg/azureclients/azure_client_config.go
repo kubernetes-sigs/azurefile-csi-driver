@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clients
+package azureclients
 
 import (
 	"github.com/Azure/go-autorest/autorest"
@@ -33,6 +33,7 @@ type ClientConfig struct {
 	RateLimitConfig         *RateLimitConfig
 	Backoff                 *retry.Backoff
 	UserAgent               string
+	DisableAzureStackCloud  bool
 }
 
 // WithRateLimiter returns a new ClientConfig with rateLimitConfig set.

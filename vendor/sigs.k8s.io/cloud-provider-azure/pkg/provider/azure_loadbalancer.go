@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package azure
+package provider
 
 import (
 	"context"
@@ -25,7 +25,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2019-06-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2020-07-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 
 	v1 "k8s.io/api/core/v1"
@@ -129,6 +129,8 @@ const (
 	serviceUsingDNSKey = "kubernetes-dns-label-service"
 
 	defaultLoadBalancerSourceRanges = "0.0.0.0/0"
+
+	trueAnnotationValue = "true"
 )
 
 // GetLoadBalancer returns whether the specified load balancer and its components exist, and
@@ -550,6 +552,12 @@ func (az *Cloud) getServiceLoadBalancer(service *v1.Service, clusterName string,
 				Name: network.LoadBalancerSkuNameStandard,
 			}
 		}
+		if az.HasExtendedLocation() {
+			defaultLB.ExtendedLocation = &network.ExtendedLocation{
+				Name: &az.ExtendedLocationName,
+				Type: &az.ExtendedLocationType,
+			}
+		}
 	}
 
 	return defaultLB, nil, false, nil
@@ -592,6 +600,12 @@ func (az *Cloud) selectLoadBalancer(clusterName string, service *v1.Service, exi
 				Location:                     &az.Location,
 				Sku:                          &network.LoadBalancerSku{Name: loadBalancerSKU},
 				LoadBalancerPropertiesFormat: &network.LoadBalancerPropertiesFormat{},
+			}
+			if az.HasExtendedLocation() {
+				selectedLB.ExtendedLocation = &network.ExtendedLocation{
+					Name: &az.ExtendedLocationName,
+					Type: &az.ExtendedLocationType,
+				}
 			}
 
 			return selectedLB, false, nil
@@ -637,7 +651,7 @@ func (az *Cloud) getServiceLoadBalancerStatus(service *v1.Service, lb *network.L
 	for _, ipConfiguration := range *lb.FrontendIPConfigurations {
 		owns, isPrimaryService, err := az.serviceOwnsFrontendIP(ipConfiguration, service)
 		if err != nil {
-			return nil, nil, fmt.Errorf("get(%s): lb(%s) - failed to filter frontend IP configs with error: %v", serviceName, to.String(lb.Name), err)
+			return nil, nil, fmt.Errorf("get(%s): lb(%s) - failed to filter frontend IP configs with error: %w", serviceName, to.String(lb.Name), err)
 		}
 		if owns {
 			klog.V(2).Infof("get(%s): lb(%s) - found frontend IP config, primary service: %v", serviceName, to.String(lb.Name), isPrimaryService)
@@ -725,12 +739,12 @@ func flipServiceInternalAnnotation(service *v1.Service) *v1.Service {
 	if copyService.Annotations == nil {
 		copyService.Annotations = map[string]string{}
 	}
-	if v, ok := copyService.Annotations[ServiceAnnotationLoadBalancerInternal]; ok && v == "true" {
+	if v, ok := copyService.Annotations[ServiceAnnotationLoadBalancerInternal]; ok && v == trueAnnotationValue {
 		// If it is internal now, we make it external by remove the annotation
 		delete(copyService.Annotations, ServiceAnnotationLoadBalancerInternal)
 	} else {
 		// If it is external now, we make it internal
-		copyService.Annotations[ServiceAnnotationLoadBalancerInternal] = "true"
+		copyService.Annotations[ServiceAnnotationLoadBalancerInternal] = trueAnnotationValue
 	}
 	return copyService
 }
@@ -823,6 +837,12 @@ func (az *Cloud) ensurePublicIPExists(service *v1.Service, pipName string, domai
 		}
 		pip.Name = to.StringPtr(pipName)
 		pip.Location = to.StringPtr(az.Location)
+		if az.HasExtendedLocation() {
+			pip.ExtendedLocation = &network.ExtendedLocation{
+				Name: &az.ExtendedLocationName,
+				Type: &az.ExtendedLocationType,
+			}
+		}
 		pip.PublicIPAddressPropertiesFormat = &network.PublicIPAddressPropertiesFormat{
 			PublicIPAllocationMethod: network.Static,
 			IPTags:                   getServiceIPTagRequestForPublicIP(service).IPTags,
@@ -1011,7 +1031,7 @@ func getIdleTimeout(s *v1.Service) (*int32, error) {
 	errInvalidTimeout := fmt.Errorf("idle timeout value must be a whole number representing minutes between %d and %d", min, max)
 	to, err := strconv.Atoi(val)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing idle timeout value: %v: %v", err, errInvalidTimeout)
+		return nil, fmt.Errorf("error parsing idle timeout value: %w: %v", err, errInvalidTimeout)
 	}
 	to32 := int32(to)
 
@@ -1814,7 +1834,7 @@ func (az *Cloud) reconcileLoadBalancerRule(
 
 		if requiresInternalLoadBalancer(service) &&
 			strings.EqualFold(az.LoadBalancerSku, loadBalancerSkuStandard) &&
-			strings.EqualFold(service.Annotations[ServiceAnnotationLoadBalancerEnableHighAvailabilityPorts], "true") {
+			strings.EqualFold(service.Annotations[ServiceAnnotationLoadBalancerEnableHighAvailabilityPorts], trueAnnotationValue) {
 			expectedRule.FrontendPort = to.Int32Ptr(0)
 			expectedRule.BackendPort = to.Int32Ptr(0)
 			expectedRule.Protocol = network.TransportProtocolAll
@@ -1916,7 +1936,7 @@ func (az *Cloud) reconcileSecurityGroup(clusterName string, service *v1.Service,
 
 		shouldAddDenyRule := false
 		if len(sourceRanges) > 0 && !servicehelpers.IsAllowAll(sourceRanges) {
-			if v, ok := service.Annotations[ServiceAnnotationDenyAllExceptLoadBalancerSourceRanges]; ok && strings.EqualFold(v, "true") {
+			if v, ok := service.Annotations[ServiceAnnotationDenyAllExceptLoadBalancerSourceRanges]; ok && strings.EqualFold(v, trueAnnotationValue) {
 				shouldAddDenyRule = true
 			}
 		}
@@ -2603,7 +2623,7 @@ func (az *Cloud) isBackendPoolPreConfigured(service *v1.Service) bool {
 // Check if service requires an internal load balancer.
 func requiresInternalLoadBalancer(service *v1.Service) bool {
 	if l, found := service.Annotations[ServiceAnnotationLoadBalancerInternal]; found {
-		return l == "true"
+		return l == trueAnnotationValue
 	}
 
 	return false
@@ -2636,7 +2656,7 @@ func (az *Cloud) getServiceLoadBalancerMode(service *v1.Service) (bool, bool, st
 
 func useSharedSecurityRule(service *v1.Service) bool {
 	if l, ok := service.Annotations[ServiceAnnotationSharedSecurityRule]; ok {
-		return l == "true"
+		return l == trueAnnotationValue
 	}
 
 	return false
