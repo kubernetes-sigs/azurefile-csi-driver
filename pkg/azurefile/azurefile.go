@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Azure/azure-storage-file-go/azfile"
@@ -133,9 +134,11 @@ type Driver struct {
 	volLockMap *lockMap
 	// only for nfs feature
 	subnetLockMap *lockMap
-	// A map storing all volumes with ongoing operations so that additional operations
+	// a map storing all volumes with ongoing operations so that additional operations
 	// for that same volume (as defined by VolumeID) return an Aborted error
 	volumeLocks *volumeLocks
+	// a map storing all created volumes by this driver <volumeName, accountName>
+	volumeMap sync.Map
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
