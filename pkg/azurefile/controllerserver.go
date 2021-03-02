@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	volumehelper "sigs.k8s.io/azurefile-csi-driver/pkg/util"
 
@@ -229,7 +230,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			var retErr error
 			accountName, accountKey, retErr = d.cloud.EnsureStorageAccount(accountOptions, fileShareAccountNamePrefix)
 			if isRetriableError(retErr) {
-				klog.Warningf("EnsureStorageAccount(%s) failed with error(%v), waiting for retring", account, retErr)
+				klog.Warningf("EnsureStorageAccount(%s) failed with error(%v), waiting for retrying", account, retErr)
+				if strings.Contains(strings.ToLower(retErr.Error()), strings.ToLower(tooManyRequests)) {
+					klog.Warningf("sleep %d more seconds, waiting for throttling end", throttlingSleepSeconds)
+					time.Sleep(throttlingSleepSeconds * time.Second)
+				}
 				return false, nil
 			}
 			return true, retErr
