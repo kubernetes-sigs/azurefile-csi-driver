@@ -222,10 +222,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	var accountKey string
+	var accountFoundInCache bool
 	accountName := account
 	if len(req.GetSecrets()) == 0 && accountName == "" {
 		// get accountName from cache(volumeMap) first, to make sure CreateVolume is idemponent
 		if v, ok := d.volumeMap.Load(volName); ok {
+			accountFoundInCache = true
 			accountName = v.(string)
 		} else {
 			lockKey := sku + accountKind + resourceGroup + location
@@ -322,7 +324,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		parameters[diskNameField] = diskName
 	}
 
-	if storeAccountKey != storeAccountKeyFalse && len(req.GetSecrets()) == 0 {
+	if storeAccountKey != storeAccountKeyFalse && len(req.GetSecrets()) == 0 && !accountFoundInCache {
 		if accountKey == "" {
 			if accountKey, err = d.GetStorageAccesskey(accountOptions, req.GetSecrets(), secretName, secretNamespace); err != nil {
 				return nil, fmt.Errorf("failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
