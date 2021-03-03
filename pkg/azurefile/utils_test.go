@@ -278,11 +278,6 @@ func TestIsRetriableError(t *testing.T) {
 			expectedBool: true,
 		},
 		{
-			desc:         "shareNotFound",
-			rpcErr:       errors.New("storage.FileSharesClient#Get: Failure responding to request: StatusCode=404 -- Original Error: autorest/azure: Service returned an error. Status=404 Code=\"ShareNotFound\" Message=\"The specified share does not exist\""),
-			expectedBool: true,
-		},
-		{
 			desc:         "shareBeingDeleted",
 			rpcErr:       errors.New("storage.FileSharesClient#Create: Failure sending request: StatusCode=409 -- Original Error: autorest/azure: Service returned an error. Status=<nil> Code=\"ShareBeingDeleted\" Message=\"The specified share is being deleted. Try operation later.\""),
 			expectedBool: true,

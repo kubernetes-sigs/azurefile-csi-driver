@@ -66,7 +66,7 @@ func TestCreateFileShare(t *testing.T) {
 				accountKey := "dW5pdHRlc3Q="
 				f := azureFileClient{}
 				actualErr := f.CreateFileShare(accountName, accountKey, nil)
-				expectedErr := fmt.Errorf("shareOptions is nil")
+				expectedErr := fmt.Errorf("shareOptions of account(%s) is nil", accountName)
 				if !reflect.DeepEqual(actualErr, expectedErr) {
 					t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
 				}

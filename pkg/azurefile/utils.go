@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -142,4 +143,29 @@ func isRetriableError(err error) bool {
 		}
 	}
 	return false
+}
+
+func sleepIfThrottled(err error, sleepSec int) {
+	if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tooManyRequests)) {
+		klog.Warningf("sleep %d more seconds, waiting for throttling complete", sleepSec)
+		time.Sleep(time.Duration(sleepSec) * time.Second)
+	}
+}
+
+func useDataPlaneAPI(volContext map[string]string) bool {
+	useDataPlaneAPI := false
+	for k, v := range volContext {
+		switch strings.ToLower(k) {
+		case useDataPlaneAPIField:
+			useDataPlaneAPI = strings.EqualFold(v, trueValue)
+		}
+	}
+	return useDataPlaneAPI
+}
+
+func createStorageAccountSecret(account, key string) map[string]string {
+	secret := make(map[string]string)
+	secret[defaultSecretAccountName] = account
+	secret[defaultSecretAccountKey] = key
+	return secret
 }
