@@ -1,6 +1,6 @@
 module sigs.k8s.io/azurefile-csi-driver
 
-go 1.15
+go 1.16
 
 require (
 	github.com/Azure/azure-sdk-for-go v51.2.0+incompatible
