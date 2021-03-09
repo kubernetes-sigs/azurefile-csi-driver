@@ -33,6 +33,7 @@ import (
 	"golang.org/x/net/context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/volume/util"
 	"k8s.io/utils/mount"
@@ -40,6 +41,7 @@ import (
 	csicommon "sigs.k8s.io/azurefile-csi-driver/pkg/csi-common"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/mounter"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
+	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
 	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
 )
@@ -74,44 +76,51 @@ const (
 	// key of snapshot name in metadata
 	snapshotNameKey = "initiator"
 
-	shareNameField           = "sharename"
-	diskNameField            = "diskname"
-	serverNameField          = "server"
-	fsTypeField              = "fstype"
-	protocolField            = "protocol"
-	tagsField                = "tags"
-	storageAccountField      = "storageaccount"
-	storageAccountTypeField  = "storageaccounttype"
-	skuNameField             = "skuname"
-	resourceGroupField       = "resourcegroup"
-	locationField            = "location"
-	secretNamespaceField     = "secretnamespace"
-	secretNameField          = "secretname"
-	createAccountField       = "createaccount"
-	storeAccountKeyField     = "storeaccountkey"
-	storeAccountKeyFalse     = "false"
-	defaultSecretAccountName = "azurestorageaccountname"
-	defaultSecretAccountKey  = "azurestorageaccountkey"
-	defaultSecretNamespace   = "default"
-	proxyMount               = "proxy-mount"
-	cifs                     = "cifs"
-	smb                      = "smb"
-	nfs                      = "nfs"
-	ext4                     = "ext4"
-	ext3                     = "ext3"
-	ext2                     = "ext2"
-	xfs                      = "xfs"
-	vhdSuffix                = ".vhd"
-	metaDataNode             = "node"
+	shareNameField                    = "sharename"
+	diskNameField                     = "diskname"
+	serverNameField                   = "server"
+	fsTypeField                       = "fstype"
+	protocolField                     = "protocol"
+	tagsField                         = "tags"
+	storageAccountField               = "storageaccount"
+	storageAccountTypeField           = "storageaccounttype"
+	skuNameField                      = "skuname"
+	resourceGroupField                = "resourcegroup"
+	locationField                     = "location"
+	secretNamespaceField              = "secretnamespace"
+	secretNameField                   = "secretname"
+	createAccountField                = "createaccount"
+	useDataPlaneAPIField              = "usedataplaneapi"
+	storeAccountKeyField              = "storeaccountkey"
+	disableDeleteRetentionPolicyField = "disabledeleteretentionpolicy"
+	falseValue                        = "false"
+	trueValue                         = "true"
+	defaultSecretAccountName          = "azurestorageaccountname"
+	defaultSecretAccountKey           = "azurestorageaccountkey"
+	defaultSecretNamespace            = "default"
+	proxyMount                        = "proxy-mount"
+	cifs                              = "cifs"
+	smb                               = "smb"
+	nfs                               = "nfs"
+	ext4                              = "ext4"
+	ext3                              = "ext3"
+	ext2                              = "ext2"
+	xfs                               = "xfs"
+	vhdSuffix                         = ".vhd"
+	metaDataNode                      = "node"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
 	// this is a workaround fix for 429 throttling issue, will update cloud provider for better fix later
-	tooManyRequests        = "TooManyRequests"
-	shareNotFound          = "The specified share does not exist"
-	shareBeingDeleted      = "The specified share is being deleted"
-	clientThrottled        = "client throttled"
-	accountLimitExceed     = "TotalSharesProvisionedCapacityExceedsAccountLimit"
-	throttlingSleepSeconds = 16
+	tooManyRequests   = "TooManyRequests"
+	shareBeingDeleted = "The specified share is being deleted"
+	clientThrottled   = "client throttled"
+	// accountLimitExceed returned by different API
+	accountLimitExceedManagementAPI = "TotalSharesProvisionedCapacityExceedsAccountLimit"
+	accountLimitExceedDataPlaneAPI  = "specified share does not exist"
+
+	// define different sleep time when hit throttling
+	accountOpThrottlingSleepSec = 16
+	fileOpThrottlingSleepSec    = 180
 
 	fileShareAccountNamePrefix = "f"
 )
@@ -121,7 +130,7 @@ var (
 	supportedProtocolList   = []string{smb, nfs}
 	supportedDiskFsTypeList = []string{ext4, ext3, ext2, xfs}
 
-	retriableErrors = []string{accountNotProvisioned, tooManyRequests, shareNotFound, shareBeingDeleted, clientThrottled}
+	retriableErrors = []string{accountNotProvisioned, tooManyRequests, shareBeingDeleted, clientThrottled}
 )
 
 // Driver implements all interfaces of CSI drivers
@@ -137,8 +146,18 @@ type Driver struct {
 	// a map storing all volumes with ongoing operations so that additional operations
 	// for that same volume (as defined by VolumeID) return an Aborted error
 	volumeLocks *volumeLocks
-	// a map storing all created volumes by this driver <volumeName, accountName>
-	volumeMap sync.Map
+	// a map storing all volumes created by this driver <volumeName, accountName>
+	volMap sync.Map
+	// a map storing all account name and keys retrieved by this driver <accountName, accountkey>
+	accountMap sync.Map
+	// a map storing all secret names created by this driver <secretCacheKey, "">
+	secretCacheMap sync.Map
+	// a map storing all volumes using data plane API <volumeID, "">, <accountName, "">
+	dataPlaneAPIVolMap sync.Map
+	// a timed cache storing acount search history (solve account list throttling issue)
+	accountSearchCache *azcache.TimedCache
+	// a timed cache storing tag removing history (solve account update throttling issue)
+	removeTagCache *azcache.TimedCache
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -151,6 +170,19 @@ func NewDriver(nodeID string) *Driver {
 	driver.volLockMap = newLockMap()
 	driver.subnetLockMap = newLockMap()
 	driver.volumeLocks = newVolumeLocks()
+	getter := func(key string) (interface{}, error) {
+		return nil, nil
+	}
+	cache, err := azcache.NewTimedcache(time.Minute, getter)
+	if err != nil {
+		klog.Fatalf("%v", err)
+	}
+	driver.accountSearchCache = cache
+	cache, err = azcache.NewTimedcache(5*time.Second, getter)
+	if err != nil {
+		klog.Fatalf("%v", err)
+	}
+	driver.removeTagCache = cache
 	return &driver
 }
 
@@ -313,11 +345,11 @@ func getStorageAccount(secrets map[string]string) (string, string, error) {
 		switch strings.ToLower(k) {
 		case "accountname":
 			accountName = v
-		case "azurestorageaccountname": // for compatibility with built-in azurefile plugin
+		case defaultSecretAccountName: // for compatibility with built-in azurefile plugin
 			accountName = v
 		case "accountkey":
 			accountKey = v
-		case "azurestorageaccountkey": // for compatibility with built-in azurefile plugin
+		case defaultSecretAccountKey: // for compatibility with built-in azurefile plugin
 			accountKey = v
 		}
 	}
@@ -469,19 +501,24 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 	}
 
 	if len(secrets) == 0 {
-		secretNamespace, ok := reqContext[secretNamespaceField]
-		if !ok {
-			secretNamespace = defaultSecretNamespace
-		}
-		secretName, ok := reqContext[secretNamespace]
-		if !ok && accountName != "" {
-			secretName = fmt.Sprintf(secretNameTemplate, accountName)
-		}
-		if secretName != "" {
-			accountKey, err = d.GetStorageAccesskeyFromSecret(secretName, secretNamespace)
-			if err != nil && d.cloud.StorageAccountClient != nil && accountName != "" {
-				klog.V(2).Infof("could not get account(%s) key from secret(%s), error: %v, use cluster identity to get account key instead", accountName, secretName, err)
-				accountKey, err = d.cloud.GetStorageAccesskey(accountName, rgName)
+		// read account key from cache first
+		if v, ok := d.accountMap.Load(accountName); ok {
+			accountKey = v.(string)
+		} else {
+			secretNamespace, ok := reqContext[secretNamespaceField]
+			if !ok {
+				secretNamespace = defaultSecretNamespace
+			}
+			secretName, ok := reqContext[secretNamespace]
+			if !ok && accountName != "" {
+				secretName = fmt.Sprintf(secretNameTemplate, accountName)
+			}
+			if secretName != "" {
+				accountKey, err = d.GetStorageAccesskeyFromSecret(secretName, secretNamespace)
+				if err != nil && d.cloud.StorageAccountClient != nil && accountName != "" {
+					klog.V(2).Infof("could not get account(%s) key from secret(%s), error: %v, use cluster identity to get account key instead", accountName, secretName, err)
+					accountKey, err = d.cloud.GetStorageAccesskey(accountName, rgName)
+				}
 			}
 		}
 	} else {
@@ -508,38 +545,103 @@ func isSupportedProtocol(protocol string) bool {
 
 // CreateFileShare creates a file share
 func (d *Driver) CreateFileShare(accountOptions *azure.AccountOptions, shareOptions *fileclient.ShareOptions, secrets map[string]string) error {
-	if len(secrets) > 0 {
-		accountName, accountKey, err := getStorageAccount(secrets)
-		if err != nil {
-			return err
+	return wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
+		var err error
+		if len(secrets) > 0 {
+			accountName, accountKey, rerr := getStorageAccount(secrets)
+			if rerr != nil {
+				return true, rerr
+			}
+			err = d.fileClient.CreateFileShare(accountName, accountKey, shareOptions)
+		} else {
+			err = d.cloud.FileClient.CreateFileShare(accountOptions.ResourceGroup, accountOptions.Name, shareOptions)
 		}
-		return d.fileClient.CreateFileShare(accountName, accountKey, shareOptions)
-	}
-	return d.cloud.FileClient.CreateFileShare(accountOptions.ResourceGroup, accountOptions.Name, shareOptions)
+		if isRetriableError(err) {
+			klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", shareOptions.Name, accountOptions.Name, err)
+			sleepIfThrottled(err, fileOpThrottlingSleepSec)
+			return false, nil
+		}
+		return true, err
+	})
 }
 
 // DeleteFileShare deletes a file share using storage account name and key
 func (d *Driver) DeleteFileShare(resourceGroup, accountName, shareName string, secrets map[string]string) error {
-	if len(secrets) > 0 {
-		accountName, accountKey, err := getStorageAccount(secrets)
-		if err != nil {
-			return err
+	return wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
+		var err error
+		if len(secrets) > 0 {
+			accountName, accountKey, rerr := getStorageAccount(secrets)
+			if rerr != nil {
+				return true, rerr
+			}
+			err = d.fileClient.deleteFileShare(accountName, accountKey, shareName)
+		} else {
+			err = d.cloud.DeleteFileShare(resourceGroup, accountName, shareName)
 		}
-		return d.fileClient.deleteFileShare(accountName, accountKey, shareName)
-	}
-	return d.cloud.DeleteFileShare(resourceGroup, accountName, shareName)
+		if isRetriableError(err) {
+			klog.Warningf("DeleteFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", shareName, accountName, err)
+			if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tooManyRequests)) {
+				klog.Warningf("switch to use data plane API instead for account %s since it's throttled", accountName)
+				d.dataPlaneAPIVolMap.Store(accountName, "")
+				return true, err
+			}
+			return false, nil
+		}
+		return true, err
+	})
 }
 
 // ResizeFileShare resizes a file share
 func (d *Driver) ResizeFileShare(resourceGroup, accountName, shareName string, sizeGiB int, secrets map[string]string) error {
-	if len(secrets) > 0 {
-		accountName, accountKey, err := getStorageAccount(secrets)
-		if err != nil {
-			return err
+	return wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
+		var err error
+		if len(secrets) > 0 {
+			accountName, accountKey, rerr := getStorageAccount(secrets)
+			if rerr != nil {
+				return true, rerr
+			}
+			err = d.fileClient.resizeFileShare(accountName, accountKey, shareName, sizeGiB)
+		} else {
+			err = d.cloud.ResizeFileShare(resourceGroup, accountName, shareName, sizeGiB)
 		}
-		return d.fileClient.resizeFileShare(accountName, accountKey, shareName, sizeGiB)
+		if isRetriableError(err) {
+			klog.Warningf("ResizeFileShare(%s) on account(%s) with new size(%d) failed with error(%v), waiting for retrying", shareName, accountName, sizeGiB, err)
+			sleepIfThrottled(err, fileOpThrottlingSleepSec)
+			return false, nil
+		}
+		return true, err
+	})
+}
+
+// RemoveStorageAccountTag remove tag from storage account
+func (d *Driver) RemoveStorageAccountTag(resourceGroup, account, key string) error {
+	// search in cache first
+	cache, err := d.removeTagCache.Get(account, azcache.CacheReadTypeDefault)
+	if err != nil {
+		return err
 	}
-	return d.cloud.ResizeFileShare(resourceGroup, accountName, shareName, sizeGiB)
+	if cache != nil {
+		klog.Infof("skip RemoveStorageAccountTag(%s) on account(%s) resourceGroup(%s) since tag already removed in a short time", key, account, resourceGroup)
+		return nil
+	}
+
+	err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
+		var err error
+		rerr := d.cloud.RemoveStorageAccountTag(resourceGroup, account, key)
+		if rerr != nil {
+			err = rerr.Error()
+		}
+		if isRetriableError(err) {
+			klog.Warningf("RemoveStorageAccountTag(%s) on account(%s) resourceGroup(%s) failed with error(%v), waiting for retrying", key, account, resourceGroup, err)
+			sleepIfThrottled(err, accountOpThrottlingSleepSec)
+			return false, nil
+		}
+		return true, err
+	})
+	if err == nil {
+		d.removeTagCache.Set(account, key)
+	}
+	return err
 }
 
 // GetStorageAccesskey get Azure storage account key from
@@ -552,17 +654,26 @@ func (d *Driver) GetStorageAccesskey(accountOptions *azure.AccountOptions, secre
 		return accountKey, err
 	}
 
+	accountName := accountOptions.Name
+	// read from cache first
+	if v, ok := d.accountMap.Load(accountName); ok {
+		return v.(string), nil
+	}
+
 	// read from k8s secret first
 	if secretName == "" {
-		secretName = fmt.Sprintf(secretNameTemplate, accountOptions.Name)
+		secretName = fmt.Sprintf(secretNameTemplate, accountName)
 	}
 	accountKey, err := d.GetStorageAccesskeyFromSecret(secretName, secretNamespace)
 	if err != nil {
 		klog.V(2).Infof("could not get account(%s) key from secret(%s), error: %v, use cluster identity to get account key instead", accountOptions.Name, secretName, err)
-		return d.cloud.GetStorageAccesskey(accountOptions.Name, accountOptions.ResourceGroup)
+		accountKey, err = d.cloud.GetStorageAccesskey(accountName, accountOptions.ResourceGroup)
 	}
 
-	return accountKey, nil
+	if err == nil && accountKey != "" {
+		d.accountMap.Store(accountName, accountKey)
+	}
+	return accountKey, err
 }
 
 // GetStorageAccesskeyFromSecret get storage account key from k8s secret

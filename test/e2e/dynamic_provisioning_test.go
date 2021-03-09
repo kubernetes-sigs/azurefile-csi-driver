@@ -643,6 +643,49 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(cs, ns)
 	})
 
+	ginkgo.It("should create a volume on demand with useDataPlaneAPI [kubernetes.io/azure-file] [file.csi.azure.com] [Windows]", func() {
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize: "10Gi",
+						MountOptions: []string{
+							"dir_mode=0777",
+							"file_mode=0777",
+							"uid=0",
+							"gid=0",
+							"mfsymlinks",
+							"cache=strict",
+							"nosharesock",
+						},
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+					},
+				},
+				IsWindows: isWindowsCluster,
+			},
+		}
+
+		scParameters := map[string]string{
+			"skuName":                      "Standard_LRS",
+			"secretNamespace":              "kube-system",
+			"useDataPlaneAPI":              "true",
+			"disableDeleteRetentionPolicy": "true",
+		}
+		if !isUsingInTreeVolumePlugin {
+			scParameters["secretName"] = "sercet-test"
+		}
+		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
+			CSIDriver:              testDriver,
+			Pods:                   pods,
+			StorageClassParameters: scParameters,
+		}
+		test.Run(cs, ns)
+	})
+
 	ginkgo.It("should create a NFS volume on demand with mount options [file.csi.azure.com] [nfs]", func() {
 		skipIfTestingInWindowsCluster()
 		skipIfUsingInTreeVolumePlugin()

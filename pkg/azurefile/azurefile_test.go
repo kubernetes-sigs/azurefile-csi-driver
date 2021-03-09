@@ -223,18 +223,18 @@ func TestGetStorageAccount(t *testing.T) {
 	}
 
 	emptyAccountNameMap := map[string]string{
-		"azurestorageaccountname": "",
-		"azurestorageaccountkey":  "testkey",
+		defaultSecretAccountName: "",
+		defaultSecretAccountKey:  "testkey",
 	}
 
 	emptyAzureAccountKeyMap := map[string]string{
-		"azurestorageaccountname": "testaccount",
-		"azurestorageaccountkey":  "",
+		defaultSecretAccountName: "testaccount",
+		defaultSecretAccountKey:  "",
 	}
 
 	emptyAzureAccountNameMap := map[string]string{
-		"azurestorageaccountname": "",
-		"azurestorageaccountkey":  "testkey",
+		defaultSecretAccountName: "",
+		defaultSecretAccountKey:  "testkey",
 	}
 
 	tests := []struct {
@@ -254,8 +254,8 @@ func TestGetStorageAccount(t *testing.T) {
 		},
 		{
 			options: map[string]string{
-				"azurestorageaccountname": "testaccount",
-				"azurestorageaccountkey":  "testkey",
+				defaultSecretAccountName: "testaccount",
+				defaultSecretAccountKey:  "testkey",
 			},
 			expected1: "testaccount",
 			expected2: "testkey",
@@ -558,8 +558,8 @@ func TestGetAccountInfo(t *testing.T) {
 	defer ctrl.Finish()
 
 	validSecret := map[string]string{
-		"azurestorageaccountname": "testaccount",
-		"azurestorageaccountkey":  "testkey",
+		defaultSecretAccountName: "testaccount",
+		defaultSecretAccountKey:  "testkey",
 	}
 	emptySecret := map[string]string{}
 	value := base64.StdEncoding.EncodeToString([]byte("acc_key"))
