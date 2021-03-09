@@ -255,6 +255,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				if err != nil {
 					return nil, status.Errorf(codes.Internal, "failed to ensure storage account: %v", err)
 				}
+				if disableDeleteRetentionPolicy {
+					if err := d.DisableDeleteRetentionPolicy(resourceGroup, accountName); err != nil {
+						return nil, fmt.Errorf("failed to disable DeleteRetentionPolicy on account(%s) resource group(%s), error: %v", accountName, resourceGroup, err)
+					}
+				}
 				d.accountSearchCache.Set(lockKey, accountName)
 				d.volMap.Store(volName, accountName)
 				if accountKey != "" {
@@ -273,12 +278,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			}
 		}
 		secret = createStorageAccountSecret(accountName, accountKey)
-		if disableDeleteRetentionPolicy {
-			klog.Infof("disable DeleteRetentionPolicy on account(%s)", accountName)
-			if err := d.fileClient.DisableDeleteRetentionPolicy(accountName, accountKey); err != nil {
-				return nil, fmt.Errorf("failed to disable DeleteRetentionPolicy on account(%s), error: %v", accountName, err)
-			}
-		}
 	}
 
 	if quota, err := d.getFileShareQuota(resourceGroup, accountName, validFileShareName, secret); err != nil {

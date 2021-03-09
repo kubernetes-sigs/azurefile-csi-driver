@@ -17,7 +17,7 @@ storeAccountKey | whether store account key to k8s secret | `true`,`false` | No 
 secretName | specify secret name to store account key | | No |
 secretNamespace | specify the namespace of secret to store account key | `default`,`kube-system`, etc | No | `default`
 useDataPlaneAPI | specify whether use [data plane API](https://github.com/Azure/azure-sdk-for-go/blob/master/storage/share.go) for file share create/delete/resize | `true`,`false` | No | `false`
-disableDeleteRetentionPolicy | specify whether disable DeleteRetentionPolicy for current storage account (only applied to `useDataPlaneAPI`) | `true`,`false` | No | `false`
+disableDeleteRetentionPolicy | specify whether disable DeleteRetentionPolicy for storage account managed by driver | `true`,`false` | No | `false`
 tags | [tags](https://docs.microsoft.com/en-us/azure/azure-resource-manager/management/tag-resources) would be created in newly created storage account | tag format: 'foo=aaa,bar=bbb' | No | ""
 --- | **Following parameters are only for [VHD disk feature](../deploy/example/disk)** | --- | --- |
 fsType | File System Type | `ext4`, `ext3`, `ext2`, `xfs` | Yes | `ext4`
