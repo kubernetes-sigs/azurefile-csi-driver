@@ -119,6 +119,8 @@ var (
 	defaultExcludeMasterFromStandardLB = true
 	// Outbound SNAT is enabled by default.
 	defaultDisableOutboundSNAT = false
+	// RouteUpdateWaitingInSeconds is 30 seconds by default.
+	defaultRouteUpdateWaitingInSeconds = 30
 )
 
 // Config holds the configuration parsed from the --cloud-config flag
@@ -243,6 +245,10 @@ type Config struct {
 	// when setting AzureAuthConfig.Cloud with "AZURESTACKCLOUD" to customize ARM endpoints
 	// while the cluster is not running on AzureStack.
 	DisableAzureStackCloud bool `json:"disableAzureStackCloud,omitempty" yaml:"disableAzureStackCloud,omitempty"`
+
+	// RouteUpdateWaitingInSeconds is the delay time for waiting route updates to take effect. This waiting delay is added
+	// because the routes are not taken effect when the async route updating operation returns success. Default is 30 seconds.
+	RouteUpdateWaitingInSeconds int `json:"routeUpdateWaitingInSeconds,omitempty" yaml:"routeUpdateWaitingInSeconds,omitempty"`
 
 	// Tags determines what tags shall be applied to the shared resources managed by controller manager, which
 	// includes load balancer, security group and route table. The supported format is `a=b,c=d,...`. After updated
@@ -379,7 +385,7 @@ func NewCloudWithoutFeatureGates(configReader io.Reader) (*Cloud, error) {
 func (az *Cloud) InitializeCloudFromConfig(config *Config, fromSecret bool) error {
 	// cloud-config not set, return nil so that it would be initialized from secret.
 	if config == nil {
-		klog.Warning("cloud-config is not provided, Azure cloud provider would be initialized from secret")
+		klog.Warning("cloud-config is not provided, Azure cloud provider will be initialized from secret")
 		return nil
 	}
 
@@ -394,6 +400,10 @@ func (az *Cloud) InitializeCloudFromConfig(config *Config, fromSecret bool) erro
 	if config.VMType == "" {
 		// default to standard vmType if not set.
 		config.VMType = vmTypeStandard
+	}
+
+	if config.RouteUpdateWaitingInSeconds <= 0 {
+		config.RouteUpdateWaitingInSeconds = defaultRouteUpdateWaitingInSeconds
 	}
 
 	if config.DisableAvailabilitySetNodes && config.VMType != vmTypeVMSS {
@@ -442,63 +452,17 @@ func (az *Cloud) InitializeCloudFromConfig(config *Config, fromSecret bool) erro
 	// Initialize rate limiting config options.
 	InitializeCloudProviderRateLimitConfig(&config.CloudProviderRateLimitConfig)
 
-	// Conditionally configure resource request backoff
-	resourceRequestBackoff := wait.Backoff{
-		Steps: 1,
-	}
-	if config.CloudProviderBackoff {
-		// Assign backoff defaults if no configuration was passed in
-		if config.CloudProviderBackoffRetries == 0 {
-			config.CloudProviderBackoffRetries = backoffRetriesDefault
-		}
-		if config.CloudProviderBackoffDuration == 0 {
-			config.CloudProviderBackoffDuration = backoffDurationDefault
-		}
-		if config.CloudProviderBackoffExponent == 0 {
-			config.CloudProviderBackoffExponent = backoffExponentDefault
-		}
+	resourceRequestBackoff := az.setCloudProviderBackoffDefaults(config)
 
-		if config.CloudProviderBackoffJitter == 0 {
-			config.CloudProviderBackoffJitter = backoffJitterDefault
-		}
-
-		resourceRequestBackoff = wait.Backoff{
-			Steps:    config.CloudProviderBackoffRetries,
-			Factor:   config.CloudProviderBackoffExponent,
-			Duration: time.Duration(config.CloudProviderBackoffDuration) * time.Second,
-			Jitter:   config.CloudProviderBackoffJitter,
-		}
-		klog.V(2).Infof("Azure cloudprovider using try backoff: retries=%d, exponent=%f, duration=%d, jitter=%f",
-			config.CloudProviderBackoffRetries,
-			config.CloudProviderBackoffExponent,
-			config.CloudProviderBackoffDuration,
-			config.CloudProviderBackoffJitter)
-	} else {
-		// CloudProviderBackoffRetries will be set to 1 by default as the requirements of Azure SDK.
-		config.CloudProviderBackoffRetries = 1
-		config.CloudProviderBackoffDuration = backoffDurationDefault
-	}
-
-	if strings.EqualFold(config.LoadBalancerSku, loadBalancerSkuStandard) {
-		// Do not add master nodes to standard LB by default.
-		if config.ExcludeMasterFromStandardLB == nil {
-			config.ExcludeMasterFromStandardLB = &defaultExcludeMasterFromStandardLB
-		}
-
-		// Enable outbound SNAT by default.
-		if config.DisableOutboundSNAT == nil {
-			config.DisableOutboundSNAT = &defaultDisableOutboundSNAT
-		}
-	} else {
-		if config.DisableOutboundSNAT != nil && *config.DisableOutboundSNAT {
-			return fmt.Errorf("disableOutboundSNAT should only set when loadBalancerSku is standard")
-		}
+	err = az.setLBDefaults(config)
+	if err != nil {
+		return err
 	}
 
 	az.Config = *config
 	az.Environment = *env
 	az.ResourceRequestBackoff = resourceRequestBackoff
-	az.metadata, err = NewInstanceMetadataService(metadataURL)
+	az.metadata, err = NewInstanceMetadataService(imdsServer)
 	if err != nil {
 		return err
 	}
@@ -510,20 +474,10 @@ func (az *Cloud) InitializeCloudFromConfig(config *Config, fromSecret bool) erro
 	}
 
 	// If uses network resources in different AAD Tenant, then prepare corresponding Service Principal Token for VM/VMSS client and network resources client
-	var multiTenantServicePrincipalToken *adal.MultiTenantServicePrincipalToken
-	var networkResourceServicePrincipalToken *adal.ServicePrincipalToken
-	if az.Config.UsesNetworkResourceInDifferentTenant() {
-		multiTenantServicePrincipalToken, err = auth.GetMultiTenantServicePrincipalToken(&az.Config.AzureAuthConfig, &az.Environment)
-		if err != nil {
-			return err
-		}
-		networkResourceServicePrincipalToken, err = auth.GetNetworkResourceServicePrincipalToken(&az.Config.AzureAuthConfig, &az.Environment)
-		if err != nil {
-			return err
-		}
+	err = az.configureMultiTenantClients(servicePrincipalToken)
+	if err != nil {
+		return err
 	}
-
-	az.configAzureClients(servicePrincipalToken, multiTenantServicePrincipalToken, networkResourceServicePrincipalToken)
 
 	if az.MaximumLoadBalancerRuleCount == 0 {
 		az.MaximumLoadBalancerRuleCount = maximumLoadBalancerRuleCount
@@ -567,6 +521,84 @@ func (az *Cloud) InitializeCloudFromConfig(config *Config, fromSecret bool) erro
 	go az.routeUpdater.run()
 
 	return nil
+}
+
+func (az *Cloud) setLBDefaults(config *Config) error {
+	if strings.EqualFold(config.LoadBalancerSku, loadBalancerSkuStandard) {
+		// Do not add master nodes to standard LB by default.
+		if config.ExcludeMasterFromStandardLB == nil {
+			config.ExcludeMasterFromStandardLB = &defaultExcludeMasterFromStandardLB
+		}
+
+		// Enable outbound SNAT by default.
+		if config.DisableOutboundSNAT == nil {
+			config.DisableOutboundSNAT = &defaultDisableOutboundSNAT
+		}
+	} else {
+		if config.DisableOutboundSNAT != nil && *config.DisableOutboundSNAT {
+			return fmt.Errorf("disableOutboundSNAT should only set when loadBalancerSku is standard")
+		}
+	}
+	return nil
+}
+
+func (az *Cloud) configureMultiTenantClients(servicePrincipalToken *adal.ServicePrincipalToken) error {
+	var err error
+	var multiTenantServicePrincipalToken *adal.MultiTenantServicePrincipalToken
+	var networkResourceServicePrincipalToken *adal.ServicePrincipalToken
+	if az.Config.UsesNetworkResourceInDifferentTenant() {
+		multiTenantServicePrincipalToken, err = auth.GetMultiTenantServicePrincipalToken(&az.Config.AzureAuthConfig, &az.Environment)
+		if err != nil {
+			return err
+		}
+		networkResourceServicePrincipalToken, err = auth.GetNetworkResourceServicePrincipalToken(&az.Config.AzureAuthConfig, &az.Environment)
+		if err != nil {
+			return err
+		}
+	}
+
+	az.configAzureClients(servicePrincipalToken, multiTenantServicePrincipalToken, networkResourceServicePrincipalToken)
+	return nil
+}
+
+func (az *Cloud) setCloudProviderBackoffDefaults(config *Config) wait.Backoff {
+	// Conditionally configure resource request backoff
+	resourceRequestBackoff := wait.Backoff{
+		Steps: 1,
+	}
+	if config.CloudProviderBackoff {
+		// Assign backoff defaults if no configuration was passed in
+		if config.CloudProviderBackoffRetries == 0 {
+			config.CloudProviderBackoffRetries = backoffRetriesDefault
+		}
+		if config.CloudProviderBackoffDuration == 0 {
+			config.CloudProviderBackoffDuration = backoffDurationDefault
+		}
+		if config.CloudProviderBackoffExponent == 0 {
+			config.CloudProviderBackoffExponent = backoffExponentDefault
+		}
+
+		if config.CloudProviderBackoffJitter == 0 {
+			config.CloudProviderBackoffJitter = backoffJitterDefault
+		}
+
+		resourceRequestBackoff = wait.Backoff{
+			Steps:    config.CloudProviderBackoffRetries,
+			Factor:   config.CloudProviderBackoffExponent,
+			Duration: time.Duration(config.CloudProviderBackoffDuration) * time.Second,
+			Jitter:   config.CloudProviderBackoffJitter,
+		}
+		klog.V(2).Infof("Azure cloudprovider using try backoff: retries=%d, exponent=%f, duration=%d, jitter=%f",
+			config.CloudProviderBackoffRetries,
+			config.CloudProviderBackoffExponent,
+			config.CloudProviderBackoffDuration,
+			config.CloudProviderBackoffJitter)
+	} else {
+		// CloudProviderBackoffRetries will be set to 1 by default as the requirements of Azure SDK.
+		config.CloudProviderBackoffRetries = 1
+		config.CloudProviderBackoffDuration = backoffDurationDefault
+	}
+	return resourceRequestBackoff
 }
 
 func (az *Cloud) configAzureClients(
