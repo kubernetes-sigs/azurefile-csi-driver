@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/storage"
 	azs "github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"k8s.io/klog/v2"
@@ -106,24 +105,6 @@ func (f *azureFileClient) resizeFileShare(accountName, accountKey, name string, 
 	}
 	klog.V(4).Infof("resize file share completed, accountName: %s, shareName: %s, sizeGiB: %d", accountName, name, sizeGiB)
 	return nil
-}
-
-// DisableDeleteRetentionPolicy disable DeleteRetentionPolicy for current storage account
-func (f *azureFileClient) DisableDeleteRetentionPolicy(accountName, accountKey string) error {
-	fileClient, err := f.getFileSvcClient(accountName, accountKey)
-	if err != nil {
-		return err
-	}
-
-	prop, err := fileClient.GetServiceProperties()
-	if err != nil {
-		return err
-	}
-	if prop == nil {
-		return fmt.Errorf("ServiceProperties of account(%s) is nil", accountName)
-	}
-	prop.DeleteRetentionPolicy = &storage.RetentionPolicy{Enabled: false}
-	return fileClient.SetServiceProperties(*prop)
 }
 
 func (f *azureFileClient) getFileSvcClient(accountName, accountKey string) (*azs.FileServiceClient, error) {
