@@ -118,6 +118,8 @@ const (
 	accountLimitExceedManagementAPI = "TotalSharesProvisionedCapacityExceedsAccountLimit"
 	accountLimitExceedDataPlaneAPI  = "specified share does not exist"
 
+	fileShareNotFound = "ErrorCode=ShareNotFound"
+
 	// define different sleep time when hit throttling
 	accountOpThrottlingSleepSec = 16
 	fileOpThrottlingSleepSec    = 180
@@ -586,6 +588,11 @@ func (d *Driver) DeleteFileShare(resourceGroup, accountName, shareName string, s
 				return true, err
 			}
 			return false, nil
+		}
+
+		if err != nil && strings.Contains(strings.ToLower(err.Error()), strings.ToLower(fileShareNotFound)) {
+			klog.Warningf("DeleteFileShare(%s) on account(%s) failed with error(%v), return as success", shareName, accountName, err)
+			return true, nil
 		}
 		return true, err
 	})
