@@ -214,15 +214,16 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	accountOptions := &azure.AccountOptions{
-		Name:                      account,
-		Type:                      sku,
-		Kind:                      accountKind,
-		ResourceGroup:             resourceGroup,
-		Location:                  location,
-		EnableHTTPSTrafficOnly:    enableHTTPSTrafficOnly,
-		Tags:                      tags,
-		VirtualNetworkResourceIDs: vnetResourceIDs,
-		CreateAccount:             createAccount,
+		Name:                                    account,
+		Type:                                    sku,
+		Kind:                                    accountKind,
+		ResourceGroup:                           resourceGroup,
+		Location:                                location,
+		EnableHTTPSTrafficOnly:                  enableHTTPSTrafficOnly,
+		Tags:                                    tags,
+		VirtualNetworkResourceIDs:               vnetResourceIDs,
+		CreateAccount:                           createAccount,
+		DisableFileServiceDeleteRetentionPolicy: disableDeleteRetentionPolicy,
 	}
 
 	var accountKey, lockKey string
@@ -254,11 +255,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				d.volLockMap.UnlockEntry(lockKey)
 				if err != nil {
 					return nil, status.Errorf(codes.Internal, "failed to ensure storage account: %v", err)
-				}
-				if disableDeleteRetentionPolicy {
-					if err := d.DisableDeleteRetentionPolicy(resourceGroup, accountName); err != nil {
-						return nil, fmt.Errorf("failed to disable DeleteRetentionPolicy on account(%s) resource group(%s), error: %v", accountName, resourceGroup, err)
-					}
 				}
 				d.accountSearchCache.Set(lockKey, accountName)
 				d.volMap.Store(volName, accountName)
