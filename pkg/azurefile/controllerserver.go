@@ -310,6 +310,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			if err := d.accountSearchCache.Delete(lockKey); err != nil {
 				return nil, err
 			}
+			// remove the volName from the volMap to stop it matching the same storage account
+			d.volMap.Delete(volName)
 			return d.CreateVolume(ctx, req)
 		}
 		return nil, fmt.Errorf("failed to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d), error: %v", validFileShareName, account, sku, resourceGroup, location, fileShareSize, err)
