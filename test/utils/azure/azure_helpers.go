@@ -34,15 +34,16 @@ import (
 )
 
 type Client struct {
-	environment      azure.Environment
-	subscriptionID   string
-	groupsClient     resources.GroupsClient
-	vmClient         compute.VirtualMachinesClient
-	nicClient        network.InterfacesClient
-	subnetsClient    network.SubnetsClient
-	vnetClient       network.VirtualNetworksClient
-	accountsClient   storage.AccountsClient
-	filesharesClient storage.FileSharesClient
+	environment         azure.Environment
+	subscriptionID      string
+	groupsClient        resources.GroupsClient
+	vmClient            compute.VirtualMachinesClient
+	nicClient           network.InterfacesClient
+	subnetsClient       network.SubnetsClient
+	vnetClient          network.VirtualNetworksClient
+	accountsClient      storage.AccountsClient
+	filesharesClient    storage.FileSharesClient
+	sshPublicKeysClient compute.SSHPublicKeysClient
 }
 
 func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret string) (*Client, error) {
@@ -67,6 +68,18 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret stri
 func (az *Client) GetAzureFilesClient() (storage.FileSharesClient, error) {
 
 	return az.filesharesClient, nil
+}
+
+func (az *Client) EnsureSSHPublicKey(ctx context.Context, subscriptionID, resourceGroupName, location, keyName string) (publicKey string, err error) {
+	_, err = az.sshPublicKeysClient.Create(ctx, resourceGroupName, keyName, compute.SSHPublicKeyResource{Location: &location})
+	if err != nil {
+		return "", err
+	}
+	result, err := az.sshPublicKeysClient.GenerateKeyPair(ctx, resourceGroupName, keyName)
+	if err != nil {
+		return "", err
+	}
+	return *result.PublicKey, nil
 }
 
 func (az *Client) EnsureResourceGroup(ctx context.Context, name, location string, managedBy *string) (resourceGroup *resources.Group, err error) {
@@ -120,6 +133,11 @@ func (az *Client) EnsureVirtualMachine(ctx context.Context, groupName, location,
 		return vm, err
 	}
 
+	publicKey, err := az.EnsureSSHPublicKey(ctx, az.subscriptionID, groupName, location, "test-key")
+	if err != nil {
+		return vm, err
+	}
+
 	future, err := az.vmClient.CreateOrUpdate(
 		ctx,
 		groupName,
@@ -142,6 +160,17 @@ func (az *Client) EnsureVirtualMachine(ctx context.Context, groupName, location,
 					ComputerName:  to.StringPtr(vmName),
 					AdminUsername: to.StringPtr("azureuser"),
 					AdminPassword: to.StringPtr("Azureuser1234"),
+					LinuxConfiguration: &compute.LinuxConfiguration{
+						DisablePasswordAuthentication: to.BoolPtr(true),
+						SSH: &compute.SSHConfiguration{
+							PublicKeys: &[]compute.SSHPublicKey{
+								{
+									Path:    to.StringPtr("/home/azureuser/.ssh/authorized_keys"),
+									KeyData: &publicKey,
+								},
+							},
+						},
+					},
 				},
 				NetworkProfile: &compute.NetworkProfile{
 					NetworkInterfaces: &[]compute.NetworkInterfaceReference{
@@ -264,15 +293,16 @@ func getOAuthConfig(env azure.Environment, subscriptionID, tenantID string) (*ad
 
 func getClient(env azure.Environment, subscriptionID, tenantID string, armSpt *adal.ServicePrincipalToken) *Client {
 	c := &Client{
-		environment:      env,
-		subscriptionID:   subscriptionID,
-		groupsClient:     resources.NewGroupsClientWithBaseURI(env.ResourceManagerEndpoint, subscriptionID),
-		vmClient:         compute.NewVirtualMachinesClient(subscriptionID),
-		nicClient:        network.NewInterfacesClient(subscriptionID),
-		subnetsClient:    network.NewSubnetsClient(subscriptionID),
-		vnetClient:       network.NewVirtualNetworksClient(subscriptionID),
-		accountsClient:   storage.NewAccountsClient(subscriptionID),
-		filesharesClient: storage.NewFileSharesClient(subscriptionID),
+		environment:         env,
+		subscriptionID:      subscriptionID,
+		groupsClient:        resources.NewGroupsClientWithBaseURI(env.ResourceManagerEndpoint, subscriptionID),
+		vmClient:            compute.NewVirtualMachinesClient(subscriptionID),
+		nicClient:           network.NewInterfacesClient(subscriptionID),
+		subnetsClient:       network.NewSubnetsClient(subscriptionID),
+		vnetClient:          network.NewVirtualNetworksClient(subscriptionID),
+		accountsClient:      storage.NewAccountsClient(subscriptionID),
+		filesharesClient:    storage.NewFileSharesClient(subscriptionID),
+		sshPublicKeysClient: compute.NewSSHPublicKeysClientWithBaseURI(env.ResourceManagerEndpoint, subscriptionID),
 	}
 
 	authorizer := autorest.NewBearerAuthorizer(armSpt)
@@ -283,6 +313,7 @@ func getClient(env azure.Environment, subscriptionID, tenantID string, armSpt *a
 	c.vnetClient.Authorizer = authorizer
 	c.accountsClient.Authorizer = authorizer
 	c.filesharesClient.Authorizer = authorizer
+	c.sshPublicKeysClient.Authorizer = authorizer
 
 	return c
 }
