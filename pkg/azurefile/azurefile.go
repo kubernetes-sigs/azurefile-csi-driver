@@ -178,7 +178,7 @@ func NewDriver(nodeID string) *Driver {
 		klog.Fatalf("%v", err)
 	}
 	driver.accountSearchCache = cache
-	cache, err = azcache.NewTimedcache(5*time.Second, getter)
+	cache, err = azcache.NewTimedcache(time.Minute, getter)
 	if err != nil {
 		klog.Fatalf("%v", err)
 	}
@@ -621,10 +621,11 @@ func (d *Driver) RemoveStorageAccountTag(resourceGroup, account, key string) err
 		return err
 	}
 	if cache != nil {
-		klog.Infof("skip RemoveStorageAccountTag(%s) on account(%s) resourceGroup(%s) since tag already removed in a short time", key, account, resourceGroup)
+		klog.Infof("skip remove tag(%s) on account(%s) resourceGroup(%s) since tag already removed in a short time", key, account, resourceGroup)
 		return nil
 	}
 
+	klog.Infof("remove tag(%s) on account(%s) resourceGroup(%s)", key, account, resourceGroup)
 	err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 		var err error
 		rerr := d.cloud.RemoveStorageAccountTag(resourceGroup, account, key)
@@ -632,7 +633,7 @@ func (d *Driver) RemoveStorageAccountTag(resourceGroup, account, key string) err
 			err = rerr.Error()
 		}
 		if isRetriableError(err) {
-			klog.Warningf("RemoveStorageAccountTag(%s) on account(%s) resourceGroup(%s) failed with error(%v), waiting for retrying", key, account, resourceGroup, err)
+			klog.Warningf("remove tag(%s) on account(%s) resourceGroup(%s) failed with error(%v), waiting for retrying", key, account, resourceGroup, err)
 			sleepIfThrottled(err, accountOpThrottlingSleepSec)
 			return false, nil
 		}
