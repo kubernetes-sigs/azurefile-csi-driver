@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2019-06-01/storage"
 	"github.com/Azure/azure-storage-file-go/azfile"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/pborman/uuid"
@@ -611,6 +612,23 @@ func (d *Driver) ResizeFileShare(resourceGroup, accountName, shareName string, s
 		}
 		return true, err
 	})
+}
+
+// DisableDeleteRetentionPolicy disable DeleteRetentionPolicy
+func (d *Driver) DisableDeleteRetentionPolicy(resourceGroup, accountName string) error {
+	prop, err := d.cloud.FileClient.GetServiceProperties(resourceGroup, accountName)
+	if err != nil {
+		return err
+	}
+	if prop.FileServicePropertiesProperties == nil {
+		return fmt.Errorf("FileServicePropertiesProperties of account(%s), resource group(%s) is nil", accountName, resourceGroup)
+	}
+
+	klog.Infof("disable DeleteRetentionPolicy on account(%s), resource group(%s)", accountName, resourceGroup)
+	disabled := false
+	prop.FileServicePropertiesProperties.ShareDeleteRetentionPolicy = &storage.DeleteRetentionPolicy{Enabled: &disabled}
+	_, err = d.cloud.FileClient.SetServiceProperties(resourceGroup, accountName, prop)
+	return err
 }
 
 // RemoveStorageAccountTag remove tag from storage account
