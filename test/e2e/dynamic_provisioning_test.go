@@ -643,7 +643,9 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(cs, ns)
 	})
 
-	ginkgo.It("should create a volume on demand with useDataPlaneAPI [kubernetes.io/azure-file] [file.csi.azure.com] [Windows]", func() {
+	ginkgo.It("should create a volume on demand with useDataPlaneAPI [file.csi.azure.com] [Windows]", func() {
+		skipIfUsingInTreeVolumePlugin()
+
 		pods := []testsuites.PodDetails{
 			{
 				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
