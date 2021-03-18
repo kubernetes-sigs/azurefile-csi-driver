@@ -134,6 +134,40 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(cs, ns)
 	})
 
+	ginkgo.It("should create a pod with volume mount subpath [file.csi.azure.com] [Windows]", func() {
+		skipIfUsingInTreeVolumePlugin()
+
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize: "10Gi",
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+					},
+				},
+				IsWindows: isWindowsCluster,
+			},
+		}
+
+		scParameters := map[string]string{
+			"skuName":         "Standard_LRS",
+			"secretNamespace": "kube-system",
+		}
+		if !isUsingInTreeVolumePlugin {
+			scParameters["secretName"] = "sercet-test"
+		}
+		test := testsuites.DynamicallyProvisionedVolumeSubpathTester{
+			CSIDriver:              testDriver,
+			Pods:                   pods,
+			StorageClassParameters: scParameters,
+		}
+		test.Run(cs, ns)
+	})
+
 	ginkgo.It("should create multiple PV objects, bind to PVCs and attach all to different pods on the same node [kubernetes.io/azure-file] [file.csi.azure.com] [Windows]", func() {
 		pods := []testsuites.PodDetails{
 			{
