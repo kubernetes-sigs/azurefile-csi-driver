@@ -23,6 +23,7 @@ az provider register --namespace Microsoft.Storage
    - secure transfer required(enable HTTPS traffic only): `false`
    - select virtual network of agent nodes in `Firewalls and virtual networks`
    - specify `storageAccount` in below storage class `parameters`
+ - [Optional] If cluster identity is Managed Service Identity(MSI), make sure user assigned identity has Contributor role on node resource group
 
 #### How to use NFS feature
  - Create an Azure File storage class
@@ -66,7 +67,7 @@ accountname.file.core.windows.net:/accountname/pvc-fa72ec43-ae64-42e4-a8a2-55660
  - Create a [Wordpress](https://github.com/bitnami/charts/tree/master/bitnami/wordpress) application with NFS volume
 ```console
 helm repo add bitnami https://charts.bitnami.com/bitnami
-helm install --set persistence.storageClass="azurefile-csi" --set persistence.size=100Gi --generate-name bitnami/wordpress
+helm install --set persistence.storageClass="azurefile-csi-nfs" --set persistence.size=100Gi --generate-name bitnami/wordpress
 ```
 
 #### Links
