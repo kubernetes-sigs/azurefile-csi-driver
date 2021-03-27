@@ -55,7 +55,7 @@ func InitAzureFileDriver() PVTestDriver {
 // normalizeProvisioner extracts any '/' character in the provisioner name to '-'.
 // StorageClass name cannot container '/' character.
 func normalizeProvisioner(provisioner string) string {
-	return strings.ReplaceAll(provisioner, "/", "-")
+	return strings.ToLower(strings.ReplaceAll(provisioner, "/", "-"))
 }
 
 func (d *AzureFileDriver) GetDynamicProvisionStorageClass(parameters map[string]string, mountOptions []string, reclaimPolicy *v1.PersistentVolumeReclaimPolicy, bindingMode *storagev1.VolumeBindingMode, allowedTopologyValues []string, namespace string) *storagev1.StorageClass {
