@@ -628,11 +628,6 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		return nil, status.Error(codes.InvalidArgument, "CreateSnapshot Source Volume ID must be provided")
 	}
 
-	if acquired := d.volumeLocks.TryAcquire(sourceVolumeID); !acquired {
-		return nil, status.Errorf(codes.Aborted, volumeOperationAlreadyExistsFmt, sourceVolumeID)
-	}
-	defer d.volumeLocks.Release(sourceVolumeID)
-
 	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_create_snapshot", d.cloud.ResourceGroup, d.cloud.SubscriptionID, d.Name)
 	isOperationSucceeded := false
 	defer func() {
