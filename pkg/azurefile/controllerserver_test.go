@@ -403,7 +403,6 @@ func TestCreateVolume(t *testing.T) {
 					fsTypeField:          "",
 					storeAccountKeyField: "storeaccountkey",
 					secretNamespaceField: "secretnamespace",
-					"defaultparam":       "defaultvalue",
 				}
 
 				req := &csi.CreateVolumeRequest{
@@ -472,7 +471,6 @@ func TestCreateVolume(t *testing.T) {
 					fsTypeField:             "",
 					storeAccountKeyField:    "storeaccountkey",
 					secretNamespaceField:    "secretnamespace",
-					"defaultparam":          "defaultvalue",
 				}
 
 				req := &csi.CreateVolumeRequest{
@@ -597,7 +595,6 @@ func TestCreateVolume(t *testing.T) {
 					fsTypeField:             "",
 					storeAccountKeyField:    "storeaccountkey",
 					secretNamespaceField:    "secretnamespace",
-					"defaultparam":          "defaultvalue",
 				}
 
 				req := &csi.CreateVolumeRequest{
@@ -671,7 +668,6 @@ func TestCreateVolume(t *testing.T) {
 					fsTypeField:             "",
 					storeAccountKeyField:    "storeaccountkey",
 					secretNamespaceField:    "secretnamespace",
-					"defaultparam":          "defaultvalue",
 				}
 
 				req := &csi.CreateVolumeRequest{
@@ -741,7 +737,6 @@ func TestCreateVolume(t *testing.T) {
 					fsTypeField:             "ext4",
 					storeAccountKeyField:    "storeaccountkey",
 					secretNamespaceField:    "default",
-					"defaultparam":          "defaultvalue",
 				}
 
 				req := &csi.CreateVolumeRequest{
@@ -830,7 +825,6 @@ func TestCreateVolume(t *testing.T) {
 					fsTypeField:             "",
 					storeAccountKeyField:    "storeaccountkey",
 					secretNamespaceField:    "default",
-					"defaultparam":          "defaultvalue",
 				}
 
 				req := &csi.CreateVolumeRequest{
@@ -868,6 +862,77 @@ func TestCreateVolume(t *testing.T) {
 
 				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, nil) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "invalid parameter",
+			testFunc: func(t *testing.T) {
+				name := "baz"
+				sku := "sku"
+				kind := "StorageV2"
+				location := "centralus"
+				value := "foo bar"
+				accounts := []storage.Account{
+					{Name: &name, Sku: &storage.Sku{Name: storage.SkuName(sku)}, Kind: storage.Kind(kind), Location: &location},
+				}
+				keys := storage.AccountListKeysResult{
+					Keys: &[]storage.AccountKey{
+						{Value: &value},
+					},
+				}
+
+				allParam := map[string]string{
+					skuNameField:            "premium",
+					storageAccountTypeField: "stoacctype",
+					locationField:           "loc",
+					storageAccountField:     "stoacc",
+					resourceGroupField:      "rg",
+					shareNameField:          "",
+					diskNameField:           "diskname",
+					fsTypeField:             "",
+					storeAccountKeyField:    "storeaccountkey",
+					secretNamespaceField:    "default",
+					"invalidparameter":      "invalidparameter",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name-valid-request",
+					VolumeCapabilities: stdVolCap,
+					CapacityRange:      lessThanPremCapRange,
+					Parameters:         allParam,
+				}
+
+				d := NewFakeDriver()
+				d.cloud = &azure.Cloud{}
+				d.cloud.KubeClient = fake.NewSimpleClientset()
+
+				ctrl := gomock.NewController(t)
+				defer ctrl.Finish()
+
+				mockFileClient := mockfileclient.NewMockInterface(ctrl)
+				d.cloud.FileClient = mockFileClient
+
+				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
+				d.cloud.StorageAccountClient = mockStorageAccountsClient
+
+				mockFileClient.EXPECT().CreateFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+				mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
+
+				d.AddControllerServiceCapabilities(
+					[]csi.ControllerServiceCapability_RPC_Type{
+						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					})
+
+				ctx := context.Background()
+
+				expectedErr := fmt.Errorf("invalid parameter %q in storage class", "invalidparameter")
+				_, err := d.CreateVolume(ctx, req)
+				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
 				}
 			},

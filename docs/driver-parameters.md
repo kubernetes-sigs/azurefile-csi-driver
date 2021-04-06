@@ -22,8 +22,6 @@ tags | [tags](https://docs.microsoft.com/en-us/azure/azure-resource-manager/mana
 --- | **Following parameters are only for [VHD disk feature](../deploy/example/disk)** | --- | --- |
 fsType | File System Type | `ext4`, `ext3`, `ext2`, `xfs` | Yes | `ext4`
 diskName | existing VHD disk file name | `pvc-062196a6-6436-11ea-ab51-9efb888c0afb.vhd` | No |
---- | **Following parameters are only for [NFS feature](../deploy/example/nfs)** | --- | --- |
-fsType | File System Type | `nfs` | Yes | `nfs`
 
 ### Static Provision(bring your own file share)
   > get a [smb pv example](../deploy/example/pv-azurefile-csi.yaml)

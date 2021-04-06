@@ -138,9 +138,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			useDataPlaneAPI = strings.EqualFold(v, trueValue)
 		case disableDeleteRetentionPolicyField:
 			disableDeleteRetentionPolicy = strings.EqualFold(v, trueValue)
+		case serverNameField:
+			// no op, only used in NodeStageVolume
 		default:
-			//don't return error here since there are some parameters(e.g. fsType) used in later process
-			//return nil, fmt.Errorf("invalid option %q", k)
+			return nil, fmt.Errorf("invalid parameter %q in storage class", k)
 		}
 	}
 
