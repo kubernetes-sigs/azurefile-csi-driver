@@ -715,3 +715,11 @@ func (d *Driver) getSubnetResourceID() string {
 
 	return fmt.Sprintf(subnetTemplate, subsID, rg, d.cloud.VnetName, d.cloud.SubnetName)
 }
+
+func (d *Driver) useDataPlaneAPI(volumeID, accountName string) bool {
+	_, useDataPlaneAPI := d.dataPlaneAPIVolMap.Load(volumeID)
+	if !useDataPlaneAPI {
+		_, useDataPlaneAPI = d.dataPlaneAPIVolMap.Load(accountName)
+	}
+	return useDataPlaneAPI
+}
