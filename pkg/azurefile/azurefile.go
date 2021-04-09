@@ -530,6 +530,10 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 			accountName = account
 		}
 	}
+
+	if err == nil && accountKey != "" {
+		d.accountMap.Store(accountName, accountKey)
+	}
 	return rgName, accountName, accountKey, fileShareName, diskName, err
 }
 

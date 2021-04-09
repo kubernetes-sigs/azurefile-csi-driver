@@ -275,12 +275,13 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			}
 		}
 		secret = createStorageAccountSecret(accountName, accountKey)
-	}
-
-	if quota, err := d.getFileShareQuota(resourceGroup, accountName, validFileShareName, secret); err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	} else if quota != -1 && quota != fileShareSize {
-		return nil, status.Errorf(codes.AlreadyExists, "request file share(%s) already exists, but its capacity(%v) is different from (%v)", validFileShareName, quota, fileShareSize)
+	} else {
+		// skip validating file share quota if useDataPlaneAPI
+		if quota, err := d.getFileShareQuota(resourceGroup, accountName, validFileShareName, secret); err != nil {
+			return nil, status.Errorf(codes.Internal, err.Error())
+		} else if quota != -1 && quota != fileShareSize {
+			return nil, status.Errorf(codes.AlreadyExists, "request file share(%s) already exists, but its capacity(%v) is different from (%v)", validFileShareName, quota, fileShareSize)
+		}
 	}
 
 	shareOptions := &fileclient.ShareOptions{
