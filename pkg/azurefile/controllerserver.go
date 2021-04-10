@@ -275,12 +275,13 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			}
 		}
 		secret = createStorageAccountSecret(accountName, accountKey)
-	}
-
-	if quota, err := d.getFileShareQuota(resourceGroup, accountName, validFileShareName, secret); err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	} else if quota != -1 && quota != fileShareSize {
-		return nil, status.Errorf(codes.AlreadyExists, "request file share(%s) already exists, but its capacity(%v) is different from (%v)", validFileShareName, quota, fileShareSize)
+	} else {
+		// skip validating file share quota if useDataPlaneAPI
+		if quota, err := d.getFileShareQuota(resourceGroup, accountName, validFileShareName, secret); err != nil {
+			return nil, status.Errorf(codes.Internal, err.Error())
+		} else if quota != -1 && quota != fileShareSize {
+			return nil, status.Errorf(codes.AlreadyExists, "request file share(%s) already exists, but its capacity(%v) is different from (%v)", validFileShareName, quota, fileShareSize)
+		}
 	}
 
 	shareOptions := &fileclient.ShareOptions{
@@ -409,11 +410,7 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 	secret := req.GetSecrets()
 	if len(secret) == 0 {
 		// use data plane api, get account key first
-		_, useDataPlaneAPI := d.dataPlaneAPIVolMap.Load(volumeID)
-		if !useDataPlaneAPI {
-			_, useDataPlaneAPI = d.dataPlaneAPIVolMap.Load(accountName)
-		}
-		if useDataPlaneAPI {
+		if d.useDataPlaneAPI(volumeID, accountName) {
 			_, _, accountKey, _, _, err := d.GetAccountInfo(volumeID, req.GetSecrets(), map[string]string{})
 			if err != nil {
 				return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
@@ -767,7 +764,19 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 		mc.ObserveOperationWithResult(isOperationSucceeded)
 	}()
 
-	if err = d.ResizeFileShare(resourceGroupName, accountName, fileShareName, int(requestGiB), req.GetSecrets()); err != nil {
+	secrets := req.GetSecrets()
+	if len(secrets) == 0 {
+		// use data plane api, get account key first
+		if d.useDataPlaneAPI(volumeID, accountName) {
+			_, _, accountKey, _, _, err := d.GetAccountInfo(volumeID, secrets, map[string]string{})
+			if err != nil {
+				return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
+			}
+			secrets = createStorageAccountSecret(accountName, accountKey)
+		}
+	}
+
+	if err = d.ResizeFileShare(resourceGroupName, accountName, fileShareName, int(requestGiB), secrets); err != nil {
 		return nil, status.Errorf(codes.Internal, "expand volume error: %v", err)
 	}
 

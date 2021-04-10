@@ -530,6 +530,10 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 			accountName = account
 		}
 	}
+
+	if err == nil && accountKey != "" {
+		d.accountMap.Store(accountName, accountKey)
+	}
 	return rgName, accountName, accountKey, fileShareName, diskName, err
 }
 
@@ -714,4 +718,12 @@ func (d *Driver) getSubnetResourceID() string {
 	}
 
 	return fmt.Sprintf(subnetTemplate, subsID, rg, d.cloud.VnetName, d.cloud.SubnetName)
+}
+
+func (d *Driver) useDataPlaneAPI(volumeID, accountName string) bool {
+	_, useDataPlaneAPI := d.dataPlaneAPIVolMap.Load(volumeID)
+	if !useDataPlaneAPI {
+		_, useDataPlaneAPI = d.dataPlaneAPIVolMap.Load(accountName)
+	}
+	return useDataPlaneAPI
 }
