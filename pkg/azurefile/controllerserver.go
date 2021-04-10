@@ -268,15 +268,15 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	accountOptions.Name = accountName
 	secret := req.GetSecrets()
-	if useDataPlaneAPI && len(secret) == 0 {
+	if len(secret) == 0 && useDataPlaneAPI {
 		if accountKey == "" {
 			if accountKey, err = d.GetStorageAccesskey(accountOptions, secret, secretName, secretNamespace); err != nil {
 				return nil, fmt.Errorf("failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
 			}
 		}
 		secret = createStorageAccountSecret(accountName, accountKey)
-	} else {
 		// skip validating file share quota if useDataPlaneAPI
+	} else {
 		if quota, err := d.getFileShareQuota(resourceGroup, accountName, validFileShareName, secret); err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		} else if quota != -1 && quota != fileShareSize {
@@ -765,15 +765,13 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 	}()
 
 	secrets := req.GetSecrets()
-	if len(secrets) == 0 {
+	if len(secrets) == 0 && d.useDataPlaneAPI(volumeID, accountName) {
 		// use data plane api, get account key first
-		if d.useDataPlaneAPI(volumeID, accountName) {
-			_, _, accountKey, _, _, err := d.GetAccountInfo(volumeID, secrets, map[string]string{})
-			if err != nil {
-				return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
-			}
-			secrets = createStorageAccountSecret(accountName, accountKey)
+		_, _, accountKey, _, _, err := d.GetAccountInfo(volumeID, secrets, map[string]string{})
+		if err != nil {
+			return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
 		}
+		secrets = createStorageAccountSecret(accountName, accountKey)
 	}
 
 	if err = d.ResizeFileShare(resourceGroupName, accountName, fileShareName, int(requestGiB), secrets); err != nil {
