@@ -38,6 +38,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	cloudprovider "k8s.io/cloud-provider"
 
@@ -1928,5 +1929,82 @@ func TestListSnapshots(t *testing.T) {
 	assert.Nil(t, resp)
 	if !reflect.DeepEqual(err, status.Error(codes.Unimplemented, "")) {
 		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestSetAzureCredentials(t *testing.T) {
+	d := NewFakeDriver()
+	d.cloud = &azure.Cloud{
+		Config: azure.Config{
+			ResourceGroup: "rg",
+			Location:      "loc",
+			VnetName:      "fake-vnet",
+			SubnetName:    "fake-subnet",
+		},
+	}
+	fakeClient := fake.NewSimpleClientset()
+
+	tests := []struct {
+		desc            string
+		kubeClient      kubernetes.Interface
+		accountName     string
+		accountKey      string
+		secretName      string
+		secretNamespace string
+		expectedName    string
+		expectedErr     error
+	}{
+		{
+			desc:        "[failure] accountName is nil",
+			kubeClient:  fakeClient,
+			expectedErr: fmt.Errorf("the account info is not enough, accountName(), accountKey()"),
+		},
+		{
+			desc:        "[failure] accountKey is nil",
+			kubeClient:  fakeClient,
+			accountName: "testName",
+			accountKey:  "",
+			expectedErr: fmt.Errorf("the account info is not enough, accountName(testName), accountKey()"),
+		},
+		{
+			desc:        "[success] kubeClient is nil",
+			kubeClient:  nil,
+			expectedErr: nil,
+		},
+		{
+			desc:         "[success] normal scenario",
+			kubeClient:   fakeClient,
+			accountName:  "testName",
+			accountKey:   "testKey",
+			expectedName: "azure-storage-account-testName-secret",
+			expectedErr:  nil,
+		},
+		{
+			desc:         "[success] already exist",
+			kubeClient:   fakeClient,
+			accountName:  "testName",
+			accountKey:   "testKey",
+			expectedName: "azure-storage-account-testName-secret",
+			expectedErr:  nil,
+		},
+		{
+			desc:            "[success] normal scenario using secretName",
+			kubeClient:      fakeClient,
+			accountName:     "testName",
+			accountKey:      "testKey",
+			secretName:      "secretName",
+			secretNamespace: "secretNamespace",
+			expectedName:    "secretName",
+			expectedErr:     nil,
+		},
+	}
+
+	for _, test := range tests {
+		d.cloud.KubeClient = test.kubeClient
+		result, err := d.SetAzureCredentials(test.accountName, test.accountKey, test.secretName, test.secretNamespace)
+		if result != test.expectedName || !reflect.DeepEqual(err, test.expectedErr) {
+			t.Errorf("desc: %s,\n input: accountName(%v), accountKey(%v),\n setAzureCredentials result: %v, expectedName: %v err: %v, expectedErr: %v",
+				test.desc, test.accountName, test.accountKey, result, test.expectedName, err, test.expectedErr)
+		}
 	}
 }

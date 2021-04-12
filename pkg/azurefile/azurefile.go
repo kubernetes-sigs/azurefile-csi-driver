@@ -32,6 +32,8 @@ import (
 
 	"golang.org/x/net/context"
 
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
@@ -726,4 +728,39 @@ func (d *Driver) useDataPlaneAPI(volumeID, accountName string) bool {
 		_, useDataPlaneAPI = d.dataPlaneAPIVolMap.Load(accountName)
 	}
 	return useDataPlaneAPI
+}
+
+func (d *Driver) SetAzureCredentials(accountName, accountKey, secretName, secretNamespace string) (string, error) {
+	if d.cloud.KubeClient == nil {
+		klog.Warningf("could not create secret: kubeClient is nil")
+		return "", nil
+	}
+	if accountName == "" || accountKey == "" {
+		return "", fmt.Errorf("the account info is not enough, accountName(%v), accountKey(%v)", accountName, accountKey)
+	}
+	if secretNamespace == "" {
+		secretNamespace = defaultSecretNamespace
+	}
+	if secretName == "" {
+		secretName = fmt.Sprintf(secretNameTemplate, accountName)
+	}
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: secretNamespace,
+			Name:      secretName,
+		},
+		Data: map[string][]byte{
+			defaultSecretAccountName: []byte(accountName),
+			defaultSecretAccountKey:  []byte(accountKey),
+		},
+		Type: "Opaque",
+	}
+	_, err := d.cloud.KubeClient.CoreV1().Secrets(secretNamespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+	if errors.IsAlreadyExists(err) {
+		err = nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("couldn't create secret %v", err)
+	}
+	return secretName, err
 }

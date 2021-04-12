@@ -17,16 +17,10 @@ limitations under the License.
 package azurefile
 
 import (
-	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 )
 
@@ -76,41 +70,6 @@ func (lm *lockMap) lockEntry(entry string) {
 
 func (lm *lockMap) unlockEntry(entry string) {
 	lm.mutexMap[entry].Unlock()
-}
-
-func setAzureCredentials(kubeClient kubernetes.Interface, accountName, accountKey, secretName, secretNamespace string) (string, error) {
-	if kubeClient == nil {
-		klog.Warningf("could not create secret: kubeClient is nil")
-		return "", nil
-	}
-	if accountName == "" || accountKey == "" {
-		return "", fmt.Errorf("the account info is not enough, accountName(%v), accountKey(%v)", accountName, accountKey)
-	}
-	if secretNamespace == "" {
-		secretNamespace = defaultSecretNamespace
-	}
-	if secretName == "" {
-		secretName = fmt.Sprintf(secretNameTemplate, accountName)
-	}
-	secret := &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: secretNamespace,
-			Name:      secretName,
-		},
-		Data: map[string][]byte{
-			defaultSecretAccountName: []byte(accountName),
-			defaultSecretAccountKey:  []byte(accountKey),
-		},
-		Type: "Opaque",
-	}
-	_, err := kubeClient.CoreV1().Secrets(secretNamespace).Create(context.TODO(), secret, metav1.CreateOptions{})
-	if errors.IsAlreadyExists(err) {
-		err = nil
-	}
-	if err != nil {
-		return "", fmt.Errorf("couldn't create secret %v", err)
-	}
-	return secretName, err
 }
 
 func isDiskFsType(fsType string) bool {

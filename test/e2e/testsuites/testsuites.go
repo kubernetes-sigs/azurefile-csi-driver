@@ -782,6 +782,27 @@ func (t *TestPod) SetupVolumeMountWithSubpath(pvc *v1.PersistentVolumeClaim, nam
 	t.pod.Spec.Volumes = append(t.pod.Spec.Volumes, volume)
 }
 
+func (t *TestPod) SetupInlineVolume(name, mountPath, secretName, shareName string, readOnly bool) {
+	volumeMount := v1.VolumeMount{
+		Name:      name,
+		MountPath: mountPath,
+		ReadOnly:  readOnly,
+	}
+	t.pod.Spec.Containers[0].VolumeMounts = append(t.pod.Spec.Containers[0].VolumeMounts, volumeMount)
+
+	volume := v1.Volume{
+		Name: name,
+		VolumeSource: v1.VolumeSource{
+			AzureFile: &v1.AzureFileVolumeSource{
+				SecretName: secretName,
+				ShareName:  shareName,
+				ReadOnly:   readOnly,
+			},
+		},
+	}
+	t.pod.Spec.Volumes = append(t.pod.Spec.Volumes, volume)
+}
+
 func (t *TestPod) SetNodeSelector(nodeSelector map[string]string) {
 	t.pod.Spec.NodeSelector = nodeSelector
 }

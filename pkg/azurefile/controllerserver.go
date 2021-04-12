@@ -352,7 +352,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 					return nil, fmt.Errorf("failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
 				}
 			}
-			storeSecretName, err := setAzureCredentials(d.cloud.KubeClient, accountName, accountKey, secretName, secretNamespace)
+			storeSecretName, err := d.SetAzureCredentials(accountName, accountKey, secretName, secretNamespace)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "failed to store storage account key: %v", err)
 			}
