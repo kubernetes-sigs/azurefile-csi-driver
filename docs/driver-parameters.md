@@ -35,8 +35,10 @@ volumeAttributes.storageAccount | existing storage account name | existing stora
 volumeAttributes.shareName | Azure file share name | existing Azure file share name | Yes |
 volumeAttributes.protocol | specify file share protocol | `smb`, `nfs` | No | `smb`
 volumeAttributes.server | specify Azure storage account server address | existing server address, e.g. `accountname.privatelink.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
+volumeAttributes.secretName | secret name that stores storage account name and key | | No |
+volumeAttributes.secretNamespace | secret namespace  | `default`,`kube-system`, etc | No | `default`
 nodeStageSecretRef.name | secret name that stores storage account name and key | existing secret name |  Yes  |
-nodeStageSecretRef.namespace | namespace where the secret is | k8s namespace  |  Yes  |
+nodeStageSecretRef.namespace | secret namespace | k8s namespace  |  Yes  |
 
  - create a Kubernetes secret for `nodeStageSecretRef.name`
  ```console

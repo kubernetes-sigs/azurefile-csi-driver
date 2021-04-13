@@ -511,7 +511,7 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 			if !ok {
 				secretNamespace = defaultSecretNamespace
 			}
-			secretName, ok := reqContext[secretNamespace]
+			secretName, ok := reqContext[secretNameField]
 			if !ok && accountName != "" {
 				secretName = fmt.Sprintf(secretNameTemplate, accountName)
 			}
