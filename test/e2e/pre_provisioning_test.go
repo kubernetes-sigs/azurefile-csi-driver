@@ -231,7 +231,7 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
 		}
 		volumeID = resp.Volume.VolumeId
-		ginkgo.By(fmt.Sprintf("Successfully provisioned BlobFuse volume: %q\n", volumeID))
+		ginkgo.By(fmt.Sprintf("Successfully provisioned Azure File volume: %q\n", volumeID))
 
 		volumeSize := fmt.Sprintf("%dGi", defaultDiskSize)
 		reclaimPolicy := v1.PersistentVolumeReclaimRetain

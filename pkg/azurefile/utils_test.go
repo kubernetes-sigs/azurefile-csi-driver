@@ -18,13 +18,8 @@ package azurefile
 
 import (
 	"errors"
-	"fmt"
-	"reflect"
 	"testing"
 	"time"
-
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
 )
 
 func TestSimpleLockEntry(t *testing.T) {
@@ -97,73 +92,6 @@ func TestUnlockEntryNotExists(t *testing.T) {
 	// entry2 does not exist
 	testLockMap.UnlockEntry("entry2")
 	testLockMap.UnlockEntry("entry1")
-}
-
-func TestSetAzureCredentials(t *testing.T) {
-	fakeClient := fake.NewSimpleClientset()
-
-	tests := []struct {
-		desc            string
-		kubeClient      kubernetes.Interface
-		accountName     string
-		accountKey      string
-		secretName      string
-		secretNamespace string
-		expectedName    string
-		expectedErr     error
-	}{
-		{
-			desc:        "[failure] accountName is nil",
-			kubeClient:  fakeClient,
-			expectedErr: fmt.Errorf("the account info is not enough, accountName(), accountKey()"),
-		},
-		{
-			desc:        "[failure] accountKey is nil",
-			kubeClient:  fakeClient,
-			accountName: "testName",
-			accountKey:  "",
-			expectedErr: fmt.Errorf("the account info is not enough, accountName(testName), accountKey()"),
-		},
-		{
-			desc:        "[success] kubeClient is nil",
-			kubeClient:  nil,
-			expectedErr: nil,
-		},
-		{
-			desc:         "[success] normal scenario",
-			kubeClient:   fakeClient,
-			accountName:  "testName",
-			accountKey:   "testKey",
-			expectedName: "azure-storage-account-testName-secret",
-			expectedErr:  nil,
-		},
-		{
-			desc:         "[success] already exist",
-			kubeClient:   fakeClient,
-			accountName:  "testName",
-			accountKey:   "testKey",
-			expectedName: "azure-storage-account-testName-secret",
-			expectedErr:  nil,
-		},
-		{
-			desc:            "[success] normal scenario using secretName",
-			kubeClient:      fakeClient,
-			accountName:     "testName",
-			accountKey:      "testKey",
-			secretName:      "secretName",
-			secretNamespace: "secretNamespace",
-			expectedName:    "secretName",
-			expectedErr:     nil,
-		},
-	}
-
-	for _, test := range tests {
-		result, err := setAzureCredentials(test.kubeClient, test.accountName, test.accountKey, test.secretName, test.secretNamespace)
-		if result != test.expectedName || !reflect.DeepEqual(err, test.expectedErr) {
-			t.Errorf("desc: %s,\n input: kubeClient(%v), accountName(%v), accountKey(%v),\n setAzureCredentials result: %v, expectedName: %v err: %v, expectedErr: %v",
-				test.desc, test.kubeClient, test.accountName, test.accountKey, result, test.expectedName, err, test.expectedErr)
-		}
-	}
 }
 
 func TestIsDiskFsType(t *testing.T) {
