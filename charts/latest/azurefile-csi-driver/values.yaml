@@ -34,6 +34,7 @@ controller:
   replicas: 2
   metricsPort: 29614
   runOnMaster: false
+  attachRequired: false
   logLevel: 5
 
 node:

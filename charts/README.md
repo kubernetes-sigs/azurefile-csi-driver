@@ -63,6 +63,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `controller.replicas`                             | the replicas of csi-azurefile-controller                    | 2                                                                 |
 | `controller.metricsPort`                          | metrics port of csi-azurefile-controller                   |29614                                                        |
 | `controller.runOnMaster`                          | run controller on master node                                                          |`false`                                                           |
+| `controller.attachRequired`                       | enable attach/detach (only valid for vhd disk feature)                                            |`false`                                                           |
 | `controller.logLevel`                             | controller driver log level                                                          |`5`                                                           |
 | `node.metricsPort`                                | metrics port of csi-azurefile-node                         |29615                                                        |
 | `node.logLevel`                                   | node driver log level                                                          |`5`                                                           |
