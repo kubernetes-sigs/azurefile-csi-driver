@@ -4,5 +4,5 @@ kind: CSIDriver
 metadata:
   name: file.csi.azure.com
 spec:
-  attachRequired: true
+  attachRequired: {{ .Values.controller.attachRequired }}
   podInfoOnMount: true
