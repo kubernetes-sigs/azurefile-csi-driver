@@ -752,6 +752,40 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(cs, ns)
 	})
 
+	ginkgo.It("should create a pod with multiple NFS volumes [file.csi.azure.com]", func() {
+		skipIfTestingInWindowsCluster()
+		skipIfUsingInTreeVolumePlugin()
+
+		volumes := []testsuites.VolumeDetails{}
+		for i := 1; i <= 6; i++ {
+			volume := testsuites.VolumeDetails{
+				ClaimSize: "100Gi",
+				VolumeMount: testsuites.VolumeMountDetails{
+					NameGenerate:      "test-volume-",
+					MountPathGenerate: "/mnt/test-",
+				},
+			}
+			volumes = append(volumes, volume)
+		}
+
+		pods := []testsuites.PodDetails{
+			{
+				Cmd:       convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
+				Volumes:   volumes,
+				IsWindows: isWindowsCluster,
+			},
+		}
+		test := testsuites.DynamicallyProvisionedPodWithMultiplePVsTest{
+			CSIDriver: testDriver,
+			Pods:      pods,
+			StorageClassParameters: map[string]string{
+				"skuName":  "Premium_LRS",
+				"protocol": "nfs",
+			},
+		}
+		test.Run(cs, ns)
+	})
+
 	ginkgo.It("should create a statefulset object, write and read to it, delete the pod and write and read to it again [file.csi.azure.com]", func() {
 		skipIfUsingInTreeVolumePlugin()
 
