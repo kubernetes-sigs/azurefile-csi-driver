@@ -34,9 +34,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	mount "k8s.io/mount-utils"
 	"k8s.io/utils/exec"
 	testingexec "k8s.io/utils/exec/testing"
-	"k8s.io/utils/mount"
 
 	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
 )
