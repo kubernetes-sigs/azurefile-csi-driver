@@ -242,6 +242,9 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				{
 					FSType:    "ext3",
 					ClaimSize: "10Gi",
+					MountOptions: []string{
+						"cache=none",
+					},
 					VolumeMount: testsuites.VolumeMountDetails{
 						NameGenerate:      "test-volume-",
 						MountPathGenerate: "/mnt/test-",

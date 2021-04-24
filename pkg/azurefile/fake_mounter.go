@@ -21,7 +21,7 @@ import (
 	"runtime"
 	"strings"
 
-	"k8s.io/utils/mount"
+	mount "k8s.io/mount-utils"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/mounter"
 )
 
