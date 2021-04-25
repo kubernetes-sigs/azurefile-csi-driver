@@ -17,8 +17,6 @@ limitations under the License.
 package testsuites
 
 import (
-	"time"
-
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 
 	"github.com/onsi/ginkgo"
@@ -54,9 +52,6 @@ func (t *DynamicallyProvisionedDeletePodTest) Run(client clientset.Interface, na
 	ginkgo.By("checking that the pod is running")
 	tDeployment.WaitForPodReady()
 
-	ginkgo.By("sleep 5s waiting for writing testing data in pod")
-	time.Sleep(5 * time.Second)
-
 	if t.PodCheck != nil {
 		ginkgo.By("checking pod exec")
 		tDeployment.Exec(t.PodCheck.Cmd, t.PodCheck.ExpectedString)
@@ -67,9 +62,6 @@ func (t *DynamicallyProvisionedDeletePodTest) Run(client clientset.Interface, na
 
 	ginkgo.By("checking again that the pod is running")
 	tDeployment.WaitForPodReady()
-
-	ginkgo.By("sleep 5s waiting for writing testing data in pod")
-	time.Sleep(5 * time.Second)
 
 	if t.PodCheck != nil {
 		ginkgo.By("checking pod exec")
