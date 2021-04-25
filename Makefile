@@ -136,13 +136,13 @@ container-windows:
 		 -t $(IMAGE_TAG)-windows-$(OSVERSION)-$(ARCH) --build-arg OSVERSION=$(OSVERSION) -f ./pkg/azurefileplugin/Windows.Dockerfile .
 
 .PHONY: container-all
-container-all: azurefile azurefile-windows
+container-all: azurefile-windows
 	docker buildx rm container-builder || true
 	docker buildx create --use --name=container-builder
 	# enable qemu for arm64 build
 	docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 	for arch in $(ALL_ARCH.linux); do \
-		ARCH=$${arch} $(MAKE) smb; \
+		ARCH=$${arch} $(MAKE) azurefile; \
 		ARCH=$${arch} $(MAKE) container-linux; \
 	done
 	for osversion in $(ALL_OSVERSIONS.windows); do \
