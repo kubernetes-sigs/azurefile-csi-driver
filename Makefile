@@ -38,7 +38,7 @@ export GOPATH GOBIN GO111MODULE DOCKER_CLI_EXPERIMENTAL
 
 # Generate all combination of all OS, ARCH, and OSVERSIONS for iteration
 ALL_OS = linux windows
-ALL_ARCH.linux = amd64
+ALL_ARCH.linux = amd64 arm64
 ALL_OS_ARCH.linux = $(foreach arch, ${ALL_ARCH.linux}, linux-$(arch))
 ALL_ARCH.windows = amd64
 ALL_OSVERSIONS.windows := 1809 1903 1909 2004
@@ -111,7 +111,7 @@ e2e-teardown:
 
 .PHONY: azurefile
 azurefile:
-	CGO_ENABLED=0 GOOS=linux go build -a -ldflags ${LDFLAGS} -mod vendor -o _output/azurefileplugin ./pkg/azurefileplugin
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -a -ldflags ${LDFLAGS} -mod vendor -o _output/azurefileplugin ./pkg/azurefileplugin
 
 .PHONY: azurefile-windows
 azurefile-windows:
@@ -139,7 +139,12 @@ container-windows:
 container-all: azurefile azurefile-windows
 	docker buildx rm container-builder || true
 	docker buildx create --use --name=container-builder
-	$(MAKE) container-linux
+	# enable qemu for arm64 build
+	docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+	for arch in $(ALL_ARCH.linux); do \
+		ARCH=$${arch} $(MAKE) smb; \
+		ARCH=$${arch} $(MAKE) container-linux; \
+	done
 	for osversion in $(ALL_OSVERSIONS.windows); do \
 		OSVERSION=$${osversion} $(MAKE) container-windows; \
 	done
