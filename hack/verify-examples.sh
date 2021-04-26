@@ -29,10 +29,10 @@ fi
 
 if [[ "$1" == "windows" ]]; then
     kubectl apply -f deploy/example/storageclass-azurefile-csi.yaml
-	kubectl apply -f deploy/example/windows/deployment.yaml
-	kubectl apply -f deploy/example/windows/statefulset.yaml
-    echo "sleep 120s ..."
-    sleep 120
+    kubectl apply -f deploy/example/windows/deployment.yaml
+    kubectl apply -f deploy/example/windows/statefulset.yaml
+    echo "sleep 240s ..."
+    sleep 240
 fi
 
 echo "begin to check pod status ..."

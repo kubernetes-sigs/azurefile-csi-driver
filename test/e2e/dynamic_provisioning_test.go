@@ -495,6 +495,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 	})
 
 	ginkgo.It("should create a deployment object, write and read to it, delete the pod and write and read to it again [file.csi.azure.com] [disk]", func() {
+		ginkgo.Skip("test case is disabled due to controller.attachRequired is disabled by default now")
 		skipIfUsingInTreeVolumePlugin()
 		skipIfTestingInWindowsCluster()
 
