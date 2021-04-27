@@ -53,3 +53,18 @@ dir
 mkdir /tmp/test
 mount -v -t nfs -o vers=4,minorversion=1,sec=sys accountname.blob.core.windows.net:/accountname/filesharename /tmp/test
 ```
+
+
+### Troubleshooting performance issues on Azure Files
+
+##### File shares are being throttled and overall performance is slow 
+Find out whether you have been throttled by looking at your Azure Monitor by following this documentation - [Link](https://docs.microsoft.com/en-us/azure/storage/files/storage-troubleshooting-files-performance#cause-1-share-was-throttled)
+
+###### Standard Files
+
+Enable [large file shares](https://docs.microsoft.com/azure/storage/files/storage-files-how-to-create-large-file-share?tabs=azure-portal) on your storage account. Large file shares support up to 10,000 IOPS per share at no extra cost on standard tier. Right now, large file shares need to be manually turned on the storage account and quota needs to be set to 100 TiB to get 10K IOPS. We recommend that you enable this when creating the Storage Account. However, if you do enable this at a later time, you will not need to remount the file share. Same storage account can have multiple large file shares.
+
+##### Premium Files
+Azure premium files follows provisioned model where IOPS and throughput are associated to the quota. See this article that explains the co-relation between share size and IOPS and throughput - [link](https://docs.microsoft.com/azure/storage/files/understanding-billing#provisioned-model). Increase the share quota by following this guide - [link](https://github.com/kubernetes-sigs/azurefile-csi-driver/tree/master/deploy/example/resize).
+
+##### For more, refer to this doc for perforance troubleshooting tips - [Link to performance troubleshooting tips](https://docs.microsoft.com/en-us/azure/storage/files/storage-troubleshooting-files-performance)
