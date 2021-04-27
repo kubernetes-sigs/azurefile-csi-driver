@@ -128,7 +128,7 @@ container: azurefile
 .PHONY: container-linux
 container-linux:
 	docker buildx build --pull --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" \
-		-t $(IMAGE_TAG)-linux-$(ARCH) -f ./pkg/azurefileplugin/Dockerfile .
+		-t $(IMAGE_TAG)-linux-$(ARCH) --build-arg ARCH=$(ARCH) -f ./pkg/azurefileplugin/Dockerfile .
 
 .PHONY: container-windows
 container-windows:
