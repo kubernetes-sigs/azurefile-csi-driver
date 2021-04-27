@@ -43,4 +43,4 @@ fstype: ext4
 EOF
 
 echo 'Begin to run sanity test for vhd disk feature...'
-"$CSI_SANITY_BIN" --ginkgo.v --ginkgo.noColor --csi.endpoint="$endpoint" --csi.testvolumeparameters="$testvolumeparameters" --ginkgo.skip='should fail when the volume source snapshot is not found|should work|should fail when volume does not exist on the specified path|should fail when the volume does not exist|should fail when the node does not exist'
+"$CSI_SANITY_BIN" --ginkgo.v --ginkgo.noColor --csi.endpoint="$endpoint" --csi.testvolumeparameters="$testvolumeparameters" --ginkgo.skip='should fail when the volume source snapshot is not found|should work|should fail when volume does not exist on the specified path|should fail when the volume does not exist|should fail when the node does not exist|should be idempotent'
