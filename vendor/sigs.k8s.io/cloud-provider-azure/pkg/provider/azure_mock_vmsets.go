@@ -20,7 +20,7 @@ import (
 	"reflect"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2020-12-01/compute"
-	network "github.com/Azure/azure-sdk-for-go/services/network/mgmt/2020-07-01/network"
+	network "github.com/Azure/azure-sdk-for-go/services/network/mgmt/2020-08-01/network"
 	"github.com/golang/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -218,6 +218,20 @@ func (mr *MockVMSetMockRecorder) EnsureBackendPoolDeleted(service, backendPoolID
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureBackendPoolDeleted", reflect.TypeOf((*MockVMSet)(nil).EnsureBackendPoolDeleted), service, backendPoolID, vmSetName, backendAddressPools)
 }
 
+// EnsureBackendPoolDeletedFromVMSets mocks base method
+func (m *MockVMSet) EnsureBackendPoolDeletedFromVMSets(vmSetNamesMap map[string]bool, backendPoolID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureBackendPoolDeletedFromVMSets", vmSetNamesMap, backendPoolID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureBackendPoolDeletedFromVMSets indicates an expected call of EnsureBackendPoolDeletedFromVMSets
+func (mr *MockVMSetMockRecorder) EnsureBackendPoolDeletedFromVMSets(vmSetNamesMap, backendPoolID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureBackendPoolDeletedFromVMSets", reflect.TypeOf((*MockVMSet)(nil).EnsureBackendPoolDeletedFromVMSets), vmSetNamesMap, backendPoolID)
+}
+
 // AttachDisk mocks base method
 func (m *MockVMSet) AttachDisk(nodeName types.NodeName, diskMap map[string]*AttachDiskOptions) error {
 	m.ctrl.T.Helper()
@@ -247,18 +261,33 @@ func (mr *MockVMSetMockRecorder) DetachDisk(nodeName, diskMap interface{}) *gomo
 }
 
 // GetDataDisks mocks base method
-func (m *MockVMSet) GetDataDisks(nodeName types.NodeName, string cache.AzureCacheReadType) ([]compute.DataDisk, error) {
+func (m *MockVMSet) GetDataDisks(nodeName types.NodeName, cacheType cache.AzureCacheReadType) ([]compute.DataDisk, *string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetDataDisks", nodeName, string)
+	ret := m.ctrl.Call(m, "GetDataDisks", nodeName, cacheType)
 	ret0, _ := ret[0].([]compute.DataDisk)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(*string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // GetDataDisks indicates an expected call of GetDataDisks
 func (mr *MockVMSetMockRecorder) GetDataDisks(nodeName, string interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDataDisks", reflect.TypeOf((*MockVMSet)(nil).GetDataDisks), nodeName, string)
+}
+
+// UpdateVM mocks base method
+func (m *MockVMSet) UpdateVM(nodeName types.NodeName) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateVM", nodeName)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateVM indicates an expected call of UpdateVM
+func (mr *MockVMSetMockRecorder) UpdateVM(nodeName interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateVM", reflect.TypeOf((*MockVMSet)(nil).UpdateVM), nodeName)
 }
 
 // GetPowerStatusByNodeName mocks base method
@@ -305,4 +334,35 @@ func (m *MockVMSet) GetNodeNameByIPConfigurationID(ipConfigurationID string) (st
 func (mr *MockVMSetMockRecorder) GetNodeNameByIPConfigurationID(ipConfigurationID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNodeNameByIPConfigurationID", reflect.TypeOf((*MockVMSet)(nil).GetNodeNameByIPConfigurationID), ipConfigurationID)
+}
+
+// GetNodeCIDRMasksByProviderID mocks base method
+func (m *MockVMSet) GetNodeCIDRMasksByProviderID(providerID string) (int, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNodeCIDRMasksByProviderID", providerID)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetNodeCIDRMasksByProviderID indicates an expected call of GetNodeCIDRMasksByProviderID
+func (mr *MockVMSetMockRecorder) GetNodeCIDRMasksByProviderID(providerID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNodeCIDRMasksByProviderID", reflect.TypeOf((*MockVMSet)(nil).GetNodeCIDRMasksByProviderID), providerID)
+}
+
+// GetAgentPoolVMSetNames mocks base method
+func (m *MockVMSet) GetAgentPoolVMSetNames(nodes []*v1.Node) (*[]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAgentPoolVMSetNames", nodes)
+	ret0, _ := ret[0].(*[]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAgentPoolVMSetNames indicates an expected call of GetAgentPoolVMSetNames
+func (mr *MockVMSetMockRecorder) GetAgentPoolVMSetNames(nodes interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAgentPoolVMSetNames", reflect.TypeOf((*MockVMSet)(nil).GetAgentPoolVMSetNames), nodes)
 }
