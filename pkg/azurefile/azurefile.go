@@ -58,12 +58,10 @@ const (
 	subnetTemplate     = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets/%s"
 	fileMode           = "file_mode"
 	dirMode            = "dir_mode"
-	vers               = "vers"
 	actimeo            = "actimeo"
 	mfsymlinks         = "mfsymlinks"
 	defaultFileMode    = "0777"
 	defaultDirMode     = "0777"
-	defaultVers        = "3.0"
 	defaultActimeo     = "30"
 
 	// See https://docs.microsoft.com/en-us/rest/api/storageservices/naming-and-referencing-shares--directories--files--and-metadata#share-names
@@ -302,7 +300,6 @@ func appendDefaultMountOptions(mountOptions []string) []string {
 	var defaultMountOptions = map[string]string{
 		fileMode:   defaultFileMode,
 		dirMode:    defaultDirMode,
-		vers:       defaultVers,
 		actimeo:    defaultActimeo,
 		mfsymlinks: "",
 	}
