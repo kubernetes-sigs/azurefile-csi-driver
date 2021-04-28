@@ -387,7 +387,7 @@ func getValidFileShareName(volumeName string) string {
 	}
 	fileShareName = strings.Replace(fileShareName, "--", "-", -1)
 
-	return fileShareName
+	return strings.ToLower(fileShareName)
 }
 
 func checkShareNameBeginAndEnd(fileShareName string) bool {
