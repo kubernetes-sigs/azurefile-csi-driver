@@ -108,6 +108,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 							"mfsymlinks",
 							"cache=strict",
 							"nosharesock",
+							"vers=3.1.1",
 						},
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
@@ -698,6 +699,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 							"mfsymlinks",
 							"cache=strict",
 							"nosharesock",
+							"vers=3.1.1",
 						},
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
@@ -736,6 +738,10 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				Volumes: []testsuites.VolumeDetails{
 					{
 						ClaimSize: "100Gi",
+						MountOptions: []string{
+							"rsize=1048576",
+							"wsize=1048576",
+						},
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
 							MountPathGenerate: "/mnt/test-",
@@ -826,6 +832,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 	})
 
 	ginkgo.It("should create a volume after driver restart [kubernetes.io/azure-file] [file.csi.azure.com]", func() {
+		ginkgo.Skip("test case is disabled since node logs would be lost after driver restart")
 		skipIfUsingInTreeVolumePlugin()
 		pod := testsuites.PodDetails{
 			Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' >> /mnt/test-1/data && while true; do sleep 3600; done"),

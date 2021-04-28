@@ -18,6 +18,10 @@
 
 NS=kube-system
 
+echo "print out all nodes status ..."
+kubectl get nodes -o wide --show-labels
+echo "======================================================================================"
+
 echo "print out controller-manager logs ..."
 echo "======================================================================================"
 kubectl get pods -n${NS} | grep controller-manager

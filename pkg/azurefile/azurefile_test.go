@@ -123,6 +123,15 @@ func TestAppendDefaultMountOptions(t *testing.T) {
 			},
 		},
 		{
+			options: []string{"vers=3.1.1"},
+			expected: []string{"dir_mode=0777",
+				fmt.Sprintf("%s=%s", fileMode, defaultFileMode),
+				fmt.Sprintf("%s=%s", vers, "3.1.1"),
+				fmt.Sprintf("%s=%s", actimeo, defaultActimeo),
+				mfsymlinks,
+			},
+		},
+		{
 			options: []string{""},
 			expected: []string{"", fmt.Sprintf("%s=%s",
 				fileMode, defaultFileMode),
