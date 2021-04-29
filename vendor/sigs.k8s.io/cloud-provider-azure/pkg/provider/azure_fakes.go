@@ -36,11 +36,27 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/vmclient/mockvmclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/vmssclient/mockvmssclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/vmssvmclient/mockvmssvmclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/consts"
 )
 
 var (
 	errPreconditionFailedEtagMismatch = fmt.Errorf("PreconditionFailedEtagMismatch")
 )
+
+// NewTestScaleSet creates a fake ScaleSet for unit test
+func NewTestScaleSet(ctrl *gomock.Controller) (*ScaleSet, error) {
+	return newTestScaleSetWithState(ctrl)
+}
+
+func newTestScaleSetWithState(ctrl *gomock.Controller) (*ScaleSet, error) {
+	cloud := GetTestCloud(ctrl)
+	ss, err := newScaleSet(cloud)
+	if err != nil {
+		return nil, err
+	}
+
+	return ss.(*ScaleSet), nil
+}
 
 // GetTestCloud returns a fake azure cloud for unit tests in Azure related CSI drivers
 func GetTestCloud(ctrl *gomock.Controller) (az *Cloud) {
@@ -62,7 +78,7 @@ func GetTestCloud(ctrl *gomock.Controller) (az *Cloud) {
 			PrimaryAvailabilitySetName:   "as",
 			PrimaryScaleSetName:          "vmss",
 			MaximumLoadBalancerRuleCount: 250,
-			VMType:                       vmTypeStandard,
+			VMType:                       consts.VMTypeStandard,
 		},
 		nodeZones:          map[string]sets.String{},
 		nodeInformerSynced: func() bool { return true },
@@ -82,7 +98,7 @@ func GetTestCloud(ctrl *gomock.Controller) (az *Cloud) {
 	az.VirtualMachineScaleSetsClient = mockvmssclient.NewMockInterface(ctrl)
 	az.VirtualMachineScaleSetVMsClient = mockvmssvmclient.NewMockInterface(ctrl)
 	az.VirtualMachinesClient = mockvmclient.NewMockInterface(ctrl)
-	az.VMSet = newAvailabilitySet(az)
+	az.VMSet, _ = newAvailabilitySet(az)
 	az.vmCache, _ = az.newVMCache()
 	az.lbCache, _ = az.newLBCache()
 	az.nsgCache, _ = az.newNSGCache()
@@ -91,6 +107,7 @@ func GetTestCloud(ctrl *gomock.Controller) (az *Cloud) {
 	common := &controllerCommon{cloud: az, resourceGroup: "rg", location: "westus"}
 	az.controllerCommon = common
 	az.ManagedDiskController = &ManagedDiskController{common: common}
+	az.regionZonesMap = map[string][]string{az.Location: {"1", "2", "3"}}
 
 	return az
 }
@@ -100,5 +117,9 @@ func GetTestCloudWithExtendedLocation(ctrl *gomock.Controller) (az *Cloud) {
 	az = GetTestCloud(ctrl)
 	az.Config.ExtendedLocationName = "microsoftlosangeles1"
 	az.Config.ExtendedLocationType = "EdgeZone"
+	az.controllerCommon.extendedLocation = &ExtendedLocation{
+		Name: az.Config.ExtendedLocationName,
+		Type: az.Config.ExtendedLocationType,
+	}
 	return az
 }
