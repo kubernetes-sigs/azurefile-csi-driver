@@ -50,8 +50,13 @@ fi
 
 echo "Begin to run integration test on $cloud..."
 
+ARCH=$(uname -p)
+if [[ "${ARCH}" == "x86_64" || ${ARCH} == "unknown" ]]; then
+  ARCH="amd64"
+fi
+
 # Run CSI driver as a background service
-_output/azurefileplugin --endpoint "$endpoint" --nodeid CSINode -v=5 &
+_output/${ARCH}/azurefileplugin --endpoint "$endpoint" --nodeid CSINode -v=5 &
 trap cleanup EXIT
 
 if [[ "$cloud" == 'AzureChinaCloud' ]]; then

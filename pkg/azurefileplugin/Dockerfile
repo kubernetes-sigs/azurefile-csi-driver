@@ -13,9 +13,9 @@
 # limitations under the License.
 
 ARG ARCH
-
 FROM k8s.gcr.io/build-image/debian-base-${ARCH}:v2.1.3
-COPY ./_output/azurefileplugin /azurefileplugin
+ARG ARCH
+COPY ./_output/${ARCH}/azurefileplugin /azurefileplugin
 RUN clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs
 # this is a workaround to install nfs-common and don't quit with error
 RUN apt update && apt install nfs-common -y || true

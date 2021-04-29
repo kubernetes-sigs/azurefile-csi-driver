@@ -111,15 +111,15 @@ e2e-teardown:
 
 .PHONY: azurefile
 azurefile:
-	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -a -ldflags ${LDFLAGS} -mod vendor -o _output/azurefileplugin ./pkg/azurefileplugin
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -a -ldflags ${LDFLAGS} -mod vendor -o _output/${ARCH}/azurefileplugin ./pkg/azurefileplugin
 
 .PHONY: azurefile-windows
 azurefile-windows:
-	CGO_ENABLED=0 GOOS=windows go build -a -ldflags ${LDFLAGS} -mod vendor -o _output/azurefileplugin.exe ./pkg/azurefileplugin
+	CGO_ENABLED=0 GOOS=windows go build -a -ldflags ${LDFLAGS} -mod vendor -o _output/${ARCH}/azurefileplugin.exe ./pkg/azurefileplugin
 
 .PHONY: azurefile-darwin
 azurefile-darwin:
-	CGO_ENABLED=0 GOOS=darwin go build -a -ldflags ${LDFLAGS} -mod vendor -o _output/azurefileplugin ./pkg/azurefileplugin
+	CGO_ENABLED=0 GOOS=darwin go build -a -ldflags ${LDFLAGS} -mod vendor -o _output/${ARCH}/azurefileplugin ./pkg/azurefileplugin
 
 .PHONY: container
 container: azurefile
@@ -128,12 +128,13 @@ container: azurefile
 .PHONY: container-linux
 container-linux:
 	docker buildx build --pull --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" \
-		-t $(IMAGE_TAG)-linux-$(ARCH) --build-arg ARCH=$(ARCH) -f ./pkg/azurefileplugin/Dockerfile .
+		-t $(IMAGE_TAG)-linux-$(ARCH) --build-arg ARCH=${ARCH} -f ./pkg/azurefileplugin/Dockerfile .
 
 .PHONY: container-windows
 container-windows:
 	docker buildx build --pull --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" \
-		 -t $(IMAGE_TAG)-windows-$(OSVERSION)-$(ARCH) --build-arg OSVERSION=$(OSVERSION) -f ./pkg/azurefileplugin/Windows.Dockerfile .
+		 -t $(IMAGE_TAG)-windows-$(OSVERSION)-$(ARCH) --build-arg OSVERSION=$(OSVERSION) \
+		 --build-arg ARCH=${ARCH} -f ./pkg/azurefileplugin/Windows.Dockerfile .
 
 .PHONY: container-all
 container-all: azurefile-windows

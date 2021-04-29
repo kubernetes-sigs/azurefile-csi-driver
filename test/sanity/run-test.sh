@@ -31,7 +31,12 @@ if [[ "$#" -gt 0 ]] && [[ -n "$1" ]]; then
   nodeid="$1"
 fi
 
-_output/azurefileplugin --endpoint "$endpoint" --nodeid "$nodeid" -v=5 &
+ARCH=$(uname -p)
+if [[ "${ARCH}" == "x86_64" || ${ARCH} == "unknown" ]]; then
+  ARCH="amd64"
+fi
+
+_output/${ARCH}/azurefileplugin --endpoint "$endpoint" --nodeid "$nodeid" -v=5 &
 
 echo 'Begin to run sanity test...'
 readonly CSI_SANITY_BIN='csi-sanity'
