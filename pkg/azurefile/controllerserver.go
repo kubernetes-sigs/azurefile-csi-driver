@@ -209,7 +209,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		resourceGroup = d.cloud.ResourceGroup
 	}
 
-	tags, err := azure.ConvertTagsToMap(customTags)
+	tags, err := ConvertTagsToMap(customTags)
 	if err != nil {
 		return nil, err
 	}

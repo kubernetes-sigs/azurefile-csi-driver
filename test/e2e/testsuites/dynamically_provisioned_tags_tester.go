@@ -28,11 +28,10 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 
-	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
+	azurefile "sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 	azureUtils "sigs.k8s.io/azurefile-csi-driver/test/utils/azure"
 	"sigs.k8s.io/azurefile-csi-driver/test/utils/credentials"
-	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
 )
 
 // DynamicallyProvisionedAccountWithTags will provision required StorageClass(es), PVC(s) and Pod(s)
@@ -70,7 +69,7 @@ func (t *DynamicallyProvisionedAccountWithTags) Run(client clientset.Interface, 
 
 		resultTags := account.Tags
 
-		specifiedTags, err := azure.ConvertTagsToMap(t.Tags)
+		specifiedTags, err := azurefile.ConvertTagsToMap(t.Tags)
 		framework.ExpectNoError(err, fmt.Sprintf("failed to convert tags(%s) %v", t.Tags, err))
 		specifiedTags["created-by"] = "azure"
 

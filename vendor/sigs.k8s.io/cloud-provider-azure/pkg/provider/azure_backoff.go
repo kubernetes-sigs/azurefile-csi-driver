@@ -18,35 +18,26 @@ package provider
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2020-12-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2020-07-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2020-08-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog/v2"
 
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
+	"sigs.k8s.io/cloud-provider-azure/pkg/consts"
 	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
-)
-
-const (
-	// not active means the instance is under deleting from Azure VMSS.
-	vmssVMNotActiveErrorMessage = "not an active Virtual Machine Scale Set VM instanceId"
-
-	// operationCanceledErrorMessage means the operation is canceled by another new operation.
-	operationCanceledErrorMessage = "canceledandsupersededduetoanotheroperation"
-
-	cannotDeletePublicIPErrorMessageCode = "PublicIPAddressCannotBeDeleted"
-
-	referencedResourceNotProvisionedMessageCode = "ReferencedResourceNotProvisioned"
 )
 
 var (
@@ -175,7 +166,7 @@ func (az *Cloud) CreateOrUpdateSecurityGroup(sg network.SecurityGroup) error {
 	}
 
 	// Invalidate the cache because another new operation has canceled the current request.
-	if strings.Contains(strings.ToLower(rerr.Error().Error()), operationCanceledErrorMessage) {
+	if strings.Contains(strings.ToLower(rerr.Error().Error()), consts.OperationCanceledErrorMessage) {
 		klog.V(3).Infof("SecurityGroup cache for %s is cleanup because CreateOrUpdateSecurityGroup is canceled by another operation", *sg.Name)
 		_ = az.nsgCache.Delete(*sg.Name)
 	}
@@ -234,13 +225,13 @@ func (az *Cloud) CreateOrUpdateLB(service *v1.Service, lb network.LoadBalancer) 
 
 	retryErrorMessage := rerr.Error().Error()
 	// Invalidate the cache because another new operation has canceled the current request.
-	if strings.Contains(strings.ToLower(retryErrorMessage), operationCanceledErrorMessage) {
+	if strings.Contains(strings.ToLower(retryErrorMessage), consts.OperationCanceledErrorMessage) {
 		klog.V(3).Infof("LoadBalancer cache for %s is cleanup because CreateOrUpdate is canceled by another operation", to.String(lb.Name))
 		_ = az.lbCache.Delete(*lb.Name)
 	}
 
 	// The LB update may fail because the referenced PIP is not in the Succeeded provisioning state
-	if strings.Contains(strings.ToLower(retryErrorMessage), strings.ToLower(referencedResourceNotProvisionedMessageCode)) {
+	if strings.Contains(strings.ToLower(retryErrorMessage), strings.ToLower(consts.ReferencedResourceNotProvisionedMessageCode)) {
 		matches := pipErrorMessageRE.FindStringSubmatch(retryErrorMessage)
 		if len(matches) != 3 {
 			klog.Warningf("Failed to parse the retry error message %s", retryErrorMessage)
@@ -267,6 +258,41 @@ func (az *Cloud) CreateOrUpdateLB(service *v1.Service, lb network.LoadBalancer) 
 	return rerr.Error()
 }
 
+// ListAgentPoolLBs invokes az.LoadBalancerClient.List and filter out
+// those that are not managed by cloud provider azure or not associated to a managed VMSet.
+func (az *Cloud) ListAgentPoolLBs(service *v1.Service, nodes []*v1.Node, clusterName string) ([]network.LoadBalancer, error) {
+	allLBs, err := az.ListLB(service)
+	if err != nil {
+		return nil, err
+	}
+
+	if allLBs == nil {
+		klog.Warningf("ListAgentPoolLBs: no LBs found")
+		return nil, nil
+	}
+
+	agentPoolLBs := make([]network.LoadBalancer, 0)
+	agentPoolVMSetNames, err := az.VMSet.GetAgentPoolVMSetNames(nodes)
+	if err != nil {
+		return nil, fmt.Errorf("ListAgentPoolLBs: failed to get agent pool vmSet names: %w", err)
+	}
+	agentPoolVMSetNamesSet := sets.NewString()
+	if agentPoolVMSetNames != nil && len(*agentPoolVMSetNames) > 0 {
+		for _, vmSetName := range *agentPoolVMSetNames {
+			agentPoolVMSetNamesSet.Insert(strings.ToLower(vmSetName))
+		}
+	}
+
+	for _, lb := range allLBs {
+		vmSetNameFromLBName := az.mapLoadBalancerNameToVMSet(to.String(lb.Name), clusterName)
+		if agentPoolVMSetNamesSet.Has(strings.ToLower(vmSetNameFromLBName)) {
+			agentPoolLBs = append(agentPoolLBs, lb)
+		}
+	}
+
+	return agentPoolLBs, nil
+}
+
 // ListLB invokes az.LoadBalancerClient.List with exponential backoff retry
 func (az *Cloud) ListLB(service *v1.Service) ([]network.LoadBalancer, error) {
 	ctx, cancel := getContextWithCancel()
@@ -275,6 +301,9 @@ func (az *Cloud) ListLB(service *v1.Service) ([]network.LoadBalancer, error) {
 	rgName := az.getLoadBalancerResourceGroup()
 	allLBs, rerr := az.LoadBalancerClient.List(ctx, rgName)
 	if rerr != nil {
+		if rerr.IsNotFound() {
+			return nil, nil
+		}
 		az.Event(service, v1.EventTypeWarning, "ListLoadBalancers", rerr.Error().Error())
 		klog.Errorf("LoadBalancerClient.List(%v) failure with err=%v", rgName, rerr)
 		return nil, rerr.Error()
@@ -290,6 +319,9 @@ func (az *Cloud) ListPIP(service *v1.Service, pipResourceGroup string) ([]networ
 
 	allPIPs, rerr := az.PublicIPAddressesClient.List(ctx, pipResourceGroup)
 	if rerr != nil {
+		if rerr.IsNotFound() {
+			return nil, nil
+		}
 		az.Event(service, v1.EventTypeWarning, "ListPublicIPs", rerr.Error().Error())
 		klog.Errorf("PublicIPAddressesClient.List(%v) failure with err=%v", pipResourceGroup, rerr)
 		return nil, rerr.Error()
@@ -341,7 +373,7 @@ func (az *Cloud) DeletePublicIP(service *v1.Service, pipResourceGroup string, pi
 		klog.Errorf("PublicIPAddressesClient.Delete(%s) failed: %s", pipName, rerr.Error().Error())
 		az.Event(service, v1.EventTypeWarning, "DeletePublicIPAddress", rerr.Error().Error())
 
-		if strings.Contains(rerr.Error().Error(), cannotDeletePublicIPErrorMessageCode) {
+		if strings.Contains(rerr.Error().Error(), consts.CannotDeletePublicIPErrorMessageCode) {
 			klog.Warningf("DeletePublicIP for public IP %s failed with error %v, this is because other resources are referencing the public IP. The deletion of the service will continue.", pipName, rerr.Error())
 			return nil
 		}
@@ -387,7 +419,7 @@ func (az *Cloud) CreateOrUpdateRouteTable(routeTable network.RouteTable) error {
 		_ = az.rtCache.Delete(*routeTable.Name)
 	}
 	// Invalidate the cache because another new operation has canceled the current request.
-	if strings.Contains(strings.ToLower(rerr.Error().Error()), operationCanceledErrorMessage) {
+	if strings.Contains(strings.ToLower(rerr.Error().Error()), consts.OperationCanceledErrorMessage) {
 		klog.V(3).Infof("Route table cache for %s is cleanup because CreateOrUpdateRouteTable is canceled by another operation", *routeTable.Name)
 		_ = az.rtCache.Delete(*routeTable.Name)
 	}
@@ -412,7 +444,7 @@ func (az *Cloud) CreateOrUpdateRoute(route network.Route) error {
 		_ = az.rtCache.Delete(az.RouteTableName)
 	}
 	// Invalidate the cache because another new operation has canceled the current request.
-	if strings.Contains(strings.ToLower(rerr.Error().Error()), operationCanceledErrorMessage) {
+	if strings.Contains(strings.ToLower(rerr.Error().Error()), consts.OperationCanceledErrorMessage) {
 		klog.V(3).Infof("Route cache for %s is cleanup because CreateOrUpdateRouteTable is canceled by another operation", *route.Name)
 		_ = az.rtCache.Delete(az.RouteTableName)
 	}
@@ -447,7 +479,7 @@ func (az *Cloud) CreateOrUpdateVMSS(resourceGroupName string, VMScaleSetName str
 		klog.Errorf("CreateOrUpdateVMSS: error getting vmss(%s): %v", VMScaleSetName, rerr)
 		return rerr
 	}
-	if vmss.ProvisioningState != nil && strings.EqualFold(*vmss.ProvisioningState, virtualMachineScaleSetsDeallocating) {
+	if vmss.ProvisioningState != nil && strings.EqualFold(*vmss.ProvisioningState, consts.VirtualMachineScaleSetsDeallocating) {
 		klog.V(3).Infof("CreateOrUpdateVMSS: found vmss %s being deleted, skipping", VMScaleSetName)
 		return nil
 	}

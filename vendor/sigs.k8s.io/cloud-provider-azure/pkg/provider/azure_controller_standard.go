@@ -27,6 +27,7 @@ import (
 	"k8s.io/klog/v2"
 
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
+	"sigs.k8s.io/cloud-provider-azure/pkg/consts"
 )
 
 // AttachDisk attaches a disk to vm
@@ -157,7 +158,7 @@ func (as *availabilitySet) DetachDisk(nodeName types.NodeName, diskMap map[strin
 				(disk.ManagedDisk != nil && diskURI != "" && strings.EqualFold(*disk.ManagedDisk.ID, diskURI)) {
 				// found the disk
 				klog.V(2).Infof("azureDisk - detach disk: name %q uri %q", diskName, diskURI)
-				if strings.EqualFold(as.cloud.Environment.Name, AzureStackCloudName) && !as.Config.DisableAzureStackCloud {
+				if strings.EqualFold(as.cloud.Environment.Name, consts.AzureStackCloudName) && !as.Config.DisableAzureStackCloud {
 					disks = append(disks[:i], disks[i+1:]...)
 				} else {
 					disks[i].ToBeDetached = to.BoolPtr(true)
@@ -206,16 +207,40 @@ func (as *availabilitySet) DetachDisk(nodeName types.NodeName, diskMap map[strin
 	return nil
 }
 
+// UpdateVM updates a vm
+func (as *availabilitySet) UpdateVM(nodeName types.NodeName) error {
+	vmName := mapNodeNameToVMName(nodeName)
+	nodeResourceGroup, err := as.GetNodeResourceGroup(vmName)
+	if err != nil {
+		return err
+	}
+	klog.V(2).Infof("azureDisk - update(%s): vm(%s)", nodeResourceGroup, vmName)
+	ctx, cancel := getContextWithCancel()
+	defer cancel()
+
+	// Invalidate the cache right after updating
+	defer func() {
+		_ = as.cloud.vmCache.Delete(vmName)
+	}()
+
+	rerr := as.VirtualMachinesClient.Update(ctx, nodeResourceGroup, vmName, compute.VirtualMachineUpdate{}, "update_vm")
+	klog.V(2).Infof("azureDisk - update(%s): vm(%s) - returned with %v", nodeResourceGroup, vmName, rerr)
+	if rerr != nil {
+		return rerr.Error()
+	}
+	return nil
+}
+
 // GetDataDisks gets a list of data disks attached to the node.
-func (as *availabilitySet) GetDataDisks(nodeName types.NodeName, crt azcache.AzureCacheReadType) ([]compute.DataDisk, error) {
+func (as *availabilitySet) GetDataDisks(nodeName types.NodeName, crt azcache.AzureCacheReadType) ([]compute.DataDisk, *string, error) {
 	vm, err := as.getVirtualMachine(nodeName, crt)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if vm.StorageProfile.DataDisks == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 
-	return *vm.StorageProfile.DataDisks, nil
+	return *vm.StorageProfile.DataDisks, vm.ProvisioningState, nil
 }
