@@ -1,0 +1,12 @@
+# Manifest for Kubernetes external tests.
+# See https://github.com/kubernetes/kubernetes/tree/master/test/e2e/storage/external
+
+StorageClass:
+  FromFile: /tmp/csi-azurefile/storageclass.yaml
+DriverInfo:
+  Name: file.csi.azure.com
+  Capabilities:
+    persistence: true
+    exec: true
+    multipods: true
+    RWX: true
