@@ -17,5 +17,6 @@ RUN apt-get update && apt-get install -y ca-certificates cifs-utils util-linux e
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"
 
-COPY ./_output/azurefileplugin /azurefileplugin
+ARG ARCH=amd64
+COPY ./_output/${ARCH}/azurefileplugin /azurefileplugin
 ENTRYPOINT ["/azurefileplugin"]
