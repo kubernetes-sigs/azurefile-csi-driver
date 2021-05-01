@@ -54,7 +54,6 @@ roleRef:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  namespace: kube-system
   name: csi-snapshot-controller-leaderelection-role
 rules:
   - apiGroups: ["coordination.k8s.io"]
@@ -66,7 +65,6 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: csi-snapshot-controller-leaderelection-binding
-  namespace: kube-system
 subjects:
   - kind: ServiceAccount
     name: csi-snapshot-controller-sa
