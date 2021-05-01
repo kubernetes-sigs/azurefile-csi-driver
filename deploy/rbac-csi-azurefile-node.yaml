@@ -9,7 +9,6 @@ metadata:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  namespace: kube-system
   name: csi-azurefile-node-secret-role
 rules:
   - apiGroups: [""]
@@ -21,7 +20,6 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: csi-azurefile-node-secret-binding
-  namespace: kube-system
 subjects:
   - kind: ServiceAccount
     name: csi-azurefile-node-sa
