@@ -145,7 +145,9 @@ container-all: azurefile-windows
 	docker buildx rm container-builder || true
 	docker buildx create --use --name=container-builder
 	# enable qemu for arm64 build
-	docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+	# https://github.com/docker/buildx/issues/464#issuecomment-741507760
+	docker run --privileged --rm tonistiigi/binfmt --uninstall qemu-aarch64
+	docker run --rm --privileged tonistiigi/binfmt --install all
 	for arch in $(ALL_ARCH.linux); do \
 		ARCH=$${arch} $(MAKE) azurefile; \
 		ARCH=$${arch} $(MAKE) container-linux; \
