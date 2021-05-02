@@ -26,7 +26,10 @@ jobs:
 
     - name: Unit Test
       run: go test -covermode=count -coverprofile=profile.cov ./pkg/...
-        
+
+    - name: sanity test
+      run: make verify
+
     - name: Send coverage
       env:
         COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
