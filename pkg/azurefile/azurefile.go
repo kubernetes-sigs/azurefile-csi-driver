@@ -85,6 +85,7 @@ const (
 	storageAccountField               = "storageaccount"
 	storageAccountTypeField           = "storageaccounttype"
 	skuNameField                      = "skuname"
+	enableLargeFileSharesField        = "enablelargefileshares"
 	resourceGroupField                = "resourcegroup"
 	locationField                     = "location"
 	secretNamespaceField              = "secretnamespace"
