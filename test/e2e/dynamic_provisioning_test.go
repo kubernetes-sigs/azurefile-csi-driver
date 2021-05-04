@@ -121,8 +121,9 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		}
 
 		scParameters := map[string]string{
-			"skuName":         "Standard_LRS",
-			"secretNamespace": "kube-system",
+			"skuName":               "Standard_LRS",
+			"secretNamespace":       "kube-system",
+			"enableLargeFileshares": "true",
 		}
 		if !isUsingInTreeVolumePlugin {
 			scParameters["secretName"] = "sercet-test"
@@ -304,10 +305,13 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			},
 		}
 		test := testsuites.DynamicallyProvisionedReclaimPolicyTest{
-			CSIDriver:              testDriver,
-			Volumes:                volumes,
-			Azurefile:              azurefileDriver,
-			StorageClassParameters: map[string]string{"skuName": "Premium_LRS"},
+			CSIDriver: testDriver,
+			Volumes:   volumes,
+			Azurefile: azurefileDriver,
+			StorageClassParameters: map[string]string{
+				"skuName":               "Premium_LRS",
+				"enableLargeFileshares": "true",
+			},
 		}
 		test.Run(cs, ns)
 	})
@@ -329,9 +333,12 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			},
 		}
 		test := testsuites.DynamicallyProvisionedResizeVolumeTest{
-			CSIDriver:              testDriver,
-			Pods:                   pods,
-			StorageClassParameters: map[string]string{"skuName": "Standard_LRS"},
+			CSIDriver: testDriver,
+			Pods:      pods,
+			StorageClassParameters: map[string]string{
+				"skuName":               "Standard_LRS",
+				"enableLargeFileshares": "true",
+			},
 		}
 		test.Run(cs, ns)
 	})
