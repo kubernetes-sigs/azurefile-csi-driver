@@ -57,7 +57,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `image.nodeDriverRegistrar.repository`            | csi-node-driver-registrar docker image                     | mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar    |
 | `image.nodeDriverRegistrar.tag`                   | csi-node-driver-registrar docker image tag                 | v2.0.1                                                            |
 | `image.nodeDriverRegistrar.pullPolicy`            | csi-node-driver-registrar image pull policy                | IfNotPresent                                                      |
-| `imagePullSecrets`                                | Specify docker-registry secret names as an array           | [] (does not add image pull secrets to deployed pods)             | 
+| `imagePullSecrets`                                | Specify docker-registry secret names as an array           | [] (does not add image pull secrets to deployed pods)             |
 | `serviceAccount.create`                           | whether create service account of csi-azurefile-controller  | true                                                              |
 | `rbac.create`                                     | whether create rbac of csi-azurefile-controller             | true                                                              |
 | `controller.replicas`                             | the replicas of csi-azurefile-controller                    | 2                                                                 |
@@ -87,6 +87,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `windows.image.nodeDriverRegistrar.pullPolicy`    | windows csi-node-driver-registrar image pull policy        | IfNotPresent                                                      |
 | `kubelet.linuxPath`                               | configure the kubelet path for Linux node                  | `/var/lib/kubelet`                                                |
 | `kubelet.windowsPath`                             | configure the kubelet path for Windows node                | `'C:\var\lib\kubelet'`                                            |
+| `node.livenessProbe.healthPort `                  | the health check port for liveness probe                   | `29613` |
 
 ## troubleshooting
  - Add `--wait -v=5 --debug` in `helm install` command to get detailed error
