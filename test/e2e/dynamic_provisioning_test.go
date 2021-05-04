@@ -121,12 +121,12 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		}
 
 		scParameters := map[string]string{
-			"skuName":               "Standard_LRS",
-			"secretNamespace":       "kube-system",
-			"enableLargeFileshares": "true",
+			"skuName":         "Standard_LRS",
+			"secretNamespace": "kube-system",
 		}
 		if !isUsingInTreeVolumePlugin {
 			scParameters["secretName"] = "sercet-test"
+			scParameters["enableLargeFileshares"] = "true"
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
 			CSIDriver:              testDriver,
@@ -336,8 +336,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			CSIDriver: testDriver,
 			Pods:      pods,
 			StorageClassParameters: map[string]string{
-				"skuName":               "Standard_LRS",
-				"enableLargeFileshares": "true",
+				"skuName": "Standard_LRS",
 			},
 		}
 		test.Run(cs, ns)
