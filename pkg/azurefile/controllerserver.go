@@ -100,7 +100,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		parameters = make(map[string]string)
 	}
 	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, storeAccountKey, secretName, secretNamespace, protocol, customTags string
-	var createAccount, useDataPlaneAPI, disableDeleteRetentionPolicy bool
+	var createAccount, useDataPlaneAPI, disableDeleteRetentionPolicy, enableLFS bool
 
 	// Apply ProvisionerParameters (case-insensitive). We leave validation of
 	// the values to the cloud provider.
@@ -134,6 +134,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			customTags = v
 		case createAccountField:
 			createAccount = strings.EqualFold(v, trueValue)
+		case enableLargeFileSharesField:
+			enableLFS = strings.EqualFold(v, trueValue)
 		case useDataPlaneAPIField:
 			useDataPlaneAPI = strings.EqualFold(v, trueValue)
 		case disableDeleteRetentionPolicyField:
@@ -224,6 +226,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		Tags:                                    tags,
 		VirtualNetworkResourceIDs:               vnetResourceIDs,
 		CreateAccount:                           createAccount,
+		EnableLargeFileShare:                    enableLFS,
 		DisableFileServiceDeleteRetentionPolicy: disableDeleteRetentionPolicy,
 	}
 
