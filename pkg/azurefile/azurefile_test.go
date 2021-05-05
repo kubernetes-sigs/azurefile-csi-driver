@@ -158,11 +158,27 @@ func TestGetFileShareInfo(t *testing.T) {
 		expectedError     error
 	}{
 		{
-			id:                "rg#f5713de20cde511e8ba4900#pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41#diskname.vhd",
+			id:                "rg#f5713de20cde511e8ba4900#pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41#diskname1.vhd#1620118846",
 			resourceGroupName: "rg",
 			accountName:       "f5713de20cde511e8ba4900",
 			fileShareName:     "pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41",
-			diskName:          "diskname.vhd",
+			diskName:          "diskname1.vhd",
+			expectedError:     nil,
+		},
+		{
+			id:                "rg#f5713de20cde511e8ba4900#pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41#diskname2.vhd#",
+			resourceGroupName: "rg",
+			accountName:       "f5713de20cde511e8ba4900",
+			fileShareName:     "pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41",
+			diskName:          "diskname2.vhd",
+			expectedError:     nil,
+		},
+		{
+			id:                "rg#f5713de20cde511e8ba4900#pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41#diskname3.vhd",
+			resourceGroupName: "rg",
+			accountName:       "f5713de20cde511e8ba4900",
+			fileShareName:     "pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41",
+			diskName:          "diskname3.vhd",
 			expectedError:     nil,
 		},
 		{

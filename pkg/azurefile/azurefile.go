@@ -282,7 +282,7 @@ func (d *Driver) getFileShareQuota(resourceGroupName, accountName, fileShareName
 }
 
 // get file share info according to volume id, e.g.
-// input: "rg#f5713de20cde511e8ba4900#pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41#diskname.vhd"
+// input: "rg#f5713de20cde511e8ba4900#pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41#diskname.vhd#uuid"
 // output: rg, f5713de20cde511e8ba4900, pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41, diskname.vhd
 func GetFileShareInfo(id string) (string, string, string, string, error) {
 	segments := strings.Split(id, separator)
