@@ -125,7 +125,7 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 
 		diskSize := fmt.Sprintf("%dGi", defaultDiskSize)
 		pods := []testsuites.PodDetails{}
-		for i := 1; i <= 6; i++ {
+		for i := 1; i <= 12; i++ {
 			pod := testsuites.PodDetails{
 				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
 				Volumes: []testsuites.VolumeDetails{
