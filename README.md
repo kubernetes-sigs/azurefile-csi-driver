@@ -37,7 +37,6 @@ Please refer to [driver parameters](./docs/driver-parameters.md)
  - [Basic usage](./deploy/example/e2e_usage.md)
  
 ### Features
- - [VHD disk](./deploy/example/disk)
  - [Windows](./deploy/example/windows)
  - [NFS](./deploy/example/nfs)
  - [Snapshot](./deploy/example/snapshot)
