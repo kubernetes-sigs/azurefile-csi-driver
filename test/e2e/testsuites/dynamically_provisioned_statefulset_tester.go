@@ -17,6 +17,8 @@ limitations under the License.
 package testsuites
 
 import (
+	"time"
+
 	"github.com/onsi/ginkgo"
 	v1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
@@ -46,7 +48,8 @@ func (t *DynamicallyProvisionedStatefulSetTest) Run(client clientset.Interface, 
 	tStatefulSet.WaitForPodReady()
 
 	if t.PodCheck != nil {
-		ginkgo.By("checking pod exec")
+		time.Sleep(time.Second)
+		ginkgo.By("sleep 1s and then check pod exec")
 		tStatefulSet.Exec(t.PodCheck.Cmd, t.PodCheck.ExpectedString)
 	}
 
@@ -57,7 +60,8 @@ func (t *DynamicallyProvisionedStatefulSetTest) Run(client clientset.Interface, 
 	tStatefulSet.WaitForPodReady()
 
 	if t.PodCheck != nil {
-		ginkgo.By("checking pod exec after pod restart again")
+		time.Sleep(time.Second)
+		ginkgo.By("sleep 1s and then check pod exec after pod restart again")
 		// pod will be restarted so expect to see 2 instances of string
 		tStatefulSet.Exec(t.PodCheck.Cmd, t.PodCheck.ExpectedString+t.PodCheck.ExpectedString)
 	}
