@@ -48,8 +48,8 @@ func (t *DynamicallyProvisionedStatefulSetTest) Run(client clientset.Interface, 
 	tStatefulSet.WaitForPodReady()
 
 	if t.PodCheck != nil {
-		time.Sleep(time.Second)
-		ginkgo.By("sleep 1s and then check pod exec")
+		ginkgo.By("sleep 2s and then check pod exec")
+		time.Sleep(2 * time.Second)
 		tStatefulSet.Exec(t.PodCheck.Cmd, t.PodCheck.ExpectedString)
 	}
 
@@ -60,8 +60,8 @@ func (t *DynamicallyProvisionedStatefulSetTest) Run(client clientset.Interface, 
 	tStatefulSet.WaitForPodReady()
 
 	if t.PodCheck != nil {
-		time.Sleep(time.Second)
-		ginkgo.By("sleep 1s and then check pod exec after pod restart again")
+		ginkgo.By("sleep 2s and then check pod exec after pod restart again")
+		time.Sleep(2 * time.Second)
 		// pod will be restarted so expect to see 2 instances of string
 		tStatefulSet.Exec(t.PodCheck.Cmd, t.PodCheck.ExpectedString+t.PodCheck.ExpectedString)
 	}
