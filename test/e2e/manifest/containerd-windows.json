@@ -10,7 +10,7 @@
             "kubernetesConfig": {
                 "useManagedIdentity": false,
                 "containerRuntime": "containerd",
-                "windowsContainerdURL": "https://qinhaostore.blob.core.windows.net/store/windows-cri-containerd.zip"
+                "windowsContainerdURL": "https://acs-mirror.azureedge.net/containerd/windows/v0.0.41/binaries/containerd-v0.0.41-windows-amd64.tar.gz "
             }
         },
         "masterProfile": {
