@@ -11,7 +11,7 @@ This driver allows Kubernetes to use [Azure File](https://docs.microsoft.com/en-
 ### Container Images & Kubernetes Compatibility:
 |Driver Version  |Image                                           | supported k8s version |
 |----------------|----------------------------------------------- |-----------------------|
-|master branch   |mcr.microsoft.com/k8s/csi/azurefile-csi:latest  | 1.17+                 |
+|master branch   |mcr.microsoft.com/k8s/csi/azurefile-csi:latest  | 1.18+                 |
 |v1.2.0          |mcr.microsoft.com/k8s/csi/azurefile-csi:v1.2.0  | 1.17+                 |
 |v1.1.0          |mcr.microsoft.com/k8s/csi/azurefile-csi:v1.1.0  | 1.16+                 |
 |v1.0.0          |mcr.microsoft.com/k8s/csi/azurefile-csi:v1.0.0  | 1.16+                 |
