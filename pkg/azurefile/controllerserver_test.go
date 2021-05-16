@@ -370,7 +370,7 @@ func TestCreateVolume(t *testing.T) {
 						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 					})
 
-				expectedErr := status.Errorf(codes.Internal, "failed to update the service endpoints: failed to get the subnet fake-subnet under vnet fake-vnet: &{false 0 0001-01-01 00:00:00 +0000 UTC the subnet does not exist}")
+				expectedErr := status.Errorf(codes.Internal, "update service endpoints failed with error: failed to get the subnet fake-subnet under vnet fake-vnet: &{false 0 0001-01-01 00:00:00 +0000 UTC the subnet does not exist}")
 				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
