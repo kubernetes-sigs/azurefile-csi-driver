@@ -26,6 +26,7 @@ import (
 
 	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
 
+	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	snapshotclientset "github.com/kubernetes-csi/external-snapshotter/v2/pkg/client/clientset/versioned"
@@ -797,6 +798,31 @@ func (t *TestPod) SetupInlineVolume(name, mountPath, secretName, shareName strin
 				SecretName: secretName,
 				ShareName:  shareName,
 				ReadOnly:   readOnly,
+			},
+		},
+	}
+	t.pod.Spec.Volumes = append(t.pod.Spec.Volumes, volume)
+}
+
+func (t *TestPod) SetupCSIInlineVolume(name, mountPath, secretName, shareName string, readOnly bool) {
+	volumeMount := v1.VolumeMount{
+		Name:      name,
+		MountPath: mountPath,
+		ReadOnly:  readOnly,
+	}
+	t.pod.Spec.Containers[0].VolumeMounts = append(t.pod.Spec.Containers[0].VolumeMounts, volumeMount)
+
+	volume := v1.Volume{
+		Name: name,
+		VolumeSource: v1.VolumeSource{
+			CSI: &v1.CSIVolumeSource{
+				Driver: azurefile.DriverName,
+				VolumeAttributes: map[string]string{
+					"secretName":      secretName,
+					"secretNamespace": "default",
+					"shareName":       shareName,
+				},
+				ReadOnly: to.BoolPtr(readOnly),
 			},
 		},
 	}

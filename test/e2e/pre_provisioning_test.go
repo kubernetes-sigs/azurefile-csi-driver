@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	defaultDiskSize      = 10
+	defaultDiskSize      = 100
 	defaultDiskSizeBytes = defaultDiskSize * 1024 * 1024 * 1024
 )
 
@@ -78,7 +78,7 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 		// Az tests are not yet working for in-tree
 		skipIfUsingInTreeVolumePlugin()
 
-		req := makeCreateVolumeReq("pre-provisioned-readOnly")
+		req := makeCreateVolumeReq("pre-provisioned-readonly")
 		resp, err := azurefileDriver.CreateVolume(context.Background(), req)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
@@ -154,7 +154,7 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 		// Az tests are not yet working for in tree driver
 		skipIfUsingInTreeVolumePlugin()
 
-		req := makeCreateVolumeReq("pre-provisioned-retain-reclaimPolicy")
+		req := makeCreateVolumeReq("pre-provisioned-retain-reclaimpolicy")
 		resp, err := azurefileDriver.CreateVolume(context.Background(), req)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
@@ -285,7 +285,7 @@ func makeCreateVolumeReq(volumeName string) *csi.CreateVolumeRequest {
 		},
 		Parameters: map[string]string{
 			"skuname":   "Standard_LRS",
-			"shareName": "test",
+			"shareName": volumeName,
 		},
 	}
 
