@@ -6,3 +6,6 @@ metadata:
 spec:
   attachRequired: {{ .Values.controller.attachRequired }}
   podInfoOnMount: true
+  volumeLifecycleModes:
+    - Persistent
+    - Ephemeral
