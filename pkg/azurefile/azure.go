@@ -109,23 +109,26 @@ func getKubeClient(kubeconfig string) (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(config)
 }
 
-func updateSubnetServiceEndpoints(ctx context.Context, az *azure.Cloud, subnetLockMap *lockMap) error {
-	if az == nil {
-		return fmt.Errorf("the cloud parameter is nil")
-	}
-	if subnetLockMap == nil {
-		return fmt.Errorf("the subnet lockMap parameter is nil")
+func (d *Driver) updateSubnetServiceEndpoints(ctx context.Context) error {
+	if d.cloud.SubnetsClient == nil {
+		return fmt.Errorf("SubnetsClient is nil")
 	}
 
-	resourceGroup := az.ResourceGroup
-	if len(az.VnetResourceGroup) > 0 {
-		resourceGroup = az.VnetResourceGroup
+	resourceGroup := d.cloud.ResourceGroup
+	if len(d.cloud.VnetResourceGroup) > 0 {
+		resourceGroup = d.cloud.VnetResourceGroup
 	}
-	location := az.Location
-	vnetName := az.VnetName
-	subnetName := az.SubnetName
+	location := d.cloud.Location
+	vnetName := d.cloud.VnetName
+	subnetName := d.cloud.SubnetName
 
-	subnet, err := az.SubnetsClient.Get(ctx, resourceGroup, vnetName, subnetName, "")
+	klog.V(2).Infof("updateSubnetServiceEndpoints on VnetName: %s, SubnetName: %s", vnetName, subnetName)
+
+	lockKey := resourceGroup + vnetName + subnetName
+	d.subnetLockMap.LockEntry(lockKey)
+	defer d.subnetLockMap.UnlockEntry(lockKey)
+
+	subnet, err := d.cloud.SubnetsClient.Get(ctx, resourceGroup, vnetName, subnetName, "")
 	if err != nil {
 		return fmt.Errorf("failed to get the subnet %s under vnet %s: %v", subnetName, vnetName, err)
 	}
@@ -154,15 +157,11 @@ func updateSubnetServiceEndpoints(ctx context.Context, az *azure.Cloud, subnetLo
 		serviceEndpoints = append(serviceEndpoints, storageServiceEndpoint)
 		subnet.SubnetPropertiesFormat.ServiceEndpoints = &serviceEndpoints
 
-		lockKey := resourceGroup + vnetName + subnetName
-		subnetLockMap.LockEntry(lockKey)
-		defer subnetLockMap.UnlockEntry(lockKey)
-
-		err = az.SubnetsClient.CreateOrUpdate(context.Background(), resourceGroup, vnetName, subnetName, subnet)
+		err = d.cloud.SubnetsClient.CreateOrUpdate(context.Background(), resourceGroup, vnetName, subnetName, subnet)
 		if err != nil {
 			return fmt.Errorf("failed to update the subnet %s under vnet %s: %v", subnetName, vnetName, err)
 		}
-		klog.V(4).Infof("serviceEndpoint(%s) is appended in subnet(%s)", storageService, subnetName)
+		klog.V(2).Infof("serviceEndpoint(%s) is appended in subnet(%s)", storageService, subnetName)
 	}
 
 	return nil
