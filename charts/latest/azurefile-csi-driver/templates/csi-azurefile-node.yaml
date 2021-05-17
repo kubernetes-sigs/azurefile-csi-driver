@@ -65,7 +65,7 @@ spec:
             - name: ADDRESS
               value: /csi/csi.sock
             - name: DRIVER_REG_SOCK_PATH
-              value: {{ .Values.kubelet.linuxPath }}/plugins/file.csi.azure.com/csi.sock
+              value: {{ .Values.linux.kubelet }}/plugins/file.csi.azure.com/csi.sock
           imagePullPolicy: {{ .Values.image.nodeDriverRegistrar.pullPolicy }}
           volumeMounts:
             - name: socket-dir
@@ -86,6 +86,7 @@ spec:
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
             - "--metrics-address=0.0.0.0:{{ .Values.node.metricsPort }}"
+            - "--kubeconfig={{ .Values.linux.kubeconfig }}"
           ports:
             - containerPort: 29613
               name: healthz
@@ -121,7 +122,7 @@ spec:
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
-            - mountPath: {{ .Values.kubelet.linuxPath }}/
+            - mountPath: {{ .Values.linux.kubelet }}/
               mountPropagation: Bidirectional
               name: mountpoint-dir
             - mountPath: /etc/kubernetes/
@@ -140,15 +141,15 @@ spec:
               memory: 20Mi
       volumes:
         - hostPath:
-            path: {{ .Values.kubelet.linuxPath }}/plugins/file.csi.azure.com
+            path: {{ .Values.linux.kubelet }}/plugins/file.csi.azure.com
             type: DirectoryOrCreate
           name: socket-dir
         - hostPath:
-            path: {{ .Values.kubelet.linuxPath }}/
+            path: {{ .Values.linux.kubelet }}/
             type: DirectoryOrCreate
           name: mountpoint-dir
         - hostPath:
-            path: {{ .Values.kubelet.linuxPath }}/plugins_registry/
+            path: {{ .Values.linux.kubelet }}/plugins_registry/
             type: DirectoryOrCreate
           name: registration-dir
         - hostPath:
