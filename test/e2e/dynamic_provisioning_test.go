@@ -17,6 +17,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -833,6 +834,79 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				Cmd:            podCheckCmd,
 				ExpectedString: expectedString, // pod will be restarted so expect to see 2 instances of string
 			},
+		}
+		test.Run(cs, ns)
+	})
+
+	ginkgo.It("should create an CSI inline volume [file.csi.azure.com]", func() {
+		skipIfUsingInTreeVolumePlugin()
+
+		// get storage account secret name
+		err := os.Chdir("../..")
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		defer func() {
+			err := os.Chdir("test/e2e")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		}()
+
+		getSecretNameScript := "test/utils/get_storage_account_secret_name.sh"
+		log.Printf("run script: %s\n", getSecretNameScript)
+
+		cmd := exec.Command("bash", getSecretNameScript)
+		output, err := cmd.CombinedOutput()
+		log.Printf("got output: %v, error: %v\n", string(output), err)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+		secretName := strings.TrimSuffix(string(output), "\n")
+		log.Printf("got storage account secret name: %v\n", secretName)
+		segments := strings.Split(secretName, "-")
+		if len(segments) != 5 {
+			ginkgo.Fail(fmt.Sprintf("%s have %d elements, expected: %d ", secretName, len(segments), 5))
+		}
+		accountName := segments[3]
+
+		shareName := "inline-smb-volume"
+		req := makeCreateVolumeReq(shareName)
+		req.Parameters["storageAccount"] = accountName
+		resp, err := azurefileDriver.CreateVolume(context.Background(), req)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
+		}
+		volumeID := resp.Volume.VolumeId
+		ginkgo.By(fmt.Sprintf("Successfully provisioned AzureFile volume: %q\n", volumeID))
+
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize: "100Gi",
+						MountOptions: []string{
+							"dir_mode=0777",
+							"file_mode=0777",
+							"uid=0",
+							"gid=0",
+							"mfsymlinks",
+							"cache=strict",
+							"nosharesock",
+						},
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+					},
+				},
+				IsWindows: isWindowsCluster,
+			},
+		}
+
+		test := testsuites.DynamicallyProvisionedInlineVolumeTest{
+			CSIDriver:       testDriver,
+			Pods:            pods,
+			SecretName:      secretName,
+			ShareName:       shareName,
+			ReadOnly:        false,
+			CSIInlineVolume: true,
 		}
 		test.Run(cs, ns)
 	})

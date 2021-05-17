@@ -478,7 +478,7 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 		err = nil
 	}
 
-	var protocol, accountKey string
+	var protocol, accountKey, secretName, secretNamespace string
 	for k, v := range reqContext {
 		switch strings.ToLower(k) {
 		case resourceGroupField:
@@ -491,6 +491,10 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 			diskName = v
 		case protocolField:
 			protocol = v
+		case secretNameField:
+			secretName = v
+		case secretNamespaceField:
+			secretNamespace = v
 		}
 	}
 
@@ -507,16 +511,18 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 		if v, ok := d.accountMap.Load(accountName); ok {
 			accountKey = v.(string)
 		} else {
-			secretNamespace, ok := reqContext[secretNamespaceField]
-			if !ok {
+			if secretNamespace == "" {
 				secretNamespace = defaultSecretNamespace
 			}
-			secretName, ok := reqContext[secretNameField]
-			if !ok && accountName != "" {
+			if secretName == "" && accountName != "" {
 				secretName = fmt.Sprintf(secretNameTemplate, accountName)
 			}
 			if secretName != "" {
-				accountKey, err = d.GetStorageAccesskeyFromSecret(secretName, secretNamespace)
+				var name string
+				name, accountKey, err = d.GetStorageAccountFromSecret(secretName, secretNamespace)
+				if name != "" {
+					accountName = name
+				}
 				if err != nil && d.cloud.StorageAccountClient != nil && accountName != "" {
 					klog.V(2).Infof("could not get account(%s) key from secret(%s), error: %v, use cluster identity to get account key instead", accountName, secretName, err)
 					accountKey, err = d.cloud.GetStorageAccesskey(accountName, rgName)
@@ -676,7 +682,7 @@ func (d *Driver) GetStorageAccesskey(accountOptions *azure.AccountOptions, secre
 	if secretName == "" {
 		secretName = fmt.Sprintf(secretNameTemplate, accountName)
 	}
-	accountKey, err := d.GetStorageAccesskeyFromSecret(secretName, secretNamespace)
+	_, accountKey, err := d.GetStorageAccountFromSecret(secretName, secretNamespace)
 	if err != nil {
 		klog.V(2).Infof("could not get account(%s) key from secret(%s), error: %v, use cluster identity to get account key instead", accountOptions.Name, secretName, err)
 		accountKey, err = d.cloud.GetStorageAccesskey(accountName, accountOptions.ResourceGroup)
@@ -688,10 +694,11 @@ func (d *Driver) GetStorageAccesskey(accountOptions *azure.AccountOptions, secre
 	return accountKey, err
 }
 
-// GetStorageAccesskeyFromSecret get storage account key from k8s secret
-func (d *Driver) GetStorageAccesskeyFromSecret(secretName, secretNamespace string) (string, error) {
+// GetStorageAccountFromSecret get storage account key from k8s secret
+// return <accountName, accountKey, error>
+func (d *Driver) GetStorageAccountFromSecret(secretName, secretNamespace string) (string, string, error) {
 	if d.cloud.KubeClient == nil {
-		return "", fmt.Errorf("could not get account key from secret(%s): KubeClient is nil", secretName)
+		return "", "", fmt.Errorf("could not get account key from secret(%s): KubeClient is nil", secretName)
 	}
 
 	if secretNamespace == "" {
@@ -699,10 +706,10 @@ func (d *Driver) GetStorageAccesskeyFromSecret(secretName, secretNamespace strin
 	}
 	secret, err := d.cloud.KubeClient.CoreV1().Secrets(secretNamespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 	if err != nil {
-		return "", fmt.Errorf("could not get secret(%v): %v", secretName, err)
+		return "", "", fmt.Errorf("could not get secret(%v): %v", secretName, err)
 	}
 
-	return string(secret.Data[defaultSecretAccountKey][:]), nil
+	return string(secret.Data[defaultSecretAccountName][:]), string(secret.Data[defaultSecretAccountKey][:]), nil
 }
 
 // getSubnetResourceID get default subnet resource ID from cloud provider config
