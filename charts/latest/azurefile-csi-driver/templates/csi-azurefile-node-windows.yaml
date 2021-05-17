@@ -91,7 +91,7 @@ spec:
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
             - "--metrics-address=0.0.0.0:{{ .Values.node.metricsPort }}"
-            - "--kubeconfig=C:\\k\\config"
+            - "--kubeconfig={{ .Values.windows.kubeconfig }}"
           ports:
             - containerPort: 29613
               name: healthz
@@ -151,15 +151,15 @@ spec:
             type: ""
         - name: registration-dir
           hostPath:
-            path: {{ .Values.kubelet.windowsPath }}\plugins_registry\
+            path: {{ .Values.windows.kubelet }}\plugins_registry\
             type: Directory
         - name: kubelet-dir
           hostPath:
-            path: {{ .Values.kubelet.windowsPath }}\
+            path: {{ .Values.windows.kubelet }}\
             type: Directory
         - name: plugin-dir
           hostPath:
-            path: {{ .Values.kubelet.windowsPath }}\plugins\file.csi.azure.com\
+            path: {{ .Values.windows.kubelet }}\plugins\file.csi.azure.com\
             type: DirectoryOrCreate
         - name: azure-config
           hostPath:

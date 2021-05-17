@@ -141,6 +141,7 @@ spec:
             - "--v={{ .Values.controller.logLevel }}"
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--metrics-address=0.0.0.0:{{ .Values.controller.metricsPort }}"
+            - "--kubeconfig={{ .Values.controller.kubeconfig }}"
           ports:
             - containerPort: 29612
               name: healthz

@@ -1,0 +1,26 @@
+---
+kind: Pod
+apiVersion: v1
+metadata:
+  name: nginx-azurefile-inline-volume
+spec:
+  nodeSelector:
+    "kubernetes.io/os": linux
+  containers:
+    - image: mcr.microsoft.com/oss/nginx/nginx:1.19.5
+      name: nginx-azurefile
+      command:
+        - "/bin/bash"
+        - "-c"
+        - set -euo pipefail; while true; do echo $(date) >> /mnt/azurefile/outfile; sleep 1; done
+      volumeMounts:
+        - name: persistent-storage
+          mountPath: "/mnt/azurefile"
+  volumes:
+    - name: persistent-storage
+      csi:
+        driver: file.csi.azure.com
+        volumeAttributes:
+          shareName: EXISTING_SHARE_NAME
+          secretName: azure-secret
+          secretNamespace: default  # optional, if it's empty, use pod.Namespace by default

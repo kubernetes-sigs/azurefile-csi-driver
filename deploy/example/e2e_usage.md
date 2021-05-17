@@ -93,3 +93,17 @@ Filesystem                                                                Size  
 ...
 ```
 In the above example, there is a `/mnt/azurefile` directory mounted as cifs filesystem.
+
+#### Option#3: Inline volume
+ > only available from `v1.3.0`
+ - Use `kubectl create secret` to create `azure-secret` with existing storage account name and key
+```console
+kubectl create secret generic azure-secret --from-literal accountname=NAME --from-literal accountkey="KEY" --type=Opaque
+```
+
+ - download `nginx-pod-azurefile-inline-volume.yaml` file and edit `shareName`, `secretName`, `secretNamespace`
+```console
+wget https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/nginx-pod-azurefile-inline-volume.yaml
+#edit nginx-pod-azurefile-inline-volume.yaml
+kubectl create -f nginx-pod-azurefile-inline-volume.yaml
+```

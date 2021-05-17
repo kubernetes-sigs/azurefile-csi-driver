@@ -36,6 +36,7 @@ controller:
   runOnMaster: false
   attachRequired: false
   logLevel: 5
+  kubeconfig: ""
 
 node:
   metricsPort: 29615
@@ -61,9 +62,13 @@ snapshot:
 
 linux:
   enabled: true
+  kubelet: /var/lib/kubelet
+  kubeconfig: ""
 
 windows:
   enabled: true
+  kubelet: 'C:\var\lib\kubelet'
+  kubeconfig: 'C:\\k\\config'
   image:
     livenessProbe:
       repository: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe
@@ -73,7 +78,3 @@ windows:
       repository: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar
       tag: v2.0.1
       pullPolicy: IfNotPresent
-
-kubelet:
-  windowsPath: 'C:\var\lib\kubelet'
-  linuxPath: /var/lib/kubelet
