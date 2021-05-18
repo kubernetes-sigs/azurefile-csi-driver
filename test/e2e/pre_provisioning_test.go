@@ -130,7 +130,8 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
 				Volumes: []testsuites.VolumeDetails{
 					{
-						VolumeID:  volumeID,
+						// make VolumeID unique in test
+						VolumeID:  fmt.Sprintf("%s%d", volumeID, i),
 						ClaimSize: diskSize,
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
