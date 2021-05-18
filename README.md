@@ -30,8 +30,8 @@ Please refer to [driver parameters](./docs/driver-parameters.md)
  - [How to set up CSI driver on Azure RedHat OpenShift(ARO)](https://github.com/ezYakaEagle442/aro-pub-storage/blob/master/setup-store-CSI-driver-azure-file.md)
 
 ### Install driver on a Kubernetes cluster
- - install by [kubectl](./docs/install-azurefile-csi-driver.md)
- - install by [helm charts](./charts)
+ - install by [kubectl](./docs/install-azurefile-csi-driver.md) (please use helm for RedHat/CentOS)
+ - install by [helm charts](./charts) (supports RedHat/CentOS)
 
 ### Examples
  - [Basic usage](./deploy/example/e2e_usage.md)

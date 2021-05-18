@@ -64,6 +64,7 @@ linux:
   enabled: true
   kubelet: /var/lib/kubelet
   kubeconfig: ""
+  distro: debian
 
 windows:
   enabled: true
