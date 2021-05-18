@@ -160,20 +160,32 @@ var _ = ginkgo.AfterSuite(func() {
 			}
 			execTestCmd([]testCmd{azurefileLog, e2eTeardown})
 
-			// install/uninstall CSI Driver deployment scripts test
-			installDriver := testCmd{
-				command:  "bash",
-				args:     []string{"deploy/install-driver.sh", "master", "windows,local"},
-				startLog: "===================install CSI Driver deployment scripts test===================",
-				endLog:   "===================================================",
+			if !isTestingMigration {
+				// install CSI Driver deployment scripts test
+				installDriver := testCmd{
+					command:  "bash",
+					args:     []string{"deploy/install-driver.sh", "master", "windows,local"},
+					startLog: "===================install CSI Driver deployment scripts test===================",
+					endLog:   "===================================================",
+				}
+
+				createExampleDeployment := testCmd{
+					command:  "bash",
+					args:     []string{"hack/verify-examples.sh", os},
+					startLog: "create example deployments#2",
+					endLog:   "example deployments#2 created",
+				}
+				execTestCmd([]testCmd{createExampleDeployment})
+
+				// uninstall CSI Driver deployment scripts test
+				uninstallDriver := testCmd{
+					command:  "bash",
+					args:     []string{"deploy/uninstall-driver.sh", "master", "windows,local"},
+					startLog: "===================uninstall CSI Driver deployment scripts test===================",
+					endLog:   "===================================================",
+				}
+				execTestCmd([]testCmd{installDriver, uninstallDriver})
 			}
-			uninstallDriver := testCmd{
-				command:  "bash",
-				args:     []string{"deploy/uninstall-driver.sh", "master", "windows,local"},
-				startLog: "===================uninstall CSI Driver deployment scripts test===================",
-				endLog:   "===================================================",
-			}
-			execTestCmd([]testCmd{installDriver, uninstallDriver})
 
 			err := credentials.DeleteAzureCredentialFile()
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
