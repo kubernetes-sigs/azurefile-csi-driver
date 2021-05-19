@@ -1,7 +1,7 @@
 ## CSI driver example
 > refer to [driver parameters](../../docs/driver-parameters.md) for more detailed usage
 
-### Dynamic Provisioning
+### Azure File Dynamic Provisioning
 #### Option#1: create storage account by CSI driver
  - Create storage class
 ```console
@@ -28,13 +28,15 @@ kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-cs
 
  - Execute `df -h` command in the container
 ```
-# kubectl exec -it statefulset-azurefile-0 sh
+kubectl exec -it statefulset-azurefile-0 sh
+```
+<pre>
 # df -h
 Filesystem                                                                Size  Used Avail Use% Mounted on
 ...
 //f571xxx.file.core.windows.net/pvc-54caa11f-9e27-11e9-ba7b-0601775d3b69  1.0G  64K  1.0G  1%   /mnt/azurefile
 ...
-```
+</pre>
 
 ### AzureFile Static Provisioning(use an existing Azure file share)
 #### Option#1: storage class
@@ -85,13 +87,15 @@ kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-cs
 
  - Execute `df -h` command in the container
 ```console
-$ kubectl exec -it nginx-azurefile -- bash
+kubectl exec -it nginx-azurefile -- bash
+```
+<pre>
 root@nginx-azurefile:/# df -h
 Filesystem                                                                Size  Used Avail Use% Mounted on
 ...
 //f571xxx.file.core.windows.net/pvc-54caa11f-9e27-11e9-ba7b-0601775d3b69  1.0G  64K  1.0G  1%   /mnt/azurefile
 ...
-```
+</pre>
 In the above example, there is a `/mnt/azurefile` directory mounted as cifs filesystem.
 
 #### Option#3: Inline volume
