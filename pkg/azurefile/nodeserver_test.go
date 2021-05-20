@@ -144,23 +144,6 @@ func TestNodePublishVolume(t *testing.T) {
 			},
 		},
 		{
-			desc: "[Error] Volume operation in progress",
-			setup: func() {
-				d.volumeLocks.TryAcquire("vol_1")
-			},
-			req: csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
-				VolumeId:          "vol_1",
-				TargetPath:        targetTest,
-				StagingTargetPath: sourceTest,
-				Readonly:          true},
-			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.Aborted, fmt.Sprintf(volumeOperationAlreadyExistsFmt, "vol_1")),
-			},
-			cleanup: func() {
-				d.volumeLocks.Release("vol_1")
-			},
-		},
-		{
 			desc: "[Error] Not a directory",
 			req: csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
 				VolumeId:          "vol_1",
@@ -268,19 +251,6 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			req:  csi.NodeUnpublishVolumeRequest{VolumeId: "vol_1"},
 			expectedErr: testutil.TestError{
 				DefaultError: status.Error(codes.InvalidArgument, "Target path missing in request"),
-			},
-		},
-		{
-			desc: "[Error] Volume operation in progress",
-			setup: func() {
-				d.volumeLocks.TryAcquire("vol_1")
-			},
-			req: csi.NodeUnpublishVolumeRequest{TargetPath: targetFile, VolumeId: "vol_1"},
-			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.Aborted, fmt.Sprintf(volumeOperationAlreadyExistsFmt, "vol_1")),
-			},
-			cleanup: func() {
-				d.volumeLocks.Release("vol_1")
 			},
 		},
 		{
