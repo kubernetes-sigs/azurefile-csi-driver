@@ -13,6 +13,16 @@ shareName | specify Azure file share name | existing or new Azure file name | No
 secretNamespace | specify the namespace of secret to store account key | `default`,`kube-system`,etc | No | `default`
 tags | [tags](https://docs.microsoft.com/en-us/azure/azure-resource-manager/management/tag-resources) would be created in newly created storage account | tag format: 'foo=aaa,bar=bbb' | No | ""
 
+ - account tags format created by dynamic provisioning
+```
+created-by: azure
+```
+
+ - file share name format created by dynamic provisioning(example)
+```
+kubernetes-dynamic-pvc-820e5f1f-258f-488e-9383-282667f85ad4
+```
+
 ### Static Provisioning(bring your own file share)
 
 Name | Meaning | Available Value | Mandatory | Default value
