@@ -24,6 +24,16 @@ tags | [tags](https://docs.microsoft.com/en-us/azure/azure-resource-manager/mana
 fsType | File System Type | `ext4`, `ext3`, `ext2`, `xfs` | Yes | `ext4`
 diskName | existing VHD disk file name | `pvc-062196a6-6436-11ea-ab51-9efb888c0afb.vhd` | No |
 
+ - account tags format created by dynamic provisioning
+```
+created-by: azure
+```
+
+ - file share name format created by dynamic provisioning(example)
+```
+pvc-92a4d7f2-f23b-4904-bad4-2cbfcff6e388
+```
+
 ### Static Provision(bring your own file share)
   > get a [smb pv example](../deploy/example/pv-azurefile-csi.yaml)
 
