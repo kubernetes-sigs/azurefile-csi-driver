@@ -78,7 +78,7 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 		// Az tests are not yet working for in-tree
 		skipIfUsingInTreeVolumePlugin()
 
-		req := makeCreateVolumeReq("pre-provisioned-readonly")
+		req := makeCreateVolumeReq("pre-provisioned-readonly", ns.Name)
 		resp, err := azurefileDriver.CreateVolume(context.Background(), req)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
@@ -115,7 +115,7 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 		// Az tests are not yet working for in-tree
 		skipIfUsingInTreeVolumePlugin()
 
-		req := makeCreateVolumeReq("pre-provisioned-multiple-pods")
+		req := makeCreateVolumeReq("pre-provisioned-multiple-pods", ns.Name)
 		resp, err := azurefileDriver.CreateVolume(context.Background(), req)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
@@ -155,7 +155,7 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 		// Az tests are not yet working for in tree driver
 		skipIfUsingInTreeVolumePlugin()
 
-		req := makeCreateVolumeReq("pre-provisioned-retain-reclaimpolicy")
+		req := makeCreateVolumeReq("pre-provisioned-retain-reclaimpolicy", ns.Name)
 		resp, err := azurefileDriver.CreateVolume(context.Background(), req)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
@@ -183,7 +183,7 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 		// Az tests are not yet working for in tree driver
 		skipIfUsingInTreeVolumePlugin()
 
-		req := makeCreateVolumeReq("pre-provisioned-existing-credentials")
+		req := makeCreateVolumeReq("pre-provisioned-existing-credentials", ns.Name)
 		resp, err := azurefileDriver.CreateVolume(context.Background(), req)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
@@ -226,7 +226,7 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 		// Az tests are not yet working for in tree driver
 		skipIfUsingInTreeVolumePlugin()
 
-		req := makeCreateVolumeReq("pre-provisioned-provided-credentials")
+		req := makeCreateVolumeReq("pre-provisioned-provided-credentials", ns.Name)
 		resp, err := azurefileDriver.CreateVolume(context.Background(), req)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
@@ -267,7 +267,7 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 	})
 })
 
-func makeCreateVolumeReq(volumeName string) *csi.CreateVolumeRequest {
+func makeCreateVolumeReq(volumeName, secretNamespace string) *csi.CreateVolumeRequest {
 	req := &csi.CreateVolumeRequest{
 		Name: volumeName,
 		VolumeCapabilities: []*csi.VolumeCapability{
@@ -285,8 +285,9 @@ func makeCreateVolumeReq(volumeName string) *csi.CreateVolumeRequest {
 			LimitBytes:    defaultDiskSizeBytes,
 		},
 		Parameters: map[string]string{
-			"skuname":   "Standard_LRS",
-			"shareName": volumeName,
+			"skuname":         "Standard_LRS",
+			"shareName":       volumeName,
+			"secretNamespace": secretNamespace,
 		},
 	}
 

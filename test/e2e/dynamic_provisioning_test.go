@@ -203,10 +203,13 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			},
 		}
 		test := testsuites.DynamicallyProvisionedCollocatedPodTest{
-			CSIDriver:              testDriver,
-			Pods:                   pods,
-			ColocatePods:           true,
-			StorageClassParameters: map[string]string{"skuName": "Standard_LRS"},
+			CSIDriver:    testDriver,
+			Pods:         pods,
+			ColocatePods: true,
+			StorageClassParameters: map[string]string{
+				"skuName":         "Standard_LRS",
+				"secretNamespace": "default",
+			},
 		}
 		test.Run(cs, ns)
 	})
@@ -866,7 +869,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		accountName := segments[3]
 
 		shareName := "inline-smb-volume"
-		req := makeCreateVolumeReq(shareName)
+		req := makeCreateVolumeReq(shareName, ns.Name)
 		req.Parameters["storageAccount"] = accountName
 		resp, err := azurefileDriver.CreateVolume(context.Background(), req)
 		if err != nil {

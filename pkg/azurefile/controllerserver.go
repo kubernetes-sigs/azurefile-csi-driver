@@ -140,6 +140,15 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			useDataPlaneAPI = strings.EqualFold(v, trueValue)
 		case disableDeleteRetentionPolicyField:
 			disableDeleteRetentionPolicy = strings.EqualFold(v, trueValue)
+		case pvcNamespaceKey:
+			if secretNamespace == "" {
+				// respect `secretNamespace` field as first priority
+				secretNamespace = v
+			}
+		case pvcNameKey:
+			// no op
+		case pvNameKey:
+			// no op
 		case serverNameField:
 			// no op, only used in NodeStageVolume
 		default:
@@ -379,6 +388,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	isOperationSucceeded = true
 
+	// reset secretNamespace field in VolumeContext
+	parameters[secretNamespaceField] = secretNamespace
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
 			VolumeId:      volumeID,

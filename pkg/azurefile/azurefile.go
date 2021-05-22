@@ -98,7 +98,6 @@ const (
 	trueValue                         = "true"
 	defaultSecretAccountName          = "azurestorageaccountname"
 	defaultSecretAccountKey           = "azurestorageaccountkey"
-	defaultSecretNamespace            = "default"
 	proxyMount                        = "proxy-mount"
 	cifs                              = "cifs"
 	smb                               = "smb"
@@ -126,6 +125,10 @@ const (
 	fileOpThrottlingSleepSec    = 180
 
 	fileShareAccountNamePrefix = "f"
+
+	pvcNameKey      = "csi.storage.k8s.io/pvc/name"
+	pvcNamespaceKey = "csi.storage.k8s.io/pvc/namespace"
+	pvNameKey       = "csi.storage.k8s.io/pv/name"
 )
 
 var (
@@ -495,6 +498,11 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 			secretName = v
 		case secretNamespaceField:
 			secretNamespace = v
+		case pvcNamespaceKey:
+			if secretNamespace == "" {
+				// respect `secretNamespace` field as first priority
+				secretNamespace = v
+			}
 		}
 	}
 
@@ -511,9 +519,6 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 		if v, ok := d.accountMap.Load(accountName); ok {
 			accountKey = v.(string)
 		} else {
-			if secretNamespace == "" {
-				secretNamespace = defaultSecretNamespace
-			}
 			if secretName == "" && accountName != "" {
 				secretName = fmt.Sprintf(secretNameTemplate, accountName)
 			}
@@ -701,9 +706,6 @@ func (d *Driver) GetStorageAccountFromSecret(secretName, secretNamespace string)
 		return "", "", fmt.Errorf("could not get account key from secret(%s): KubeClient is nil", secretName)
 	}
 
-	if secretNamespace == "" {
-		secretNamespace = defaultSecretNamespace
-	}
 	secret, err := d.cloud.KubeClient.CoreV1().Secrets(secretNamespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 	if err != nil {
 		return "", "", fmt.Errorf("could not get secret(%v): %v", secretName, err)
@@ -742,9 +744,6 @@ func (d *Driver) SetAzureCredentials(accountName, accountKey, secretName, secret
 	}
 	if accountName == "" || accountKey == "" {
 		return "", fmt.Errorf("the account info is not enough, accountName(%v), accountKey(%v)", accountName, accountKey)
-	}
-	if secretNamespace == "" {
-		secretNamespace = defaultSecretNamespace
 	}
 	if secretName == "" {
 		secretName = fmt.Sprintf(secretNameTemplate, accountName)
