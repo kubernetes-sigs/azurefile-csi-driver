@@ -738,6 +738,187 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(cs, ns)
 	})
 
+	ginkgo.It("should create a statefulset object, write and read to it, delete the pod and write and read to it again [file.csi.azure.com]", func() {
+		skipIfUsingInTreeVolumePlugin()
+
+		pod := testsuites.PodDetails{
+			Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' >> /mnt/test-1/data && while true; do sleep 3600; done"),
+			Volumes: []testsuites.VolumeDetails{
+				{
+					FSType:    "ext4",
+					ClaimSize: "10Gi",
+					VolumeMount: testsuites.VolumeMountDetails{
+						NameGenerate:      "test-volume-",
+						MountPathGenerate: "/mnt/test-",
+					},
+				},
+			},
+			IsWindows: isWindowsCluster,
+			UseCMD:    false,
+		}
+		podCheckCmd := []string{"cat", "/mnt/test-1/data"}
+		expectedString := "hello world\n"
+		if isWindowsCluster {
+			podCheckCmd = []string{"cmd", "/c", "type C:\\mnt\\test-1\\data.txt"}
+			expectedString = "hello world\r\n"
+		}
+		test := testsuites.DynamicallyProvisionedStatefulSetTest{
+			CSIDriver: testDriver,
+			Pod:       pod,
+			PodCheck: &testsuites.PodExecCheck{
+				Cmd:            podCheckCmd,
+				ExpectedString: expectedString, // pod will be restarted so expect to see 2 instances of string
+			},
+		}
+		test.Run(cs, ns)
+	})
+
+	ginkgo.It("should create an CSI inline volume [file.csi.azure.com]", func() {
+		skipIfUsingInTreeVolumePlugin()
+
+		// get storage account secret name
+		err := os.Chdir("../..")
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		defer func() {
+			err := os.Chdir("test/e2e")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		}()
+
+		getSecretNameScript := "test/utils/get_storage_account_secret_name.sh"
+		log.Printf("run script: %s\n", getSecretNameScript)
+
+		cmd := exec.Command("bash", getSecretNameScript)
+		output, err := cmd.CombinedOutput()
+		log.Printf("got output: %v, error: %v\n", string(output), err)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+		secretName := strings.TrimSuffix(string(output), "\n")
+		log.Printf("got storage account secret name: %v\n", secretName)
+		segments := strings.Split(secretName, "-")
+		if len(segments) != 5 {
+			ginkgo.Fail(fmt.Sprintf("%s have %d elements, expected: %d ", secretName, len(segments), 5))
+		}
+		accountName := segments[3]
+
+		shareName := "csi-inline-smb-volume"
+		req := makeCreateVolumeReq(shareName, ns.Name)
+		req.Parameters["storageAccount"] = accountName
+		resp, err := azurefileDriver.CreateVolume(context.Background(), req)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
+		}
+		volumeID := resp.Volume.VolumeId
+		ginkgo.By(fmt.Sprintf("Successfully provisioned AzureFile volume: %q\n", volumeID))
+
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize: "100Gi",
+						MountOptions: []string{
+							"dir_mode=0777",
+							"file_mode=0777",
+							"uid=0",
+							"gid=0",
+							"mfsymlinks",
+							"cache=strict",
+							"nosharesock",
+						},
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+					},
+				},
+				IsWindows: isWindowsCluster,
+			},
+		}
+
+		test := testsuites.DynamicallyProvisionedInlineVolumeTest{
+			CSIDriver:       testDriver,
+			Pods:            pods,
+			SecretName:      secretName,
+			ShareName:       shareName,
+			ReadOnly:        false,
+			CSIInlineVolume: true,
+		}
+		test.Run(cs, ns)
+	})
+
+	ginkgo.It("should create an inline volume by in-tree driver [kubernetes.io/azure-file]", func() {
+		if !isTestingMigration {
+			ginkgo.Skip("test case is only available for migration test")
+		}
+		// get storage account secret name
+		err := os.Chdir("../..")
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		defer func() {
+			err := os.Chdir("test/e2e")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		}()
+
+		getSecretNameScript := "test/utils/get_storage_account_secret_name.sh"
+		log.Printf("run script: %s\n", getSecretNameScript)
+
+		cmd := exec.Command("bash", getSecretNameScript)
+		output, err := cmd.CombinedOutput()
+		log.Printf("got output: %v, error: %v\n", string(output), err)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+		secretName := strings.TrimSuffix(string(output), "\n")
+		log.Printf("got storage account secret name: %v\n", secretName)
+		segments := strings.Split(secretName, "-")
+		if len(segments) != 5 {
+			ginkgo.Fail(fmt.Sprintf("%s have %d elements, expected: %d ", secretName, len(segments), 5))
+		}
+		accountName := segments[3]
+
+		shareName := "intree-inline-smb-volume"
+		req := makeCreateVolumeReq("intree-inline-smb-volume", ns.Name)
+		req.Parameters["storageAccount"] = accountName
+		resp, err := azurefileDriver.CreateVolume(context.Background(), req)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
+		}
+		volumeID := resp.Volume.VolumeId
+		ginkgo.By(fmt.Sprintf("Successfully provisioned AzureFile volume: %q\n", volumeID))
+
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize: "10Gi",
+						MountOptions: []string{
+							"dir_mode=0777",
+							"file_mode=0777",
+							"uid=0",
+							"gid=0",
+							"mfsymlinks",
+							"cache=strict",
+							"nosharesock",
+						},
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+					},
+				},
+				IsWindows: isWindowsCluster,
+			},
+		}
+
+		test := testsuites.DynamicallyProvisionedInlineVolumeTest{
+			CSIDriver:  testDriver,
+			Pods:       pods,
+			SecretName: secretName,
+			ShareName:  shareName,
+			ReadOnly:   false,
+		}
+		test.Run(cs, ns)
+	})
+
 	ginkgo.It("should create a NFS volume on demand with mount options [file.csi.azure.com] [nfs]", func() {
 		skipIfTestingInWindowsCluster()
 		skipIfUsingInTreeVolumePlugin()
@@ -802,114 +983,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				"skuName":  "Premium_LRS",
 				"protocol": "nfs",
 			},
-		}
-		test.Run(cs, ns)
-	})
-
-	ginkgo.It("should create a statefulset object, write and read to it, delete the pod and write and read to it again [file.csi.azure.com]", func() {
-		skipIfUsingInTreeVolumePlugin()
-
-		pod := testsuites.PodDetails{
-			Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' >> /mnt/test-1/data && while true; do sleep 3600; done"),
-			Volumes: []testsuites.VolumeDetails{
-				{
-					FSType:    "ext4",
-					ClaimSize: "10Gi",
-					VolumeMount: testsuites.VolumeMountDetails{
-						NameGenerate:      "test-volume-",
-						MountPathGenerate: "/mnt/test-",
-					},
-				},
-			},
-			IsWindows: isWindowsCluster,
-			UseCMD:    false,
-		}
-		podCheckCmd := []string{"cat", "/mnt/test-1/data"}
-		expectedString := "hello world\n"
-		if isWindowsCluster {
-			podCheckCmd = []string{"cmd", "/c", "type C:\\mnt\\test-1\\data.txt"}
-			expectedString = "hello world\r\n"
-		}
-		test := testsuites.DynamicallyProvisionedStatefulSetTest{
-			CSIDriver: testDriver,
-			Pod:       pod,
-			PodCheck: &testsuites.PodExecCheck{
-				Cmd:            podCheckCmd,
-				ExpectedString: expectedString, // pod will be restarted so expect to see 2 instances of string
-			},
-		}
-		test.Run(cs, ns)
-	})
-
-	ginkgo.It("should create an CSI inline volume [file.csi.azure.com]", func() {
-		skipIfUsingInTreeVolumePlugin()
-
-		// get storage account secret name
-		err := os.Chdir("../..")
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		defer func() {
-			err := os.Chdir("test/e2e")
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		}()
-
-		getSecretNameScript := "test/utils/get_storage_account_secret_name.sh"
-		log.Printf("run script: %s\n", getSecretNameScript)
-
-		cmd := exec.Command("bash", getSecretNameScript)
-		output, err := cmd.CombinedOutput()
-		log.Printf("got output: %v, error: %v\n", string(output), err)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-		secretName := strings.TrimSuffix(string(output), "\n")
-		log.Printf("got storage account secret name: %v\n", secretName)
-		segments := strings.Split(secretName, "-")
-		if len(segments) != 5 {
-			ginkgo.Fail(fmt.Sprintf("%s have %d elements, expected: %d ", secretName, len(segments), 5))
-		}
-		accountName := segments[3]
-
-		shareName := "inline-smb-volume"
-		req := makeCreateVolumeReq(shareName, ns.Name)
-		req.Parameters["storageAccount"] = accountName
-		resp, err := azurefileDriver.CreateVolume(context.Background(), req)
-		if err != nil {
-			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
-		}
-		volumeID := resp.Volume.VolumeId
-		ginkgo.By(fmt.Sprintf("Successfully provisioned AzureFile volume: %q\n", volumeID))
-
-		pods := []testsuites.PodDetails{
-			{
-				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
-				Volumes: []testsuites.VolumeDetails{
-					{
-						ClaimSize: "100Gi",
-						MountOptions: []string{
-							"dir_mode=0777",
-							"file_mode=0777",
-							"uid=0",
-							"gid=0",
-							"mfsymlinks",
-							"cache=strict",
-							"nosharesock",
-						},
-						VolumeMount: testsuites.VolumeMountDetails{
-							NameGenerate:      "test-volume-",
-							MountPathGenerate: "/mnt/test-",
-						},
-					},
-				},
-				IsWindows: isWindowsCluster,
-			},
-		}
-
-		test := testsuites.DynamicallyProvisionedInlineVolumeTest{
-			CSIDriver:       testDriver,
-			Pods:            pods,
-			SecretName:      secretName,
-			ShareName:       shareName,
-			ReadOnly:        false,
-			CSIInlineVolume: true,
 		}
 		test.Run(cs, ns)
 	})
