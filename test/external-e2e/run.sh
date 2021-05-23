@@ -28,7 +28,7 @@ setup_e2e_binaries() {
     tar -xvf e2e-tests.tar.gz && rm e2e-tests.tar.gz
 
     # install the blob csi driver
-    mkdir -p /tmp/csi-azurefile && cp deploy/example/storageclass-azurefile-csi.yaml /tmp/csi-azurefile/storageclass.yaml
+    mkdir -p /tmp/csi && cp deploy/example/storageclass-azurefile-csi.yaml /tmp/csi/storageclass.yaml
     make e2e-bootstrap
     make create-metrics-svc
 }

@@ -2,7 +2,7 @@
 # See https://github.com/kubernetes/kubernetes/tree/master/test/e2e/storage/external
 
 StorageClass:
-  FromFile: /tmp/csi-azurefile/storageclass.yaml
+  FromFile: /tmp/csi/storageclass.yaml
 DriverInfo:
   Name: file.csi.azure.com
   Capabilities:
@@ -10,3 +10,9 @@ DriverInfo:
     exec: true
     multipods: true
     RWX: true
+    fsGroup: false
+    topology: false
+    controllerExpansion: true
+    nodeExpansion: true
+    volumeLimits: false
+    snapshotDataSource: false
