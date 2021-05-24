@@ -28,7 +28,6 @@ setup_e2e_binaries() {
     tar -xvf e2e-tests.tar.gz && rm e2e-tests.tar.gz
 
     # install the blob csi driver
-    mkdir -p /tmp/csi && cp deploy/example/storageclass-azurefile-csi.yaml /tmp/csi/storageclass.yaml
     make e2e-bootstrap
     make create-metrics-svc
 }
@@ -42,7 +41,18 @@ install_ginkgo
 setup_e2e_binaries
 trap print_logs EXIT
 
+mkdir -p /tmp/csi
+
+echo "begin to run SMB protocol tests ...."
+cp deploy/example/storageclass-azurefile-csi.yaml /tmp/csi/storageclass.yaml
 ginkgo -p --progress --v -focus='External.Storage.*file.csi.azure.com' \
        -skip='\[Disruptive\]|\[Slow\]|should be able to unmount after the subpath directory is deleted' kubernetes/test/bin/e2e.test  -- \
+       -storage.testdriver=$PROJECT_ROOT/test/external-e2e/testdriver.yaml \
+       --kubeconfig=$KUBECONFIG
+
+echo "begin to run NFS protocol tests ...."
+cp deploy/example/storageclass-azurefile-nfs.yaml /tmp/csi/storageclass.yaml
+ginkgo -p --progress --v -focus='External.Storage.*file.csi.azure.com' \
+       -skip='\[Disruptive\]|\[Slow\]' kubernetes/test/bin/e2e.test  -- \
        -storage.testdriver=$PROJECT_ROOT/test/external-e2e/testdriver.yaml \
        --kubeconfig=$KUBECONFIG
