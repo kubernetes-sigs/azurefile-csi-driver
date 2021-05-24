@@ -23,8 +23,8 @@ install_ginkgo () {
 }
 
 setup_e2e_binaries() {
-    # download k8s external e2e binary for kubernetes v1.19
-    curl -sL https://storage.googleapis.com/kubernetes-release/release/v1.19.0/kubernetes-test-linux-amd64.tar.gz --output e2e-tests.tar.gz
+    # download k8s external e2e binary for kubernetes v1.21
+    curl -sL https://storage.googleapis.com/kubernetes-release/release/v1.21.0/kubernetes-test-linux-amd64.tar.gz --output e2e-tests.tar.gz
     tar -xvf e2e-tests.tar.gz && rm e2e-tests.tar.gz
 
     # install the blob csi driver
@@ -43,6 +43,6 @@ setup_e2e_binaries
 trap print_logs EXIT
 
 ginkgo -p --progress --v -focus='External.Storage.*file.csi.azure.com' \
-       -skip='\[Disruptive\]|\[Slow\]' kubernetes/test/bin/e2e.test  -- \
+       -skip='\[Disruptive\]|\[Slow\]|should be able to unmount after the subpath directory is deleted' kubernetes/test/bin/e2e.test  -- \
        -storage.testdriver=$PROJECT_ROOT/test/external-e2e/testdriver.yaml \
        --kubeconfig=$KUBECONFIG
