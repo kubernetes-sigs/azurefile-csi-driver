@@ -514,6 +514,11 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 		return rgName, accountName, accountKey, fileShareName, diskName, err
 	}
 
+	// backward compatibility, old CSI driver PV does not have secretNamespace field
+	if secretNamespace == "" {
+		secretNamespace = "default"
+	}
+
 	if len(secrets) == 0 {
 		// read account key from cache first
 		if v, ok := d.accountMap.Load(accountName); ok {
