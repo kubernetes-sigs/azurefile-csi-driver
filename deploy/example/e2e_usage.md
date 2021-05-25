@@ -29,10 +29,9 @@ kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-cs
 
  - Execute `df -h` command in the container
 ```
-kubectl exec -it statefulset-azurefile-0 sh
+kubectl exec -it statefulset-azurefile-0 -- df -h
 ```
 <pre>
-# df -h
 Filesystem                                                                Size  Used Avail Use% Mounted on
 ...
 //f571xxx.file.core.windows.net/pvc-54caa11f-9e27-11e9-ba7b-0601775d3b69  1.0G  64K  1.0G  1%   /mnt/azurefile
@@ -88,10 +87,9 @@ kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-cs
 
  - Execute `df -h` command in the container
 ```console
-kubectl exec -it nginx-azurefile -- bash
+kubectl exec -it nginx-azurefile -- df -h
 ```
 <pre>
-root@nginx-azurefile:/# df -h
 Filesystem                                                                Size  Used Avail Use% Mounted on
 ...
 //f571xxx.file.core.windows.net/pvc-54caa11f-9e27-11e9-ba7b-0601775d3b69  1.0G  64K  1.0G  1%   /mnt/azurefile
