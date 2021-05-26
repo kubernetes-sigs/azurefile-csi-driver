@@ -13,7 +13,7 @@ kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-cs
  > only available from `v0.9.0`
  - Use `kubectl create secret` to create `azure-secret` with existing storage account name and key
 ```console
-kubectl create secret generic azure-secret --from-literal accountname=NAME --from-literal accountkey="KEY" --type=Opaque
+kubectl create secret generic azure-secret --from-literal azurestorageaccountname=NAME --from-literal azurestorageaccountkey="KEY" --type=Opaque
 ```
 
  - create storage class referencing `azure-secret`
@@ -101,7 +101,7 @@ In the above example, there is a `/mnt/azurefile` directory mounted as cifs file
  > only available from `v1.3.0`
  - Use `kubectl create secret` to create `azure-secret` with existing storage account name and key
 ```console
-kubectl create secret generic azure-secret --from-literal accountname=NAME --from-literal accountkey="KEY" --type=Opaque
+kubectl create secret generic azure-secret --from-literal azurestorageaccountname=NAME --from-literal azurestorageaccountkey="KEY" --type=Opaque
 ```
 
  - download `nginx-pod-azurefile-inline-volume.yaml` file and edit `shareName`, `secretName`, `secretNamespace`
