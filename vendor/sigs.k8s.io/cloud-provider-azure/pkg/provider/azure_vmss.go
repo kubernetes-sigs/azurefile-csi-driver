@@ -25,7 +25,7 @@ import (
 	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2020-12-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2020-08-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 
 	v1 "k8s.io/api/core/v1"
@@ -712,7 +712,7 @@ func (ss *ScaleSet) listScaleSetVMs(scaleSetName, resourceGroup string) ([]compu
 func (ss *ScaleSet) getAgentPoolScaleSets(nodes []*v1.Node) (*[]string, error) {
 	agentPoolScaleSets := &[]string{}
 	for nx := range nodes {
-		if isMasterNode(nodes[nx]) {
+		if isControlPlaneNode(nodes[nx]) {
 			continue
 		}
 
@@ -1026,7 +1026,6 @@ func (ss *ScaleSet) EnsureHostInPool(service *v1.Service, nodeName types.NodeNam
 		})
 	primaryIPConfiguration.LoadBalancerBackendAddressPools = &newBackendPools
 	newVM := &compute.VirtualMachineScaleSetVM{
-		Sku:      vm.Sku,
 		Location: vm.Location,
 		VirtualMachineScaleSetVMProperties: &compute.VirtualMachineScaleSetVMProperties{
 			HardwareProfile: vm.HardwareProfile,
@@ -1061,7 +1060,7 @@ func (ss *ScaleSet) ensureVMSSInPool(service *v1.Service, nodes []*v1.Node, back
 	// multiple standard load balancers and the basic load balancer doesn't
 	if ss.useStandardLoadBalancer() && !ss.EnableMultipleStandardLoadBalancers {
 		for _, node := range nodes {
-			if ss.excludeMasterNodesFromStandardLB() && isMasterNode(node) {
+			if ss.excludeMasterNodesFromStandardLB() && isControlPlaneNode(node) {
 				continue
 			}
 
@@ -1168,7 +1167,6 @@ func (ss *ScaleSet) ensureVMSSInPool(service *v1.Service, nodes []*v1.Node, back
 			})
 		primaryIPConfig.LoadBalancerBackendAddressPools = &loadBalancerBackendAddressPools
 		newVMSS := compute.VirtualMachineScaleSet{
-			Sku:      vmss.Sku,
 			Location: vmss.Location,
 			VirtualMachineScaleSetProperties: &compute.VirtualMachineScaleSetProperties{
 				VirtualMachineProfile: &compute.VirtualMachineScaleSetVMProfile{
@@ -1204,7 +1202,7 @@ func (ss *ScaleSet) EnsureHostsInPool(service *v1.Service, nodes []*v1.Node, bac
 	for _, node := range nodes {
 		localNodeName := node.Name
 
-		if ss.useStandardLoadBalancer() && ss.excludeMasterNodesFromStandardLB() && isMasterNode(node) {
+		if ss.useStandardLoadBalancer() && ss.excludeMasterNodesFromStandardLB() && isControlPlaneNode(node) {
 			klog.V(4).Infof("Excluding master node %q from load balancer backendpool %q", localNodeName, backendPoolID)
 			continue
 		}
@@ -1351,7 +1349,6 @@ func (ss *ScaleSet) ensureBackendPoolDeletedFromNode(nodeName, backendPoolID str
 	// Compose a new vmssVM with added backendPoolID.
 	primaryIPConfiguration.LoadBalancerBackendAddressPools = &newBackendPools
 	newVM := &compute.VirtualMachineScaleSetVM{
-		Sku:      vm.Sku,
 		Location: vm.Location,
 		VirtualMachineScaleSetVMProperties: &compute.VirtualMachineScaleSetVMProperties{
 			HardwareProfile: vm.HardwareProfile,
@@ -1487,8 +1484,10 @@ func (ss *ScaleSet) EnsureBackendPoolDeleted(service *v1.Service, backendPoolID,
 
 		nodeResourceGroup, nodeVMSS, nodeInstanceID, nodeVMSSVM, err := ss.ensureBackendPoolDeletedFromNode(nodeName, backendPoolID)
 		if err != nil {
-			klog.Errorf("EnsureBackendPoolDeleted(%s): backendPoolID(%s) - failed with error %v", getServiceName(service), backendPoolID, err)
-			allErrs = append(allErrs, err)
+			if !errors.Is(err, ErrorNotVmssInstance) { // Do nothing for the VMAS nodes.
+				klog.Errorf("EnsureBackendPoolDeleted(%s): backendPoolID(%s) - failed with error %v", getServiceName(service), backendPoolID, err)
+				allErrs = append(allErrs, err)
+			}
 			continue
 		}
 
@@ -1638,7 +1637,6 @@ func (ss *ScaleSet) EnsureBackendPoolDeletedFromVMSets(vmssNamesMap map[string]b
 			// Compose a new vmss with added backendPoolID.
 			primaryIPConfig.LoadBalancerBackendAddressPools = &newBackendPools
 			newVMSS := compute.VirtualMachineScaleSet{
-				Sku:      vmss.Sku,
 				Location: vmss.Location,
 				VirtualMachineScaleSetProperties: &compute.VirtualMachineScaleSetProperties{
 					VirtualMachineProfile: &compute.VirtualMachineScaleSetVMProfile{

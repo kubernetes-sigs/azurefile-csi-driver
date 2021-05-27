@@ -21,7 +21,7 @@ package loadbalancerclient
 import (
 	"context"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2020-08-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 
 	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
 )
@@ -47,6 +47,9 @@ type Interface interface {
 
 	// CreateOrUpdate creates or updates a LoadBalancer.
 	CreateOrUpdate(ctx context.Context, resourceGroupName string, loadBalancerName string, parameters network.LoadBalancer, etag string) *retry.Error
+
+	// CreateOrUpdateBackendPools creates or updates loadbalancer's backend address pool.
+	CreateOrUpdateBackendPools(ctx context.Context, resourceGroupName string, loadBalancerName string, backendPoolName string, parameters network.BackendAddressPool, etag string) *retry.Error
 
 	// Delete deletes a LoadBalancer by name.
 	Delete(ctx context.Context, resourceGroupName string, loadBalancerName string) *retry.Error

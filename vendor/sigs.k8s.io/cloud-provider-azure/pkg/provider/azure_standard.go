@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/consts"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2020-12-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2020-08-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 
 	v1 "k8s.io/api/core/v1"
@@ -148,14 +148,20 @@ func (az *Cloud) getAzureLoadBalancerName(clusterName string, vmSetName string, 
 	return lbNamePrefix
 }
 
-// isMasterNode returns true if the node has a master role label.
-// The master role is determined by looking for:
-// * a kubernetes.io/role="master" label
-func isMasterNode(node *v1.Node) bool {
+// isControlPlaneNode returns true if the node has a control-plane role label.
+// The control-plane role is determined by looking for:
+// * a node-role.kubernetes.io/control-plane or node-role.kubernetes.io/master="" label
+func isControlPlaneNode(node *v1.Node) bool {
+	if _, ok := node.Labels[consts.ControlPlaneNodeRoleLabel]; ok {
+		return true
+	}
+	// include master role labels for k8s < 1.19
+	if _, ok := node.Labels[consts.MasterNodeRoleLabel]; ok {
+		return true
+	}
 	if val, ok := node.Labels[consts.NodeLabelRole]; ok && val == "master" {
 		return true
 	}
-
 	return false
 }
 
@@ -234,9 +240,9 @@ func getIPConfigByIPFamily(nic network.Interface, IPv6 bool) (*network.Interface
 
 	var ipVersion network.IPVersion
 	if IPv6 {
-		ipVersion = network.IPv6
+		ipVersion = network.IPVersionIPv6
 	} else {
-		ipVersion = network.IPv4
+		ipVersion = network.IPVersionIPv4
 	}
 	for _, ref := range *nic.IPConfigurations {
 		if ref.PrivateIPAddress != nil && ref.PrivateIPAddressVersion == ipVersion {
@@ -346,8 +352,13 @@ func (az *Cloud) serviceOwnsFrontendIP(fip network.FrontendIPConfiguration, serv
 			return false, isPrimaryService, nil
 		}
 
-		if pip != nil && pip.ID != nil && pip.PublicIPAddressPropertiesFormat != nil && pip.IPAddress != nil {
-			if strings.EqualFold(*pip.ID, *fip.PublicIPAddress.ID) {
+		if pip != nil &&
+			pip.ID != nil &&
+			pip.PublicIPAddressPropertiesFormat != nil &&
+			pip.IPAddress != nil &&
+			fip.FrontendIPConfigurationPropertiesFormat != nil &&
+			fip.FrontendIPConfigurationPropertiesFormat.PublicIPAddress != nil {
+			if strings.EqualFold(to.String(pip.ID), to.String(fip.PublicIPAddress.ID)) {
 				klog.V(4).Infof("serviceOwnsFrontendIP: found secondary service %s of the frontend IP config %s", service.Name, *fip.Name)
 
 				return true, isPrimaryService, nil
@@ -662,7 +673,7 @@ func (as *availabilitySet) getAgentPoolAvailabilitySets(vms []compute.VirtualMac
 	agentPoolAvailabilitySets = &[]string{}
 	for nx := range nodes {
 		nodeName := (*nodes[nx]).Name
-		if isMasterNode(nodes[nx]) {
+		if isControlPlaneNode(nodes[nx]) {
 			continue
 		}
 		asID, ok := vmNameToAvailabilitySetID[nodeName]
@@ -916,7 +927,7 @@ func (as *availabilitySet) EnsureHostsInPool(service *v1.Service, nodes []*v1.No
 	hostUpdates := make([]func() error, 0, len(nodes))
 	for _, node := range nodes {
 		localNodeName := node.Name
-		if as.useStandardLoadBalancer() && as.excludeMasterNodesFromStandardLB() && isMasterNode(node) {
+		if as.useStandardLoadBalancer() && as.excludeMasterNodesFromStandardLB() && isControlPlaneNode(node) {
 			klog.V(4).Infof("Excluding master node %q from load balancer backendpool %q", localNodeName, backendPoolID)
 			continue
 		}
