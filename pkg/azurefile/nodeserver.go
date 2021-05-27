@@ -57,14 +57,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	context := req.GetVolumeContext()
 	if context != nil && context["csi.storage.k8s.io/ephemeral"] == "true" {
 		// if secretNamespace is not set, set same namespace as pod
-		secretNamespace := context["csi.storage.k8s.io/pod.namespace"]
-		for k, v := range context {
-			switch strings.ToLower(k) {
-			case secretNamespaceField:
-				secretNamespace = v
-			}
-		}
-		context[secretNamespaceField] = secretNamespace
+		context[secretNamespaceField] = context["csi.storage.k8s.io/pod.namespace"]
 		klog.V(2).Infof("NodePublishVolume: ephemeral volume(%s) mount on %s, VolumeContext: %v", volumeID, target, context)
 		_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
 			StagingTargetPath: target,
