@@ -23,4 +23,3 @@ spec:
         volumeAttributes:
           shareName: EXISTING_SHARE_NAME
           secretName: azure-secret
-          secretNamespace: default  # optional, if it's empty, use pod.Namespace by default
