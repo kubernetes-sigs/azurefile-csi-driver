@@ -60,6 +60,9 @@ snapshot:
     serviceAccount: true
     rbac: true
 
+feature:
+  enableFSGroupPolicy: false
+
 linux:
   enabled: true
   kubelet: /var/lib/kubelet

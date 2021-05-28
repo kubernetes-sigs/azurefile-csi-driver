@@ -9,3 +9,6 @@ spec:
   volumeLifecycleModes:
     - Persistent
     - Ephemeral
+  {{- if .Values.feature.enableFSGroupPolicy}}
+  fsGroupPolicy: File
+  {{- end}}

@@ -27,6 +27,9 @@ setup_e2e_binaries() {
     curl -sL https://storage.googleapis.com/kubernetes-release/release/v1.21.0/kubernetes-test-linux-amd64.tar.gz --output e2e-tests.tar.gz
     tar -xvf e2e-tests.tar.gz && rm e2e-tests.tar.gz
 
+    # enable fsGroupPolicy (only available from k8s 1.20)
+    export EXTRA_HELM_OPTIONS="--set feature.enableFSGroupPolicy=true"
+
     # install the blob csi driver
     make e2e-bootstrap
     make create-metrics-svc
@@ -43,16 +46,16 @@ trap print_logs EXIT
 
 mkdir -p /tmp/csi
 
-echo "begin to run SMB protocol tests ...."
-cp deploy/example/storageclass-azurefile-csi.yaml /tmp/csi/storageclass.yaml
-ginkgo -p --progress --v -focus='External.Storage.*file.csi.azure.com' \
-       -skip='\[Disruptive\]|\[Slow\]|should be able to unmount after the subpath directory is deleted' kubernetes/test/bin/e2e.test  -- \
-       -storage.testdriver=$PROJECT_ROOT/test/external-e2e/testdriver.yaml \
-       --kubeconfig=$KUBECONFIG
-
 echo "begin to run NFS protocol tests ...."
 cp deploy/example/storageclass-azurefile-nfs.yaml /tmp/csi/storageclass.yaml
 ginkgo -p --progress --v -focus='External.Storage.*file.csi.azure.com' \
        -skip='\[Disruptive\]|\[Slow\]' kubernetes/test/bin/e2e.test  -- \
+       -storage.testdriver=$PROJECT_ROOT/test/external-e2e/testdriver.yaml \
+       --kubeconfig=$KUBECONFIG
+
+echo "begin to run SMB protocol tests ...."
+cp deploy/example/storageclass-azurefile-csi.yaml /tmp/csi/storageclass.yaml
+ginkgo -p --progress --v -focus='External.Storage.*file.csi.azure.com' \
+       -skip='\[Disruptive\]|\[Slow\]|should be able to unmount after the subpath directory is deleted' kubernetes/test/bin/e2e.test  -- \
        -storage.testdriver=$PROJECT_ROOT/test/external-e2e/testdriver.yaml \
        --kubeconfig=$KUBECONFIG
