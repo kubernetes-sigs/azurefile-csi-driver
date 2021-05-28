@@ -23,7 +23,6 @@ spec:
     volumeHandle: unique-volumeid  # make sure it's a unique id in the cluster
     volumeAttributes:
       resourceGroup: EXISTING_RESOURCE_GROUP_NAME  # optional, only set this when storage account is not in the same resource group as agent node
-      storageAccount: EXISTING_STORAGE_ACCOUNT_NAME
       shareName: EXISTING_FILE_SHARE_NAME  # only file share name, don't use full path
     nodeStageSecretRef:
       name: azure-secret
