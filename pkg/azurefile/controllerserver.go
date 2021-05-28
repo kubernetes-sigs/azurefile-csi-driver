@@ -99,8 +99,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if parameters == nil {
 		parameters = make(map[string]string)
 	}
-	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, storeAccountKey, secretName, secretNamespace, protocol, customTags string
+	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, secretName, secretNamespace, protocol, customTags string
 	var createAccount, useDataPlaneAPI, disableDeleteRetentionPolicy, enableLFS bool
+
+	// store account key to k8s secret by default
+	storeAccountKey := true
 
 	// Apply ProvisionerParameters (case-insensitive). We leave validation of
 	// the values to the cloud provider.
@@ -123,7 +126,9 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case fsTypeField:
 			fsType = v
 		case storeAccountKeyField:
-			storeAccountKey = v
+			if v == falseValue {
+				storeAccountKey = false
+			}
 		case secretNameField:
 			secretName = v
 		case secretNamespaceField:
@@ -178,7 +183,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		sku = string(storage.PremiumLRS)
 		shareProtocol = storage.NFS
 		// NFS protocol does not need account key
-		storeAccountKey = falseValue
+		storeAccountKey = false
 		// reset protocol field (compatable with "fsType: nfs")
 		parameters[protocolField] = protocol
 
@@ -355,7 +360,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		parameters[diskNameField] = diskName
 	}
 
-	if storeAccountKey != falseValue && len(req.GetSecrets()) == 0 {
+	if storeAccountKey && len(req.GetSecrets()) == 0 {
 		secretCacheKey := accountName + secretName + secretNamespace
 		if _, ok := d.secretCacheMap.Load(secretCacheKey); !ok {
 			if accountKey == "" {
