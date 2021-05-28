@@ -93,6 +93,7 @@ const (
 	createAccountField                = "createaccount"
 	useDataPlaneAPIField              = "usedataplaneapi"
 	storeAccountKeyField              = "storeaccountkey"
+	getAccountKeyFromSecretField      = "getaccountkeyfromsecret"
 	disableDeleteRetentionPolicyField = "disabledeleteretentionpolicy"
 	falseValue                        = "false"
 	trueValue                         = "true"
@@ -482,12 +483,19 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 	}
 
 	var protocol, accountKey, secretName, secretNamespace string
+	// indicates whether get account key only from k8s secret
+	getAccountKeyFromSecret := false
+
 	for k, v := range reqContext {
 		switch strings.ToLower(k) {
 		case resourceGroupField:
 			rgName = v
 		case storageAccountField:
 			accountName = v
+		case getAccountKeyFromSecretField:
+			if v == trueValue {
+				getAccountKeyFromSecret = true
+			}
 		case shareNameField:
 			fileShareName = v
 		case diskNameField:
@@ -533,7 +541,7 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 				if name != "" {
 					accountName = name
 				}
-				if err != nil && d.cloud.StorageAccountClient != nil && accountName != "" {
+				if err != nil && !getAccountKeyFromSecret && d.cloud.StorageAccountClient != nil && accountName != "" {
 					klog.V(2).Infof("could not get account(%s) key from secret(%s), error: %v, use cluster identity to get account key instead", accountName, secretName, err)
 					accountKey, err = d.cloud.GetStorageAccesskey(accountName, rgName)
 				}
