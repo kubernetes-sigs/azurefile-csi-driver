@@ -29,6 +29,7 @@ IMAGE_TAG_LATEST = $(REGISTRY)/$(IMAGE_NAME):latest
 BUILD_DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS ?= "-X ${PKG}/pkg/azurefile.driverVersion=${IMAGE_VERSION} -X ${PKG}/pkg/azurefile.gitCommit=${GIT_COMMIT} -X ${PKG}/pkg/azurefile.buildDate=${BUILD_DATE} -s -w -extldflags '-static'"
 E2E_HELM_OPTIONS ?= --set image.azurefile.repository=$(REGISTRY)/$(IMAGE_NAME) --set image.azurefile.tag=$(IMAGE_VERSION)
+E2E_HELM_OPTIONS += ${EXTRA_HELM_OPTIONS}
 GINKGO_FLAGS = -ginkgo.v
 GO111MODULE = on
 GOPATH ?= $(shell go env GOPATH)
@@ -81,7 +82,7 @@ integration-test: azurefile
 
 .PHONY: e2e-test
 e2e-test:
-	if [ ! -z "$(EXTERNAL_E2E_TEST)" ]; then \
+	if [ ! -z "$(EXTERNAL_E2E_TEST_SMB)" ] || [ ! -z "$(EXTERNAL_E2E_TEST_NFS)" ]; then \
 		bash ./test/external-e2e/run.sh;\
 	else \
 		go test -v -timeout=0 ./test/e2e ${GINKGO_FLAGS};\

@@ -1,20 +1,4 @@
-# Volume Resizing Example
-
-Azure File Driver supports both the offline and online scenario. 
-
-## Enable Volume Resize Feature Gate
-
-> Resize Feature Status
-> Kubernetes 1.14, 1.15: alpha
-> Kubernetes 1.16+:  beta
-
-In Kubernetes 1.14 and 1.15, CSI volume resizing is still alpha. So the following feature gate is needed to be enabled.
-
-```
---feature-gates=ExpandCSIVolumes=true
-```
-
-In Kuberntest 1.16+, the feature has been beta. The feature gate is enabled by default.
+# Volume Resizing Support
 
 ## Example
 
@@ -43,22 +27,29 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi
 
 3. Check the PV size
 ```console
-$ kubectl get pvc pvc-azurefile
+kubectl get pvc pvc-azurefile
+```
+<pre>
 NAME            STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS         AGE
 pvc-azurefile   Bound    pvc-74dc3e29-534f-4d54-98fc-731adb46c948   15Gi       RWX            file.csi.azure.com   57m
-```
+</pre>
+
 4. Check the filesystem size in the container.
 
 ```console
-$ kubectl exec -it nginx-azurefile -- df -h /mnt/azurefile
+kubectl exec -it nginx-azurefile -- df -h /mnt/azurefile
+```
+<pre>
 Filesystem                                                                                Size  Used Avail Use% Mounted on
 //fuse0575b5cff3b641d7a0c.file.core.windows.net/pvc-74dc3e29-534f-4d54-98fc-731adb46c948   15G  128K   15G   1% /mnt/azurefile
-```
+</pre>
 
 4. Expand the pvc by increasing the field `spec.resources.requests.storage`.
 
 ```console
-$ kubectl edit pvc pvc-azurefile
+kubectl edit pvc pvc-azurefile
+```
+<pre>
 ...
 ...
 spec:
@@ -67,16 +58,22 @@ spec:
       storage: 20Gi
 ...
 ...
-```
+</pre>
 
 5. Verify the filesystem size.
 
 ```console
-$ kubectl get pvc pvc-azurefile
+kubectl get pvc pvc-azurefile
+```
+<pre>
 NAME            STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS         AGE
 pvc-azurefile   Bound    pvc-74dc3e29-534f-4d54-98fc-731adb46c948   20Gi       RWX            file.csi.azure.com   65m
+</pre>
 
-$ kubectl exec -it nginx-azurefile -- df -h /mnt/azurefile
+```
+kubectl exec -it nginx-azurefile -- df -h /mnt/azurefile
+```
+<pre>
 Filesystem                                                                                Size  Used Avail Use% Mounted on
 //fuse0575b5cff3b641d7a0c.file.core.windows.net/pvc-74dc3e29-534f-4d54-98fc-731adb46c948   20G  128K   20G   1% /mnt/azurefile
-```
+</pre>
