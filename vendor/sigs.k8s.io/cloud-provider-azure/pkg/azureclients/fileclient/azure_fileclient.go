@@ -64,6 +64,7 @@ func (c *Client) CreateFileShare(resourceGroupName, accountName string, shareOpt
 	}
 	if shareOptions.Protocol == storage.NFS {
 		fileShareProperties.EnabledProtocols = shareOptions.Protocol
+		fileShareProperties.RootSquash = storage.RootSquash
 	}
 	fileShare := storage.FileShare{
 		Name:                &shareOptions.Name,
