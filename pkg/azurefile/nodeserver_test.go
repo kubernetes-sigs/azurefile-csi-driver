@@ -396,7 +396,7 @@ func TestNodeStageVolume(t *testing.T) {
 			req: csi.NodeStageVolumeRequest{VolumeId: "vol_1", StagingTargetPath: sourceTest,
 				VolumeCapability: &stdVolCap},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.InvalidArgument, "failed to get account name from vol_1"),
+				DefaultError: status.Error(codes.InvalidArgument, "failed to get file share name from vol_1"),
 			},
 		},
 		{
