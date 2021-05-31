@@ -91,20 +91,14 @@ users:
 		expectedErr testutil.TestError
 	}{
 		{
-			desc:       "[failure] out of cluster, no kubeconfig, no credential file",
-			kubeconfig: "",
-			expectedErr: testutil.TestError{
-				DefaultError: fmt.Errorf("Failed to load config from file: %s, cloud not get azure cloud provider", DefaultCredFilePathLinux),
-				WindowsError: fmt.Errorf("Failed to load config from file: %s, cloud not get azure cloud provider", DefaultCredFilePathWindows),
-			},
+			desc:        "[failure] out of cluster, no kubeconfig, no credential file",
+			kubeconfig:  "",
+			expectedErr: testutil.TestError{},
 		},
 		{
-			desc:       "[failure] out of cluster & in cluster, specify a non-exist kubeconfig, no credential file",
-			kubeconfig: notExistKubeConfig,
-			expectedErr: testutil.TestError{
-				DefaultError: fmt.Errorf("Failed to load config from file: %s, cloud not get azure cloud provider", DefaultCredFilePathLinux),
-				WindowsError: fmt.Errorf("Failed to load config from file: %s, cloud not get azure cloud provider", DefaultCredFilePathWindows),
-			},
+			desc:        "[failure] out of cluster & in cluster, specify a non-exist kubeconfig, no credential file",
+			kubeconfig:  notExistKubeConfig,
+			expectedErr: testutil.TestError{},
 		},
 		{
 			desc:       "[failure] out of cluster & in cluster, specify a empty kubeconfig, no credential file",
@@ -114,12 +108,9 @@ users:
 			},
 		},
 		{
-			desc:       "[failure] out of cluster & in cluster, specify a fake kubeconfig, no credential file",
-			kubeconfig: fakeKubeConfig,
-			expectedErr: testutil.TestError{
-				DefaultError: fmt.Errorf("Failed to load config from file: %s, cloud not get azure cloud provider", DefaultCredFilePathLinux),
-				WindowsError: fmt.Errorf("Failed to load config from file: %s, cloud not get azure cloud provider", DefaultCredFilePathWindows),
-			},
+			desc:        "[failure] out of cluster & in cluster, specify a fake kubeconfig, no credential file",
+			kubeconfig:  fakeKubeConfig,
+			expectedErr: testutil.TestError{},
 		},
 		{
 			desc:        "[success] out of cluster & in cluster, no kubeconfig, a fake credential file",
@@ -163,9 +154,9 @@ users:
 			}
 			os.Setenv(DefaultAzureCredentialFileEnv, fakeCredFile)
 		}
-		_, err := GetCloudProvider(test.kubeconfig)
+		_, err := getCloudProvider(test.kubeconfig, "")
 		if !testutil.AssertError(err, &test.expectedErr) {
-			t.Errorf("desc: %s,\n input: %q, GetCloudProvider err: %v, expectedErr: %v", test.desc, test.kubeconfig, err, test.expectedErr)
+			t.Errorf("desc: %s,\n input: %q, getCloudProvider err: %v, expectedErr: %v", test.desc, test.kubeconfig, err, test.expectedErr)
 		}
 	}
 }
