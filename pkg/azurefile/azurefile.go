@@ -201,20 +201,12 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 	}
 	klog.Infof("\nDRIVER INFORMATION:\n-------------------\n%s\n\nStreaming logs below:", versionMeta)
 
-	cloud, err := GetCloudProvider(kubeconfig)
-	if err != nil || cloud.TenantID == "" || cloud.SubscriptionID == "" {
+	d.cloud, err = getCloudProvider(kubeconfig, d.NodeID)
+	if err != nil {
 		klog.Fatalf("failed to get Azure Cloud Provider, error: %v", err)
 	}
-	d.cloud = cloud
 	// todo: set backoff from cloud provider config
-	d.fileClient = newAzureFileClient(&cloud.Environment, &retry.Backoff{Steps: 1})
-
-	if d.NodeID == "" {
-		// Disable UseInstanceMetadata for controller to mitigate a timeout issue using IMDS
-		// https://github.com/kubernetes-sigs/azuredisk-csi-driver/issues/168
-		klog.Infoln("disable UseInstanceMetadata for controller")
-		d.cloud.Config.UseInstanceMetadata = false
-	}
+	d.fileClient = newAzureFileClient(&d.cloud.Environment, &retry.Backoff{Steps: 1})
 
 	d.mounter, err = mounter.NewSafeMounter()
 	if err != nil {

@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2020-08-01/network"
 
@@ -30,38 +29,37 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
-	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	azureprovider "sigs.k8s.io/cloud-provider-azure/pkg/provider"
 )
 
-var (
+const (
 	DefaultAzureCredentialFileEnv = "AZURE_CREDENTIAL_FILE"
 	DefaultCredFilePathLinux      = "/etc/kubernetes/azure.json"
 	DefaultCredFilePathWindows    = "C:\\k\\azure.json"
+)
 
+var (
 	storageService = "Microsoft.Storage"
 )
 
-// GetCloudProvider get Azure Cloud Provider
-func GetCloudProvider(kubeconfig string) (*azure.Cloud, error) {
+// getCloudProvider get Azure Cloud Provider
+func getCloudProvider(kubeconfig, nodeID string) (*azureprovider.Cloud, error) {
+	az := &azureprovider.Cloud{}
 	kubeClient, err := getKubeClient(kubeconfig)
-	if err != nil {
-		klog.Warningf("get kubeconfig(%s) failed with error: %v", kubeconfig, err)
-		if !os.IsNotExist(err) && err != rest.ErrNotInCluster {
-			return nil, fmt.Errorf("failed to get KubeClient: %v", err)
-		}
+	if err != nil && !os.IsNotExist(err) && err != rest.ErrNotInCluster {
+		return az, fmt.Errorf("failed to get KubeClient: %v", err)
 	}
 
-	az := &azure.Cloud{}
 	if kubeClient != nil {
 		klog.V(2).Infof("reading cloud config from secret")
 		az.KubeClient = kubeClient
 		az.InitializeCloudFromSecret()
 	}
 
-	if az.TenantID == "" || az.SubscriptionID == "" {
+	if az.TenantID == "" || az.SubscriptionID == "" || az.ResourceGroup == "" {
 		klog.V(2).Infof("could not read cloud config from secret")
 		credFile, ok := os.LookupEnv(DefaultAzureCredentialFileEnv)
-		if ok && strings.TrimSpace(credFile) != "" {
+		if ok {
 			klog.V(2).Infof("%s env var set as %v", DefaultAzureCredentialFileEnv, credFile)
 		} else {
 			if runtime.GOOS == "windows" {
@@ -72,22 +70,42 @@ func GetCloudProvider(kubeconfig string) (*azure.Cloud, error) {
 			klog.V(2).Infof("use default %s env var: %v", DefaultAzureCredentialFileEnv, credFile)
 		}
 
-		f, err := os.Open(credFile)
+		var f *os.File
+		f, err = os.Open(credFile)
+		if f != nil {
+			defer f.Close()
+		}
 		if err != nil {
 			klog.Errorf("Failed to load config from file: %s", credFile)
-			return nil, fmt.Errorf("Failed to load config from file: %s, cloud not get azure cloud provider", credFile)
-		}
-		defer f.Close()
-
-		klog.V(2).Infof("read cloud config from file: %s successfully", credFile)
-		if az, err = azure.NewCloudWithoutFeatureGates(f); err != nil {
-			return az, err
+			err = fmt.Errorf("Failed to load config from file: %s, cloud not get azure cloud provider", credFile)
+		} else {
+			klog.V(2).Infof("read cloud config from file: %s successfully", credFile)
+			az, err = azureprovider.NewCloudWithoutFeatureGates(f)
 		}
 	}
 
-	if kubeClient != nil {
+	// reassign kubeClient
+	if kubeClient != nil && az.KubeClient == nil {
 		az.KubeClient = kubeClient
 	}
+
+	if err != nil {
+		klog.V(2).Infof("no cloud config provided, error: %v, driver will run without cloud config", err)
+	}
+
+	isController := (nodeID == "")
+	if isController {
+		if err == nil {
+			// Disable UseInstanceMetadata for controller to mitigate a timeout issue using IMDS
+			// https://github.com/kubernetes-sigs/azuredisk-csi-driver/issues/168
+			klog.V(2).Infof("disable UseInstanceMetadata for controller server")
+			az.Config.UseInstanceMetadata = false
+		}
+		klog.V(2).Infof("starting controller server...")
+	} else {
+		klog.V(2).Infof("starting node server on node(%s)", nodeID)
+	}
+
 	return az, nil
 }
 
