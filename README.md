@@ -20,7 +20,7 @@ This driver allows Kubernetes to use [Azure File](https://docs.microsoft.com/en-
 Please refer to [driver parameters](./docs/driver-parameters.md)
 
 ### Prerequisite
-#### Option#1: Provide Azure cendential with cloud provider config
+#### Option#1: Provide cloud provider config with Azure cendentials
  - This option depends on [cloud provider config file](https://github.com/kubernetes/cloud-provider-azure/blob/master/docs/cloud-provider-config.md), usually it's `/etc/kubernetes/azure.json` on all Kubernetes agent nodes deployed by [AKS](https://docs.microsoft.com/en-us/azure/aks/) or [aks-engine](https://github.com/Azure/aks-engine), here is [azure.json example](./deploy/example/azure.json).
  > To specify a different cloud provider config file, create `azure-cred-file` configmap before driver installation, e.g. for OpenShift, it's `/etc/kubernetes/cloud.conf` (make sure config file path is in the `volumeMounts.mountPath`)
  > ```console
