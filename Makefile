@@ -194,3 +194,13 @@ clean:
 .PHONY: create-metrics-svc
 create-metrics-svc:
 	kubectl create -f deploy/example/metrics/csi-azurefile-controller-svc.yaml
+
+.PHONY: install-smb-provisioner
+install-smb-provisioner:
+	kubectl delete secret smbcreds --ignore-not-found
+	kubectl create secret generic smbcreds --from-literal azurestorageaccountname=USERNAME --from-literal azurestorageaccountkey="PASSWORD"
+ifdef TEST_WINDOWS
+	kubectl apply -f deploy/example/smb-provisioner/smb-server-lb.yaml
+else
+	kubectl apply -f deploy/example/smb-provisioner/smb-server.yaml
+endif

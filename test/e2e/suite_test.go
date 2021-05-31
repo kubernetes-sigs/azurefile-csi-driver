@@ -104,6 +104,17 @@ var _ = ginkgo.BeforeSuite(func() {
 		}
 		execTestCmd([]testCmd{e2eBootstrap, createMetricsSVC})
 
+		if !isTestingMigration {
+			// Install SMB provisioner on cluster
+			installSMBProvisioner := testCmd{
+				command:  "make",
+				args:     []string{"install-smb-provisioner"},
+				startLog: "Installing SMB provisioner...",
+				endLog:   "SMB provisioner installed",
+			}
+			execTestCmd([]testCmd{installSMBProvisioner})
+		}
+
 		nodeid := os.Getenv("nodeid")
 		kubeconfig := os.Getenv(kubeconfigEnvVar)
 		azurefileDriver = azurefile.NewDriver(nodeid)
