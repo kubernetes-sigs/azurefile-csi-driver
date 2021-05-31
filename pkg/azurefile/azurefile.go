@@ -201,12 +201,12 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 	}
 	klog.Infof("\nDRIVER INFORMATION:\n-------------------\n%s\n\nStreaming logs below:", versionMeta)
 
-	cloud, err := getCloudProvider(kubeconfig, d.NodeID)
+	d.cloud, err = getCloudProvider(kubeconfig, d.NodeID)
 	if err != nil {
 		klog.Fatalf("failed to get Azure Cloud Provider, error: %v", err)
 	}
 	// todo: set backoff from cloud provider config
-	d.fileClient = newAzureFileClient(&cloud.Environment, &retry.Backoff{Steps: 1})
+	d.fileClient = newAzureFileClient(&d.cloud.Environment, &retry.Backoff{Steps: 1})
 
 	d.mounter, err = mounter.NewSafeMounter()
 	if err != nil {
