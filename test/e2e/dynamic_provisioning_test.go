@@ -919,6 +919,55 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(cs, ns)
 	})
 
+	ginkgo.It("should mount on-prem smb server [file.csi.azure.com]", func() {
+		skipIfUsingInTreeVolumePlugin()
+		skipIfTestingInWindowsCluster()
+
+		secretName := "smbcreds"
+		ginkgo.By(fmt.Sprintf("creating secret %s in namespace %s", secretName, ns.Name))
+		secreteData := map[string]string{"azurestorageaccountname": "USERNAME"}
+		secreteData["azurestorageaccountkey"] = "PASSWORD"
+		tsecret := testsuites.NewTestSecret(f.ClientSet, ns, secretName, secreteData)
+		tsecret.Create()
+		defer tsecret.Cleanup()
+
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize: "10Gi",
+						MountOptions: []string{
+							"dir_mode=0777",
+							"file_mode=0777",
+							"uid=0",
+							"gid=0",
+							"mfsymlinks",
+							"cache=strict",
+							"nosharesock",
+						},
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+					},
+				},
+				IsWindows: isWindowsCluster,
+			},
+		}
+
+		test := testsuites.DynamicallyProvisionedInlineVolumeTest{
+			CSIDriver:       testDriver,
+			Pods:            pods,
+			SecretName:      secretName,
+			ShareName:       "share",
+			ReadOnly:        false,
+			CSIInlineVolume: true,
+			Server:          "smb-server.default.svc.cluster.local",
+		}
+		test.Run(cs, ns)
+	})
+
 	ginkgo.It("should create a NFS volume on demand with mount options [file.csi.azure.com] [nfs]", func() {
 		skipIfTestingInWindowsCluster()
 		skipIfUsingInTreeVolumePlugin()

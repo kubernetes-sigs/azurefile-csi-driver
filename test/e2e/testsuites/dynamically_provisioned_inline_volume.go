@@ -32,6 +32,7 @@ type DynamicallyProvisionedInlineVolumeTest struct {
 	Pods            []PodDetails
 	SecretName      string
 	ShareName       string
+	Server          string
 	ReadOnly        bool
 	CSIInlineVolume bool
 }
@@ -41,7 +42,7 @@ func (t *DynamicallyProvisionedInlineVolumeTest) Run(client clientset.Interface,
 		var tpod *TestPod
 		var cleanup []func()
 		if t.CSIInlineVolume {
-			tpod, cleanup = pod.SetupWithCSIInlineVolumes(client, namespace, t.CSIDriver, t.SecretName, t.ShareName, t.ReadOnly)
+			tpod, cleanup = pod.SetupWithCSIInlineVolumes(client, namespace, t.CSIDriver, t.SecretName, t.ShareName, t.Server, t.ReadOnly)
 		} else {
 			tpod, cleanup = pod.SetupWithInlineVolumes(client, namespace, t.CSIDriver, t.SecretName, t.ShareName, t.ReadOnly)
 		}

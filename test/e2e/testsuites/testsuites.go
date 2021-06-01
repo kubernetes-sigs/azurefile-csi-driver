@@ -804,7 +804,7 @@ func (t *TestPod) SetupInlineVolume(name, mountPath, secretName, shareName strin
 	t.pod.Spec.Volumes = append(t.pod.Spec.Volumes, volume)
 }
 
-func (t *TestPod) SetupCSIInlineVolume(name, mountPath, secretName, shareName string, readOnly bool) {
+func (t *TestPod) SetupCSIInlineVolume(name, mountPath, secretName, shareName, server string, readOnly bool) {
 	volumeMount := v1.VolumeMount{
 		Name:      name,
 		MountPath: mountPath,
@@ -818,9 +818,9 @@ func (t *TestPod) SetupCSIInlineVolume(name, mountPath, secretName, shareName st
 			CSI: &v1.CSIVolumeSource{
 				Driver: azurefile.DriverName,
 				VolumeAttributes: map[string]string{
-					"secretName":      secretName,
-					"secretNamespace": "default",
-					"shareName":       shareName,
+					"secretName": secretName,
+					"shareName":  shareName,
+					"server":     server,
 				},
 				ReadOnly: to.BoolPtr(readOnly),
 			},
