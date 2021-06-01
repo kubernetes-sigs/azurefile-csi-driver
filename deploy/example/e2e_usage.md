@@ -80,7 +80,7 @@ kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-cs
 kubectl describe pvc pvc-azurefile
 ```
 
-#### Create application
+#### Create an application
 ```console
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/nginx-pod-azurefile.yaml
 ```
@@ -98,7 +98,7 @@ Filesystem                                                                Size  
 In the above example, there is a `/mnt/azurefile` directory mounted as cifs filesystem.
 
 #### Option#3: Inline volume
- > only available from `v1.3.0`
+ > only available from `v1.3.0` for SMB protocol (NFS protocol is not supported)
  - Use `kubectl create secret` to create `azure-secret` with existing storage account name and key
 ```console
 kubectl create secret generic azure-secret --from-literal azurestorageaccountname=NAME --from-literal azurestorageaccountkey="KEY" --type=Opaque
