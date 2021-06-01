@@ -99,7 +99,8 @@ In the above example, there is a `/mnt/azurefile` directory mounted as cifs file
 
 #### Option#3: Inline volume
  > only available from `v1.3.0` for SMB protocol (NFS protocol is not supported)
- - Use `kubectl create secret` to create `azure-secret` with existing storage account name and key
+ - Use `kubectl create secret` to create `azure-secret` with existing storage account name and key in the same namespace as pod
+ > in below example, both secret and pod are in `default` namespace
 ```console
 kubectl create secret generic azure-secret --from-literal azurestorageaccountname=NAME --from-literal azurestorageaccountkey="KEY" --type=Opaque
 ```
