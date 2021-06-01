@@ -1,0 +1,26 @@
+---
+kind: Pod
+apiVersion: v1
+metadata:
+  name: nginx-on-prem-volume
+spec:
+  nodeSelector:
+    "kubernetes.io/os": linux
+  containers:
+    - image: mcr.microsoft.com/oss/nginx/nginx:1.19.5
+      name: nginx-smb
+      command:
+        - "/bin/bash"
+        - "-c"
+        - set -euo pipefail; while true; do echo $(date) >> /mnt/smb/outfile; sleep 1; done
+      volumeMounts:
+        - name: persistent-storage
+          mountPath: "/mnt/smb"
+  volumes:
+    - name: persistent-storage
+      csi:
+        driver: file.csi.azure.com
+        volumeAttributes:
+          server: smb-server-address  # e.g. smb-server.default.svc.cluster.local
+          shareName: share
+          secretName: azure-secret
