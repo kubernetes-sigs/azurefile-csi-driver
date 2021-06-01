@@ -921,7 +921,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 	ginkgo.It("should mount on-prem smb server [file.csi.azure.com]", func() {
 		skipIfUsingInTreeVolumePlugin()
-		skipIfTestingInWindowsCluster()
 
 		secretName := "smbcreds"
 		ginkgo.By(fmt.Sprintf("creating secret %s in namespace %s", secretName, ns.Name))
@@ -930,6 +929,27 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		tsecret := testsuites.NewTestSecret(f.ClientSet, ns, secretName, secreteData)
 		tsecret.Create()
 		defer tsecret.Cleanup()
+
+		server := "smb-server.default.svc.cluster.local"
+		if isWindowsCluster {
+			err := os.Chdir("../..")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			defer func() {
+				err := os.Chdir("test/e2e")
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			}()
+
+			getSMBPublicIPScript := "test/utils/get_smb_svc_public_ip.sh"
+			log.Printf("run script: %s\n", getSMBPublicIPScript)
+
+			cmd := exec.Command("bash", getSMBPublicIPScript)
+			output, err := cmd.CombinedOutput()
+			log.Printf("got output: %v, error: %v\n", string(output), err)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+			server = strings.TrimSuffix(string(output), "\n")
+			log.Printf("use server on Windows: %s\n", server)
+		}
 
 		pods := []testsuites.PodDetails{
 			{
@@ -960,10 +980,10 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			CSIDriver:       testDriver,
 			Pods:            pods,
 			SecretName:      secretName,
+			Server:          server,
 			ShareName:       "share",
 			ReadOnly:        false,
 			CSIInlineVolume: true,
-			Server:          "smb-server.default.svc.cluster.local",
 		}
 		test.Run(cs, ns)
 	})
