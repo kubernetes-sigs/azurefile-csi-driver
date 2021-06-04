@@ -24,7 +24,10 @@ spec:
           operator: "Equal"
           value: "true"
           effect: "NoSchedule"
-      {{- include "azurefile.pullSecrets" . | indent 6 }}
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 8 }}
+      {{- end }}
       containers:
         - name: csi-snapshot-controller
           image: "{{ .Values.snapshot.image.csiSnapshotController.repository }}:{{ .Values.snapshot.image.csiSnapshotController.tag }}"
