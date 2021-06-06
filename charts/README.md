@@ -45,9 +45,6 @@ The following table lists the configurable parameters of the latest Azure File C
 | `image.csiAttacher.repository`                    | csi-attacher docker image                                  | mcr.microsoft.com/oss/kubernetes-csi/csi-attacher                 |
 | `image.csiAttacher.tag`                           | csi-attacher docker image tag                              | v1.2.0                                                            |
 | `image.csiAttacher.pullPolicy`                    | csi-attacher image pull policy                             | IfNotPresent                                                      |
-| `image.csiSnapshotter.repository`                 | csi-snapshotter docker image                               | mcr.microsoft.com/oss/kubernetes-csi/csi-snapshotter              |
-| `image.csiSnapshotter.tag`                        | csi-snapshotter docker image tag                           | v1.1.0                                                            |
-| `image.csiSnapshotter.pullPolicy`                 | csi-snapshotter image pull policy                          | IfNotPresent                                                      |
 | `image.csiResizer.repository`                     | csi-resizer docker image                                   | mcr.microsoft.com/oss/kubernetes-csi/csi-resizer                  |
 | `image.csiResizer.tag`                            | csi-resizer docker image tag                               | v0.3.0                                                            |
 | `image.csiResizer.pullPolicy`                     | csi-resizer image pull policy                              | IfNotPresent                                                      |
