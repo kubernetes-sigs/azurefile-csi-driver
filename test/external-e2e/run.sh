@@ -31,7 +31,7 @@ setup_e2e_binaries() {
         # enable fsGroupPolicy (only available from k8s 1.20)
         export EXTRA_HELM_OPTIONS="--set feature.enableFSGroupPolicy=true"
     fi
-    # install the blob csi driver
+    export EXTRA_HELM_OPTIONS="${EXTRA_HELM_OPTIONS} --set snapshot.image.csiSnapshotter.tag=v4.0.0 --set snapshot.image.csiSnapshotController.tag=v4.0.0 --set snapshot.apiVersion=ga"
     make e2e-bootstrap
     make create-metrics-svc
 }
