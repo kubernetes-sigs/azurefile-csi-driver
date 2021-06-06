@@ -33,7 +33,10 @@ spec:
       priorityClassName: system-node-critical
       tolerations:
         - operator: "Exists"
-      {{- include "azurefile.pullSecrets" . | indent 6 }}
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 8 }}
+      {{- end }}
       containers:
         - name: liveness-probe
           volumeMounts:

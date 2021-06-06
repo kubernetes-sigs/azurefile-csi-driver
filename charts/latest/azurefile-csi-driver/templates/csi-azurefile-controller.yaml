@@ -31,7 +31,10 @@ spec:
           operator: "Equal"
           value: "true"
           effect: "NoSchedule"
-      {{- include "azurefile.pullSecrets" . | indent 6 }}
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 8 }}
+      {{- end }}
       containers:
         - name: csi-provisioner
           image: "{{ .Values.image.csiProvisioner.repository }}:{{ .Values.image.csiProvisioner.tag }}"
