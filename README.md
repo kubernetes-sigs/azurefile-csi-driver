@@ -19,6 +19,10 @@ This driver allows Kubernetes to use [Azure File](https://docs.microsoft.com/en-
 ### Driver parameters
 Please refer to [driver parameters](./docs/driver-parameters.md)
 
+### Set up CSI driver on AKS cluster (only for AKS users)
+
+follow guide [here](./docs/install-driver-on-aks.md)
+
 ### Prerequisite
 #### Option#1: Provide cloud provider config with Azure cendentials
  - This option depends on [cloud provider config file](https://github.com/kubernetes/cloud-provider-azure/blob/master/docs/cloud-provider-config.md), usually it's `/etc/kubernetes/azure.json` on all Kubernetes agent nodes deployed by [AKS](https://docs.microsoft.com/en-us/azure/aks/) or [aks-engine](https://github.com/Azure/aks-engine), here is [azure.json example](./deploy/example/azure.json).
