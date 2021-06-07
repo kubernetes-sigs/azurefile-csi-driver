@@ -18,5 +18,6 @@ install latest **released** CSI driver version, following guide [here](./install
  - Set up new storage classes
 ```console
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-csi.yaml
+kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-nfs.yaml
 ```
- > follow guide [here](https://github.com/Azure/AKS/issues/118#issuecomment-708257760) to replace existing storage classes on AKS
+ > follow guide [here](https://github.com/Azure/AKS/issues/118#issuecomment-708257760) to replace built-in storage classes on AKS
