@@ -51,6 +51,7 @@ node:
 
 snapshot:
   enabled: false
+  apiVersion: beta # available values: beta, ga
   image:
     csiSnapshotter:
       repository: mcr.microsoft.com/oss/kubernetes-csi/csi-snapshotter
@@ -72,7 +73,7 @@ linux:
   enabled: true
   kubelet: /var/lib/kubelet
   kubeconfig: ""
-  distro: debian
+  distro: debian # available values: debian, fedora
 
 windows:
   enabled: true
