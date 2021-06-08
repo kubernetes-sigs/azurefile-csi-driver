@@ -24,7 +24,7 @@ import (
 
 	volumehelper "sigs.k8s.io/azurefile-csi-driver/pkg/util"
 
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2019-06-01/storage"
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-02-01/storage"
 	"github.com/Azure/azure-storage-file-go/azfile"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -174,14 +174,14 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	enableHTTPSTrafficOnly := true
-	shareProtocol := storage.SMB
+	shareProtocol := storage.EnabledProtocolsSMB
 	var vnetResourceIDs []string
 	if fsType == nfs || protocol == nfs {
 		protocol = nfs
 		enableHTTPSTrafficOnly = false
 		// default to Premium_LRS
-		sku = string(storage.PremiumLRS)
-		shareProtocol = storage.NFS
+		sku = string(storage.SkuNamePremiumLRS)
+		shareProtocol = storage.EnabledProtocolsNFS
 		// NFS protocol does not need account key
 		storeAccountKey = false
 		// reset protocol field (compatable with "fsType: nfs")
@@ -199,9 +199,9 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	fileShareSize := int(requestGiB)
 	// account kind should be FileStorage for Premium File
-	accountKind := string(storage.StorageV2)
+	accountKind := string(storage.KindStorageV2)
 	if strings.HasPrefix(strings.ToLower(sku), "premium") {
-		accountKind = string(storage.FileStorage)
+		accountKind = string(storage.KindFileStorage)
 		if fileShareSize < minimumPremiumShareSize {
 			fileShareSize = minimumPremiumShareSize
 		}
