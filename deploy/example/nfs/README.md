@@ -1,8 +1,7 @@
 ## NFS support
 [NFS 4.1 support for Azure Files](https://azure.microsoft.com/en-us/blog/nfs-41-support-for-azure-files-is-now-in-preview/preview/) is now in Public Preview. This service is optimized for random access workloads with in-place data updates and provides full POSIX file system support. This page shows how to use NFS feature by Azure File CSI driver on Azure Kubernetes cluster.
 
-#### Feature Status: Beta
-> supported OS: Linux
+- supported OS: Linux
 
 #### Supported CSI driver version: `v0.9.0`
 > storage account dynamic provisioning is supported from `v0.10.0`.
@@ -11,19 +10,13 @@
 We are continually adding more regions. Latest region list is available on [Azure NFS documentation](https://aka.ms/azurefiles/nfs/preview/regions)
 
 #### Prerequisite
- - [install CSI driver](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/install-csi-driver-master.md)
- - Register `AllowNfsFileShares` feature under your subscription
-```console
-az feature register --name AllowNfsFileShares --namespace Microsoft.Storage
-az feature list -o table --query "[?contains(name, 'Microsoft.Storage/AllowNfsFileShares')].{Name:name,State:properties.state}"
-az provider register --namespace Microsoft.Storage
-```
+ - [Install CSI driver](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/install-csi-driver-master.md)
  - [Optional] Create a `Premium_LRS` Azure storage account with following configurations to support NFS share
    - account kind: `FileStorage`
    - secure transfer required(enable HTTPS traffic only): `false`
    - select virtual network of agent nodes in `Firewalls and virtual networks`
    - specify `storageAccount` in below storage class `parameters`
- - [Optional] If cluster identity is Managed Service Identity(MSI), make sure user assigned identity has Contributor role on node resource group
+ - [Optional] If cluster identity is Managed Service Identity(MSI), make sure user assigned identity has `Contributor` role on node resource group
 
 #### How to use NFS feature
  - Create an Azure File storage class
@@ -54,14 +47,15 @@ kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-cs
 
  - enter pod to check
 ```console
-$ kubectl exec -it statefulset-azurefile-0 sh
-# df -h
+kubectl exec -it statefulset-azurefile-0 -- df -h
+```
+<pre>
 Filesystem      Size  Used Avail Use% Mounted on
 ...
 /dev/sda1                                                                                 29G   11G   19G  37% /etc/hosts
 accountname.file.core.windows.net:/accountname/pvc-fa72ec43-ae64-42e4-a8a2-556606f5da38  100G     0  100G   0% /mnt/azurefile
 ...
-```
+<pre>
 
 ### Example#2
  - Create a [Wordpress](https://github.com/bitnami/charts/tree/master/bitnami/wordpress) application with NFS volume
