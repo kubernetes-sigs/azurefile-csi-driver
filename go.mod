@@ -69,5 +69,5 @@ replace (
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.21.0
 	k8s.io/sample-controller => k8s.io/sample-controller v0.21.0
 	sigs.k8s.io/azurefile-csi-driver => ./
-	sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20210622085358-97c3f1643349
+	sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20210628114525-af56f3f9e7db
 )
