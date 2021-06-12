@@ -126,7 +126,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case fsTypeField:
 			fsType = v
 		case storeAccountKeyField:
-			if v == falseValue {
+			if strings.EqualFold(v, falseValue) {
 				storeAccountKey = false
 			}
 		case secretNameField:

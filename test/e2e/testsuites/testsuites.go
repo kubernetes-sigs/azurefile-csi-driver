@@ -818,9 +818,10 @@ func (t *TestPod) SetupCSIInlineVolume(name, mountPath, secretName, shareName, s
 			CSI: &v1.CSIVolumeSource{
 				Driver: azurefile.DriverName,
 				VolumeAttributes: map[string]string{
-					"secretName": secretName,
-					"shareName":  shareName,
-					"server":     server,
+					"secretName":   secretName,
+					"shareName":    shareName,
+					"server":       server,
+					"mountOptions": "cache=singleclient",
 				},
 				ReadOnly: to.BoolPtr(readOnly),
 			},
