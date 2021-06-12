@@ -55,8 +55,8 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	volumeID := req.GetVolumeId()
 
 	context := req.GetVolumeContext()
-	if context != nil && context["csi.storage.k8s.io/ephemeral"] == trueValue {
-		context[secretNamespaceField] = context["csi.storage.k8s.io/pod.namespace"]
+	if context != nil && strings.EqualFold(context[ephemeralField], trueValue) {
+		context[secretNamespaceField] = context[podNamespaceField]
 		// only get storage account from secret
 		context[getAccountKeyFromSecretField] = trueValue
 		context[storageAccountField] = ""
@@ -152,7 +152,8 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 	// don't respect fsType from req.GetVolumeCapability().GetMount().GetFsType()
 	// since it's ext4 by default on Linux
-	var fsType, server, protocol string
+	var fsType, server, protocol, ephemeralVolMountOptions string
+	var ephemeralVol bool
 	for k, v := range context {
 		switch strings.ToLower(k) {
 		case fsTypeField:
@@ -163,6 +164,10 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			diskName = v
 		case serverNameField:
 			server = v
+		case ephemeralField:
+			ephemeralVol = strings.EqualFold(v, trueValue)
+		case mountOptionsField:
+			ephemeralVolMountOptions = v
 		}
 	}
 
@@ -210,6 +215,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			// parameters suggested by https://azure.microsoft.com/en-us/documentation/articles/storage-how-to-use-files-linux/
 			sensitiveMountOptions = []string{fmt.Sprintf("username=%s,password=%s", accountName, accountKey)}
 			mountOptions = appendDefaultMountOptions(cifsMountFlags)
+			if ephemeralVol {
+				mountOptions = util.JoinMountOptions(mountOptions, []string{ephemeralVolMountOptions})
+			}
 		}
 	}
 

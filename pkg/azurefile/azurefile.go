@@ -95,6 +95,9 @@ const (
 	storeAccountKeyField              = "storeaccountkey"
 	getAccountKeyFromSecretField      = "getaccountkeyfromsecret"
 	disableDeleteRetentionPolicyField = "disabledeleteretentionpolicy"
+	ephemeralField                    = "csi.storage.k8s.io/ephemeral"
+	podNamespaceField                 = "csi.storage.k8s.io/pod.namespace"
+	mountOptionsField                 = "mountoptions"
 	falseValue                        = "false"
 	trueValue                         = "true"
 	defaultSecretAccountName          = "azurestorageaccountname"
@@ -485,7 +488,7 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 		case storageAccountField:
 			accountName = v
 		case getAccountKeyFromSecretField:
-			if v == trueValue {
+			if strings.EqualFold(v, trueValue) {
 				getAccountKeyFromSecret = true
 			}
 		case shareNameField:
