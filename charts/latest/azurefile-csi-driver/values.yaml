@@ -42,6 +42,15 @@ controller:
   attachRequired: false
   logLevel: 5
   kubeconfig: ""
+  tolerations:
+    - key: "node-role.kubernetes.io/master"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+    - key: "node-role.kubernetes.io/controlplane"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
 
 node:
   metricsPort: 29615
@@ -74,6 +83,8 @@ linux:
   kubelet: /var/lib/kubelet
   kubeconfig: ""
   distro: debian # available values: debian, fedora
+  tolerations:
+    - operator: "Exists"
 
 windows:
   enabled: true
@@ -88,3 +99,7 @@ windows:
       repository: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar
       tag: v2.2.0
       pullPolicy: IfNotPresent
+  tolerations:
+    - key: "node.kubernetes.io/os"
+      operator: "Exists"
+      effect: "NoSchedule"
