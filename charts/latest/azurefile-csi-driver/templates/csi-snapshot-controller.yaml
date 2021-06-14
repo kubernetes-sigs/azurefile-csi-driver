@@ -19,11 +19,10 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
       priorityClassName: system-cluster-critical
+{{- with .Values.controller.tolerations }}
       tolerations:
-        - key: "node-role.kubernetes.io/master"
-          operator: "Equal"
-          value: "true"
-          effect: "NoSchedule"
+{{ toYaml . | indent 8 }}
+{{- end }}
       {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
 {{ toYaml .Values.imagePullSecrets | indent 8 }}
