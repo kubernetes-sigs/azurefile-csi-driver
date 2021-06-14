@@ -63,6 +63,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `controller.attachRequired`                       | enable attach/detach (only valid for vhd disk feature)                                            |`false`                                                           |
 | `controller.logLevel`                             | controller driver log level                                                          |`5`                                                           |
 | `controller.kubeconfig`                           | configure kubeconfig path on controller node                | '' (empty, use InClusterConfig by default)
+| `controller.tolerations`                          | controller pod tolerations                            |                                                              |
 | `node.metricsPort`                                | metrics port of csi-azurefile-node                         |29615                                                        |
 | `node.logLevel`                                   | node driver log level                                                          |`5`                                                           |
 | `snapshot.enabled`                                | whether enable snapshot feature                            | false                                                        |
@@ -79,6 +80,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `linux.kubelet`                                   | configure kubelet directory path on Linux agent node node                  | `/var/lib/kubelet`                                                |
 | `linux.kubeconfig`                                | configure kubeconfig path on Linux agent node                | '' (empty, use InClusterConfig by default)                                            |
 | `linux.distro`                                    | configure ssl certificates for different Linux distribution(available values: `debian`, `fedora`)                  |
+| `linux.tolerations`                               | linux node driver tolerations                            |
 | `windows.enabled`                                 | whether enable windows feature                             | true                                                             |
 | `windows.kubelet`                                 | configure kubelet directory path on Windows agent node                | `'C:\var\lib\kubelet'`                                            |
 | `windows.kubeconfig`                              | configure kubeconfig path on Windows agent node                | `'C:\k\config'`                                            |
@@ -88,6 +90,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `windows.image.nodeDriverRegistrar.repository`    | windows csi-node-driver-registrar docker image             | mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar    |
 | `windows.image.nodeDriverRegistrar.tag`           | windows csi-node-driver-registrar docker image tag         | v2.2.0                                 |
 | `windows.image.nodeDriverRegistrar.pullPolicy`    | windows csi-node-driver-registrar image pull policy        | IfNotPresent                                                      |
+| `windows.tolerations`                             | windows node driver tolerations                            |                                                              |
 | `node.livenessProbe.healthPort `                  | the health check port for liveness probe                   | `29613` |
 
 ## troubleshooting
