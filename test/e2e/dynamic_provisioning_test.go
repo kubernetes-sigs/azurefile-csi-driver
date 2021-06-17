@@ -85,10 +85,15 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		}
 		tags := "account=azurefile-test"
 		test := testsuites.DynamicallyProvisionedAccountWithTags{
-			CSIDriver:              testDriver,
-			Volumes:                volumes,
-			StorageClassParameters: map[string]string{"skuName": "Premium_LRS", "tags": tags},
-			Tags:                   tags,
+			CSIDriver: testDriver,
+			Volumes:   volumes,
+			StorageClassParameters: map[string]string{
+				"skuName": "Premium_LRS",
+				"tags":    tags,
+				// make sure this is the first test case due to storeAccountKey is set as false
+				"storeAccountKey": "false",
+			},
+			Tags: tags,
 		}
 
 		test.Run(cs, ns)
