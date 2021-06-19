@@ -19,6 +19,7 @@ secretName | specify secret name to store account key | | No |
 secretNamespace | specify the namespace of secret to store account key | `default`,`kube-system`, etc | No | `default`
 useDataPlaneAPI | specify whether use [data plane API](https://github.com/Azure/azure-sdk-for-go/blob/master/storage/share.go) for file share create/delete/resize | `true`,`false` | No | `false`
 disableDeleteRetentionPolicy | specify whether disable DeleteRetentionPolicy for storage account created by driver | `true`,`false` | No | `false`
+storageEndpointSuffix | specify Azure storage endpoint suffix | `core.windows.net` | No | if empty, driver will use default storage endpoint suffix according to cloud environment, e.g. `core.windows.net`
 tags | [tags](https://docs.microsoft.com/en-us/azure/azure-resource-manager/management/tag-resources) would be created in newly created storage account | tag format: 'foo=aaa,bar=bbb' | No | ""
 --- | **Following parameters are only for [VHD disk feature](../deploy/example/disk)** | --- | --- |
 fsType | File System Type | `ext4`, `ext3`, `ext2`, `xfs` | Yes | `ext4`
