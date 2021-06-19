@@ -95,6 +95,7 @@ const (
 	storeAccountKeyField              = "storeaccountkey"
 	getAccountKeyFromSecretField      = "getaccountkeyfromsecret"
 	disableDeleteRetentionPolicyField = "disabledeleteretentionpolicy"
+	storageEndpointSuffixField        = "storageendpointsuffix"
 	ephemeralField                    = "csi.storage.k8s.io/ephemeral"
 	podNamespaceField                 = "csi.storage.k8s.io/pod.namespace"
 	mountOptionsField                 = "mountoptions"
@@ -133,6 +134,8 @@ const (
 	pvcNameKey      = "csi.storage.k8s.io/pvc/name"
 	pvcNamespaceKey = "csi.storage.k8s.io/pvc/namespace"
 	pvNameKey       = "csi.storage.k8s.io/pv/name"
+
+	defaultStorageEndPointSuffix = "core.windows.net"
 )
 
 var (

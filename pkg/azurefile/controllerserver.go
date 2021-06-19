@@ -99,7 +99,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if parameters == nil {
 		parameters = make(map[string]string)
 	}
-	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, secretName, secretNamespace, protocol, customTags string
+	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, secretName, secretNamespace, protocol, customTags, storageEndpointSuffix string
 	var createAccount, useDataPlaneAPI, disableDeleteRetentionPolicy, enableLFS bool
 
 	// store account key to k8s secret by default
@@ -150,6 +150,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				// respect `secretNamespace` field as first priority
 				secretNamespace = v
 			}
+		case storageEndpointSuffixField:
+			storageEndpointSuffix = v
 		case pvcNameKey:
 			// no op
 		case pvNameKey:
@@ -282,6 +284,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
+	if storageEndpointSuffix != "" {
+		d.fileClient.StorageEndpointSuffix = storageEndpointSuffix
+	}
+
 	accountOptions.Name = accountName
 	secret := req.GetSecrets()
 	if len(secret) == 0 && useDataPlaneAPI {
@@ -320,7 +326,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				azure.SkipMatchingTag: to.StringPtr(""),
 			}
 			if rerr := d.cloud.AddStorageAccountTags(resourceGroup, accountName, tags); rerr != nil {
-				return nil, rerr.Error()
+				klog.Warningf("AddStorageAccountTags(%v) on account(%s) rg(%s) failed with error: %v", tags, accountName, resourceGroup, rerr.Error())
 			}
 			// release volume lock first to prevent deadlock
 			d.volumeLocks.Release(volName)

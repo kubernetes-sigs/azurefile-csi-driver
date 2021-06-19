@@ -46,6 +46,8 @@ var (
 type azureFileClient struct {
 	env     *azure.Environment
 	backoff *retry.Backoff
+	// if storageEndpointSuffix is empty, will default to cloud.env.StorageEndpointSuffix
+	StorageEndpointSuffix string
 }
 
 func newAzureFileClient(env *azure.Environment, backoff *retry.Backoff) *azureFileClient {
@@ -108,7 +110,15 @@ func (f *azureFileClient) resizeFileShare(accountName, accountKey, name string, 
 }
 
 func (f *azureFileClient) getFileSvcClient(accountName, accountKey string) (*azs.FileServiceClient, error) {
-	fileClient, err := azs.NewClient(accountName, accountKey, f.env.StorageEndpointSuffix, azs.DefaultAPIVersion, useHTTPS)
+	storageEndpointSuffix := f.env.StorageEndpointSuffix
+	if f.StorageEndpointSuffix != "" {
+		storageEndpointSuffix = f.StorageEndpointSuffix
+	}
+	if storageEndpointSuffix == "" {
+		storageEndpointSuffix = defaultStorageEndPointSuffix
+	}
+
+	fileClient, err := azs.NewClient(accountName, accountKey, storageEndpointSuffix, azs.DefaultAPIVersion, useHTTPS)
 	if err != nil {
 		return nil, fmt.Errorf("error creating azure client: %v", err)
 	}

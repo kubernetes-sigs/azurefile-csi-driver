@@ -152,7 +152,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 	// don't respect fsType from req.GetVolumeCapability().GetMount().GetFsType()
 	// since it's ext4 by default on Linux
-	var fsType, server, protocol, ephemeralVolMountOptions string
+	var fsType, server, protocol, ephemeralVolMountOptions, storageEndpointSuffix string
 	var ephemeralVol bool
 	for k, v := range context {
 		switch strings.ToLower(k) {
@@ -168,6 +168,8 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			ephemeralVol = strings.EqualFold(v, trueValue)
 		case mountOptionsField:
 			ephemeralVolMountOptions = v
+		case storageEndpointSuffixField:
+			storageEndpointSuffix = v
 		}
 	}
 
@@ -180,10 +182,18 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 	defer d.volumeLocks.Release(volumeID)
 
+	if strings.TrimSpace(storageEndpointSuffix) == "" {
+		if d.cloud.Environment.StorageEndpointSuffix != "" {
+			storageEndpointSuffix = d.cloud.Environment.StorageEndpointSuffix
+		} else {
+			storageEndpointSuffix = defaultStorageEndPointSuffix
+		}
+	}
+
 	osSeparator := string(os.PathSeparator)
 	if strings.TrimSpace(server) == "" {
 		// server address is "accountname.file.core.windows.net" by default
-		server = fmt.Sprintf("%s.file.%s", accountName, d.cloud.Environment.StorageEndpointSuffix)
+		server = fmt.Sprintf("%s.file.%s", accountName, storageEndpointSuffix)
 	}
 	source := fmt.Sprintf("%s%s%s%s%s", osSeparator, osSeparator, server, osSeparator, fileShareName)
 	if protocol == nfs {
