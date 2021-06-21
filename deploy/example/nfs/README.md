@@ -55,7 +55,7 @@ Filesystem      Size  Used Avail Use% Mounted on
 /dev/sda1                                                                                 29G   11G   19G  37% /etc/hosts
 accountname.file.core.windows.net:/accountname/pvc-fa72ec43-ae64-42e4-a8a2-556606f5da38  100G     0  100G   0% /mnt/azurefile
 ...
-<pre>
+</pre>
 
 ### Example#2
  - Create a [Wordpress](https://github.com/bitnami/charts/tree/master/bitnami/wordpress) application with NFS volume
