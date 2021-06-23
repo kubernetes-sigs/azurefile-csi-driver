@@ -31,6 +31,7 @@ csi-azurefile-node-dr4s4                        3/3     Running   0          7m4
 ```console
 kubectl logs csi-azurefile-node-cvgbs -c azurefile -n kube-system > csi-azurefile-node.log
 ```
+
 #### Update driver version quickly by editting driver deployment directly
 ```console
 kubectl edit deployment csi-azurefile-controller -n kube-system
