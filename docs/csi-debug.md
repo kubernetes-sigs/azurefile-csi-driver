@@ -31,6 +31,15 @@ csi-azurefile-node-dr4s4                        3/3     Running   0          7m4
 ```console
 kubectl logs csi-azurefile-node-cvgbs -c azurefile -n kube-system > csi-azurefile-node.log
 ```
+#### Update driver version quickly by editting driver deployment directly
+```console
+kubectl edit deployment csi-azurefile-controller -n kube-system
+```
+and then change below deployment config, e.g.
+```console
+        image: mcr.microsoft.com/k8s/csi/azurefile-csi:v1.5.0
+        imagePullPolicy: Always
+```
 
 ### troubleshooting connection failure on agent node
 > server address of sovereign cloud: accountname.blob.core.chinacloudapi.cn
@@ -58,7 +67,6 @@ dir
 mkdir /tmp/test
 mount -v -t nfs -o vers=4,minorversion=1,sec=sys accountname.blob.core.windows.net:/accountname/filesharename /tmp/test
 ```
-
 
 ### Troubleshooting performance issues on Azure Files
 
