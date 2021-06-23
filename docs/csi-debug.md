@@ -33,10 +33,15 @@ kubectl logs csi-azurefile-node-cvgbs -c azurefile -n kube-system > csi-azurefil
 ```
 
 #### Update driver version quickly by editting driver deployment directly
+ - update controller deployment
 ```console
 kubectl edit deployment csi-azurefile-controller -n kube-system
 ```
-and then change below deployment config, e.g.
+ - update daemonset deployment
+```console
+kubectl edit ds csi-azurefile-node -n kube-system
+```
+change below deployment config, e.g.
 ```console
         image: mcr.microsoft.com/k8s/csi/azurefile-csi:v1.5.0
         imagePullPolicy: Always
