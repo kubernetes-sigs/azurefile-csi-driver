@@ -6,6 +6,7 @@
             "orchestratorType": "Kubernetes",
             "orchestratorRelease": "1.17",
             "kubernetesConfig": {
+                "enableRbac": false,
                 "useManagedIdentity": true,
                 "userAssignedID": "azurefile-csi-driver-e2e-test-id",
                 "useCloudControllerManager": true,
