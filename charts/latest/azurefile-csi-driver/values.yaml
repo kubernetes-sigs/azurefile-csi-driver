@@ -78,6 +78,9 @@ snapshot:
 feature:
   enableFSGroupPolicy: false
 
+driver:
+  name: file.csi.azure.com
+
 linux:
   enabled: true
   kubelet: /var/lib/kubelet

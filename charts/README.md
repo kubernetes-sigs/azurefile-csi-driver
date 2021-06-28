@@ -36,6 +36,7 @@ The following table lists the configurable parameters of the latest Azure File C
 
 | Parameter                                         | Description                                                | Default                                                           |
 |---------------------------------------------------|------------------------------------------------------------|-------------------------------------------------------------------|
+| `driver.name`                                     | alternative driver name                        | `file.csi.azure.com` |
 | `image.azurefile.repository`                      | azurefile-csi-driver docker image                          | mcr.microsoft.com/k8s/csi/azurefile-csi                            |
 | `image.azurefile.tag`                             | azurefile-csi-driver docker image tag                      | latest                                                            |
 | `image.azurefile.pullPolicy`                      | azurefile-csi-driver image pull policy                     | IfNotPresent                                                      |

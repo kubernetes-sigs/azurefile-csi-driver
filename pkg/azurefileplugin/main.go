@@ -41,6 +41,7 @@ var (
 	version        = flag.Bool("version", false, "Print the version and exit.")
 	metricsAddress = flag.String("metrics-address", "0.0.0.0:29614", "export the metrics")
 	kubeconfig     = flag.String("kubeconfig", "", "Absolute path to the kubeconfig file. Required only when running out of cluster.")
+	driverName     = flag.String("drivername", azurefile.DefaultDriverName, "name of the driver")
 )
 
 func main() {
@@ -65,7 +66,7 @@ func main() {
 }
 
 func handle() {
-	driver := azurefile.NewDriver(*nodeID)
+	driver := azurefile.NewDriver(*nodeID, *driverName)
 	if driver == nil {
 		klog.Fatalln("Failed to initialize azurefile CSI Driver")
 	}

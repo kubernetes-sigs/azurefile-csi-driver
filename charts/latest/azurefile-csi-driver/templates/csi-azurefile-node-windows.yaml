@@ -61,7 +61,7 @@ spec:
           image: "{{ .Values.windows.image.nodeDriverRegistrar.repository }}:{{ .Values.windows.image.nodeDriverRegistrar.tag }}"
           args:
             - "--csi-address=$(CSI_ENDPOINT)"
-            - "--kubelet-registration-path=C:\\var\\lib\\kubelet\\plugins\\file.csi.azure.com\\csi.sock"
+            - "--kubelet-registration-path=C:\\var\\lib\\kubelet\\plugins\\{{ .Values.driver.name }}\\csi.sock"
             - "--v=2"
           env:
             - name: CSI_ENDPOINT
@@ -93,6 +93,7 @@ spec:
             - "--nodeid=$(KUBE_NODE_NAME)"
             - "--metrics-address=0.0.0.0:{{ .Values.node.metricsPort }}"
             - "--kubeconfig={{ .Values.windows.kubeconfig }}"
+            - "--drivername={{ .Values.driver.name }}"
           ports:
             - containerPort: 29613
               name: healthz
@@ -160,7 +161,7 @@ spec:
             type: Directory
         - name: plugin-dir
           hostPath:
-            path: {{ .Values.windows.kubelet }}\plugins\file.csi.azure.com\
+            path: {{ .Values.windows.kubelet }}\plugins\{{ .Values.driver.name }}\
             type: DirectoryOrCreate
         - name: azure-config
           hostPath:

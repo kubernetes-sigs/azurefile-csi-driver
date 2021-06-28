@@ -43,7 +43,7 @@ type AzureFileDriver struct {
 func InitAzureFileDriver() PVTestDriver {
 	driverName := os.Getenv(AzureDriverNameVar)
 	if driverName == "" {
-		driverName = azurefile.DriverName
+		driverName = azurefile.DefaultDriverName
 	}
 
 	klog.Infof("Using azure file driver: %s", driverName)
