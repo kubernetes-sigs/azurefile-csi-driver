@@ -816,7 +816,7 @@ func (t *TestPod) SetupCSIInlineVolume(name, mountPath, secretName, shareName, s
 		Name: name,
 		VolumeSource: v1.VolumeSource{
 			CSI: &v1.CSIVolumeSource{
-				Driver: azurefile.DriverName,
+				Driver: azurefile.DefaultDriverName,
 				VolumeAttributes: map[string]string{
 					"secretName":   secretName,
 					"shareName":    shareName,

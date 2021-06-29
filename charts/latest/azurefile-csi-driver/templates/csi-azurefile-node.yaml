@@ -65,12 +65,12 @@ spec:
           lifecycle:
             preStop:
               exec:
-                command: ["/bin/sh", "-c", "rm -rf /registration/file.csi.azure.com-reg.sock /csi/csi.sock"]
+                command: ["/bin/sh", "-c", "rm -rf /registration/{{ .Values.driver.name }}-reg.sock /csi/csi.sock"]
           env:
             - name: ADDRESS
               value: /csi/csi.sock
             - name: DRIVER_REG_SOCK_PATH
-              value: {{ .Values.linux.kubelet }}/plugins/file.csi.azure.com/csi.sock
+              value: {{ .Values.linux.kubelet }}/plugins/{{ .Values.driver.name }}/csi.sock
           imagePullPolicy: {{ .Values.image.nodeDriverRegistrar.pullPolicy }}
           volumeMounts:
             - name: socket-dir
@@ -92,6 +92,7 @@ spec:
             - "--nodeid=$(KUBE_NODE_NAME)"
             - "--metrics-address=0.0.0.0:{{ .Values.node.metricsPort }}"
             - "--kubeconfig={{ .Values.linux.kubeconfig }}"
+            - "--drivername={{ .Values.driver.name }}"
           ports:
             - containerPort: 29613
               name: healthz
@@ -154,7 +155,7 @@ spec:
               memory: 20Mi
       volumes:
         - hostPath:
-            path: {{ .Values.linux.kubelet }}/plugins/file.csi.azure.com
+            path: {{ .Values.linux.kubelet }}/plugins/{{ .Values.driver.name }}
             type: DirectoryOrCreate
           name: socket-dir
         - hostPath:

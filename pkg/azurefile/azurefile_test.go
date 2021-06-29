@@ -50,14 +50,14 @@ var (
 )
 
 func NewFakeDriver() *Driver {
-	driver := NewDriver(fakeNodeID)
+	driver := NewDriver(fakeNodeID, DefaultDriverName)
 	driver.Name = fakeDriverName
 	driver.Version = vendorVersion
 	return driver
 }
 
 func TestNewFakeDriver(t *testing.T) {
-	d := NewDriver(fakeNodeID)
+	d := NewDriver(fakeNodeID, DefaultDriverName)
 	assert.NotNil(t, d)
 }
 
@@ -504,7 +504,7 @@ func TestNewDriver(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		result := NewDriver(test.nodeID)
+		result := NewDriver(test.nodeID, DefaultDriverName)
 		assert.NotNil(t, result)
 		assert.Equal(t, result.NodeID, test.nodeID)
 	}

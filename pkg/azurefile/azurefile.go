@@ -49,7 +49,7 @@ import (
 )
 
 const (
-	DriverName         = "file.csi.azure.com"
+	DefaultDriverName  = "file.csi.azure.com"
 	separator          = "#"
 	volumeIDTemplate   = "%s#%s#%s#%s"
 	secretNameTemplate = "azure-storage-account-%s-secret"
@@ -175,9 +175,9 @@ type Driver struct {
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
 // does not support optional driver plugin info manifest field. Refer to CSI spec for more details.
-func NewDriver(nodeID string) *Driver {
+func NewDriver(nodeID string, driverName string) *Driver {
 	driver := Driver{}
-	driver.Name = DriverName
+	driver.Name = driverName
 	driver.Version = driverVersion
 	driver.NodeID = nodeID
 	driver.volLockMap = newLockMap()
