@@ -113,6 +113,7 @@ const (
 	xfs                               = "xfs"
 	vhdSuffix                         = ".vhd"
 	metaDataNode                      = "node"
+	networkEndpointTypeField          = "networkendpointtype"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
 	// this is a workaround fix for 429 throttling issue, will update cloud provider for better fix later

@@ -45,6 +45,7 @@ import (
 
 const (
 	azureFileCSIDriverName = "azurefile_csi_driver"
+	privateEndpoint        = "privateendpoint"
 )
 
 var (
@@ -99,7 +100,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if parameters == nil {
 		parameters = make(map[string]string)
 	}
-	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, secretName, secretNamespace, protocol, customTags, storageEndpointSuffix string
+	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, secretName, secretNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType string
 	var createAccount, useDataPlaneAPI, disableDeleteRetentionPolicy, enableLFS bool
 
 	// store account key to k8s secret by default
@@ -152,6 +153,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			}
 		case storageEndpointSuffixField:
 			storageEndpointSuffix = v
+		case networkEndpointTypeField:
+			networkEndpointType = v
 		case pvcNameKey:
 			// no op
 		case pvNameKey:
@@ -177,6 +180,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	enableHTTPSTrafficOnly := true
 	shareProtocol := storage.EnabledProtocolsSMB
+	createPrivateEndpoint := false
 	var vnetResourceIDs []string
 	if fsType == nfs || protocol == nfs {
 		protocol = nfs
@@ -189,14 +193,17 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		// reset protocol field (compatable with "fsType: nfs")
 		parameters[protocolField] = protocol
 
-		// set VirtualNetworkResourceIDs for storage account firewall setting
-		vnetResourceID := d.getSubnetResourceID()
-		klog.V(2).Infof("set vnetResourceID(%s) for NFS protocol", vnetResourceID)
-		vnetResourceIDs = []string{vnetResourceID}
-		if account == "" {
-			// only update subnet service endpoints if account is created by driver
-			if err := d.updateSubnetServiceEndpoints(ctx); err != nil {
-				return nil, status.Errorf(codes.Internal, "update service endpoints failed with error: %v", err)
+		if strings.EqualFold(networkEndpointType, privateEndpoint) {
+			createPrivateEndpoint = true
+		} else {
+			// set VirtualNetworkResourceIDs for storage account firewall setting
+			vnetResourceID := d.getSubnetResourceID()
+			klog.V(2).Infof("set vnetResourceID(%s) for NFS protocol", vnetResourceID)
+			vnetResourceIDs = []string{vnetResourceID}
+			if account == "" {
+				if err := d.updateSubnetServiceEndpoints(ctx); err != nil {
+					return nil, status.Errorf(codes.Internal, "update service endpoints failed with error: %v", err)
+				}
 			}
 		}
 	}
@@ -243,6 +250,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		Tags:                                    tags,
 		VirtualNetworkResourceIDs:               vnetResourceIDs,
 		CreateAccount:                           createAccount,
+		CreatePrivateEndpoint:                   createPrivateEndpoint,
 		EnableLargeFileShare:                    enableLFS,
 		DisableFileServiceDeleteRetentionPolicy: disableDeleteRetentionPolicy,
 	}
