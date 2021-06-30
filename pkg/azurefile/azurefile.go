@@ -202,7 +202,7 @@ func NewDriver(nodeID string, driverName string) *Driver {
 
 // Run driver initialization
 func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
-	versionMeta, err := GetVersionYAML()
+	versionMeta, err := GetVersionYAML(d.Name)
 	if err != nil {
 		klog.Fatalf("%v", err)
 	}

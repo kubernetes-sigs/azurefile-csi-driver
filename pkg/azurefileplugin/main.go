@@ -47,7 +47,7 @@ var (
 func main() {
 	flag.Parse()
 	if *version {
-		info, err := azurefile.GetVersionYAML()
+		info, err := azurefile.GetVersionYAML(*driverName)
 		if err != nil {
 			klog.Fatalln(err)
 		}
