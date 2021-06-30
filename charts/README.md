@@ -3,6 +3,11 @@
 ## Prerequisites
  - [install Helm](https://helm.sh/docs/intro/quickstart/#install-helm)
 
+### Tips
+ - `--set controller.runOnMaster=true` could make csi-azuredisk-controller only run on master node
+ - `--set feature.enableFSGroupPolicy=true` could enable `fsGroupPolicy` on a k8s 1.20+ cluster (only applied for NFS protocol)
+ - `--set controller.replicas=1` could set replica of csi-azuredisk-controller as `1`
+
 ### install latest version
 ```console
 helm repo add azurefile-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts
@@ -36,7 +41,8 @@ The following table lists the configurable parameters of the latest Azure File C
 
 | Parameter                                         | Description                                                | Default                                                           |
 |---------------------------------------------------|------------------------------------------------------------|-------------------------------------------------------------------|
-| `driver.name`                                     | alternative driver name                        | `file.csi.azure.com` |
+| `driver.name`                                     | alternative driver name                                    | `file.csi.azure.com` |
+| `feature.enableFSGroupPolicy`                     | enable `fsGroupPolicy` on a k8s 1.20+ cluster((only applied for NFS protocol))              | `false`                      |
 | `image.azurefile.repository`                      | azurefile-csi-driver docker image                          | mcr.microsoft.com/k8s/csi/azurefile-csi                            |
 | `image.azurefile.tag`                             | azurefile-csi-driver docker image tag                      | latest                                                            |
 | `image.azurefile.pullPolicy`                      | azurefile-csi-driver image pull policy                     | IfNotPresent                                                      |
