@@ -15,39 +15,47 @@
 
 set -euo pipefail
 
+if [[ "$#" -eq 0 ]]; then
+    echo "./verify-examples.sh requires at least 1 parameter"
+    exit 1
+fi
+
 echo "begin to create deployment examples ..."
 
+kubectl apply -f deploy/example/storageclass-azurefile-csi.yaml
+
+rollout_and_wait() {
+    echo "Applying config \"$1\""
+    trap "echo \"Failed to apply config \\\"$1\\\"\" >&2" err
+
+    APPNAME=$(kubectl apply -f $1 | grep -E "^(:?daemonset|deployment|statefulset|pod)" | awk '{printf $1}')
+    if [[ -n $(expr "${APPNAME}" : "\(daemonset\|deployment\|statefulset\)" || true) ]]; then
+        kubectl rollout status $APPNAME --watch --timeout=5m
+    else
+        kubectl wait "${APPNAME}" --for condition=ready --timeout=5m
+    fi
+}
+
+EXAMPLES=()
+
 if [[ "$1" == "linux" ]]; then
-    kubectl apply -f deploy/example/storageclass-azurefile-csi.yaml
-    kubectl apply -f deploy/example/daemonset.yaml
-    kubectl apply -f deploy/example/deployment.yaml
-    kubectl apply -f deploy/example/statefulset.yaml
-    kubectl apply -f deploy/example/statefulset-nonroot.yaml
-    echo "sleep 60s ..."
-    sleep 60
+    EXAMPLES+=(\
+        deploy/example/daemonset.yaml \
+        deploy/example/deployment.yaml \
+        deploy/example/statefulset.yaml \
+        deploy/example/statefulset-nonroot.yaml \
+        )
 fi
 
 if [[ "$1" == "windows" ]]; then
-    kubectl apply -f deploy/example/storageclass-azurefile-csi.yaml
-    kubectl apply -f deploy/example/windows/deployment.yaml
-    kubectl apply -f deploy/example/windows/statefulset.yaml
-    echo "sleep 360s ..."
-    sleep 360
+    EXAMPLES+=(\
+    deploy/example/windows/deployment.yaml \
+    deploy/example/windows/statefulset.yaml \
+    )
 fi
 
-echo "begin to check pod status ..."
-kubectl get pods -o wide
-
-if [[ "$1" == "linux" ]]; then
-    kubectl get pods --field-selector status.phase=Running | grep daemonset-azurefile
-    kubectl get pods --field-selector status.phase=Running | grep deployment-azurefile
-    kubectl get pods --field-selector status.phase=Running | grep statefulset-azurefile-0
-    kubectl get pods --field-selector status.phase=Running | grep statefulset-azurefile-nonroot-0
-fi
-
-if [[ "$1" == "windows" ]]; then
-    kubectl get pods --field-selector status.phase=Running | grep deployment-azurefile-win
-    kubectl get pods --field-selector status.phase=Running | grep statefulset-azurefile-win-0
-fi
+for EXAMPLE in "${EXAMPLES[@]}"; do
+    rollout_and_wait $EXAMPLE
+done
 
 echo "deployment examples running completed."
