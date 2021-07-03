@@ -1,0 +1,22 @@
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: azurefile-csi
+provisioner: file.csi.azure.com
+allowVolumeExpansion: true
+parameters:
+  skuName: Premium_LRS
+  useDataPlaneAPI: "true"  # unlimited azure file api call
+  disableDeleteRetentionPolicy: "true"  # disable DeleteRetentionPolicy for storage account created by driver
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+mountOptions:
+  - dir_mode=0777
+  - file_mode=0777
+  - uid=0
+  - gid=0
+  - mfsymlinks
+  - cache=strict  # https://linux.die.net/man/8/mount.cifs
+  - nosharesock  # reduce probability of reconnect race
+  - actimeo=30  # reduce latency for metadata-heavy workload
