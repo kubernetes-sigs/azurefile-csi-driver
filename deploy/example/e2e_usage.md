@@ -3,9 +3,13 @@
 
 ### Azure File Dynamic Provisioning
 #### Option#1: create storage account by CSI driver
- - Create storage class
+ - Create storage class using Azure file management API(by default)
 ```console
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-csi.yaml
+```
+ - Create storage class using Azure file data plane API to get better file operation performance
+```console
+kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-csi-large-scale.yaml
 ```
  > set `useDataPlaneAPI: "true"` in storage class `parameters` when creating > 100 file shares in parallel to prevent [storage resource provider throttling](https://docs.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits#storage-resource-provider-limits)
  > 
