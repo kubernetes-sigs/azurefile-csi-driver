@@ -2,21 +2,21 @@
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: csi-azurefile-node
+  name: {{ .Values.linux.dsName }}
   namespace: {{ .Release.Namespace }}
 {{ include "azurefile.labels" . | indent 2 }}
 spec:
   selector:
     matchLabels:
-      app: csi-azurefile-node
+      app: {{ .Values.linux.dsName }}
   template:
     metadata:
 {{ include "azurefile.labels" . | indent 6 }}
-        app: csi-azurefile-node
+        app: {{ .Values.linux.dsName }}
     spec:
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
-      serviceAccountName: csi-azurefile-node-sa
+      serviceAccountName: {{ .Values.serviceAccount.node }}
       nodeSelector:
         kubernetes.io/os: linux
       affinity:

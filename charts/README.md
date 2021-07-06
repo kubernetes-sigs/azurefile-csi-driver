@@ -4,9 +4,9 @@
  - [install Helm](https://helm.sh/docs/intro/quickstart/#install-helm)
 
 ### Tips
- - `--set controller.runOnMaster=true` could make csi-azuredisk-controller only run on master node
+ - `--set controller.runOnMaster=true` could make csi-azurefile-controller only run on master node
  - `--set feature.enableFSGroupPolicy=true` could enable `fsGroupPolicy` on a k8s 1.20+ cluster (only applied for NFS protocol)
- - `--set controller.replicas=1` could set replica of csi-azuredisk-controller as `1`
+ - `--set controller.replicas=1` could set replica of csi-azurefile-controller as `1`
 
 ### install latest version
 ```console
@@ -62,8 +62,12 @@ The following table lists the configurable parameters of the latest Azure File C
 | `image.nodeDriverRegistrar.tag`                   | csi-node-driver-registrar docker image tag                 | v2.2.0                                                            |
 | `image.nodeDriverRegistrar.pullPolicy`            | csi-node-driver-registrar image pull policy                | IfNotPresent                                                      |
 | `imagePullSecrets`                                | Specify docker-registry secret names as an array           | [] (does not add image pull secrets to deployed pods)             |
-| `serviceAccount.create`                           | whether create service account of csi-azurefile-controller  | true                                                              |
-| `rbac.create`                                     | whether create rbac of csi-azurefile-controller             | true                                                              |
+| `serviceAccount.create`                           | whether create service account of csi-azurefile-controller, csi-azurefile-node, and snapshot-controller| true                                                    |
+| `serviceAccount.controller`                       | name of service account for csi-azurefile-controller       | csi-azurefile-controller-sa                                  |
+| `serviceAccount.node`                             | name of service account for csi-azurefile-node             | csi-azurefile-node-sa                                        |
+| `serviceAccount.snapshotController`               | name of service account for csi-snapshot-controller        | csi-snapshot-controller-sa                                   |
+| `rbac.create`                                     | whether create rbac for this driver     | true                                                              |
+| `controller.name`                                 | name of driver deployment                  | `csi-azurefile-controller`
 | `controller.replicas`                             | the replicas of csi-azurefile-controller                    | 2                                                                 |
 | `controller.metricsPort`                          | metrics port of csi-azurefile-controller                   |29614                                                        |
 | `controller.runOnMaster`                          | run controller on master node                                                          |`false`                                                           |
@@ -80,15 +84,16 @@ The following table lists the configurable parameters of the latest Azure File C
 | `snapshot.image.csiSnapshotController.repository` | snapshot-controller docker image                           | mcr.microsoft.com/oss/kubernetes-csi/snapshot-controller     |
 | `snapshot.image.csiSnapshotController.tag`        | snapshot-controller docker image tag                       | v2.1.1                                                       |
 | `snapshot.image.csiSnapshotController.pullPolicy` | snapshot-controller image pull policy                      | IfNotPresent                                                 |
+| `snapshot.snapshotController.name`                | snapshot controller name                     | `csi-snapshot-controller`                                                           |
 | `snapshot.snapshotController.replicas`            | the replicas of snapshot-controller                        | 1                                                            |
-| `snapshot.snapshotController.serviceAccount`      | whether create service account of snapshot-controller      | true                                                         |
-| `snapshot.snapshotController.rbac`                | whether create rbac of snapshot-controller                 | true                                                         |
 | `linux.enabled`                                   | whether enable linux feature                               | true                                                              |
+| `linux.dsName`                                    | name of driver daemonset on linux                             |`csi-azurefile-node`                                                         |
 | `linux.kubelet`                                   | configure kubelet directory path on Linux agent node node                  | `/var/lib/kubelet`                                                |
 | `linux.kubeconfig`                                | configure kubeconfig path on Linux agent node                | '' (empty, use InClusterConfig by default)                                            |
 | `linux.distro`                                    | configure ssl certificates for different Linux distribution(available values: `debian`, `fedora`)                  |
 | `linux.tolerations`                               | linux node driver tolerations                            |
 | `windows.enabled`                                 | whether enable windows feature                             | true                                                             |
+| `windows.dsName`                                  | name of driver daemonset on windows                             |`csi-azurefile-node-win`                                                         |
 | `windows.kubelet`                                 | configure kubelet directory path on Windows agent node                | `'C:\var\lib\kubelet'`                                            |
 | `windows.kubeconfig`                              | configure kubeconfig path on Windows agent node                | `'C:\k\config'`                                            |
 | `windows.image.livenessProbe.repository`          | windows liveness-probe docker image                        | mcr.microsoft.com/oss/kubernetes-csi/livenessprobe                |

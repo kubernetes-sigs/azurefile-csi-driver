@@ -1,21 +1,21 @@
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: csi-azurefile-controller
+  name: {{ .Values.controller.name }}
   namespace: {{ .Release.Namespace }}
 {{ include "azurefile.labels" . | indent 2 }}
 spec:
   replicas: {{ .Values.controller.replicas }}
   selector:
     matchLabels:
-      app: csi-azurefile-controller
+      app: {{ .Values.controller.name }}
   template:
     metadata:
 {{ include "azurefile.labels" . | indent 6 }}
-        app: csi-azurefile-controller
+        app: {{ .Values.controller.name }}
     spec:
       hostNetwork: true  # only required for MSI enabled cluster
-      serviceAccountName: csi-azurefile-controller-sa
+      serviceAccountName: {{ .Values.serviceAccount.controller }}
       nodeSelector:
         kubernetes.io/os: linux
         {{- if .Values.controller.runOnMaster}}

@@ -2,19 +2,19 @@
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: csi-azurefile-node-win
+  name: {{ .Values.windows.dsName }}
   namespace: {{ .Release.Namespace }}
 {{ include "azurefile.labels" . | indent 2 }}
 spec:
   selector:
     matchLabels:
-      app: csi-azurefile-node-win
+      app: {{ .Values.windows.dsName }}
   template:
     metadata:
 {{ include "azurefile.labels" . | indent 6 }}
-        app: csi-azurefile-node-win
+        app: {{ .Values.windows.dsName }}
     spec:
-      serviceAccountName: csi-azurefile-node-sa
+      serviceAccountName: {{ .Values.serviceAccount.node }}
 {{- with .Values.windows.tolerations }}
       tolerations:
 {{ toYaml . | indent 8 }}

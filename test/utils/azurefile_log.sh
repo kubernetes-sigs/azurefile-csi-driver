@@ -38,6 +38,13 @@ kubectl get pods -n${NS} -l${LABEL} \
     | awk 'NR>1 {print $1}' \
     | xargs -I {} bash -c "echo 'dumping logs for ${NS}/{}/${CONTAINER}' && kubectl logs {} -c${CONTAINER} -n${NS}"
 
+#echo "print out csi-snapshot-controller pods ..."
+#echo "======================================================================================"
+#LABEL='app=csi-snapshot-controller'
+#kubectl get pods -n${NS} -l${LABEL} \
+#    | awk 'NR>1 {print $1}' \
+#    | xargs -I {} bash -c "echo 'dumping logs for ${NS}/{}/csi-snapshot-controller' && kubectl logs {} -n${NS}"
+
 echo "print out csi-azurefile-node logs ..."
 echo "======================================================================================"
 LABEL='app=csi-azurefile-node'

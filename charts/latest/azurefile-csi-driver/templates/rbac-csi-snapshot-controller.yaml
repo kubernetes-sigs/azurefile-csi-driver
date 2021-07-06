@@ -1,4 +1,4 @@
-{{- if and .Values.snapshot.enabled .Values.snapshot.snapshotController.rbac -}}
+{{- if and .Values.snapshot.enabled .Values.rbac.create -}}
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -36,7 +36,7 @@ metadata:
   name: csi-snapshot-controller-binding
 subjects:
   - kind: ServiceAccount
-    name: csi-snapshot-controller-sa
+    name: {{ .Values.serviceAccount.snapshotController }}
     namespace: {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole
@@ -60,7 +60,7 @@ metadata:
   name: csi-snapshot-controller-leaderelection-binding
 subjects:
   - kind: ServiceAccount
-    name: csi-snapshot-controller-sa
+    name: {{ .Values.serviceAccount.snapshotController }}
     namespace: {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole
