@@ -97,9 +97,6 @@ spec:
             - containerPort: 29613
               name: healthz
               protocol: TCP
-            - containerPort: {{ .Values.node.metricsPort }}
-              name: metrics
-              protocol: TCP
           livenessProbe:
             failureThreshold: 5
             httpGet:
