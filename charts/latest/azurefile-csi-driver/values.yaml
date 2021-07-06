@@ -30,12 +30,16 @@ imagePullSecrets: []
 # - name: myRegistryKeySecretName
 
 serviceAccount:
-  create: true
+  create: true # When true, service accounts will be created for you. Set to false if you want to use your own.
+  controller: csi-azurefile-controller-sa # Name of Service Account to be created or used
+  node: csi-azurefile-node-sa # Name of Service Account to be created or used
+  snapshotController: csi-snapshot-controller-sa # Name of Service Account to be created or used
 
 rbac:
   create: true
 
 controller:
+  name: csi-azurefile-controller
   replicas: 2
   metricsPort: 29614
   runOnMaster: false
@@ -71,9 +75,8 @@ snapshot:
       tag: v3.0.3
       pullPolicy: IfNotPresent
   snapshotController:
+    name: csi-snapshot-controller
     replicas: 1
-    serviceAccount: true
-    rbac: true
 
 feature:
   enableFSGroupPolicy: false
@@ -83,6 +86,7 @@ driver:
 
 linux:
   enabled: true
+  dsName: csi-azurefile-node # daemonset name
   kubelet: /var/lib/kubelet
   kubeconfig: ""
   distro: debian # available values: debian, fedora
@@ -91,6 +95,7 @@ linux:
 
 windows:
   enabled: true
+  dsName: csi-azurefile-node-win # daemonset name
   kubelet: 'C:\var\lib\kubelet'
   kubeconfig: 'C:\\k\\config'
   image:

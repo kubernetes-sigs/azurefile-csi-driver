@@ -16,7 +16,7 @@ metadata:
   name: csi-azurefile-node-secret-binding
 subjects:
   - kind: ServiceAccount
-    name: csi-azurefile-node-sa
+    name: {{ .Values.serviceAccount.node }}
     namespace: {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole

@@ -42,7 +42,7 @@ metadata:
 {{ include "azurefile.labels" . | indent 2 }}
 subjects:
   - kind: ServiceAccount
-    name: csi-azurefile-controller-sa
+    name: {{ .Values.serviceAccount.controller }}
     namespace: {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole
@@ -84,7 +84,7 @@ metadata:
 {{ include "azurefile.labels" . | indent 2 }}
 subjects:
   - kind: ServiceAccount
-    name: csi-azurefile-controller-sa
+    name: {{ .Values.serviceAccount.controller }}
     namespace: {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole
@@ -129,7 +129,7 @@ metadata:
 {{ include "azurefile.labels" . | indent 2 }}
 subjects:
   - kind: ServiceAccount
-    name: csi-azurefile-controller-sa
+    name: {{ .Values.serviceAccount.controller }}
     namespace: {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole
@@ -166,7 +166,7 @@ metadata:
 {{ include "azurefile.labels" . | indent 2 }}
 subjects:
   - kind: ServiceAccount
-    name: csi-azurefile-controller-sa
+    name: {{ .Values.serviceAccount.controller }}
     namespace: {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole
@@ -190,7 +190,7 @@ metadata:
   name: csi-azurefile-controller-secret-binding
 subjects:
   - kind: ServiceAccount
-    name: csi-azurefile-controller-sa
+    name: {{ .Values.serviceAccount.controller }}
     namespace: {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole
