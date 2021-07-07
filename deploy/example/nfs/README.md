@@ -11,6 +11,12 @@ We are continually adding more regions. Latest region list is available on [Azur
 
 #### Prerequisite
  - [Install CSI driver](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/install-csi-driver-master.md)
+ - Register `AllowNfsFileShares` feature under your subscription
+```console
+az feature register --name AllowNfsFileShares --namespace Microsoft.Storage
+az feature list -o table --query "[?contains(name, 'Microsoft.Storage/AllowNfsFileShares')].{Name:name,State:properties.state}"
+az provider register --namespace Microsoft.Storage
+```
  - [Optional] Create a `Premium_LRS` Azure storage account with following configurations to support NFS share
    - account kind: `FileStorage`
    - secure transfer required(enable HTTPS traffic only): `false`
