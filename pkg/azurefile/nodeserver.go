@@ -226,7 +226,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			sensitiveMountOptions = []string{fmt.Sprintf("username=%s,password=%s", accountName, accountKey)}
 			mountOptions = appendDefaultMountOptions(cifsMountFlags)
 			if ephemeralVol {
-				mountOptions = util.JoinMountOptions(mountOptions, []string{ephemeralVolMountOptions})
+				mountOptions = util.JoinMountOptions(mountOptions, strings.Split(ephemeralVolMountOptions, ","))
 			}
 		}
 	}
