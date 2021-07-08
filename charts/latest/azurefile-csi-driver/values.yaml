@@ -37,6 +37,7 @@ serviceAccount:
 
 rbac:
   create: true
+  name: azurefile
 
 controller:
   name: csi-azurefile-controller
