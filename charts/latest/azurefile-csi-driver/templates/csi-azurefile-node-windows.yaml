@@ -44,7 +44,7 @@ spec:
           args:
             - "--csi-address=$(CSI_ENDPOINT)"
             - "--probe-timeout=3s"
-            - "--health-port=29613"
+            - "--health-port={{ .Values.node.livenessProbe.healthPort }}"
             - "--v=2"
           env:
             - name: CSI_ENDPOINT
@@ -95,7 +95,7 @@ spec:
             - "--kubeconfig={{ .Values.windows.kubeconfig }}"
             - "--drivername={{ .Values.driver.name }}"
           ports:
-            - containerPort: 29613
+            - containerPort: {{ .Values.node.livenessProbe.healthPort }}
               name: healthz
               protocol: TCP
           livenessProbe:
