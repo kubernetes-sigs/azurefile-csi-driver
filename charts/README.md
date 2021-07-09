@@ -68,14 +68,16 @@ The following table lists the configurable parameters of the latest Azure File C
 | `serviceAccount.snapshotController`               | name of service account for csi-snapshot-controller        | csi-snapshot-controller-sa                                   |
 | `rbac.create`                                     | whether create rbac for this driver     | true                                                              |
 | `controller.name`                                 | name of driver deployment                  | `csi-azurefile-controller`
-| `controller.replicas`                             | the replicas of csi-azurefile-controller                    | 2                                                                 |
-| `controller.metricsPort`                          | metrics port of csi-azurefile-controller                   |29614                                                        |
+| `controller.replicas`                             | replicas of csi-azurefile-controller                    | 2                                                                 |
+| `controller.metricsPort`                          | metrics port of csi-azurefile-controller                   |`29614`                                                        |
+| `controller.livenessProbe.healthPort `            | health check port for liveness probe                   | `29612` |
 | `controller.runOnMaster`                          | run controller on master node                                                          |`false`                                                           |
 | `controller.attachRequired`                       | enable attach/detach (only valid for vhd disk feature)                                            |`false`                                                           |
 | `controller.logLevel`                             | controller driver log level                                                          |`5`                                                           |
 | `controller.kubeconfig`                           | configure kubeconfig path on controller node                | '' (empty, use InClusterConfig by default)
 | `controller.tolerations`                          | controller pod tolerations                            |                                                              |
-| `node.metricsPort`                                | metrics port of csi-azurefile-node                         |29615                                                        |
+| `node.metricsPort`                                | metrics port of csi-azurefile-node                         |`29615`                                                       |
+| `node.livenessProbe.healthPort `                  | health check port for liveness probe                   | `29613` |
 | `node.logLevel`                                   | node driver log level                                                          |`5`                                                           |
 | `snapshot.enabled`                                | whether enable snapshot feature                            | false                                                        |
 | `snapshot.image.csiSnapshotter.repository`        | csi-snapshotter docker image                               | mcr.microsoft.com/oss/kubernetes-csi/csi-snapshotter         |
@@ -103,7 +105,6 @@ The following table lists the configurable parameters of the latest Azure File C
 | `windows.image.nodeDriverRegistrar.tag`           | windows csi-node-driver-registrar docker image tag         | v2.2.0                                 |
 | `windows.image.nodeDriverRegistrar.pullPolicy`    | windows csi-node-driver-registrar image pull policy        | IfNotPresent                                                      |
 | `windows.tolerations`                             | windows node driver tolerations                            |                                                              |
-| `node.livenessProbe.healthPort `                  | the health check port for liveness probe                   | `29613` |
 
 ## troubleshooting
  - Add `--wait -v=5 --debug` in `helm install` command to get detailed error

@@ -121,7 +121,7 @@ spec:
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
-            - --health-port=29612
+            - --health-port={{ .Values.controller.livenessProbe.healthPort }}
             - --v=2
           imagePullPolicy: {{ .Values.image.livenessProbe.pullPolicy }}
           volumeMounts:
@@ -143,7 +143,7 @@ spec:
             - "--kubeconfig={{ .Values.controller.kubeconfig }}"
             - "--drivername={{ .Values.driver.name }}"
           ports:
-            - containerPort: 29612
+            - containerPort: {{ .Values.controller.livenessProbe.healthPort }}
               name: healthz
               protocol: TCP
             - containerPort: {{ .Values.controller.metricsPort }}

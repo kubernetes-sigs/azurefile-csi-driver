@@ -94,7 +94,7 @@ spec:
             - "--kubeconfig={{ .Values.linux.kubeconfig }}"
             - "--drivername={{ .Values.driver.name }}"
           ports:
-            - containerPort: 29613
+            - containerPort: {{ .Values.node.livenessProbe.healthPort }}
               name: healthz
               protocol: TCP
           livenessProbe:
