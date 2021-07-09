@@ -4,7 +4,7 @@
 StorageClass:
   FromFile: /tmp/csi/storageclass.yaml
 DriverInfo:
-  Name: file.csi.azure.com
+  Name: test.csi.azure.com
   Capabilities:
     persistence: true
     exec: true

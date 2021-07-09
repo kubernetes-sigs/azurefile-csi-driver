@@ -18,6 +18,10 @@
 
 NS=kube-system
 CONTAINER=azurefile
+DRIVER=azurefile
+if [[ "$#" -gt 0 ]]; then
+    DRIVER=$1
+fi
 
 echo "print out all nodes status ..."
 kubectl get nodes -o wide
@@ -31,12 +35,12 @@ echo "print out all $NS namespace pods status ..."
 kubectl get pods -n${NS} -o wide
 echo "======================================================================================"
 
-echo "print out csi-azurefile-controller pods ..."
+echo "print out csi-$DRIVER-controller pods ..."
 echo "======================================================================================"
-LABEL='app=csi-azurefile-controller'
+LABEL="app=csi-$DRIVER-controller"
 kubectl get pods -n${NS} -l${LABEL} \
     | awk 'NR>1 {print $1}' \
-    | xargs -I {} bash -c "echo 'dumping logs for ${NS}/{}/${CONTAINER}' && kubectl logs {} -c${CONTAINER} -n${NS}"
+    | xargs -I {} bash -c "echo 'dumping logs for ${NS}/{}/${DRIVER}' && kubectl logs {} -c${CONTAINER} -n${NS}"
 
 #echo "print out csi-snapshot-controller pods ..."
 #echo "======================================================================================"
@@ -45,21 +49,21 @@ kubectl get pods -n${NS} -l${LABEL} \
 #    | awk 'NR>1 {print $1}' \
 #    | xargs -I {} bash -c "echo 'dumping logs for ${NS}/{}/csi-snapshot-controller' && kubectl logs {} -n${NS}"
 
-echo "print out csi-azurefile-node logs ..."
+echo "print out csi-$DRIVER-node logs ..."
 echo "======================================================================================"
-LABEL='app=csi-azurefile-node'
+LABEL="app=csi-$DRIVER-node"
 kubectl get pods -n${NS} -l${LABEL} \
     | awk 'NR>1 {print $1}' \
-    | xargs -I {} bash -c "echo 'dumping logs for ${NS}/{}/${CONTAINER}' && kubectl logs {} -c${CONTAINER} -n${NS}"
+    | xargs -I {} bash -c "echo 'dumping logs for ${NS}/{}/${DRIVER}' && kubectl logs {} -c${CONTAINER} -n${NS}"
 
-echo "print out csi-azurefile-node-win logs ..."
+echo "print out csi-$DRIVER-node-win logs ..."
 echo "======================================================================================"
-LABEL='app=csi-azurefile-node-win'
+LABEL="app=csi-$DRIVER-node-win"
 kubectl get pods -n${NS} -l${LABEL} \
     | awk 'NR>1 {print $1}' \
-    | xargs -I {} bash -c "echo 'dumping logs for ${NS}/{}/${CONTAINER}' && kubectl logs {} -c${CONTAINER} -n${NS}"
+    | xargs -I {} bash -c "echo 'dumping logs for ${NS}/{}/${DRIVER}' && kubectl logs {} -c${CONTAINER} -n${NS}"
 
 echo "print out cloudprovider_azure metrics ..."
 echo "======================================================================================"
-ip=`kubectl get svc csi-azurefile-controller -n kube-system | grep azurefile | awk '{print $4}'`
+ip=`kubectl get svc csi-${DRIVER}-controller -n kube-system | awk '{print $4}'`
 curl http://$ip:29614/metrics
