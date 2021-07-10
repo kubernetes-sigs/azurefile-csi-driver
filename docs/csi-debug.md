@@ -32,6 +32,24 @@ csi-azurefile-node-dr4s4                        3/3     Running   0          7m4
 kubectl logs csi-azurefile-node-cvgbs -c azurefile -n kube-system > csi-azurefile-node.log
 ```
 
+ - check cifs mount inside driver
+```console
+kubectl exec -it csi-azurefile-node-dzm5d -n kube-system -c azurefile -- mount | grep cifs
+```
+<pre>
+//accountname.file.core.windows.net/pvc-0dba3a14-dd27-4c85-9caf-7db566db621f on /var/lib/kubelet/plugins/kubernetes.io/csi/pv/pvc-0dba3a14-dd27-4c85-9caf-7db566db621f/globalmount type cifs (rw,relatime,vers=3.1.1,cache=strict,username=accountname,uid=0,forceuid,gid=0,forcegid,addr=20.150.50.136,file_mode=0777,dir_mode=0777,soft,persistenthandles,nounix,serverino,mapposix,mfsymlinks,rsize=1048576,wsize=1048576,bsize=1048576,echo_interval=60,actimeo=30)
+//accountname.file.core.windows.net/pvc-0dba3a14-dd27-4c85-9caf-7db566db621f on /var/lib/kubelet/pods/7c7c539b-0a97-472f-bce1-27d7ab7bf3b6/volumes/kubernetes.io~csi/pvc-0dba3a14-dd27-4c85-9caf-7db566db621f/mount type cifs (rw,relatime,vers=3.1.1,cache=strict,username=accountname,uid=0,forceuid,gid=0,forcegid,addr=20.150.50.136,file_mode=0777,dir_mode=0777,soft,persistenthandles,nounix,serverino,mapposix,mfsymlinks,rsize=1048576,wsize=1048576,bsize=1048576,echo_interval=60,actimeo=30)
+</pre>
+
+ - check nfs mount inside driver
+```console
+kubectl exec -it csi-azurefile-node-dzm5d -n kube-system -c azurefile -- mount | grep nfs
+```
+<pre>
+accountname.file.core.windows.net:/accountname/pvcn-46c357b2-333b-4c42-8a7f-2133023d6c48 on /var/lib/kubelet/plugins/kubernetes.io/csi/pv/pvc-46c357b2-333b-4c42-8a7f-2133023d6c48/globalmount type nfs4 (rw,relatime,vers=4.1,rsize=1048576,wsize=1048576,namlen=255,hard,proto=tcp,timeo=600,retrans=2,sec=sys,clientaddr=10.244.0.6,local_lock=none,addr=20.150.29.168)
+accountname.file.core.windows.net:/accountname/pvcn-46c357b2-333b-4c42-8a7f-2133023d6c48 on /var/lib/kubelet/pods/7994e352-a4ee-4750-8cb4-db4fcf48543e/volumes/kubernetes.io~csi/pvc-46c357b2-333b-4c42-8a7f-2133023d6c48/mount type nfs4 (rw,relatime,vers=4.1,rsize=1048576,wsize=1048576,namlen=255,hard,proto=tcp,timeo=600,retrans=2,sec=sys,clientaddr=10.244.0.6,local_lock=none,addr=20.150.29.168)
+</pre>
+
 #### Update driver version quickly by editting driver deployment directly
  - update controller deployment
 ```console
