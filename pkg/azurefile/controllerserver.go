@@ -181,6 +181,9 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	enableHTTPSTrafficOnly := true
 	shareProtocol := storage.EnabledProtocolsSMB
 	createPrivateEndpoint := false
+	if strings.EqualFold(networkEndpointType, privateEndpoint) {
+		createPrivateEndpoint = true
+	}
 	var vnetResourceIDs []string
 	if fsType == nfs || protocol == nfs {
 		protocol = nfs
@@ -193,9 +196,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		// reset protocol field (compatable with "fsType: nfs")
 		parameters[protocolField] = protocol
 
-		if strings.EqualFold(networkEndpointType, privateEndpoint) {
-			createPrivateEndpoint = true
-		} else {
+		if !createPrivateEndpoint {
 			// set VirtualNetworkResourceIDs for storage account firewall setting
 			vnetResourceID := d.getSubnetResourceID()
 			klog.V(2).Infof("set vnetResourceID(%s) for NFS protocol", vnetResourceID)
@@ -261,7 +262,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		if v, ok := d.volMap.Load(volName); ok {
 			accountName = v.(string)
 		} else {
-			lockKey = sku + accountKind + resourceGroup + location
+			lockKey = fmt.Sprintf("%s%s%s%s%s%v", sku, accountKind, resourceGroup, location, protocol, createPrivateEndpoint)
 			// search in cache first
 			cache, err := d.accountSearchCache.Get(lockKey, azcache.CacheReadTypeDefault)
 			if err != nil {
@@ -294,8 +295,18 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
-	if storageEndpointSuffix != "" {
+	if strings.TrimSpace(storageEndpointSuffix) == "" {
+		if d.cloud.Environment.StorageEndpointSuffix != "" {
+			storageEndpointSuffix = d.cloud.Environment.StorageEndpointSuffix
+		} else {
+			storageEndpointSuffix = defaultStorageEndPointSuffix
+		}
+	}
+	if d.fileClient != nil {
 		d.fileClient.StorageEndpointSuffix = storageEndpointSuffix
+	}
+	if createPrivateEndpoint {
+		parameters[serverNameField] = fmt.Sprintf("%s.privatelink.file.%s", accountName, storageEndpointSuffix)
 	}
 
 	accountOptions.Name = accountName

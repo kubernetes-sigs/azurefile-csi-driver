@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/testsuites"
@@ -131,8 +132,9 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			"secretNamespace": "kube-system",
 		}
 		if !isUsingInTreeVolumePlugin {
-			scParameters["secretName"] = "sercet-test"
+			scParameters["secretName"] = fmt.Sprintf("secret-%d", time.Now().Unix())
 			scParameters["enableLargeFileshares"] = "true"
+			scParameters["networkEndpointType"] = "privateEndpoint"
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
 			CSIDriver:              testDriver,
@@ -164,9 +166,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		scParameters := map[string]string{
 			"skuName":         "Standard_LRS",
 			"secretNamespace": "kube-system",
-		}
-		if !isUsingInTreeVolumePlugin {
-			scParameters["secretName"] = "sercet-test"
 		}
 		test := testsuites.DynamicallyProvisionedVolumeSubpathTester{
 			CSIDriver:              testDriver,
@@ -318,8 +317,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			Volumes:   volumes,
 			Azurefile: azurefileDriver,
 			StorageClassParameters: map[string]string{
-				"skuName":               "Premium_LRS",
-				"enableLargeFileshares": "true",
+				"skuName": "Premium_LRS",
 			},
 		}
 		test.Run(cs, ns)
@@ -731,9 +729,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			"secretNamespace":              "kube-system",
 			"useDataPlaneAPI":              "true",
 			"disableDeleteRetentionPolicy": "true",
-		}
-		if !isUsingInTreeVolumePlugin {
-			scParameters["secretName"] = "sercet-test"
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
 			CSIDriver:              testDriver,
