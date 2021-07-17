@@ -66,7 +66,11 @@ func main() {
 }
 
 func handle() {
-	driver := azurefile.NewDriver(*nodeID, *driverName)
+	driverOptions := azurefile.DriverOptions{
+		NodeID:     *nodeID,
+		DriverName: *driverName,
+	}
+	driver := azurefile.NewDriver(&driverOptions)
 	if driver == nil {
 		klog.Fatalln("Failed to initialize azurefile CSI Driver")
 	}

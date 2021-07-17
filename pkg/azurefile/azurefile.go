@@ -147,6 +147,12 @@ var (
 	retriableErrors = []string{accountNotProvisioned, tooManyRequests, shareBeingDeleted, clientThrottled}
 )
 
+// DriverOptions defines driver parameters specified in driver deployment
+type DriverOptions struct {
+	NodeID     string
+	DriverName string
+}
+
 // Driver implements all interfaces of CSI drivers
 type Driver struct {
 	csicommon.CSIDriver
@@ -176,11 +182,11 @@ type Driver struct {
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
 // does not support optional driver plugin info manifest field. Refer to CSI spec for more details.
-func NewDriver(nodeID string, driverName string) *Driver {
+func NewDriver(options *DriverOptions) *Driver {
 	driver := Driver{}
-	driver.Name = driverName
+	driver.Name = options.DriverName
 	driver.Version = driverVersion
-	driver.NodeID = nodeID
+	driver.NodeID = options.NodeID
 	driver.volLockMap = newLockMap()
 	driver.subnetLockMap = newLockMap()
 	driver.volumeLocks = newVolumeLocks()

@@ -115,9 +115,12 @@ var _ = ginkgo.BeforeSuite(func() {
 			execTestCmd([]testCmd{installSMBProvisioner})
 		}
 
-		nodeid := os.Getenv("nodeid")
 		kubeconfig := os.Getenv(kubeconfigEnvVar)
-		azurefileDriver = azurefile.NewDriver(nodeid, azurefile.DefaultDriverName)
+		driverOptions := azurefile.DriverOptions{
+			NodeID:     os.Getenv("nodeid"),
+			DriverName: azurefile.DefaultDriverName,
+		}
+		azurefileDriver = azurefile.NewDriver(&driverOptions)
 		go func() {
 			os.Setenv("AZURE_CREDENTIAL_FILE", credentials.TempAzureCredentialFilePath)
 			azurefileDriver.Run(fmt.Sprintf("unix:///tmp/csi-%s.sock", uuid.NewUUID().String()), kubeconfig, false)
