@@ -149,16 +149,20 @@ var (
 
 // DriverOptions defines driver parameters specified in driver deployment
 type DriverOptions struct {
-	NodeID     string
-	DriverName string
+	NodeID                     string
+	DriverName                 string
+	CloudConfigSecretName      string
+	CloudConfigSecretNamespace string
 }
 
 // Driver implements all interfaces of CSI drivers
 type Driver struct {
 	csicommon.CSIDriver
-	cloud      *azure.Cloud
-	fileClient *azureFileClient
-	mounter    *mount.SafeFormatAndMount
+	cloud                      *azure.Cloud
+	cloudConfigSecretName      string
+	cloudConfigSecretNamespace string
+	fileClient                 *azureFileClient
+	mounter                    *mount.SafeFormatAndMount
 	// lock per volume attach (only for vhd disk feature)
 	volLockMap *lockMap
 	// only for nfs feature
@@ -187,6 +191,8 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.Name = options.DriverName
 	driver.Version = driverVersion
 	driver.NodeID = options.NodeID
+	driver.cloudConfigSecretName = options.CloudConfigSecretName
+	driver.cloudConfigSecretNamespace = options.CloudConfigSecretNamespace
 	driver.volLockMap = newLockMap()
 	driver.subnetLockMap = newLockMap()
 	driver.volumeLocks = newVolumeLocks()
@@ -214,7 +220,7 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 	}
 	klog.Infof("\nDRIVER INFORMATION:\n-------------------\n%s\n\nStreaming logs below:", versionMeta)
 
-	d.cloud, err = getCloudProvider(kubeconfig, d.NodeID)
+	d.cloud, err = getCloudProvider(kubeconfig, d.NodeID, d.cloudConfigSecretName, d.cloudConfigSecretNamespace)
 	if err != nil {
 		klog.Fatalf("failed to get Azure Cloud Provider, error: %v", err)
 	}

@@ -43,11 +43,11 @@ var (
 )
 
 // getCloudProvider get Azure Cloud Provider
-func getCloudProvider(kubeconfig, nodeID string) (*azureprovider.Cloud, error) {
+func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace string) (*azureprovider.Cloud, error) {
 	az := &azureprovider.Cloud{
 		InitSecretConfig: azureprovider.InitSecretConfig{
-			SecretName:      "azure-cloud-provider",
-			SecretNamespace: "kube-system",
+			SecretName:      secretName,
+			SecretNamespace: secretNamespace,
 			CloudConfigKey:  "cloud-config",
 		},
 	}

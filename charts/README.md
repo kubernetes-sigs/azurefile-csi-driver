@@ -76,6 +76,8 @@ The following table lists the configurable parameters of the latest Azure File C
 | `rbac.create`                                     | whether create rbac for this driver     | `true`                                                              |
 | `rbac.name`                                       | driver name in rbac role                | `true`                                                         |
 | `controller.name`                                 | name of driver deployment                  | `csi-azurefile-controller`
+| `controller.cloudConfigSecretName`                | cloud config secret name of controller driver               | `azure-cloud-provider`
+| `controller.cloudConfigSecretNamespace`           | cloud config secret namespace of controller driver          | `kube-system`
 | `controller.replicas`                             | replicas of csi-azurefile-controller                    | `2`                                                                 |
 | `controller.metricsPort`                          | metrics port of csi-azurefile-controller                   |`29614`                                                        |
 | `controller.livenessProbe.healthPort `            | health check port for liveness probe                   | `29612` |
@@ -84,6 +86,8 @@ The following table lists the configurable parameters of the latest Azure File C
 | `controller.logLevel`                             | controller driver log level                                                          |`5`                                                           |
 | `controller.kubeconfig`                           | configure kubeconfig path on controller node                | '' (empty, use InClusterConfig by default)
 | `controller.tolerations`                          | controller pod tolerations                            |                                                              |
+| `node.cloudConfigSecretName`                      | cloud config secret name of node driver               | `azure-cloud-provider`
+| `node.cloudConfigSecretNamespace`                 | cloud config secret namespace of node driver          | `kube-system`
 | `node.metricsPort`                                | metrics port of csi-azurefile-node                         |`29615`                                                       |
 | `node.livenessProbe.healthPort `                  | health check port for liveness probe                   | `29613` |
 | `node.logLevel`                                   | node driver log level                                                          |`5`                                                           |

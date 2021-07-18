@@ -140,6 +140,8 @@ spec:
             - "--metrics-address=0.0.0.0:{{ .Values.controller.metricsPort }}"
             - "--kubeconfig={{ .Values.controller.kubeconfig }}"
             - "--drivername={{ .Values.driver.name }}"
+            - "--cloud-config-secret-name={{ .Values.controller.cloudConfigSecretName }}"
+            - "--cloud-config-secret-namespace={{ .Values.controller.cloudConfigSecretNamespace }}"
           ports:
             - containerPort: {{ .Values.controller.livenessProbe.healthPort }}
               name: healthz
