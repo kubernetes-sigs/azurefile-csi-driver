@@ -41,6 +41,8 @@ rbac:
 
 controller:
   name: csi-azurefile-controller
+  cloudConfigSecretName: azure-cloud-provider
+  cloudConfigSecretNamespace: kube-system
   replicas: 2
   metricsPort: 29614
   livenessProbe:
@@ -58,6 +60,8 @@ controller:
       effect: "NoSchedule"
 
 node:
+  cloudConfigSecretName: azure-cloud-provider
+  cloudConfigSecretNamespace: kube-system
   metricsPort: 29615
   livenessProbe:
     healthPort: 29613
