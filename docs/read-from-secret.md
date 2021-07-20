@@ -9,13 +9,13 @@ This driver also supports [reading the cloud config from Kubernetes secrets](htt
 1. create `azure.json` file and fill in all necessary fields, refer to [Cloud provider config](https://github.com/kubernetes-sigs/cloud-provider-azure/blob/master/docs/cloud-provider-config.md), and here is an [example](https://github.com/andyzhangx/demo/blob/master/aks-engine/deployment/etc/kubernetes/azure.json)
 2. serialize `azure.json` by following command:
 
-```
+```console
 cat azure.json | base64 | awk '{printf $0}'; echo
 ```
 
 3. create a secret file(`azure-cloud-provider.yaml`) with following values and fill in `cloud-config` value produced in step#2
 
-```
+```yaml
 apiVersion: v1
 data:
   cloud-config: [fill-in-here]
@@ -28,7 +28,7 @@ type: Opaque
 
 4. Create a `azure-cloud-provider` secret in k8s cluster
 
-```
+```console
 kubectl create -f azure-cloud-provider.yaml
 ```
 
