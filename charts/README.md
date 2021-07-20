@@ -6,7 +6,12 @@
 ### Tips
  - make controller only run on master node: `--set controller.runOnMaster=true`
  - enable `fsGroupPolicy` on a k8s 1.20+ cluster: `--set feature.enableFSGroupPolicy=true`
- - set replica of controller as `1`: `--set controller.replicas=1`  (only applied for NFS protocol)
+ - set replica of controller as `1`: `--set controller.replicas=1` (only applied for NFS protocol)
+ - specify different cloud config secret for the driver:
+   - `--set controller.cloudConfigSecretName`
+   - `--set controller.cloudConfigSecretNamesapce`
+   - `--set node.cloudConfigSecretName`
+   - `--set node.cloudConfigSecretNamesapce`
 
 ### install latest version
 ```console
