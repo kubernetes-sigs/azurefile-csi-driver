@@ -14,7 +14,7 @@ spec:
 {{ include "azurefile.labels" . | indent 6 }}
         app: {{ .Values.controller.name }}
     spec:
-      hostNetwork: true  # only required for MSI enabled cluster
+      hostNetwork: {{ .Values.controller.hostNetwork }}
       serviceAccountName: {{ .Values.serviceAccount.controller }}
       nodeSelector:
         kubernetes.io/os: linux
