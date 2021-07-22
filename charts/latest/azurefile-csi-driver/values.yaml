@@ -44,6 +44,7 @@ controller:
   cloudConfigSecretName: azure-cloud-provider
   cloudConfigSecretNamespace: kube-system
   replicas: 2
+  hostNetwork: true # this setting could be disabled if controller does not depend on MSI setting
   metricsPort: 29614
   livenessProbe:
     healthPort: 29612

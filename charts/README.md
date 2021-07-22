@@ -84,6 +84,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `controller.cloudConfigSecretName`                | cloud config secret name of controller driver               | `azure-cloud-provider`
 | `controller.cloudConfigSecretNamespace`           | cloud config secret namespace of controller driver          | `kube-system`
 | `controller.replicas`                             | replicas of csi-azurefile-controller                    | `2`                                                                 |
+| `controller.hostNetwork`                          | `hostNetwork` setting on controller driver(could be disabled if controller does not depend on MSI setting)                            | `true`                                                            | `true`, `false`
 | `controller.metricsPort`                          | metrics port of csi-azurefile-controller                   |`29614`                                                        |
 | `controller.livenessProbe.healthPort `            | health check port for liveness probe                   | `29612` |
 | `controller.runOnMaster`                          | run controller on master node                                                          |`false`                                                           |
