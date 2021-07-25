@@ -160,7 +160,6 @@ container-all: azurefile-windows
 .PHONY: push-manifest
 push-manifest:
 	docker manifest create --amend $(IMAGE_TAG) $(foreach osarch, $(ALL_OS_ARCH), $(IMAGE_TAG)-${osarch})
-	# add "os.version" field to windows images (based on https://github.com/kubernetes/kubernetes/blob/master/build/pause/Makefile)
 	set -x; \
 	for arch in $(ALL_ARCH.windows); do \
 		for osversion in $(ALL_OSVERSIONS.windows); do \
@@ -173,6 +172,14 @@ push-manifest:
 	docker manifest inspect $(IMAGE_TAG)
 ifdef PUBLISH
 	docker manifest create $(IMAGE_TAG_LATEST) $(foreach osarch, $(ALL_OS_ARCH), $(IMAGE_TAG)-${osarch})
+	set -x; \
+	for arch in $(ALL_ARCH.windows); do \
+		for osversion in $(ALL_OSVERSIONS.windows); do \
+			BASEIMAGE=mcr.microsoft.com/windows/nanoserver:$${osversion}; \
+			full_version=`docker manifest inspect $${BASEIMAGE} | jq -r '.manifests[0].platform["os.version"]'`; \
+			docker manifest annotate --os windows --arch $${arch} --os-version $${full_version} $(IMAGE_TAG_LATEST) $(IMAGE_TAG)-windows-$${osversion}-$${arch}; \
+		done; \
+	done
 	docker manifest inspect $(IMAGE_TAG_LATEST)
 endif
 
