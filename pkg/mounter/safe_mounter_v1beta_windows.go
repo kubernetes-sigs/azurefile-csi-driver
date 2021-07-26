@@ -35,7 +35,7 @@ import (
 	mount "k8s.io/mount-utils"
 )
 
-var _ mount.Interface = &CSIProxyMounter{}
+var _ mount.Interface = &CSIProxyMounterV1Beta{}
 
 type CSIProxyMounterV1Beta struct {
 	FsClient  *fsclient.Client
@@ -123,7 +123,7 @@ func (mounter *CSIProxyMounterV1Beta) Unmount(target string) error {
 }
 
 func (mounter *CSIProxyMounterV1Beta) List() ([]mount.MountPoint, error) {
-	return []mount.MountPoint{}, fmt.Errorf("List not implemented for CSIProxyMounter")
+	return []mount.MountPoint{}, fmt.Errorf("List not implemented for CSIProxyMounterV1Beta")
 }
 
 func (mounter *CSIProxyMounterV1Beta) IsMountPointMatch(mp mount.MountPoint, dir string) bool {
@@ -154,23 +154,23 @@ func (mounter *CSIProxyMounterV1Beta) IsLikelyNotMountPoint(path string) (bool, 
 }
 
 func (mounter *CSIProxyMounterV1Beta) PathIsDevice(pathname string) (bool, error) {
-	return false, fmt.Errorf("PathIsDevice not implemented for CSIProxyMounter")
+	return false, fmt.Errorf("PathIsDevice not implemented for CSIProxyMounterV1Beta")
 }
 
 func (mounter *CSIProxyMounterV1Beta) DeviceOpened(pathname string) (bool, error) {
-	return false, fmt.Errorf("DeviceOpened not implemented for CSIProxyMounter")
+	return false, fmt.Errorf("DeviceOpened not implemented for CSIProxyMounterV1Beta")
 }
 
 func (mounter *CSIProxyMounterV1Beta) GetDeviceNameFromMount(mountPath, pluginMountDir string) (string, error) {
-	return "", fmt.Errorf("GetDeviceNameFromMount not implemented for CSIProxyMounter")
+	return "", fmt.Errorf("GetDeviceNameFromMount not implemented for CSIProxyMounterV1Beta")
 }
 
 func (mounter *CSIProxyMounterV1Beta) MakeRShared(path string) error {
-	return fmt.Errorf("MakeRShared not implemented for CSIProxyMounter")
+	return fmt.Errorf("MakeRShared not implemented for CSIProxyMounterV1Beta")
 }
 
 func (mounter *CSIProxyMounterV1Beta) MakeFile(pathname string) error {
-	return fmt.Errorf("MakeFile not implemented for CSIProxyMounter")
+	return fmt.Errorf("MakeFile not implemented for CSIProxyMounterV1Beta")
 }
 
 // MakeDir - Creates a directory. The CSI proxy takes in context information.
@@ -213,31 +213,31 @@ func (mounter *CSIProxyMounterV1Beta) GetAPIVersions() string {
 }
 
 func (mounter *CSIProxyMounterV1Beta) EvalHostSymlinks(pathname string) (string, error) {
-	return "", fmt.Errorf("EvalHostSymlinks not implemented for CSIProxyMounter")
+	return "", fmt.Errorf("EvalHostSymlinks not implemented for CSIProxyMounterV1Beta")
 }
 
 func (mounter *CSIProxyMounterV1Beta) GetMountRefs(pathname string) ([]string, error) {
-	return []string{}, fmt.Errorf("GetMountRefs not implemented for CSIProxyMounter")
+	return []string{}, fmt.Errorf("GetMountRefs not implemented for CSIProxyMounterV1Beta")
 }
 
 func (mounter *CSIProxyMounterV1Beta) GetFSGroup(pathname string) (int64, error) {
-	return -1, fmt.Errorf("GetFSGroup not implemented for CSIProxyMounter")
+	return -1, fmt.Errorf("GetFSGroup not implemented for CSIProxyMounterV1Beta")
 }
 
 func (mounter *CSIProxyMounterV1Beta) GetSELinuxSupport(pathname string) (bool, error) {
-	return false, fmt.Errorf("GetSELinuxSupport not implemented for CSIProxyMounter")
+	return false, fmt.Errorf("GetSELinuxSupport not implemented for CSIProxyMounterV1Beta")
 }
 
 func (mounter *CSIProxyMounterV1Beta) GetMode(pathname string) (os.FileMode, error) {
-	return 0, fmt.Errorf("GetMode not implemented for CSIProxyMounter")
+	return 0, fmt.Errorf("GetMode not implemented for CSIProxyMounterV1Beta")
 }
 
 func (mounter *CSIProxyMounterV1Beta) MountSensitive(source string, target string, fstype string, options []string, sensitiveOptions []string) error {
-	return fmt.Errorf("MountSensitive not implemented for CSIProxyMounter")
+	return fmt.Errorf("MountSensitive not implemented for CSIProxyMounterV1Beta")
 }
 
 func (mounter *CSIProxyMounterV1Beta) MountSensitiveWithoutSystemd(source string, target string, fstype string, options []string, sensitiveOptions []string) error {
-	return fmt.Errorf("MountSensitiveWithoutSystemd not implemented for CSIProxyMounter")
+	return fmt.Errorf("MountSensitiveWithoutSystemd not implemented for CSIProxyMounterV1Beta")
 }
 
 // NewCSIProxyMounter - creates a new CSI Proxy mounter struct which encompassed all the
