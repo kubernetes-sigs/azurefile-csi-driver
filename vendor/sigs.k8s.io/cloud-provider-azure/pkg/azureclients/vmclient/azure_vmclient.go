@@ -103,7 +103,7 @@ func (c *Client) Get(ctx context.Context, resourceGroupName string, VMName strin
 	}
 
 	result, rerr := c.getVM(ctx, resourceGroupName, VMName, expand)
-	_ = mc.Observe(rerr.Error())
+	mc.Observe(rerr)
 	if rerr != nil {
 		if rerr.IsThrottled() {
 			// Update RetryAfterReader so that no more requests would be sent until RetryAfter expires.
@@ -164,7 +164,7 @@ func (c *Client) List(ctx context.Context, resourceGroupName string) ([]compute.
 	}
 
 	result, rerr := c.listVM(ctx, resourceGroupName)
-	_ = mc.Observe(rerr.Error())
+	mc.Observe(rerr)
 	if rerr != nil {
 		if rerr.IsThrottled() {
 			// Update RetryAfterReader so that no more requests would be sent until RetryAfter expires.
@@ -237,7 +237,7 @@ func (c *Client) Update(ctx context.Context, resourceGroupName string, VMName st
 	}
 
 	rerr := c.updateVM(ctx, resourceGroupName, VMName, parameters, source)
-	_ = mc.Observe(rerr.Error())
+	mc.Observe(rerr)
 	if rerr != nil {
 		if rerr.IsThrottled() {
 			// Update RetryAfterReader so that no more requests would be sent until RetryAfter expires.
@@ -247,6 +247,60 @@ func (c *Client) Update(ctx context.Context, resourceGroupName string, VMName st
 		return rerr
 	}
 
+	return nil
+}
+
+// UpdateAsync updates a VirtualMachine asynchronously
+func (c *Client) UpdateAsync(ctx context.Context, resourceGroupName string, VMName string, parameters compute.VirtualMachineUpdate, source string) (*azure.Future, *retry.Error) {
+	mc := metrics.NewMetricContext("vm", "updateasync", resourceGroupName, c.subscriptionID, source)
+
+	// Report errors if the client is rate limited.
+	if !c.rateLimiterWriter.TryAccept() {
+		mc.RateLimitedCount()
+		return nil, retry.GetRateLimitError(true, "VMUpdateAsync")
+	}
+
+	// Report errors if the client is throttled.
+	if c.RetryAfterWriter.After(time.Now()) {
+		mc.ThrottledCount()
+		rerr := retry.GetThrottlingError("VMUpdateAsync", "client throttled", c.RetryAfterWriter)
+		return nil, rerr
+	}
+
+	resourceID := armclient.GetResourceID(
+		c.subscriptionID,
+		resourceGroupName,
+		"Microsoft.Compute/virtualMachines",
+		VMName,
+	)
+
+	future, rerr := c.armClient.PatchResourceAsync(ctx, resourceID, parameters)
+	mc.Observe(rerr)
+	if rerr != nil {
+		if rerr.IsThrottled() {
+			// Update RetryAfterReader so that no more requests would be sent until RetryAfter expires.
+			c.RetryAfterWriter = rerr.RetryAfter
+		}
+
+		return nil, rerr
+	}
+
+	return future, nil
+}
+
+// WaitForUpdateResult waits for the response of the update request
+func (c *Client) WaitForUpdateResult(ctx context.Context, future *azure.Future, resourceGroupName, source string) *retry.Error {
+	mc := metrics.NewMetricContext("vm", "wait_for_update_result", resourceGroupName, c.subscriptionID, source)
+	response, err := c.armClient.WaitForAsyncOperationResult(ctx, future, "VMWaitForUpdateResult")
+	mc.Observe(retry.NewErrorOrNil(false, err))
+
+	if response != nil && response.StatusCode != http.StatusNoContent {
+		_, rerr := c.updateResponder(response)
+		if rerr != nil {
+			klog.V(5).Infof("Received error: %s", "vm.put.respond", rerr.Error())
+			return rerr
+		}
+	}
 	return nil
 }
 
@@ -398,7 +452,7 @@ func (c *Client) CreateOrUpdate(ctx context.Context, resourceGroupName string, V
 	}
 
 	rerr := c.createOrUpdateVM(ctx, resourceGroupName, VMName, parameters, source)
-	_ = mc.Observe(rerr.Error())
+	mc.Observe(rerr)
 	if rerr != nil {
 		if rerr.IsThrottled() {
 			// Update RetryAfterReader so that no more requests would be sent until RetryAfter expires.
@@ -467,7 +521,7 @@ func (c *Client) Delete(ctx context.Context, resourceGroupName string, VMName st
 	}
 
 	rerr := c.deleteVM(ctx, resourceGroupName, VMName)
-	_ = mc.Observe(rerr.Error())
+	mc.Observe(rerr)
 	if rerr != nil {
 		if rerr.IsThrottled() {
 			// Update RetryAfterReader so that no more requests would be sent until RetryAfter expires.
