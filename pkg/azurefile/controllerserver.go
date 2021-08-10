@@ -28,7 +28,6 @@ import (
 	"github.com/Azure/azure-storage-file-go/azfile"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/pborman/uuid"
 
 	"google.golang.org/grpc/codes"
@@ -37,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	"sigs.k8s.io/cloud-provider-azure/pkg/metrics"
@@ -691,9 +691,9 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 	}
 	if exists {
 		klog.V(2).Infof("snapshot(%s) already exists", snapshotName)
-		tp, err := ptypes.TimestampProto(item.Properties.LastModified)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "Failed to covert creation timestamp: %v", err)
+		tp := timestamppb.New(item.Properties.LastModified)
+		if tp == nil {
+			return nil, status.Errorf(codes.Internal, "Failed to convert timestamp(%v)", item.Properties.LastModified)
 		}
 		return &csi.CreateSnapshotResponse{
 			Snapshot: &csi.Snapshot{
@@ -724,9 +724,9 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		return nil, status.Errorf(codes.Internal, "failed to get snapshot properties from (%s): %v", snapshotShare.Snapshot(), err)
 	}
 
-	tp, err := ptypes.TimestampProto(properties.LastModified())
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to covert creation timestamp: %v", err)
+	tp := timestamppb.New(properties.LastModified())
+	if tp == nil {
+		return nil, status.Errorf(codes.Internal, "Failed to convert timestamp(%v)", properties.LastModified())
 	}
 
 	createResp := &csi.CreateSnapshotResponse{

@@ -5,32 +5,33 @@ go 1.16
 require (
 	github.com/Azure/azure-sdk-for-go v55.0.0+incompatible
 	github.com/Azure/azure-storage-file-go v0.8.0
-	github.com/Azure/go-autorest/autorest v0.11.18
-	github.com/Azure/go-autorest/autorest/adal v0.9.13
+	github.com/Azure/go-autorest/autorest v0.11.19
+	github.com/Azure/go-autorest/autorest/adal v0.9.14
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/container-storage-interface/spec v1.3.0
-	github.com/golang/mock v1.4.4
-	github.com/golang/protobuf v1.4.3
+	github.com/golang/mock v1.6.0
+	github.com/golang/protobuf v1.5.2
 	github.com/kubernetes-csi/csi-lib-utils v0.7.0
 	github.com/kubernetes-csi/csi-proxy/client v1.0.1
 	github.com/kubernetes-csi/external-snapshotter/v2 v2.0.0-20200617021606-4800ca72d403
-	github.com/onsi/ginkgo v1.12.0
-	github.com/onsi/gomega v1.9.0
+	github.com/onsi/ginkgo v1.16.4
+	github.com/onsi/gomega v1.14.0
 	github.com/pborman/uuid v1.2.0
-	github.com/pelletier/go-toml v1.7.0
+	github.com/pelletier/go-toml v1.9.3
 	github.com/rubiojr/go-vhd v0.0.0-20200706105327-02e210299021
-	github.com/stretchr/testify v1.6.1
-	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
-	google.golang.org/grpc v1.28.0
-	k8s.io/api v0.21.0
-	k8s.io/apimachinery v0.22.0-alpha.0.0.20210417144234-8daf28983e6e
-	k8s.io/client-go v0.21.0
-	k8s.io/cloud-provider v0.21.0
-	k8s.io/component-base v0.21.0
-	k8s.io/klog/v2 v2.8.0
+	github.com/stretchr/testify v1.7.0
+	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781
+	google.golang.org/grpc v1.38.0
+	google.golang.org/protobuf v1.26.0
+	k8s.io/api v0.22.0
+	k8s.io/apimachinery v0.22.0
+	k8s.io/client-go v0.22.0
+	k8s.io/cloud-provider v0.22.0
+	k8s.io/component-base v0.22.0
+	k8s.io/klog/v2 v2.10.0
 	k8s.io/kubernetes v1.21.0
 	k8s.io/mount-utils v0.0.0
-	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
+	k8s.io/utils v0.0.0-20210707171843-4b05e18ac7d9
 	sigs.k8s.io/cloud-provider-azure v0.7.4
 	sigs.k8s.io/yaml v1.2.0
 )
@@ -69,5 +70,5 @@ replace (
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.21.0
 	k8s.io/sample-controller => k8s.io/sample-controller v0.21.0
 	sigs.k8s.io/azurefile-csi-driver => ./
-	sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20210723141916-ee225289d1de
+	sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20210809074930-0a68438a5d9b
 )

@@ -41,6 +41,7 @@ import (
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/flowcontrol"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog/v2"
 
@@ -225,6 +226,8 @@ type Config struct {
 	// RouteUpdateWaitingInSeconds is the delay time for waiting route updates to take effect. This waiting delay is added
 	// because the routes are not taken effect when the async route updating operation returns success. Default is 30 seconds.
 	RouteUpdateWaitingInSeconds int `json:"routeUpdateWaitingInSeconds,omitempty" yaml:"routeUpdateWaitingInSeconds,omitempty"`
+	// The user agent for Azure customer usage attribution
+	UserAgent string `json:"userAgent,omitempty" yaml:"userAgent,omitempty"`
 }
 
 type InitSecretConfig struct {
@@ -573,14 +576,18 @@ func (az *Cloud) InitializeCloudFromConfig(config *Config, fromSecret, callFromC
 		az.routeUpdater = newDelayedRouteUpdater(az, routeUpdateInterval)
 		go az.routeUpdater.run()
 
-		// wait for the success first time of syncing zones
-		err = az.syncRegionZonesMap()
-		if err != nil {
-			klog.Errorf("InitializeCloudFromConfig: failed to sync regional zones map for the first time: %s", err.Error())
-			return err
-		}
+		// Azure Stack does not support zone at the moment
+		// https://docs.microsoft.com/en-us/azure-stack/user/azure-stack-network-differences?view=azs-2102
+		if !az.isStackCloud() {
+			// wait for the success first time of syncing zones
+			err = az.syncRegionZonesMap()
+			if err != nil {
+				klog.Errorf("InitializeCloudFromConfig: failed to sync regional zones map for the first time: %s", err.Error())
+				return err
+			}
 
-		go az.refreshZones(az.syncRegionZonesMap)
+			go az.refreshZones(az.syncRegionZonesMap)
+		}
 	}
 
 	return nil
@@ -780,6 +787,7 @@ func (az *Cloud) getAzureClientConfig(servicePrincipalToken *adal.ServicePrincip
 		Authorizer:              autorest.NewBearerAuthorizer(servicePrincipalToken),
 		Backoff:                 &retry.Backoff{Steps: 1},
 		DisableAzureStackCloud:  az.Config.DisableAzureStackCloud,
+		UserAgent:               az.Config.UserAgent,
 	}
 
 	if az.Config.CloudProviderBackoff {
@@ -824,6 +832,10 @@ func parseConfig(configReader io.Reader) (*Config, error) {
 	return &config, nil
 }
 
+func (az *Cloud) isStackCloud() bool {
+	return strings.EqualFold(az.Config.Cloud, consts.AzureStackCloudName) && !az.Config.DisableAzureStackCloud
+}
+
 // Initialize passes a Kubernetes clientBuilder interface to the cloud provider
 func (az *Cloud) Initialize(clientBuilder cloudprovider.ControllerClientBuilder, stop <-chan struct{}) {
 	az.KubeClient = clientBuilder.ClientOrDie("azure-cloud-provider")
@@ -849,6 +861,11 @@ func (az *Cloud) InstancesV2() (cloudprovider.InstancesV2, bool) {
 
 // Zones returns a zones interface. Also returns true if the interface is supported, false otherwise.
 func (az *Cloud) Zones() (cloudprovider.Zones, bool) {
+	if az.isStackCloud() {
+		// Azure stack does not support zones at this point
+		// https://docs.microsoft.com/en-us/azure-stack/user/azure-stack-network-differences?view=azs-2102
+		return nil, false
+	}
 	return az, true
 }
 
@@ -876,6 +893,14 @@ func initDiskControllers(az *Cloud) error {
 	// Common controller contains the function
 	// needed by both blob disk and managed disk controllers
 
+	qps := float32(defaultAtachDetachDiskQPS)
+	bucket := defaultAtachDetachDiskBucket
+	if az.Config.AttachDetachDiskRateLimit != nil {
+		qps = az.Config.AttachDetachDiskRateLimit.CloudProviderRateLimitQPSWrite
+		bucket = az.Config.AttachDetachDiskRateLimit.CloudProviderRateLimitBucketWrite
+	}
+	klog.V(2).Infof("attach/detach disk operation rate limit QPS: %f, Bucket: %d", qps, bucket)
+
 	common := &controllerCommon{
 		location:              az.Location,
 		storageEndpointSuffix: az.Environment.StorageEndpointSuffix,
@@ -883,6 +908,7 @@ func initDiskControllers(az *Cloud) error {
 		subscriptionID:        az.SubscriptionID,
 		cloud:                 az,
 		lockMap:               newLockMap(),
+		diskOpRateLimiter:     flowcontrol.NewTokenBucketRateLimiter(qps, bucket),
 	}
 
 	if az.HasExtendedLocation() {

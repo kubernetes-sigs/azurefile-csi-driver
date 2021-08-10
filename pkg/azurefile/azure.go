@@ -43,7 +43,7 @@ var (
 )
 
 // getCloudProvider get Azure Cloud Provider
-func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace string) (*azureprovider.Cloud, error) {
+func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace, userAgent string) (*azureprovider.Cloud, error) {
 	az := &azureprovider.Cloud{
 		InitSecretConfig: azureprovider.InitSecretConfig{
 			SecretName:      secretName,
@@ -51,6 +51,7 @@ func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace string) (*
 			CloudConfigKey:  "cloud-config",
 		},
 	}
+	az.UserAgent = userAgent
 	kubeClient, err := getKubeClient(kubeconfig)
 	if err != nil && !os.IsNotExist(err) && err != rest.ErrNotInCluster {
 		return az, fmt.Errorf("failed to get KubeClient: %v", err)
