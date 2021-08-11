@@ -9,10 +9,10 @@ kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-cs
 ```
  - Create storage class using Azure file data plane API to get better file operation performance
 ```console
-kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-csi-large-scale.yaml
+kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-large-scale.yaml
 ```
  > set `useDataPlaneAPI: "true"` in storage class `parameters` when creating > 100 file shares in parallel to prevent [storage resource provider throttling](https://docs.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits#storage-resource-provider-limits)
- > 
+ >
 #### Option#2: bring your own storage account
  > only available from `v0.9.0`
  - Use `kubectl create secret` to create `azure-secret` with existing storage account name and key
