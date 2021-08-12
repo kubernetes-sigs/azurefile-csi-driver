@@ -94,6 +94,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `controller.tolerations`                          | controller pod tolerations                            |                                                              |
 | `node.cloudConfigSecretName`                      | cloud config secret name of node driver               | `azure-cloud-provider`
 | `node.cloudConfigSecretNamespace`                 | cloud config secret namespace of node driver          | `kube-system`
+| `node.maxUnavailable`                             | `maxUnavailable` value of driver node daemonset                            | `1`
 | `node.metricsPort`                                | metrics port of csi-azurefile-node                         |`29615`                                                       |
 | `node.livenessProbe.healthPort `                  | health check port for liveness probe                   | `29613` |
 | `node.logLevel`                                   | node driver log level                                                          |`5`                                                           |
