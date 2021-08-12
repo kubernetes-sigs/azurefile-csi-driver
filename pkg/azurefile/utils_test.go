@@ -18,9 +18,13 @@ package azurefile
 
 import (
 	"errors"
+	"fmt"
+	"os"
 	"reflect"
 	"testing"
 	"time"
+
+	utiltesting "k8s.io/client-go/util/testing"
 )
 
 func TestSimpleLockEntry(t *testing.T) {
@@ -275,6 +279,49 @@ func TestConvertTagsToMap(t *testing.T) {
 		_, err := ConvertTagsToMap(test.tags)
 		if !reflect.DeepEqual(err, test.expectedError) {
 			t.Errorf("test[%s]: unexpected error: %v, expected error: %v", test.desc, err, test.expectedError)
+		}
+	}
+}
+
+func TestSetVolumeOwnership(t *testing.T) {
+	tmpVDir, err := utiltesting.MkTmpdir("SetVolumeOwnership")
+	if err != nil {
+		t.Fatalf("can't make a temp dir: %v", err)
+	}
+	//deferred clean up
+	defer os.RemoveAll(tmpVDir)
+
+	tests := []struct {
+		path          string
+		gid           string
+		expectedError error
+	}{
+		{
+			path:          "path",
+			gid:           "",
+			expectedError: fmt.Errorf("convert %s to int failed with %v", "", `strconv.Atoi: parsing "": invalid syntax`),
+		},
+		{
+			path:          "path",
+			gid:           "alpha",
+			expectedError: fmt.Errorf("convert %s to int failed with %v", "alpha", `strconv.Atoi: parsing "alpha": invalid syntax`),
+		},
+		{
+			path:          "not-exists",
+			gid:           "1000",
+			expectedError: fmt.Errorf("lstat not-exists: no such file or directory"),
+		},
+		{
+			path:          tmpVDir,
+			gid:           "1000",
+			expectedError: nil,
+		},
+	}
+
+	for _, test := range tests {
+		err := SetVolumeOwnership(test.path, test.gid)
+		if err != nil && (err.Error() != test.expectedError.Error()) {
+			t.Errorf("unexpected error: %v, expected error: %v", err, test.expectedError)
 		}
 	}
 }

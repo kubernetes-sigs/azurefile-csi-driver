@@ -18,11 +18,14 @@ package azurefile
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
+	"k8s.io/kubernetes/pkg/volume"
 )
 
 const (
@@ -154,4 +157,44 @@ func ConvertTagsToMap(tags string) (map[string]string, error) {
 		m[key] = value
 	}
 	return m, nil
+}
+
+type VolumeMounter struct {
+	path       string
+	attributes volume.Attributes
+}
+
+func (l *VolumeMounter) GetPath() string {
+	return l.path
+}
+
+func (l *VolumeMounter) GetAttributes() volume.Attributes {
+	return l.attributes
+}
+
+func (l *VolumeMounter) CanMount() error {
+	return nil
+}
+
+func (l *VolumeMounter) SetUp(mounterArgs volume.MounterArgs) error {
+	return nil
+}
+
+func (l *VolumeMounter) SetUpAt(dir string, mounterArgs volume.MounterArgs) error {
+	return nil
+}
+
+func (l *VolumeMounter) GetMetrics() (*volume.Metrics, error) {
+	return nil, nil
+}
+
+// SetVolumeOwnership would set gid for path recursively
+func SetVolumeOwnership(path, gid string) error {
+	id, err := strconv.Atoi(gid)
+	if err != nil {
+		return fmt.Errorf("convert %s to int failed with %v", gid, err)
+	}
+	gidInt64 := int64(id)
+	fsGroupChangePolicy := v1.FSGroupChangeAlways
+	return volume.SetVolumeOwnership(&VolumeMounter{path: path}, &gidInt64, &fsGroupChangePolicy, nil)
 }
