@@ -5,6 +5,10 @@ metadata:
   name: csi-azurefile-node-win
   namespace: kube-system
 spec:
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
   selector:
     matchLabels:
       app: csi-azurefile-node-win
