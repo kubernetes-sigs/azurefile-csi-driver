@@ -121,7 +121,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `windows.image.livenessProbe.tag`                 | windows liveness-probe docker image tag                    | `v2.3.0`                             |
 | `windows.image.livenessProbe.pullPolicy`          | windows liveness-probe image pull policy                   | `IfNotPresent`                                                      |
 | `windows.image.nodeDriverRegistrar.repository`    | windows csi-node-driver-registrar docker image             | `mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar`    |
-| `windows.image.nodeDriverRegistrar.tag`           | windows csi-node-driver-registrar docker image tag         | `v2.2.0`                                 |
+| `windows.image.nodeDriverRegistrar.tag`           | windows csi-node-driver-registrar docker image tag         | `v2.3.0`                                 |
 | `windows.image.nodeDriverRegistrar.pullPolicy`    | windows csi-node-driver-registrar image pull policy        | `IfNotPresent`                                                      |
 | `windows.tolerations`                             | windows node driver tolerations                            |                                                              |
 
