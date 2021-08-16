@@ -13,12 +13,13 @@
 # limitations under the License.
 
 ARG ARCH
-FROM k8s.gcr.io/build-image/debian-base:buster-v1.6.0
-ARG ARCH
+
+FROM k8s.gcr.io/build-image/debian-base:bullseye-v1.0.0
+
 COPY ./_output/${ARCH}/azurefileplugin /azurefileplugin
-RUN clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs
-# this is a workaround to install nfs-common and don't quit with error
-RUN apt update && apt install nfs-common -y || true
+
+RUN apt update && apt-mark unhold libcap2
+RUN clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common
 
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"
