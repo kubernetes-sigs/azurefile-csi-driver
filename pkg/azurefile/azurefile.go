@@ -153,6 +153,8 @@ type DriverOptions struct {
 	DriverName                 string
 	CloudConfigSecretName      string
 	CloudConfigSecretNamespace string
+	CustomUserAgent            string
+	UserAgentSuffix            string
 }
 
 // Driver implements all interfaces of CSI drivers
@@ -161,6 +163,8 @@ type Driver struct {
 	cloud                      *azure.Cloud
 	cloudConfigSecretName      string
 	cloudConfigSecretNamespace string
+	customUserAgent            string
+	userAgentSuffix            string
 	fileClient                 *azureFileClient
 	mounter                    *mount.SafeFormatAndMount
 	// lock per volume attach (only for vhd disk feature)
@@ -193,6 +197,8 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.NodeID = options.NodeID
 	driver.cloudConfigSecretName = options.CloudConfigSecretName
 	driver.cloudConfigSecretNamespace = options.CloudConfigSecretNamespace
+	driver.customUserAgent = options.CustomUserAgent
+	driver.userAgentSuffix = options.UserAgentSuffix
 	driver.volLockMap = newLockMap()
 	driver.subnetLockMap = newLockMap()
 	driver.volumeLocks = newVolumeLocks()
@@ -220,7 +226,7 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 	}
 	klog.Infof("\nDRIVER INFORMATION:\n-------------------\n%s\n\nStreaming logs below:", versionMeta)
 
-	userAgent := GetUserAgent(d.Name)
+	userAgent := GetUserAgent(d.Name, d.customUserAgent, d.userAgentSuffix)
 	klog.V(2).Infof("driver userAgent: %s", userAgent)
 	d.cloud, err = getCloudProvider(kubeconfig, d.NodeID, d.cloudConfigSecretName, d.cloudConfigSecretNamespace, userAgent)
 	if err != nil {

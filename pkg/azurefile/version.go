@@ -67,6 +67,16 @@ func GetVersionYAML(driverName string) (string, error) {
 }
 
 // GetUserAgent returns user agent of the driver
-func GetUserAgent(driverName string) string {
-	return fmt.Sprintf("%s/%s %s/%s (%s-%s) %s/%s", driverName, driverVersion, runtime.Compiler, runtime.Version(), runtime.GOARCH, runtime.GOOS, gitCommit, buildDate)
+func GetUserAgent(driverName, customUserAgent, userAgentSuffix string) string {
+	customUserAgent = strings.TrimSpace(customUserAgent)
+	userAgent := customUserAgent
+	if customUserAgent == "" {
+		userAgent = fmt.Sprintf("%s/%s %s/%s (%s-%s) %s/%s", driverName, driverVersion, runtime.Compiler, runtime.Version(), runtime.GOARCH, runtime.GOOS, gitCommit, buildDate)
+	}
+
+	userAgentSuffix = strings.TrimSpace(userAgentSuffix)
+	if userAgentSuffix != "" {
+		userAgent = userAgent + " " + userAgentSuffix
+	}
+	return userAgent
 }
