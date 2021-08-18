@@ -89,6 +89,8 @@ feature:
 
 driver:
   name: file.csi.azure.com
+  customUserAgent: ""
+  userAgentSuffix: ""
 
 linux:
   enabled: true

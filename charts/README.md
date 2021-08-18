@@ -54,6 +54,8 @@ The following table lists the configurable parameters of the latest Azure File C
 | Parameter                                         | Description                                                | Default                                                           |
 |---------------------------------------------------|------------------------------------------------------------|-------------------------------------------------------------------|
 | `driver.name`                                     | alternative driver name                                    | `file.csi.azure.com` |
+| `driver.customUserAgent`                          | custom userAgent               | `` |
+| `driver.userAgentSuffix`                          | userAgent suffix               | `` |
 | `feature.enableFSGroupPolicy`                     | enable `fsGroupPolicy` on a k8s 1.20+ cluster(only applied for NFS protocol)              | `false`                      |
 | `image.azurefile.repository`                      | azurefile-csi-driver docker image                          | mcr.microsoft.com/k8s/csi/azurefile-csi                            |
 | `image.azurefile.tag`                             | azurefile-csi-driver docker image tag                      | `latest`                                                            |

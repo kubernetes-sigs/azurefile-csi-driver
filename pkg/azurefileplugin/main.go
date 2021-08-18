@@ -44,6 +44,8 @@ var (
 	driverName                 = flag.String("drivername", azurefile.DefaultDriverName, "name of the driver")
 	cloudConfigSecretName      = flag.String("cloud-config-secret-name", "azure-cloud-provider", "secret name of cloud config")
 	cloudConfigSecretNamespace = flag.String("cloud-config-secret-namespace", "kube-system", "secret namespace of cloud config")
+	customUserAgent            = flag.String("custom-user-agent", "", "custom userAgent")
+	userAgentSuffix            = flag.String("user-agent-suffix", "", "userAgent suffix")
 )
 
 func main() {
@@ -73,6 +75,8 @@ func handle() {
 		DriverName:                 *driverName,
 		CloudConfigSecretName:      *cloudConfigSecretName,
 		CloudConfigSecretNamespace: *cloudConfigSecretNamespace,
+		CustomUserAgent:            *customUserAgent,
+		UserAgentSuffix:            *userAgentSuffix,
 	}
 	driver := azurefile.NewDriver(&driverOptions)
 	if driver == nil {
