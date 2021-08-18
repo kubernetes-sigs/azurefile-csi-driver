@@ -62,13 +62,6 @@ spec:
             preStop:
               exec:
                 command: ["/bin/sh", "-c", "rm -rf /registration/file.csi.azure.com-reg.sock /csi/csi.sock"]
-          livenessProbe:
-            exec:
-              command:
-                - /csi-node-driver-registrar
-                - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
-                - --mode=kubelet-registration-probe
-            initialDelaySeconds: 3
           env:
             - name: ADDRESS
               value: /csi/csi.sock
