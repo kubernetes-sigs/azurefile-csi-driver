@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 
@@ -29,7 +30,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
-	azureprovider "sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
 )
 
 const (
@@ -43,33 +44,43 @@ var (
 )
 
 // getCloudProvider get Azure Cloud Provider
-func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace, userAgent string) (*azureprovider.Cloud, error) {
-	az := &azureprovider.Cloud{
-		InitSecretConfig: azureprovider.InitSecretConfig{
+func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace, userAgent string) (*azure.Cloud, error) {
+	kubeClient, err := getKubeClient(kubeconfig)
+	if err != nil {
+		klog.Warningf("get kubeconfig(%s) failed with error: %v", kubeconfig, err)
+		if !os.IsNotExist(err) && err != rest.ErrNotInCluster {
+			return nil, fmt.Errorf("failed to get KubeClient: %v", err)
+		}
+	}
+
+	az := &azure.Cloud{
+		InitSecretConfig: azure.InitSecretConfig{
 			SecretName:      secretName,
 			SecretNamespace: secretNamespace,
 			CloudConfigKey:  "cloud-config",
 		},
 	}
-	az.UserAgent = userAgent
-	kubeClient, err := getKubeClient(kubeconfig)
-	if err != nil && !os.IsNotExist(err) && err != rest.ErrNotInCluster {
-		return az, fmt.Errorf("failed to get KubeClient: %v", err)
-	}
+	var (
+		config     *azure.Config
+		fromSecret bool
+	)
 
 	if kubeClient != nil {
-		klog.V(2).Infof("reading cloud config from secret")
+		klog.V(2).Infof("reading cloud config from secret %s/%s", az.SecretNamespace, az.SecretName)
 		az.KubeClient = kubeClient
-		err = az.InitializeCloudFromSecret()
+		config, err = az.GetConfigFromSecret()
+		if err == nil && config != nil {
+			fromSecret = true
+		}
 		if err != nil {
-			klog.V(2).Infof("GetCloudProvider: failed to initialize cloud from secret %s/%s: %v", az.SecretNamespace, az.SecretName, err)
+			klog.Warningf("InitializeCloudFromSecret: failed to get cloud config from secret %s/%s: %v", az.SecretNamespace, az.SecretName, err)
 		}
 	}
 
-	if az.TenantID == "" || az.SubscriptionID == "" || az.ResourceGroup == "" {
-		klog.V(2).Infof("could not read cloud config from secret")
+	if config == nil {
+		klog.V(2).Infof("could not read cloud config from secret %s/%s", az.SecretNamespace, az.SecretName)
 		credFile, ok := os.LookupEnv(DefaultAzureCredentialFileEnv)
-		if ok {
+		if ok && strings.TrimSpace(credFile) != "" {
 			klog.V(2).Infof("%s env var set as %v", DefaultAzureCredentialFileEnv, credFile)
 		} else {
 			if runtime.GOOS == "windows" {
@@ -80,23 +91,28 @@ func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace, userAgent
 			klog.V(2).Infof("use default %s env var: %v", DefaultAzureCredentialFileEnv, credFile)
 		}
 
-		config, errOpenFile := os.Open(credFile)
-		if errOpenFile != nil {
-			err = fmt.Errorf("load azure config from file(%s) failed with %v", credFile, errOpenFile)
+		credFileConfig, err := os.Open(credFile)
+		if err != nil {
+			klog.Warningf("load azure config from file(%s) failed with %v", credFile, err)
 		} else {
-			defer config.Close()
+			defer credFileConfig.Close()
 			klog.V(2).Infof("read cloud config from file: %s successfully", credFile)
-			az, err = azureprovider.NewCloudWithoutFeatureGates(config, false)
+			if config, err = azure.ParseConfig(credFileConfig); err != nil {
+				klog.Warningf("parse config file(%s) failed with error: %v", credFile, err)
+			}
 		}
+	}
+
+	if config == nil {
+		klog.V(2).Infof("no cloud config provided, error: %v, driver will run without cloud config", err)
+	} else {
+		config.UserAgent = userAgent
+		err = az.InitializeCloudFromConfig(config, fromSecret, false)
 	}
 
 	// reassign kubeClient
 	if kubeClient != nil && az.KubeClient == nil {
 		az.KubeClient = kubeClient
-	}
-
-	if err != nil {
-		klog.V(2).Infof("no cloud config provided, error: %v, driver will run without cloud config", err)
 	}
 
 	isController := (nodeID == "")
