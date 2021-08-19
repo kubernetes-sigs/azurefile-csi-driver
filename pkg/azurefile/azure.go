@@ -45,14 +45,6 @@ var (
 
 // getCloudProvider get Azure Cloud Provider
 func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace, userAgent string) (*azure.Cloud, error) {
-	kubeClient, err := getKubeClient(kubeconfig)
-	if err != nil {
-		klog.Warningf("get kubeconfig(%s) failed with error: %v", kubeconfig, err)
-		if !os.IsNotExist(err) && err != rest.ErrNotInCluster {
-			return nil, fmt.Errorf("failed to get KubeClient: %v", err)
-		}
-	}
-
 	az := &azure.Cloud{
 		InitSecretConfig: azure.InitSecretConfig{
 			SecretName:      secretName,
@@ -60,6 +52,15 @@ func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace, userAgent
 			CloudConfigKey:  "cloud-config",
 		},
 	}
+
+	kubeClient, err := getKubeClient(kubeconfig)
+	if err != nil {
+		klog.Warningf("get kubeconfig(%s) failed with error: %v", kubeconfig, err)
+		if !os.IsNotExist(err) && err != rest.ErrNotInCluster {
+			return az, fmt.Errorf("failed to get KubeClient: %v", err)
+		}
+	}
+
 	var (
 		config     *azure.Config
 		fromSecret bool
@@ -107,7 +108,9 @@ func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace, userAgent
 		klog.V(2).Infof("no cloud config provided, error: %v, driver will run without cloud config", err)
 	} else {
 		config.UserAgent = userAgent
-		err = az.InitializeCloudFromConfig(config, fromSecret, false)
+		if err = az.InitializeCloudFromConfig(config, fromSecret, false); err != nil {
+			klog.Warningf("InitializeCloudFromConfig failed with error: %v", err)
+		}
 	}
 
 	// reassign kubeClient

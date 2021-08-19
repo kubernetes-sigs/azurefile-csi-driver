@@ -27,6 +27,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
 	"sigs.k8s.io/azurefile-csi-driver/test/utils/testutil"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/subnetclient/mocksubnetclient"
@@ -88,6 +89,7 @@ users:
 	tests := []struct {
 		desc        string
 		kubeconfig  string
+		userAgent   string
 		expectedErr testutil.TestError
 	}{
 		{
@@ -115,6 +117,7 @@ users:
 		{
 			desc:        "[success] out of cluster & in cluster, no kubeconfig, a fake credential file",
 			kubeconfig:  "",
+			userAgent:   "useragent",
 			expectedErr: testutil.TestError{},
 		},
 	}
@@ -154,9 +157,14 @@ users:
 			}
 			os.Setenv(DefaultAzureCredentialFileEnv, fakeCredFile)
 		}
-		_, err := getCloudProvider(test.kubeconfig, "", "", "", "")
+		cloud, err := getCloudProvider(test.kubeconfig, "", "", "", test.userAgent)
 		if !testutil.AssertError(err, &test.expectedErr) {
 			t.Errorf("desc: %s,\n input: %q, getCloudProvider err: %v, expectedErr: %v", test.desc, test.kubeconfig, err, test.expectedErr)
+		}
+		if cloud == nil {
+			t.Errorf("return value of getCloudProvider should not be nil even there is error")
+		} else {
+			assert.Equal(t, cloud.UserAgent, test.userAgent)
 		}
 	}
 }
