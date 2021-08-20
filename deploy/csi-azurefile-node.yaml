@@ -87,6 +87,7 @@ spec:
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
             - "--metrics-address=0.0.0.0:29615"
+            - "--user-agent-suffix=OSS-kubectl"
           ports:
             - containerPort: 29613
               name: healthz
