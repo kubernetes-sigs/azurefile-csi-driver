@@ -90,7 +90,7 @@ feature:
 driver:
   name: file.csi.azure.com
   customUserAgent: ""
-  userAgentSuffix: ""
+  userAgentSuffix: "OSS-helm"
 
 linux:
   enabled: true
