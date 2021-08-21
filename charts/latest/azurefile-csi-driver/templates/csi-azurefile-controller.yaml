@@ -75,7 +75,11 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: csi-snapshotter
+{{- if eq .Values.snapshot.apiVersion "beta" }}
           image: "{{ .Values.snapshot.image.csiSnapshotter.repository }}:{{ .Values.snapshot.image.csiSnapshotter.tag }}"
+{{- else }}
+          image: "{{ .Values.snapshot.image.csiSnapshotter.repository }}:{{ .Values.snapshot.image.csiSnapshotter.gaTag }}"
+{{- end }}
           args:
             - "-csi-address=$(ADDRESS)"
             - "-leader-election"

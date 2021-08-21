@@ -29,7 +29,11 @@ spec:
       {{- end }}
       containers:
         - name: {{ .Values.snapshot.snapshotController.name}}
+{{- if eq .Values.snapshot.apiVersion "beta" }}
           image: "{{ .Values.snapshot.image.csiSnapshotController.repository }}:{{ .Values.snapshot.image.csiSnapshotController.tag }}"
+{{- else }}
+          image: "{{ .Values.snapshot.image.csiSnapshotController.repository }}:{{ .Values.snapshot.image.csiSnapshotController.gaTag }}"
+{{- end }}
           args:
             - "--v=2"
             - "--leader-election=false"

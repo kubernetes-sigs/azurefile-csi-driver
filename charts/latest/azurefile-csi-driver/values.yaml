@@ -75,10 +75,12 @@ snapshot:
     csiSnapshotter:
       repository: mcr.microsoft.com/oss/kubernetes-csi/csi-snapshotter
       tag: v3.0.3
+      gaTag: v4.2.0
       pullPolicy: IfNotPresent
     csiSnapshotController:
       repository: mcr.microsoft.com/oss/kubernetes-csi/snapshot-controller
       tag: v3.0.3
+      gaTag: v4.2.0
       pullPolicy: IfNotPresent
   snapshotController:
     name: csi-snapshot-controller
