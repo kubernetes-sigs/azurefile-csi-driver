@@ -71,7 +71,7 @@ func GetUserAgent(driverName, customUserAgent, userAgentSuffix string) string {
 	customUserAgent = strings.TrimSpace(customUserAgent)
 	userAgent := customUserAgent
 	if customUserAgent == "" {
-		userAgent = fmt.Sprintf("%s/%s %s/%s (%s-%s) %s/%s", driverName, driverVersion, runtime.Compiler, runtime.Version(), runtime.GOARCH, runtime.GOOS, gitCommit, buildDate)
+		userAgent = fmt.Sprintf("%s/%s %s/%s (%s-%s)", driverName, driverVersion, runtime.Compiler, runtime.Version(), runtime.GOARCH, runtime.GOOS)
 	}
 
 	userAgentSuffix = strings.TrimSpace(userAgentSuffix)
