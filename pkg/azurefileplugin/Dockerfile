@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG ARCH
-
 FROM k8s.gcr.io/build-image/debian-base:bullseye-v1.0.0
 
+ARG ARCH
 COPY ./_output/${ARCH}/azurefileplugin /azurefileplugin
 
 RUN apt update && apt-mark unhold libcap2
