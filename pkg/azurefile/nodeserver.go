@@ -53,6 +53,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	}
 
 	volumeID := req.GetVolumeId()
+	volumeMountGroup := volCap.GetMount().GetVolumeMountGroup()
 
 	context := req.GetVolumeContext()
 	if context != nil && strings.EqualFold(context[ephemeralField], trueValue) {
@@ -76,6 +77,9 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	}
 
 	mountOptions := []string{"bind"}
+	if volumeMountGroup != "" {
+		mountOptions = append(mountOptions, fmt.Sprintf("gid=%s", volumeMountGroup))
+	}
 	if req.GetReadonly() {
 		mountOptions = append(mountOptions, "ro")
 	}
@@ -142,6 +146,11 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	volumeID := req.GetVolumeId()
 	context := req.GetVolumeContext()
 	mountFlags := req.GetVolumeCapability().GetMount().GetMountFlags()
+	volumeMountGroup := req.GetVolumeCapability().GetMount().GetVolumeMountGroup()
+	gidPresent, err := checkGidPresentInMountFlags(volumeMountGroup, mountFlags)
+	if err != nil {
+		return nil, err
+	}
 
 	_, accountName, accountKey, fileShareName, diskName, err := d.GetAccountInfo(volumeID, req.GetSecrets(), context)
 	if err != nil {
@@ -202,6 +211,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	cifsMountPath := targetPath
 	cifsMountFlags := mountFlags
+	if !gidPresent && volumeMountGroup != "" {
+		cifsMountFlags = append(cifsMountFlags, fmt.Sprintf("gid=%s", volumeMountGroup))
+	}
 	isDiskMount := isDiskFsType(fsType)
 	if isDiskMount {
 		if diskName == "" {
@@ -443,4 +455,18 @@ func makeDir(pathname string) error {
 		}
 	}
 	return nil
+}
+
+func checkGidPresentInMountFlags(volumeMountGroup string, mountFlags []string) (bool, error) {
+	gidPresentInMountFlags := false
+	for _, mountFlag := range mountFlags {
+		if strings.HasPrefix(mountFlag, "gid") {
+			gidPresentInMountFlags = true
+			kvpair := strings.Split(mountFlag, "=")
+			if volumeMountGroup != "" && len(kvpair) == 2 && !strings.EqualFold(volumeMountGroup, kvpair[1]) {
+				return false, status.Error(codes.InvalidArgument, fmt.Sprintf("gid(%s) in storageClass and pod fsgroup(%s) are not equal", kvpair[1], volumeMountGroup))
+			}
+		}
+	}
+	return gidPresentInMountFlags, nil
 }
