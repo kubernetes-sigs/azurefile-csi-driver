@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM mcr.microsoft.com/aks/fundamental/base-ubuntu:v0.0.5
-RUN apt-get update && apt-get install -y ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common
+FROM k8s.gcr.io/build-image/debian-base:bullseye-v1.0.0
+RUN apt update && apt-mark unhold libcap2
+RUN clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"
 
