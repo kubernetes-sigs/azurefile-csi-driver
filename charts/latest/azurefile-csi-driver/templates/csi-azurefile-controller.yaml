@@ -32,7 +32,11 @@ spec:
       {{- end }}
       containers:
         - name: csi-provisioner
+{{- if hasPrefix "/" .Values.image.csiProvisioner.repository }}
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.csiProvisioner.repository }}:{{ .Values.image.csiProvisioner.tag }}"
+{{- else }}
           image: "{{ .Values.image.csiProvisioner.repository }}:{{ .Values.image.csiProvisioner.tag }}"
+{{- end }}
           args:
             - "-v=2"
             - "--csi-address=$(ADDRESS)"
@@ -54,7 +58,11 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: csi-attacher
+{{- if hasPrefix "/" .Values.image.csiAttacher.repository }}
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.csiAttacher.repository }}:{{ .Values.image.csiAttacher.tag }}"
+{{- else }}
           image: "{{ .Values.image.csiAttacher.repository }}:{{ .Values.image.csiAttacher.tag }}"
+{{- end }}
           args:
             - "-v=2"
             - "-csi-address=$(ADDRESS)"
@@ -76,9 +84,17 @@ spec:
               memory: 20Mi
         - name: csi-snapshotter
 {{- if eq .Values.snapshot.apiVersion "beta" }}
+  {{- if hasPrefix "/" .Values.snapshot.image.csiSnapshotter.repository }}
+          image: "{{ .Values.image.baseRepo }}{{ .Values.snapshot.image.csiSnapshotter.repository }}:{{ .Values.snapshot.image.csiSnapshotter.tag }}"
+  {{- else }}
           image: "{{ .Values.snapshot.image.csiSnapshotter.repository }}:{{ .Values.snapshot.image.csiSnapshotter.tag }}"
+  {{- end }}
 {{- else }}
+  {{- if hasPrefix "/" .Values.snapshot.image.csiSnapshotter.repository }}
+          image: "{{ .Values.image.baseRepo }}{{ .Values.snapshot.image.csiSnapshotter.repository }}:{{ .Values.snapshot.image.csiSnapshotter.gaTag }}"
+  {{- else }}
           image: "{{ .Values.snapshot.image.csiSnapshotter.repository }}:{{ .Values.snapshot.image.csiSnapshotter.gaTag }}"
+  {{- end }}
 {{- end }}
           args:
             - "-csi-address=$(ADDRESS)"
@@ -98,7 +114,11 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: csi-resizer
+{{- if hasPrefix "/" .Values.image.csiResizer.repository }}
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.csiResizer.repository }}:{{ .Values.image.csiResizer.tag }}"
+{{- else }}
           image: "{{ .Values.image.csiResizer.repository }}:{{ .Values.image.csiResizer.tag }}"
+{{- end }}
           args:
             - "-csi-address=$(ADDRESS)"
             - "-v=2"
@@ -119,7 +139,11 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: liveness-probe
+{{- if hasPrefix "/" .Values.image.livenessProbe.repository }}
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}"
+{{- else }}
           image: "{{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}"
+{{- end }}
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
@@ -137,7 +161,11 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: azurefile
+{{- if hasPrefix "/" .Values.image.azurefile.repository }}
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
+{{- else }}
           image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
+{{- end }}
           args:
             - "--v={{ .Values.controller.logLevel }}"
             - "--endpoint=$(CSI_ENDPOINT)"
