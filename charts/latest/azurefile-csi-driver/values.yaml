@@ -109,15 +109,6 @@ windows:
   dsName: csi-azurefile-node-win # daemonset name
   kubelet: 'C:\var\lib\kubelet'
   kubeconfig: 'C:\\k\\config'
-  image:
-    livenessProbe:
-      repository: /oss/kubernetes-csi/livenessprobe
-      tag: v2.3.0
-      pullPolicy: IfNotPresent
-    nodeDriverRegistrar:
-      repository: /oss/kubernetes-csi/csi-node-driver-registrar
-      tag: v2.3.0
-      pullPolicy: IfNotPresent
   tolerations:
     - key: "node.kubernetes.io/os"
       operator: "Exists"
