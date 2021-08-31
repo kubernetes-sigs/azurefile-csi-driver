@@ -93,6 +93,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				"tags":    tags,
 				// make sure this is the first test case due to storeAccountKey is set as false
 				"storeAccountKey": "false",
+				"accessTier":      "Premium",
 			},
 			Tags: tags,
 		}
@@ -130,6 +131,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		scParameters := map[string]string{
 			"skuName":         "Standard_LRS",
 			"secretNamespace": "kube-system",
+			"accessTier":      "Hot",
 		}
 		if !isUsingInTreeVolumePlugin {
 			scParameters["secretName"] = fmt.Sprintf("secret-%d", time.Now().Unix())
@@ -166,6 +168,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		scParameters := map[string]string{
 			"skuName":         "Standard_LRS",
 			"secretNamespace": "kube-system",
+			"accessTier":      "Cool",
 		}
 		test := testsuites.DynamicallyProvisionedVolumeSubpathTester{
 			CSIDriver:              testDriver,
@@ -213,6 +216,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			StorageClassParameters: map[string]string{
 				"skuName":         "Standard_LRS",
 				"secretNamespace": "default",
+				"accessTier":      "TransactionOptimized",
 			},
 		}
 		test.Run(cs, ns)
@@ -238,9 +242,12 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			},
 		}
 		test := testsuites.DynamicallyProvisionedReadOnlyVolumeTest{
-			CSIDriver:              testDriver,
-			Pods:                   pods,
-			StorageClassParameters: map[string]string{"skuName": "Standard_GRS"},
+			CSIDriver: testDriver,
+			Pods:      pods,
+			StorageClassParameters: map[string]string{
+				"skuName":    "Standard_GRS",
+				"accessTier": "Cool",
+			},
 		}
 		test.Run(cs, ns)
 	})
@@ -291,9 +298,12 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			},
 		}
 		test := testsuites.DynamicallyProvisionedReclaimPolicyTest{
-			CSIDriver:              testDriver,
-			Volumes:                volumes,
-			StorageClassParameters: map[string]string{"skuName": "Standard_RAGRS"},
+			CSIDriver: testDriver,
+			Volumes:   volumes,
+			StorageClassParameters: map[string]string{
+				"skuName":    "Standard_RAGRS",
+				"accessTier": "",
+			},
 		}
 		test.Run(cs, ns)
 	})

@@ -100,7 +100,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if parameters == nil {
 		parameters = make(map[string]string)
 	}
-	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, secretName, secretNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType string
+	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
+	var secretNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, accessTier string
 	var createAccount, useDataPlaneAPI, disableDeleteRetentionPolicy, enableLFS bool
 
 	// store account key to k8s secret by default
@@ -155,6 +156,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			storageEndpointSuffix = v
 		case networkEndpointTypeField:
 			networkEndpointType = v
+		case accessTierField:
+			accessTier = v
 		case pvcNameKey:
 			// no op
 		case pvNameKey:
@@ -172,6 +175,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	if !isSupportedProtocol(protocol) {
 		return nil, status.Errorf(codes.InvalidArgument, "protocol(%s) is not supported, supported protocol list: %v", protocol, supportedProtocolList)
+	}
+
+	if !isSupportedAccessTier(accessTier) {
+		return nil, status.Errorf(codes.InvalidArgument, "accessTier(%s) is not supported, supported AccessTier list: %v", accessTier, storage.PossibleShareAccessTierValues())
 	}
 
 	if protocol == nfs && fsType != "" && fsType != nfs {
