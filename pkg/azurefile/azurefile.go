@@ -97,6 +97,7 @@ const (
 	storeAccountKeyField              = "storeaccountkey"
 	getAccountKeyFromSecretField      = "getaccountkeyfromsecret"
 	disableDeleteRetentionPolicyField = "disabledeleteretentionpolicy"
+	allowBlobPublicAccessField        = "allowblobpublicaccess"
 	storageEndpointSuffixField        = "storageendpointsuffix"
 	ephemeralField                    = "csi.storage.k8s.io/ephemeral"
 	podNamespaceField                 = "csi.storage.k8s.io/pod.namespace"
