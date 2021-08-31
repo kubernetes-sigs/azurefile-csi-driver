@@ -7,7 +7,7 @@ Follow AKS doc: [Enable CSI drivers for Azure disks and Azure Files on AKS (prev
 ### Option#2: Enable CSI driver on existing cluster
  - Prerequisites
 
-AKS cluster is created with user asissnged identity by default, make sure cluster identity has `Contributor` role on node resource group, follow below instruction to set up `Contributor` role on node resource group
+AKS cluster is created with user assigned identity(with naming rule [`AKS Cluster Name-agentpool`](https://docs.microsoft.com/en-us/azure/aks/use-managed-identity#summary-of-managed-identities)) on agent node pool by default, make sure that identity has `Contributor` role on node resource group, follow below instruction to set up `Contributor` role on node resource group
 ![image](https://user-images.githubusercontent.com/4178417/120978367-f68f0a00-c7a6-11eb-8e87-89247d1ddc0b.png):
 
 
