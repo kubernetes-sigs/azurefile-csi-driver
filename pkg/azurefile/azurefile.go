@@ -497,7 +497,7 @@ func IsCorruptedDir(dir string) bool {
 
 // GetAccountInfo get account info
 // return <rgName, accountName, accountKey, fileShareName, diskName, err>
-func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]string) (string, string, string, string, string, error) {
+func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, reqContext map[string]string) (string, string, string, string, string, error) {
 	rgName, accountName, fileShareName, diskName, err := GetFileShareInfo(volumeID)
 	if err != nil {
 		// ignore volumeID parsing error
@@ -566,7 +566,7 @@ func (d *Driver) GetAccountInfo(volumeID string, secrets, reqContext map[string]
 				}
 				if err != nil && !getAccountKeyFromSecret && d.cloud.StorageAccountClient != nil && accountName != "" {
 					klog.V(2).Infof("could not get account(%s) key from secret(%s), error: %v, use cluster identity to get account key instead", accountName, secretName, err)
-					accountKey, err = d.cloud.GetStorageAccesskey(accountName, rgName)
+					accountKey, err = d.cloud.GetStorageAccesskey(ctx, accountName, rgName)
 				}
 			}
 		}
@@ -719,7 +719,7 @@ func (d *Driver) RemoveStorageAccountTag(resourceGroup, account, key string) err
 // 	1. secrets (if not empty)
 // 	2. use k8s client identity to read from k8s secret
 // 	3. use cluster identity to get from storage account directly
-func (d *Driver) GetStorageAccesskey(accountOptions *azure.AccountOptions, secrets map[string]string, secretName, secretNamespace string) (string, error) {
+func (d *Driver) GetStorageAccesskey(ctx context.Context, accountOptions *azure.AccountOptions, secrets map[string]string, secretName, secretNamespace string) (string, error) {
 	if len(secrets) > 0 {
 		_, accountKey, err := getStorageAccount(secrets)
 		return accountKey, err
@@ -738,7 +738,7 @@ func (d *Driver) GetStorageAccesskey(accountOptions *azure.AccountOptions, secre
 	_, accountKey, err := d.GetStorageAccountFromSecret(secretName, secretNamespace)
 	if err != nil {
 		klog.V(2).Infof("could not get account(%s) key from secret(%s), error: %v, use cluster identity to get account key instead", accountOptions.Name, secretName, err)
-		accountKey, err = d.cloud.GetStorageAccesskey(accountName, accountOptions.ResourceGroup)
+		accountKey, err = d.cloud.GetStorageAccesskey(ctx, accountName, accountOptions.ResourceGroup)
 	}
 
 	if err == nil && accountKey != "" {
