@@ -131,12 +131,12 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		scParameters := map[string]string{
 			"skuName":         "Standard_LRS",
 			"secretNamespace": "kube-system",
-			"accessTier":      "Hot",
 		}
 		if !isUsingInTreeVolumePlugin {
 			scParameters["secretName"] = fmt.Sprintf("secret-%d", time.Now().Unix())
 			scParameters["enableLargeFileshares"] = "true"
 			scParameters["networkEndpointType"] = "privateEndpoint"
+			scParameters["accessTier"] = "Hot"
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
 			CSIDriver:              testDriver,
@@ -210,16 +210,19 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				IsWindows: isWindowsCluster,
 			},
 		}
+		scParameters := map[string]string{
+			"skuName":         "Standard_LRS",
+			"secretNamespace": "default",
+		}
+		if !isUsingInTreeVolumePlugin {
+			scParameters["allowBlobPublicAccess"] = "false"
+			scParameters["accessTier"] = "TransactionOptimized"
+		}
 		test := testsuites.DynamicallyProvisionedCollocatedPodTest{
-			CSIDriver:    testDriver,
-			Pods:         pods,
-			ColocatePods: true,
-			StorageClassParameters: map[string]string{
-				"skuName":               "Standard_LRS",
-				"secretNamespace":       "default",
-				"accessTier":            "TransactionOptimized",
-				"allowBlobPublicAccess": "false",
-			},
+			CSIDriver:              testDriver,
+			Pods:                   pods,
+			ColocatePods:           true,
+			StorageClassParameters: scParameters,
 		}
 		test.Run(cs, ns)
 	})
@@ -243,14 +246,17 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				IsWindows: isWindowsCluster,
 			},
 		}
+		scParameters := map[string]string{
+			"skuName": "Standard_GRS",
+		}
+		if !isUsingInTreeVolumePlugin {
+			scParameters["allowBlobPublicAccess"] = "true"
+			scParameters["accessTier"] = "Cool"
+		}
 		test := testsuites.DynamicallyProvisionedReadOnlyVolumeTest{
-			CSIDriver: testDriver,
-			Pods:      pods,
-			StorageClassParameters: map[string]string{
-				"skuName":               "Standard_GRS",
-				"accessTier":            "Cool",
-				"allowBlobPublicAccess": "true",
-			},
+			CSIDriver:              testDriver,
+			Pods:                   pods,
+			StorageClassParameters: scParameters,
 		}
 		test.Run(cs, ns)
 	})
@@ -300,13 +306,16 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				ReclaimPolicy: &reclaimPolicy,
 			},
 		}
+		scParameters := map[string]string{
+			"skuName": "Standard_RAGRS",
+		}
+		if !isUsingInTreeVolumePlugin {
+			scParameters["accessTier"] = ""
+		}
 		test := testsuites.DynamicallyProvisionedReclaimPolicyTest{
-			CSIDriver: testDriver,
-			Volumes:   volumes,
-			StorageClassParameters: map[string]string{
-				"skuName":    "Standard_RAGRS",
-				"accessTier": "",
-			},
+			CSIDriver:              testDriver,
+			Volumes:                volumes,
+			StorageClassParameters: scParameters,
 		}
 		test.Run(cs, ns)
 	})
