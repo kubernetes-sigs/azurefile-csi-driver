@@ -166,9 +166,10 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		}
 
 		scParameters := map[string]string{
-			"skuName":         "Standard_LRS",
-			"secretNamespace": "kube-system",
-			"accessTier":      "Cool",
+			"skuName":               "Standard_LRS",
+			"secretNamespace":       "kube-system",
+			"accessTier":            "Cool",
+			"allowBlobPublicAccess": "false",
 		}
 		test := testsuites.DynamicallyProvisionedVolumeSubpathTester{
 			CSIDriver:              testDriver,
@@ -214,9 +215,10 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			Pods:         pods,
 			ColocatePods: true,
 			StorageClassParameters: map[string]string{
-				"skuName":         "Standard_LRS",
-				"secretNamespace": "default",
-				"accessTier":      "TransactionOptimized",
+				"skuName":               "Standard_LRS",
+				"secretNamespace":       "default",
+				"accessTier":            "TransactionOptimized",
+				"allowBlobPublicAccess": "false",
 			},
 		}
 		test.Run(cs, ns)
@@ -245,8 +247,9 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			CSIDriver: testDriver,
 			Pods:      pods,
 			StorageClassParameters: map[string]string{
-				"skuName":    "Standard_GRS",
-				"accessTier": "Cool",
+				"skuName":               "Standard_GRS",
+				"accessTier":            "Cool",
+				"allowBlobPublicAccess": "true",
 			},
 		}
 		test.Run(cs, ns)
