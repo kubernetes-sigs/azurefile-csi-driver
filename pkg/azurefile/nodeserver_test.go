@@ -110,6 +110,7 @@ func TestNodeGetCapabilities(t *testing.T) {
 
 func TestNodePublishVolume(t *testing.T) {
 	d := NewFakeDriver()
+	d.cloud = &azure.Cloud{}
 	volumeCap := csi.VolumeCapability_AccessMode{Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER}
 	var (
 		errorMountSource     = testutil.GetWorkDirPath("error_mount_source", t)
@@ -179,6 +180,19 @@ func TestNodePublishVolume(t *testing.T) {
 				Readonly:          true},
 			expectedErr: testutil.TestError{
 				DefaultError: status.Errorf(codes.Internal, fmt.Sprintf("Could not mount \"%s\" at \"%s\": fake Mount: source error", errorMountSource, targetTest)),
+			},
+		},
+		{
+			desc: "[Error] Failed to get account for Ephemeral Volumes",
+			req: csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "testrg#testAccount#testFileShare#testuuid",
+				TargetPath:        targetTest,
+				StagingTargetPath: sourceTest,
+				Readonly:          true,
+				VolumeContext:     map[string]string{ephemeralField: "true"},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, fmt.Sprintf("failed to get account name from %s", "testrg#testAccount#testFileShare#testuuid")),
 			},
 		},
 		{

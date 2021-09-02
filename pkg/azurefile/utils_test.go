@@ -18,6 +18,7 @@ package azurefile
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -222,6 +223,58 @@ func TestIsRetriableError(t *testing.T) {
 		if result != test.expectedBool {
 			t.Errorf("desc: (%s), input: rpcErr(%v), isRetriableError returned with bool(%v), not equal to expectedBool(%v)",
 				test.desc, test.rpcErr, result, test.expectedBool)
+		}
+	}
+}
+
+func TestSleepIfThrottled(t *testing.T) {
+	start := time.Now()
+	sleepIfThrottled(errors.New("tooManyRequests"), 10)
+	elapsed := time.Since(start)
+	if elapsed.Seconds() < 10 {
+		t.Errorf("Expected sleep time(%d), Actual sleep time(%f)", 10, elapsed.Seconds())
+	}
+
+}
+
+func TestUseDataPlaneAPI(t *testing.T) {
+	volumeContext := map[string]string{"usedataplaneapi": "true"}
+	result := useDataPlaneAPI(volumeContext)
+	if result != true {
+		t.Errorf("Expected value(%s), Actual value(%t)", "true", result)
+	}
+}
+
+func TestCreateStorageAccountSecret(t *testing.T) {
+	result := createStorageAccountSecret("TestAccountName", "TestAccountKey")
+	if result[defaultSecretAccountName] != "TestAccountName" || result[defaultSecretAccountKey] != "TestAccountKey" {
+		t.Errorf("Expected account name(%s), Actual account name(%s); Expected account key(%s), Actual account key(%s)", "TestAccountName", result[defaultSecretAccountName], "TestAccountKey", result[defaultSecretAccountKey])
+	}
+}
+
+func TestConvertTagsToMap(t *testing.T) {
+	tests := []struct {
+		desc          string
+		tags          string
+		expectedError error
+	}{
+		{desc: "Invalid tag",
+			tags:          "invalid=test=tag",
+			expectedError: errors.New("Tags 'invalid=test=tag' are invalid, the format should like: 'key1=value1,key2=value2'"),
+		},
+		{desc: "Invalid key",
+			tags:          "=test",
+			expectedError: errors.New("Tags '=test' are invalid, the format should like: 'key1=value1,key2=value2'"),
+		},
+		{desc: "Valid tags",
+			tags:          "testTag=testValue",
+			expectedError: nil},
+	}
+
+	for _, test := range tests {
+		_, err := ConvertTagsToMap(test.tags)
+		if !reflect.DeepEqual(err, test.expectedError) {
+			t.Errorf("test[%s]: unexpected error: %v, expected error: %v", test.desc, err, test.expectedError)
 		}
 	}
 }
