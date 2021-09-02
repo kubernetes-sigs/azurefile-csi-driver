@@ -19,7 +19,7 @@ spec:
         app: {{ .Values.linux.dsName }}
     spec:
       hostNetwork: true
-      dnsPolicy: ClusterFirstWithHostNet
+      dnsPolicy: {{ .Values.linux.dnsPolicy }}
       serviceAccountName: {{ .Values.serviceAccount.node }}
       nodeSelector:
         kubernetes.io/os: linux
