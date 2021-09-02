@@ -113,6 +113,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `snapshot.snapshotController.replicas`            | the replicas of snapshot-controller                        | `1`                                                          |
 | `linux.enabled`                                   | whether enable linux feature                               | `true`                                                              |
 | `linux.dsName`                                    | name of driver daemonset on linux                             |`csi-azurefile-node`                                                         |
+| `linux.dnsPolicy`                                 | dnsPolicy setting of driver daemonset on linux                             | `Default` (available values: `Default`, `ClusterFirst`, `ClusterFirstWithHostNet`, `None`)
 | `linux.kubelet`                                   | configure kubelet directory path on Linux agent node node                  | `/var/lib/kubelet`                                                |
 | `linux.kubeconfig`                                | configure kubeconfig path on Linux agent node                | '' (empty, use InClusterConfig by default)                                            |
 | `linux.distro`                                    | configure ssl certificates for different Linux distribution(available values: `debian`, `fedora`)                  |
