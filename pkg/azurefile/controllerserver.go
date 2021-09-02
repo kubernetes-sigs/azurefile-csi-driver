@@ -326,7 +326,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	secret := req.GetSecrets()
 	if len(secret) == 0 && useDataPlaneAPI {
 		if accountKey == "" {
-			if accountKey, err = d.GetStorageAccesskey(accountOptions, secret, secretName, secretNamespace); err != nil {
+			if accountKey, err = d.GetStorageAccesskey(ctx, accountOptions, secret, secretName, secretNamespace); err != nil {
 				return nil, fmt.Errorf("failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
 			}
 		}
@@ -378,7 +378,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	if isDiskFsType(fsType) && diskName == "" {
 		if accountKey == "" {
-			if accountKey, err = d.GetStorageAccesskey(accountOptions, req.GetSecrets(), secretName, secretNamespace); err != nil {
+			if accountKey, err = d.GetStorageAccesskey(ctx, accountOptions, req.GetSecrets(), secretName, secretNamespace); err != nil {
 				return nil, fmt.Errorf("failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
 			}
 		}
@@ -404,7 +404,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		secretCacheKey := accountName + secretName + secretNamespace
 		if _, ok := d.secretCacheMap.Load(secretCacheKey); !ok {
 			if accountKey == "" {
-				if accountKey, err = d.GetStorageAccesskey(accountOptions, req.GetSecrets(), secretName, secretNamespace); err != nil {
+				if accountKey, err = d.GetStorageAccesskey(ctx, accountOptions, req.GetSecrets(), secretName, secretNamespace); err != nil {
 					return nil, fmt.Errorf("failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
 				}
 			}
@@ -475,7 +475,7 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 	if len(secret) == 0 {
 		// use data plane api, get account key first
 		if d.useDataPlaneAPI(volumeID, accountName) {
-			_, _, accountKey, _, _, err := d.GetAccountInfo(volumeID, req.GetSecrets(), map[string]string{})
+			_, _, accountKey, _, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), map[string]string{})
 			if err != nil {
 				return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
 			}
@@ -517,7 +517,7 @@ func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.Valida
 		return nil, status.Error(codes.InvalidArgument, "Volume capabilities not provided")
 	}
 
-	resourceGroupName, accountName, _, fileShareName, diskName, err := d.GetAccountInfo(volumeID, req.GetSecrets(), req.GetVolumeContext())
+	resourceGroupName, accountName, _, fileShareName, diskName, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), req.GetVolumeContext())
 	if err != nil || accountName == "" || fileShareName == "" {
 		return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
 	}
@@ -578,7 +578,7 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 	}
 
 	volContext := req.GetVolumeContext()
-	_, accountName, accountKey, fileShareName, diskName, err := d.GetAccountInfo(volumeID, req.GetSecrets(), volContext)
+	_, accountName, accountKey, fileShareName, diskName, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), volContext)
 	// always check diskName first since if it's not vhd disk attach, ControllerPublishVolume is not necessary
 	if diskName == "" {
 		klog.V(2).Infof("skip ControllerPublishVolume(%s) since it's not vhd disk attach", volumeID)
@@ -647,7 +647,7 @@ func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.Control
 		return nil, status.Error(codes.InvalidArgument, "Node ID not provided")
 	}
 
-	_, accountName, accountKey, fileShareName, diskName, err := d.GetAccountInfo(volumeID, req.GetSecrets(), map[string]string{})
+	_, accountName, accountKey, fileShareName, diskName, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), map[string]string{})
 	// always check diskName first since if it's not vhd disk detach, ControllerUnpublishVolume is not necessary
 	if diskName == "" {
 		klog.V(2).Infof("skip ControllerUnpublishVolume(%s) since it's not vhd disk detach", volumeID)
@@ -720,7 +720,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		}, nil
 	}
 
-	shareURL, err := d.getShareURL(sourceVolumeID, req.GetSecrets())
+	shareURL, err := d.getShareURL(ctx, sourceVolumeID, req.GetSecrets())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get share url with (%s): %v", sourceVolumeID, err)
 	}
@@ -762,7 +762,7 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 		return nil, status.Error(codes.InvalidArgument, "Snapshot ID must be provided")
 	}
 
-	shareURL, err := d.getShareURL(req.SnapshotId, req.GetSecrets())
+	shareURL, err := d.getShareURL(ctx, req.SnapshotId, req.GetSecrets())
 	if err != nil {
 		// According to CSI Driver Sanity Tester, should succeed when an invalid snapshot id is used
 		klog.V(4).Infof("failed to get share url with (%s): %v, returning with success", req.SnapshotId, err)
@@ -831,7 +831,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 	secrets := req.GetSecrets()
 	if len(secrets) == 0 && d.useDataPlaneAPI(volumeID, accountName) {
 		// use data plane api, get account key first
-		_, _, accountKey, _, _, err := d.GetAccountInfo(volumeID, secrets, map[string]string{})
+		_, _, accountKey, _, _, err := d.GetAccountInfo(ctx, volumeID, secrets, map[string]string{})
 		if err != nil {
 			return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
 		}
@@ -850,8 +850,8 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 // getShareURL: sourceVolumeID is the id of source file share, returns a ShareURL of source file share.
 // A ShareURL < https://<account>.file.core.windows.net/<fileShareName> > represents a URL to the Azure Storage share allowing you to manipulate its directories and files.
 // e.g. The ID of source file share is #fb8fff227be6511e9b24123#createsnapshot-volume-1. Returns https://fb8fff227be6511e9b24123.file.core.windows.net/createsnapshot-volume-1
-func (d *Driver) getShareURL(sourceVolumeID string, secrets map[string]string) (azfile.ShareURL, error) {
-	serviceURL, fileShareName, err := d.getServiceURL(sourceVolumeID, secrets)
+func (d *Driver) getShareURL(ctx context.Context, sourceVolumeID string, secrets map[string]string) (azfile.ShareURL, error) {
+	serviceURL, fileShareName, err := d.getServiceURL(ctx, sourceVolumeID, secrets)
 	if err != nil {
 		return azfile.ShareURL{}, err
 	}
@@ -862,8 +862,8 @@ func (d *Driver) getShareURL(sourceVolumeID string, secrets map[string]string) (
 	return serviceURL.NewShareURL(fileShareName), nil
 }
 
-func (d *Driver) getServiceURL(sourceVolumeID string, secrets map[string]string) (azfile.ServiceURL, string, error) {
-	_, accountName, accountKey, fileShareName, _, err := d.GetAccountInfo(sourceVolumeID, secrets, map[string]string{})
+func (d *Driver) getServiceURL(ctx context.Context, sourceVolumeID string, secrets map[string]string) (azfile.ServiceURL, string, error) {
+	_, accountName, accountKey, fileShareName, _, err := d.GetAccountInfo(ctx, sourceVolumeID, secrets, map[string]string{})
 	if err != nil {
 		return azfile.ServiceURL{}, "", err
 	}
@@ -894,7 +894,7 @@ func (d *Driver) getServiceURL(sourceVolumeID string, secrets map[string]string)
 // 2. If it exists, we should judge if its source file share name equals that we specify.
 //    As long as the snapshot already exists, returns true. But when the source is different, an error will be returned.
 func (d *Driver) snapshotExists(ctx context.Context, sourceVolumeID, snapshotName string, secrets map[string]string) (bool, azfile.ShareItem, error) {
-	serviceURL, fileShareName, err := d.getServiceURL(sourceVolumeID, secrets)
+	serviceURL, fileShareName, err := d.getServiceURL(ctx, sourceVolumeID, secrets)
 	if err != nil {
 		return false, azfile.ShareItem{}, err
 	}

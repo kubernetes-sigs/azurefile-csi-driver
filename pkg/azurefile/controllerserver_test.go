@@ -1785,7 +1785,7 @@ func TestGetShareURL(t *testing.T) {
 		d.cloud.KubeClient = clientSet
 		d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
 		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), "rg", gomock.Any()).Return(key, nil).AnyTimes()
-		_, err := d.getShareURL(test.sourceVolumeID, validSecret)
+		_, err := d.getShareURL(context.Background(), test.sourceVolumeID, validSecret)
 		if !reflect.DeepEqual(err, test.expectedErr) {
 			t.Errorf("test[%s]: unexpected error: %v, expected error: %v", test.desc, err, test.expectedErr)
 		}
@@ -1851,7 +1851,7 @@ func TestGetServiceURL(t *testing.T) {
 		d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
 		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), "vol_1", gomock.Any()).Return(test.key, nil).AnyTimes()
 
-		_, _, err := d.getServiceURL(test.sourceVolumeID, validSecret)
+		_, _, err := d.getServiceURL(context.Background(), test.sourceVolumeID, validSecret)
 		if !reflect.DeepEqual(err, test.expectedErr) {
 			t.Errorf("test[%s]: unexpected error: %v, expected error: %v", test.desc, err, test.expectedErr)
 		}
