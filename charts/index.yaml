@@ -3,16 +3,16 @@ entries:
   azurefile-csi-driver:
   - apiVersion: v1
     appVersion: latest
-    created: "2021-09-04T13:45:35.470231539Z"
+    created: "2021-09-05T07:20:33.260889143Z"
     description: Azure File Container Storage Interface (CSI) Storage Plugin
-    digest: 12ee9f0fc24b72e97767bec66caf49c709ebe3a9009a690582269ed76c6e6c84
+    digest: b3de2fe833a8a393c05a7952e5a74bd44a1d1bcc2010af056bdc23123e07b792
     name: azurefile-csi-driver
     urls:
-    - https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts/latest/azurefile-csi-driver-v1.6.0.tgz
-    version: v1.6.0
+    - https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts/latest/azurefile-csi-driver-v1.7.0.tgz
+    version: v1.7.0
   - apiVersion: v1
     appVersion: v1.6.0
-    created: "2021-09-04T13:45:35.500113136Z"
+    created: "2021-09-05T07:20:33.272330825Z"
     description: Azure File Container Storage Interface (CSI) Storage Plugin
     digest: cc2a0dda824cdda4e8141e26878bbb481c5a52e45785a5dbf72e54f2a376e522
     name: azurefile-csi-driver
@@ -21,7 +21,7 @@ entries:
     version: v1.6.0
   - apiVersion: v1
     appVersion: v1.5.0
-    created: "2021-09-04T13:45:35.498145523Z"
+    created: "2021-09-05T07:20:33.271399818Z"
     description: Azure File Container Storage Interface (CSI) Storage Plugin
     digest: 2258177477415ddecd83dc46dfd88833223623224c7fe396590b617082bcd845
     name: azurefile-csi-driver
@@ -30,7 +30,7 @@ entries:
     version: v1.5.0
   - apiVersion: v1
     appVersion: v1.4.0
-    created: "2021-09-04T13:45:35.495448406Z"
+    created: "2021-09-05T07:20:33.270404611Z"
     description: Azure File Container Storage Interface (CSI) Storage Plugin
     digest: 40e9bc4ee187789166fcb7c3c82b85b33ecd3a6096266fe74e411d6b48961ece
     name: azurefile-csi-driver
@@ -39,7 +39,7 @@ entries:
     version: v1.4.0
   - apiVersion: v1
     appVersion: v1.3.0
-    created: "2021-09-04T13:45:35.492198684Z"
+    created: "2021-09-05T07:20:33.269470504Z"
     description: Azure File Container Storage Interface (CSI) Storage Plugin
     digest: 12942f422b7cccbfe950bbdbd5c844f5ae4b7c292f32389cba312730a6fe9a62
     name: azurefile-csi-driver
@@ -48,7 +48,7 @@ entries:
     version: v1.3.0
   - apiVersion: v1
     appVersion: v1.2.0
-    created: "2021-09-04T13:45:35.490643274Z"
+    created: "2021-09-05T07:20:33.268708399Z"
     description: Azure File Container Storage Interface (CSI) Storage Plugin
     digest: b62f44b757416a9e1f5a91e19285f5f5056ec6068802dd9cd82373bef40c9ee9
     name: azurefile-csi-driver
@@ -57,7 +57,7 @@ entries:
     version: v1.2.0
   - apiVersion: v1
     appVersion: v1.1.0
-    created: "2021-09-04T13:45:35.48855066Z"
+    created: "2021-09-05T07:20:33.267045287Z"
     description: Azure File Container Storage Interface (CSI) Storage Plugin
     digest: 675d96b309a1c5c491053ebbb854c046737420929c4f0692839afdaaf0db3933
     name: azurefile-csi-driver
@@ -66,7 +66,7 @@ entries:
     version: v1.1.0
   - apiVersion: v1
     appVersion: v1.0.0
-    created: "2021-09-04T13:45:35.486155044Z"
+    created: "2021-09-05T07:20:33.266410382Z"
     description: Azure File Container Storage Interface (CSI) Storage Plugin
     digest: 6fd5e54e949ef1061a08d5477bc580204c91dde8f01da195e95dd60ade209492
     name: azurefile-csi-driver
@@ -75,7 +75,7 @@ entries:
     version: v1.0.0
   - apiVersion: v1
     appVersion: v0.10.0
-    created: "2021-09-04T13:45:35.472394254Z"
+    created: "2021-09-05T07:20:33.261614848Z"
     description: Azure File Container Storage Interface (CSI) Storage Plugin
     digest: 8437b70c263de3ba365d4719f1cdd976e7461d217504b43d136d985b40f2f7ef
     name: azurefile-csi-driver
@@ -84,7 +84,7 @@ entries:
     version: v0.10.0
   - apiVersion: v1
     appVersion: v0.9.0
-    created: "2021-09-04T13:45:35.484618934Z"
+    created: "2021-09-05T07:20:33.265752478Z"
     description: Azure File Container Storage Interface (CSI) Storage Plugin
     digest: ff42d33b0b98ce138e95028e084ce1fe9cecde82d2b96e22ca4aaf3e6453a15b
     name: azurefile-csi-driver
@@ -93,7 +93,7 @@ entries:
     version: v0.9.0
   - apiVersion: v1
     appVersion: v0.8.0
-    created: "2021-09-04T13:45:35.483122724Z"
+    created: "2021-09-05T07:20:33.265010372Z"
     description: Azure File Container Storage Interface (CSI) Storage Plugin
     digest: 6811326fbd54832ef441bd54bb5a8bf5b0ca4734da1755c84b51ae713e35fb72
     name: azurefile-csi-driver
@@ -102,7 +102,7 @@ entries:
     version: v0.8.0
   - apiVersion: v1
     appVersion: v0.7.0
-    created: "2021-09-04T13:45:35.481063311Z"
+    created: "2021-09-05T07:20:33.264150466Z"
     description: Azure File Container Storage Interface (CSI) Storage Plugin
     digest: cc529dd3f6d19acc695f79cb08656ed0d8192f449eb70af3ab94d6b76c28c38d
     name: azurefile-csi-driver
@@ -111,7 +111,7 @@ entries:
     version: v0.7.0
   - apiVersion: v1
     appVersion: v0.6.0
-    created: "2021-09-04T13:45:35.479923003Z"
+    created: "2021-09-05T07:20:33.263587062Z"
     description: Azure File Container Storage Interface (CSI) Storage Plugin
     digest: eb6bc5333d6ed5788c0aa6d42e14e6228c1bf72c0db44de6f60c746e6f0cd3dd
     name: azurefile-csi-driver
@@ -120,7 +120,7 @@ entries:
     version: v0.6.0
   - apiVersion: v1
     appVersion: v0.5.0
-    created: "2021-09-04T13:45:35.478512594Z"
+    created: "2021-09-05T07:20:33.262899557Z"
     description: Azure File Container Storage Interface (CSI) Storage Plugin
     digest: 2d16cae9af5e306e4b3f1cba341532089e9871abe31d9ff20f6751215f908a01
     name: azurefile-csi-driver
@@ -129,7 +129,7 @@ entries:
     version: v0.5.0
   - apiVersion: v1
     appVersion: v0.4.0
-    created: "2021-09-04T13:45:35.476714682Z"
+    created: "2021-09-05T07:20:33.262529755Z"
     description: Azure File Container Storage Interface (CSI) Storage Plugin
     digest: fcc251b21abb2a5aee4df751424b33705850226119c1bfbb0c741d0ce020d1f2
     name: azurefile-csi-driver
@@ -138,7 +138,7 @@ entries:
     version: v0.4.0
   - apiVersion: v1
     appVersion: 0.3.0
-    created: "2021-09-04T13:45:35.474582068Z"
+    created: "2021-09-05T07:20:33.262177252Z"
     description: Azure File Container Storage Interface (CSI) Storage Plugin
     digest: d0fa02e4c7c15f106050c6d795e97b437ec8be359d33130ca02509effc1d7082
     name: azurefile-csi-driver
@@ -147,11 +147,11 @@ entries:
     version: 0.3.0
   - apiVersion: v1
     appVersion: 0.2.0
-    created: "2021-09-04T13:45:35.473579661Z"
+    created: "2021-09-05T07:20:33.26191775Z"
     description: Azure File Container Storage Interface (CSI) Storage Plugin
     digest: fde4b97c4a57b1aa6a9345e25c29eccc6b83da7746b465813473a955a4fe9896
     name: azurefile-csi-driver
     urls:
     - https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts/v0.2.0/azurefile-csi-driver-0.2.0.tgz
     version: 0.2.0
-generated: "2021-09-04T13:45:35.468545228Z"
+generated: "2021-09-05T07:20:33.258407425Z"
