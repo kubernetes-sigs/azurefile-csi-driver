@@ -31,7 +31,7 @@ diskName | existing VHD disk file name | `pvc-062196a6-6436-11ea-ab51-9efb888c0a
 
  - account tags format created by dynamic provisioning
 ```
-created-by: azure
+k8s-azure-created-by: azure
 ```
 
  - file share name format created by dynamic provisioning(example)
