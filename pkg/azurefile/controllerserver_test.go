@@ -938,6 +938,78 @@ func TestCreateVolume(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "Account limit exceeded",
+			testFunc: func(t *testing.T) {
+				name := "baz"
+				sku := "sku"
+				kind := "StorageV2"
+				location := "centralus"
+				value := "foo bar"
+				accounts := []storage.Account{
+					{Name: &name, Sku: &storage.Sku{Name: storage.SkuName(sku)}, Kind: storage.Kind(kind), Location: &location},
+				}
+				keys := storage.AccountListKeysResult{
+					Keys: &[]storage.AccountKey{
+						{Value: &value},
+					},
+				}
+				allParam := map[string]string{
+					skuNameField:            "premium",
+					storageAccountTypeField: "stoacctype",
+					locationField:           "loc",
+					storageAccountField:     "stoacc",
+					resourceGroupField:      "rg",
+					shareNameField:          "",
+					diskNameField:           "diskname",
+					fsTypeField:             "",
+					storeAccountKeyField:    "storeaccountkey",
+					secretNamespaceField:    "default",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name-valid-request",
+					VolumeCapabilities: stdVolCap,
+					CapacityRange:      lessThanPremCapRange,
+					Parameters:         allParam,
+				}
+
+				d := NewFakeDriver()
+				d.cloud = &azure.Cloud{}
+				d.cloud.KubeClient = fake.NewSimpleClientset()
+				ctrl := gomock.NewController(t)
+				defer ctrl.Finish()
+
+				mockFileClient := mockfileclient.NewMockInterface(ctrl)
+				d.cloud.FileClient = mockFileClient
+
+				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
+				d.cloud.StorageAccountClient = mockStorageAccountsClient
+				tagValue := "TestTagValue"
+
+				first := mockFileClient.EXPECT().CreateFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf(accountLimitExceedManagementAPI))
+				second := mockFileClient.EXPECT().CreateFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				gomock.InOrder(first, second)
+				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().GetProperties(gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.Account{Tags: map[string]*string{"TestKey": &tagValue}}, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+				mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
+
+				d.AddControllerServiceCapabilities(
+					[]csi.ControllerServiceCapability_RPC_Type{
+						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					})
+
+				ctx := context.Background()
+
+				_, err := d.CreateVolume(ctx, req)
+				if !reflect.DeepEqual(err, nil) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1517,6 +1589,14 @@ func TestDeleteSnapshot(t *testing.T) {
 				Secrets:    validSecret,
 			},
 			expectedErr: nil,
+		},
+		{
+			desc: "Invalid Snapshot ID",
+			req: &csi.DeleteSnapshotRequest{
+				SnapshotId: "testrg#testAccount#testFileShare#testuuid",
+				Secrets:    map[string]string{"accountName": "TestAccountName", "accountKey": base64.StdEncoding.EncodeToString([]byte("TestAccountKey"))},
+			},
+			expectedErr: status.Error(codes.Internal, "failed to get snapshot name with (testrg#testAccount#testFileShare#testuuid): error parsing volume id: \"testrg#testAccount#testFileShare#testuuid\", should at least contain four #"),
 		},
 	}
 

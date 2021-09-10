@@ -51,6 +51,20 @@ func TestGetFileSvcClient(t *testing.T) {
 	fileserviceClient, err := f.getFileSvcClient(accountName, accountKey)
 	assert.NotNil(t, fileserviceClient)
 	assert.NoError(t, err)
+
+	//Test that the client uses defaultStorageEndpointSuffix
+	f = azureFileClient{
+		env: &azure.Environment{},
+		backoff: &retry.Backoff{
+			Steps:    1,
+			Duration: time.Second,
+		},
+	}
+	accountName = "unittest"
+	accountKey = "dW5pdHRlc3Q="
+	fileserviceClient, err = f.getFileSvcClient(accountName, accountKey)
+	assert.NotNil(t, fileserviceClient)
+	assert.NoError(t, err)
 }
 
 func TestCreateFileShare(t *testing.T) {
@@ -134,4 +148,12 @@ func TestResizeFileShare(t *testing.T) {
 	accountName = "unittest"
 	actualErr = f.resizeFileShare(accountName, accountKey, "", -2)
 	assert.NoError(t, actualErr)
+
+	//Request quota size is invalid
+	accountName = "unittest"
+	actualErr = f.resizeFileShare(accountName, accountKey, "", 6000)
+	expectedErr = fmt.Errorf("failed to set quota on file share , err: invalid value 6000 for quota, valid values are [1, 5120]")
+	if !reflect.DeepEqual(actualErr, expectedErr) {
+		t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
+	}
 }
