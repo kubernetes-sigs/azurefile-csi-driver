@@ -212,6 +212,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	cifsMountPath := targetPath
 	cifsMountFlags := mountFlags
 	if !gidPresent && volumeMountGroup != "" {
+		klog.V(2).Infof("set gid of volume(%s) as %s", volumeID, volumeMountGroup)
 		cifsMountFlags = append(cifsMountFlags, fmt.Sprintf("gid=%s", volumeMountGroup))
 	}
 	isDiskMount := isDiskFsType(fsType)
@@ -243,7 +244,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}
 	}
 
-	klog.V(2).Infof("cifsMountPath(%v) fstype(%v) volumeID(%v) context(%v) mountflags(%v) mountOptions(%v)", cifsMountPath, fsType, volumeID, context, mountFlags, mountOptions)
+	klog.V(2).Infof("cifsMountPath(%v) fstype(%v) volumeID(%v) context(%v) mountflags(%v) mountOptions(%v) volumeMountGroup(%s)", cifsMountPath, fsType, volumeID, context, mountFlags, mountOptions, volumeMountGroup)
 
 	isDirMounted, err := d.ensureMountPoint(cifsMountPath)
 	if err != nil {
