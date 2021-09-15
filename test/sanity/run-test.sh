@@ -40,7 +40,7 @@ _output/${ARCH}/azurefileplugin --endpoint "$endpoint" --nodeid "$nodeid" -v=5 &
 
 echo 'Begin to run sanity test...'
 readonly CSI_SANITY_BIN='csi-sanity'
-"$CSI_SANITY_BIN" --ginkgo.v --ginkgo.noColor --csi.endpoint="$endpoint" --ginkgo.skip='should fail when the volume source snapshot is not found|should work|should fail when the volume does not exist|should fail when the node does not exist|Node Service NodeGetCapabilities'
+"$CSI_SANITY_BIN" --ginkgo.v --ginkgo.noColor --csi.endpoint="$endpoint" --ginkgo.skip='should fail when the volume source snapshot is not found|should work|should fail when the volume does not exist|should fail when the node does not exist|Node Service NodeGetCapabilities|should remove target path'
 
 testvolumeparameters='/tmp/vhd.yaml'
 cat > $testvolumeparameters << EOF
@@ -48,4 +48,4 @@ fstype: ext4
 EOF
 
 echo 'Begin to run sanity test for vhd disk feature...'
-"$CSI_SANITY_BIN" --ginkgo.v --ginkgo.noColor --csi.endpoint="$endpoint" --csi.testvolumeparameters="$testvolumeparameters" --ginkgo.skip='should fail when the volume source snapshot is not found|should work|should fail when volume does not exist on the specified path|should fail when the volume does not exist|should fail when the node does not exist|should be idempotent|Node Service NodeGetCapabilities'
+"$CSI_SANITY_BIN" --ginkgo.v --ginkgo.noColor --csi.endpoint="$endpoint" --csi.testvolumeparameters="$testvolumeparameters" --ginkgo.skip='should fail when the volume source snapshot is not found|should work|should fail when volume does not exist on the specified path|should fail when the volume does not exist|should fail when the node does not exist|should be idempotent|Node Service NodeGetCapabilities|should remove target path'
