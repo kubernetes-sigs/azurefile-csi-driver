@@ -57,6 +57,12 @@ var (
 			Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY,
 		},
 		{
+			Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_SINGLE_WRITER,
+		},
+		{
+			Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_MULTI_WRITER,
+		},
+		{
 			Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY,
 		},
 		{
