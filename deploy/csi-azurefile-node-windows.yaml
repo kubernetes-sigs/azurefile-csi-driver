@@ -100,7 +100,6 @@ spec:
             - --nodeid=$(KUBE_NODE_NAME)
             - --kubeconfig=C:\\k\\config
             - --metrics-address=0.0.0.0:29615
-            - --user-agent-suffix=OSS-kubectl
           ports:
             - containerPort: 29613
               name: healthz
