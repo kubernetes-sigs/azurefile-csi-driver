@@ -53,7 +53,6 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	}
 
 	volumeID := req.GetVolumeId()
-	volumeMountGroup := volCap.GetMount().GetVolumeMountGroup()
 
 	context := req.GetVolumeContext()
 	if context != nil && strings.EqualFold(context[ephemeralField], trueValue) {
@@ -77,9 +76,6 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	}
 
 	mountOptions := []string{"bind"}
-	if volumeMountGroup != "" {
-		mountOptions = append(mountOptions, fmt.Sprintf("gid=%s", volumeMountGroup))
-	}
 	if req.GetReadonly() {
 		mountOptions = append(mountOptions, "ro")
 	}
@@ -212,7 +208,6 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	cifsMountPath := targetPath
 	cifsMountFlags := mountFlags
 	if !gidPresent && volumeMountGroup != "" {
-		klog.V(2).Infof("set gid of volume(%s) as %s", volumeID, volumeMountGroup)
 		cifsMountFlags = append(cifsMountFlags, fmt.Sprintf("gid=%s", volumeMountGroup))
 	}
 	isDiskMount := isDiskFsType(fsType)
@@ -264,6 +259,12 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			return true, SMBMount(d.mounter, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions)
 		}); err != nil {
 			return nil, status.Error(codes.Internal, fmt.Sprintf("volume(%s) mount %q on %q failed with %v", volumeID, source, cifsMountPath, err))
+		}
+		if protocol == nfs && volumeMountGroup != "" {
+			klog.V(2).Infof("set gid of volume(%s) as %s", volumeID, volumeMountGroup)
+			if err := SetVolumeOwnership(cifsMountPath, volumeMountGroup); err != nil {
+				return nil, status.Error(codes.Internal, fmt.Sprintf("SetVolumeOwnership with volume(%s) on %q failed with %v", volumeID, cifsMountPath, err))
+			}
 		}
 		klog.V(2).Infof("volume(%s) mount %q on %q succeeded", volumeID, source, cifsMountPath)
 	}
