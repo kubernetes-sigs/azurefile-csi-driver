@@ -27,13 +27,7 @@ spec:
         kubernetes.io/os: windows
       affinity:
         nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: type
-                    operator: NotIn
-                    values:
-                      - virtual-kubelet
+{{ toYaml .Values.windows.nodeAffinity | indent 10 }}
       priorityClassName: system-node-critical
       {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
