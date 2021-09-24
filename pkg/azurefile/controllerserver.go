@@ -109,7 +109,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
 	var secretNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, accessTier string
 	var createAccount, useDataPlaneAPI, disableDeleteRetentionPolicy, enableLFS bool
-	var allowBlobPublicAccess *bool
+	// set allowBlobPublicAccess as false by default
+	allowBlobPublicAccess := to.BoolPtr(false)
 
 	// store account key to k8s secret by default
 	storeAccountKey := true
@@ -166,8 +167,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case accessTierField:
 			accessTier = v
 		case allowBlobPublicAccessField:
-			if strings.EqualFold(v, falseValue) {
-				allowBlobPublicAccess = to.BoolPtr(false)
+			if strings.EqualFold(v, trueValue) {
+				allowBlobPublicAccess = to.BoolPtr(true)
 			}
 		case pvcNameKey:
 			// no op
