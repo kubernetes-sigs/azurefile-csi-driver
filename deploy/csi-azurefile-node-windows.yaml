@@ -67,7 +67,8 @@ spec:
                 - /csi-node-driver-registrar.exe
                 - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
                 - --mode=kubelet-registration-probe
-            initialDelaySeconds: 3
+            initialDelaySeconds: 30
+            timeoutSeconds: 15
           env:
             - name: CSI_ENDPOINT
               value: unix://C:\\csi\\csi.sock
@@ -154,21 +155,17 @@ spec:
         - name: csi-proxy-fs-pipe-v1
           hostPath:
             path: \\.\pipe\csi-proxy-filesystem-v1
-            type: ""
         - name: csi-proxy-smb-pipe-v1
           hostPath:
             path: \\.\pipe\csi-proxy-smb-v1
-            type: ""
         # these paths are still included for compatibility, they're used
         # only if the node has still the beta version of the CSI proxy
         - name: csi-proxy-fs-pipe-v1beta1
           hostPath:
             path: \\.\pipe\csi-proxy-filesystem-v1beta1
-            type: ""
         - name: csi-proxy-smb-pipe-v1beta1
           hostPath:
             path: \\.\pipe\csi-proxy-smb-v1beta1
-            type: ""
         - name: registration-dir
           hostPath:
             path: C:\var\lib\kubelet\plugins_registry\
@@ -184,4 +181,4 @@ spec:
         - name: azure-config
           hostPath:
             path: C:\k
-            type: Directory
+            type: DirectoryOrCreate

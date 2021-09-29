@@ -234,7 +234,7 @@ spec:
         - name: azure-cred
           hostPath:
             path: /etc/kubernetes/
-            type: Directory
+            type: DirectoryOrCreate
         - name: msi
           hostPath:
             path: /var/lib/waagent/ManagedIdentity-Settings
