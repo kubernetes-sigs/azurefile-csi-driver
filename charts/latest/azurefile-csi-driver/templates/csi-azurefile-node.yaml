@@ -25,13 +25,7 @@ spec:
         kubernetes.io/os: linux
       affinity:
         nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: type
-                    operator: NotIn
-                    values:
-                      - virtual-kubelet
+{{ toYaml .Values.linux.nodeAffinity | indent 10 }}
       priorityClassName: system-node-critical
 {{- with .Values.linux.tolerations }}
       tolerations:
