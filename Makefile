@@ -42,7 +42,7 @@ ALL_OS = linux windows
 ALL_ARCH.linux = amd64 arm64
 ALL_OS_ARCH.linux = $(foreach arch, ${ALL_ARCH.linux}, linux-$(arch))
 ALL_ARCH.windows = amd64
-ALL_OSVERSIONS.windows := 1809 1903 1909 2004 ltsc2022
+ALL_OSVERSIONS.windows := 1809 1903 1909 2004 20H2 ltsc2022
 ALL_OS_ARCH.windows = $(foreach arch, $(ALL_ARCH.windows), $(foreach osversion, ${ALL_OSVERSIONS.windows}, windows-${osversion}-${arch}))
 ALL_OS_ARCH = $(foreach os, $(ALL_OS), ${ALL_OS_ARCH.${os}})
 
