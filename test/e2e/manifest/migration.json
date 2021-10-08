@@ -16,6 +16,9 @@
                 "kubeletConfig": {
                     "--feature-gates": "CSIMigration=true,CSIMigrationAzureFile=true"
                 },
+                "schedulerConfig": {
+                    "--feature-gates": "CSIMigration=true,CSIMigrationAzureFile=true"
+                },
                 "apiServerConfig": {
                     "--feature-gates": "VolumeSnapshotDataSource=true",
                     "--enable-admission-plugins": "NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,ResourceQuota,AlwaysPullImages"
