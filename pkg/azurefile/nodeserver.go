@@ -223,6 +223,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	if protocol == nfs {
 		mountOptions = util.JoinMountOptions(mountFlags, []string{"vers=4,minorversion=1,sec=sys"})
 	} else {
+		if accountName == "" || accountKey == "" {
+			return nil, status.Errorf(codes.Internal, "accountName(%s) or accountKey is empty", accountName)
+		}
 		if runtime.GOOS == "windows" {
 			mountOptions = []string{fmt.Sprintf("AZURE\\%s", accountName)}
 			sensitiveMountOptions = []string{accountKey}
