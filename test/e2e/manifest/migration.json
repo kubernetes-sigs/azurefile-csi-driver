@@ -17,7 +17,7 @@
                     "--feature-gates": "CSIMigration=true,CSIMigrationAzureFile=true"
                 },
                 "schedulerConfig": {
-                    "--feature-gates": "CSIMigration=true,CSIMigrationAzureFile=true"
+                    "--feature-gates": "CSIMigration=true"
                 },
                 "apiServerConfig": {
                     "--feature-gates": "VolumeSnapshotDataSource=true",
