@@ -179,8 +179,8 @@ type Driver struct {
 	volumeLocks *volumeLocks
 	// a map storing all volumes created by this driver <volumeName, accountName>
 	volMap sync.Map
-	// a map storing all account name and keys retrieved by this driver <accountName, accountkey>
-	accountMap sync.Map
+	// a timed cache storing all account name and keys retrieved by this driver <accountName, accountkey>
+	accountCacheMap *azcache.TimedCache
 	// a map storing all secret names created by this driver <secretCacheKey, "">
 	secretCacheMap sync.Map
 	// a map storing all volumes using data plane API <volumeID, "">, <accountName, "">
@@ -208,16 +208,20 @@ func NewDriver(options *DriverOptions) *Driver {
 	getter := func(key string) (interface{}, error) {
 		return nil, nil
 	}
-	cache, err := azcache.NewTimedcache(time.Minute, getter)
-	if err != nil {
+
+	var err error
+	if driver.accountSearchCache, err = azcache.NewTimedcache(time.Minute, getter); err != nil {
 		klog.Fatalf("%v", err)
 	}
-	driver.accountSearchCache = cache
-	cache, err = azcache.NewTimedcache(time.Minute, getter)
-	if err != nil {
+
+	if driver.removeTagCache, err = azcache.NewTimedcache(time.Minute, getter); err != nil {
 		klog.Fatalf("%v", err)
 	}
-	driver.removeTagCache = cache
+
+	if driver.accountCacheMap, err = azcache.NewTimedcache(3*time.Minute, getter); err != nil {
+		klog.Fatalf("%v", err)
+	}
+
 	return &driver
 }
 
@@ -556,8 +560,12 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 
 	if len(secrets) == 0 {
 		// read account key from cache first
-		if v, ok := d.accountMap.Load(accountName); ok {
-			accountKey = v.(string)
+		cache, errCache := d.accountCacheMap.Get(accountName, azcache.CacheReadTypeDefault)
+		if errCache != nil {
+			return rgName, accountName, accountKey, fileShareName, diskName, errCache
+		}
+		if cache != nil {
+			accountKey = cache.(string)
 		} else {
 			if secretName == "" && accountName != "" {
 				secretName = fmt.Sprintf(secretNameTemplate, accountName)
@@ -583,7 +591,7 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 	}
 
 	if err == nil && accountKey != "" {
-		d.accountMap.Store(accountName, accountKey)
+		d.accountCacheMap.Set(accountName, accountKey)
 	}
 	return rgName, accountName, accountKey, fileShareName, diskName, err
 }
@@ -730,9 +738,13 @@ func (d *Driver) GetStorageAccesskey(ctx context.Context, accountOptions *azure.
 	}
 
 	accountName := accountOptions.Name
-	// read from cache first
-	if v, ok := d.accountMap.Load(accountName); ok {
-		return v.(string), nil
+	// read account key from cache first
+	cache, err := d.accountCacheMap.Get(accountName, azcache.CacheReadTypeDefault)
+	if err != nil {
+		return "", err
+	}
+	if cache != nil {
+		return cache.(string), nil
 	}
 
 	// read from k8s secret first
@@ -746,7 +758,7 @@ func (d *Driver) GetStorageAccesskey(ctx context.Context, accountOptions *azure.
 	}
 
 	if err == nil && accountKey != "" {
-		d.accountMap.Store(accountName, accountKey)
+		d.accountCacheMap.Set(accountName, accountKey)
 	}
 	return accountKey, err
 }
