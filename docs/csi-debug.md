@@ -50,6 +50,12 @@ accountname.file.core.windows.net:/accountname/pvcn-46c357b2-333b-4c42-8a7f-2133
 accountname.file.core.windows.net:/accountname/pvcn-46c357b2-333b-4c42-8a7f-2133023d6c48 on /var/lib/kubelet/pods/7994e352-a4ee-4750-8cb4-db4fcf48543e/volumes/kubernetes.io~csi/pvc-46c357b2-333b-4c42-8a7f-2133023d6c48/mount type nfs4 (rw,relatime,vers=4.1,rsize=1048576,wsize=1048576,namlen=255,hard,proto=tcp,timeo=600,retrans=2,sec=sys,clientaddr=10.244.0.6,local_lock=none,addr=20.150.29.168)
 </pre>
 
+ - get Windows csi-proxy logs inside driver
+```console
+kubectl exec -it csi-azurefile-node-win-xxxxx -n kube-system -c azurefile cmd
+type c:\k\csi-proxy.err.log
+```
+
 #### Update driver version quickly by editting driver deployment directly
  - update controller deployment
 ```console
