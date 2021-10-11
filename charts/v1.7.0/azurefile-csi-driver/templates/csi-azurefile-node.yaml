@@ -1,50 +1,56 @@
----
+{{- if .Values.linux.enabled}}
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: csi-azurefile-node
-  namespace: kube-system
+  name: {{ .Values.linux.dsName }}
+  namespace: {{ .Release.Namespace }}
+{{ include "azurefile.labels" . | indent 2 }}
 spec:
   updateStrategy:
     rollingUpdate:
-      maxUnavailable: 1
+      maxUnavailable: {{ .Values.node.maxUnavailable }}
     type: RollingUpdate
   selector:
     matchLabels:
-      app: csi-azurefile-node
+      app: {{ .Values.linux.dsName }}
   template:
     metadata:
-      labels:
-        app: csi-azurefile-node
+{{ include "azurefile.labels" . | indent 6 }}
+        app: {{ .Values.linux.dsName }}
     spec:
       hostNetwork: true
-      dnsPolicy: Default
-      serviceAccountName: csi-azurefile-node-sa
+      dnsPolicy: {{ .Values.linux.dnsPolicy }}
+      serviceAccountName: {{ .Values.serviceAccount.node }}
       nodeSelector:
         kubernetes.io/os: linux
       affinity:
         nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: type
-                    operator: NotIn
-                    values:
-                      - virtual-kubelet
+{{ toYaml .Values.linux.nodeAffinity | indent 10 }}
       priorityClassName: system-node-critical
+{{- with .Values.linux.tolerations }}
       tolerations:
-        - operator: "Exists"
+{{ toYaml . | indent 8 }}
+{{- end }}
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 8 }}
+      {{- end }}
       containers:
         - name: liveness-probe
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
-          image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.4.0
+{{- if hasPrefix "/" .Values.image.livenessProbe.repository }}
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}"
+{{- else }}
+          image: "{{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}"
+{{- end }}
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
-            - --health-port=29613
+            - --health-port={{ .Values.node.livenessProbe.healthPort }}
             - --v=2
+          imagePullPolicy: {{ .Values.image.livenessProbe.pullPolicy }}
           resources:
             limits:
               cpu: 100m
@@ -53,7 +59,11 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: node-driver-registrar
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.3.0
+{{- if hasPrefix "/" .Values.image.nodeDriverRegistrar.repository }}
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.nodeDriverRegistrar.repository }}:{{ .Values.image.nodeDriverRegistrar.tag }}"
+{{- else }}
+          image: "{{ .Values.image.nodeDriverRegistrar.repository }}:{{ .Values.image.nodeDriverRegistrar.tag }}"
+{{- end }}
           args:
             - --csi-address=$(ADDRESS)
             - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
@@ -61,7 +71,7 @@ spec:
           lifecycle:
             preStop:
               exec:
-                command: ["/bin/sh", "-c", "rm -rf /registration/file.csi.azure.com-reg.sock /csi/csi.sock"]
+                command: ["/bin/sh", "-c", "rm -rf /registration/{{ .Values.driver.name }}-reg.sock /csi/csi.sock"]
           livenessProbe:
             exec:
               command:
@@ -74,7 +84,8 @@ spec:
             - name: ADDRESS
               value: /csi/csi.sock
             - name: DRIVER_REG_SOCK_PATH
-              value: /var/lib/kubelet/plugins/file.csi.azure.com/csi.sock
+              value: {{ .Values.linux.kubelet }}/plugins/{{ .Values.driver.name }}/csi.sock
+          imagePullPolicy: {{ .Values.image.nodeDriverRegistrar.pullPolicy }}
           volumeMounts:
             - name: socket-dir
               mountPath: /csi
@@ -88,15 +99,24 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: azurefile
-          image: mcr.microsoft.com/k8s/csi/azurefile-csi:v1.7.0
-          imagePullPolicy: IfNotPresent
+{{- if hasPrefix "/" .Values.image.azurefile.repository }}
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
+{{- else }}
+          image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
+{{- end }}
           args:
-            - "--v=5"
+            - "--v={{ .Values.node.logLevel }}"
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
-            - "--metrics-address=0.0.0.0:29615"
+            - "--metrics-address=0.0.0.0:{{ .Values.node.metricsPort }}"
+            - "--kubeconfig={{ .Values.linux.kubeconfig }}"
+            - "--drivername={{ .Values.driver.name }}"
+            - "--cloud-config-secret-name={{ .Values.node.cloudConfigSecretName }}"
+            - "--cloud-config-secret-namespace={{ .Values.node.cloudConfigSecretNamespace }}"
+            - "--custom-user-agent={{ .Values.driver.customUserAgent }}"
+            - "--user-agent-suffix={{ .Values.driver.userAgentSuffix }}"
           ports:
-            - containerPort: 29613
+            - containerPort: {{ .Values.node.livenessProbe.healthPort }}
               name: healthz
               protocol: TCP
           livenessProbe:
@@ -121,18 +141,27 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
+          imagePullPolicy: {{ .Values.image.azurefile.pullPolicy }}
           securityContext:
             privileged: true
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
-            - mountPath: /var/lib/kubelet/
+            - mountPath: {{ .Values.linux.kubelet }}/
               mountPropagation: Bidirectional
               name: mountpoint-dir
             - mountPath: /etc/kubernetes/
               name: azure-cred
             - mountPath: /dev
               name: device-dir
+            {{- if eq .Values.linux.distro "fedora" }}
+            - name: ssl
+              mountPath: /etc/ssl/certs
+              readOnly: true
+            - name: ssl-pki
+              mountPath: /etc/pki/ca-trust/extracted
+              readOnly: true
+            {{- end }}
           resources:
             limits:
               cpu: 400m
@@ -142,15 +171,15 @@ spec:
               memory: 20Mi
       volumes:
         - hostPath:
-            path: /var/lib/kubelet/plugins/file.csi.azure.com
+            path: {{ .Values.linux.kubelet }}/plugins/{{ .Values.driver.name }}
             type: DirectoryOrCreate
           name: socket-dir
         - hostPath:
-            path: /var/lib/kubelet/
+            path: {{ .Values.linux.kubelet }}/
             type: DirectoryOrCreate
           name: mountpoint-dir
         - hostPath:
-            path: /var/lib/kubelet/plugins_registry/
+            path: {{ .Values.linux.kubelet }}/plugins_registry/
             type: DirectoryOrCreate
           name: registration-dir
         - hostPath:
@@ -161,4 +190,12 @@ spec:
             path: /dev
             type: Directory
           name: device-dir
----
+        {{- if eq .Values.linux.distro "fedora" }}
+        - name: ssl
+          hostPath:
+            path: /etc/ssl/certs
+        - name: ssl-pki
+          hostPath:
+            path: /etc/pki/ca-trust/extracted
+        {{- end }}
+{{- end -}}
