@@ -88,7 +88,7 @@ change below deployment config, e.g.
  - On Linux node
 ```console
 mkdir /tmp/test
-sudo mount -v -t cifs //accountname.blob.core.windows.net/filesharename /tmp/test -o vers=3.0,username=accountname,password=accountkey,dir_mode=0777,file_mode=0777,cache=strict,actimeo=30
+sudo mount -v -t cifs //accountname.blob.core.windows.net/filesharename /tmp/test -o  username=accountname,password=accountkey,dir_mode=0777,file_mode=0777,cache=strict,actimeo=30
 ```
 
  - On Windows node
