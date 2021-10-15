@@ -6,7 +6,7 @@
 Follow AKS doc: [Enable CSI drivers for Azure disks and Azure Files on AKS (preview)](https://docs.microsoft.com/en-us/azure/aks/csi-storage-drivers) 
 
 ### Option#2: Enable CSI driver on existing cluster with version < 1.21
-> Please remove manual installed open source Azure Disk CSI driver before upgrading to AKS 1.21 next time.
+> Please remove manual installed open source CSI driver before upgrading to AKS 1.21 next time.
  - Prerequisites
 
 AKS cluster is created with user assigned identity(with naming rule [`AKS Cluster Name-agentpool`](https://docs.microsoft.com/en-us/azure/aks/use-managed-identity#summary-of-managed-identities)) on agent node pool by default, make sure that identity has `Contributor` role on node resource group, follow below instruction to set up `Contributor` role on node resource group
