@@ -35,7 +35,7 @@ spec:
 {{ toYaml .Values.imagePullSecrets | indent 8 }}
       {{- end }}
       containers:
-        - name: csi-provisioner
+        - name: csi-provisioner-file
 {{- if hasPrefix "/" .Values.image.csiProvisioner.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.image.csiProvisioner.repository }}:{{ .Values.image.csiProvisioner.tag }}"
 {{- else }}
@@ -61,7 +61,7 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
-        - name: csi-attacher
+        - name: csi-attacher-file
 {{- if hasPrefix "/" .Values.image.csiAttacher.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.image.csiAttacher.repository }}:{{ .Values.image.csiAttacher.tag }}"
 {{- else }}
@@ -86,7 +86,7 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
-        - name: csi-snapshotter
+        - name: csi-snapshotter-file
 {{- if eq .Values.snapshot.apiVersion "beta" }}
   {{- if hasPrefix "/" .Values.snapshot.image.csiSnapshotter.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.snapshot.image.csiSnapshotter.repository }}:{{ .Values.snapshot.image.csiSnapshotter.tag }}"
@@ -117,7 +117,7 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
-        - name: csi-resizer
+        - name: csi-resizer-file
 {{- if hasPrefix "/" .Values.image.csiResizer.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.image.csiResizer.repository }}:{{ .Values.image.csiResizer.tag }}"
 {{- else }}
@@ -142,7 +142,7 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
-        - name: liveness-probe
+        - name: liveness-probe-file
 {{- if hasPrefix "/" .Values.image.livenessProbe.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}"
 {{- else }}

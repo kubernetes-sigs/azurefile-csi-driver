@@ -205,11 +205,10 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.volLockMap = newLockMap()
 	driver.subnetLockMap = newLockMap()
 	driver.volumeLocks = newVolumeLocks()
-	getter := func(key string) (interface{}, error) {
-		return nil, nil
-	}
 
 	var err error
+	getter := func(key string) (interface{}, error) { return nil, nil }
+
 	if driver.accountSearchCache, err = azcache.NewTimedcache(time.Minute, getter); err != nil {
 		klog.Fatalf("%v", err)
 	}
