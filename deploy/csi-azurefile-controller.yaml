@@ -27,7 +27,7 @@ spec:
           operator: "Exists"
           effect: "NoSchedule"
       containers:
-        - name: csi-provisioner
+        - name: csi-provisioner-file
           image: mcr.microsoft.com/oss/kubernetes-csi/csi-provisioner:v2.2.2
           args:
             - "-v=2"
@@ -48,7 +48,7 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
-        - name: csi-attacher
+        - name: csi-attacher-file
           image: mcr.microsoft.com/oss/kubernetes-csi/csi-attacher:v3.3.0
           args:
             - "-v=2"
@@ -68,7 +68,7 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
-        - name: csi-snapshotter
+        - name: csi-snapshotter-file
           image: mcr.microsoft.com/oss/kubernetes-csi/csi-snapshotter:v3.0.3
           args:
             - "-v=2"
@@ -87,7 +87,7 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
-        - name: csi-resizer
+        - name: csi-resizer-file
           image: mcr.microsoft.com/oss/kubernetes-csi/csi-resizer:v1.3.0
           args:
             - "-csi-address=$(ADDRESS)"
@@ -107,7 +107,7 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
-        - name: liveness-probe
+        - name: liveness-probe-file
           image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.4.0
           args:
             - --csi-address=/csi/csi.sock
