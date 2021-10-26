@@ -10,7 +10,7 @@
             "kubernetesConfig": {
                 "useManagedIdentity": false,
                 "containerRuntime": "containerd",
-                "windowsContainerdURL": "https://acs-mirror.azureedge.net/containerd/windows/v0.0.41/binaries/containerd-v0.0.41-windows-amd64.tar.gz"
+                "windowsContainerdURL": "https://github.com/containerd/containerd/releases/download/v1.4.11/containerd-1.4.11-windows-amd64.tar.gz"
             }
         },
         "masterProfile": {
@@ -31,13 +31,13 @@
         "windowsProfile": {
             "adminUsername": "azureuser",
             "adminPassword": "replacepassword1234$",
-            "csiProxyURL": "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
+            "csiProxyURL": "https://acs-mirror.azureedge.net/csi-proxy/v1.0.2/binaries/csi-proxy-v1.0.2.tar.gz",
             "enableCSIProxy": true,
             "sshEnabled": true,
-            "windowsPublisher": "microsoft-aks",
-            "windowsOffer": "aks-windows",
-            "windowsSku": "2019-datacenter-core-ctrd-2104",
-            "imageVersion": "17763.1879.210414"
+            "windowsPublisher": "MicrosoftWindowsServer",
+            "windowsOffer": "WindowsServer",
+            "windowsSku": "Datacenter-Core-20h2-with-Containers-smalldisk",
+            "imageVersion": "19042.867.2103051748"
         },
         "linuxProfile": {
             "adminUsername": "azureuser",
