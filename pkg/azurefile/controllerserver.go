@@ -57,6 +57,12 @@ var (
 			Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY,
 		},
 		{
+			Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_SINGLE_WRITER,
+		},
+		{
+			Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_MULTI_WRITER,
+		},
+		{
 			Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY,
 		},
 		{
@@ -103,7 +109,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
 	var secretNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, accessTier string
 	var createAccount, useDataPlaneAPI, disableDeleteRetentionPolicy, enableLFS bool
-	var allowBlobPublicAccess *bool
+	// set allowBlobPublicAccess as false by default
+	allowBlobPublicAccess := to.BoolPtr(false)
 
 	// store account key to k8s secret by default
 	storeAccountKey := true
@@ -160,8 +167,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case accessTierField:
 			accessTier = v
 		case allowBlobPublicAccessField:
-			if strings.EqualFold(v, falseValue) {
-				allowBlobPublicAccess = to.BoolPtr(false)
+			if strings.EqualFold(v, trueValue) {
+				allowBlobPublicAccess = to.BoolPtr(true)
 			}
 		case pvcNameKey:
 			// no op
@@ -302,7 +309,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				d.accountSearchCache.Set(lockKey, accountName)
 				d.volMap.Store(volName, accountName)
 				if accountKey != "" {
-					d.accountMap.Store(accountName, accountKey)
+					d.accountCacheMap.Set(accountName, accountKey)
 				}
 			}
 		}
@@ -678,7 +685,7 @@ func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.Control
 	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 
-// CreateSnapshot create a snapshot (todo)
+// CreateSnapshot create a snapshot
 func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
 	sourceVolumeID := req.GetSourceVolumeId()
 	snapshotName := req.Name

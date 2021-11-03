@@ -187,6 +187,12 @@ func TestNewVolumeCapabilityAccessMode(t *testing.T) {
 			mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY,
 		},
 		{
+			mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_SINGLE_WRITER,
+		},
+		{
+			mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_MULTI_WRITER,
+		},
+		{
 			mode: csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY,
 		},
 		{
