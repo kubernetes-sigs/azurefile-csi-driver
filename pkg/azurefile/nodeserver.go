@@ -53,7 +53,6 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	}
 
 	volumeID := req.GetVolumeId()
-	volumeMountGroup := volCap.GetMount().GetVolumeMountGroup()
 
 	context := req.GetVolumeContext()
 	if context != nil && strings.EqualFold(context[ephemeralField], trueValue) {
@@ -77,9 +76,6 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	}
 
 	mountOptions := []string{"bind"}
-	if volumeMountGroup != "" {
-		mountOptions = append(mountOptions, fmt.Sprintf("gid=%s", volumeMountGroup))
-	}
 	if req.GetReadonly() {
 		mountOptions = append(mountOptions, "ro")
 	}
@@ -227,6 +223,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	if protocol == nfs {
 		mountOptions = util.JoinMountOptions(mountFlags, []string{"vers=4,minorversion=1,sec=sys"})
 	} else {
+		if accountName == "" || accountKey == "" {
+			return nil, status.Errorf(codes.Internal, "accountName(%s) or accountKey is empty", accountName)
+		}
 		if runtime.GOOS == "windows" {
 			mountOptions = []string{fmt.Sprintf("AZURE\\%s", accountName)}
 			sensitiveMountOptions = []string{accountKey}
@@ -243,7 +242,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}
 	}
 
-	klog.V(2).Infof("cifsMountPath(%v) fstype(%v) volumeID(%v) context(%v) mountflags(%v) mountOptions(%v)", cifsMountPath, fsType, volumeID, context, mountFlags, mountOptions)
+	klog.V(2).Infof("cifsMountPath(%v) fstype(%v) volumeID(%v) context(%v) mountflags(%v) mountOptions(%v) volumeMountGroup(%s)", cifsMountPath, fsType, volumeID, context, mountFlags, mountOptions, volumeMountGroup)
 
 	isDirMounted, err := d.ensureMountPoint(cifsMountPath)
 	if err != nil {
@@ -263,6 +262,12 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			return true, SMBMount(d.mounter, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions)
 		}); err != nil {
 			return nil, status.Error(codes.Internal, fmt.Sprintf("volume(%s) mount %q on %q failed with %v", volumeID, source, cifsMountPath, err))
+		}
+		if protocol == nfs && volumeMountGroup != "" {
+			klog.V(2).Infof("set gid of volume(%s) as %s", volumeID, volumeMountGroup)
+			if err := SetVolumeOwnership(cifsMountPath, volumeMountGroup); err != nil {
+				return nil, status.Error(codes.Internal, fmt.Sprintf("SetVolumeOwnership with volume(%s) on %q failed with %v", volumeID, cifsMountPath, err))
+			}
 		}
 		klog.V(2).Infof("volume(%s) mount %q on %q succeeded", volumeID, source, cifsMountPath)
 	}
@@ -348,8 +353,7 @@ func (d *Driver) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeS
 		return nil, status.Error(codes.InvalidArgument, "NodeGetVolumeStats volume path was empty")
 	}
 
-	_, err := os.Stat(req.VolumePath)
-	if err != nil {
+	if _, err := os.Lstat(req.VolumePath); err != nil {
 		if os.IsNotExist(err) {
 			return nil, status.Errorf(codes.NotFound, "path %s does not exist", req.VolumePath)
 		}

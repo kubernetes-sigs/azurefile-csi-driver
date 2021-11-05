@@ -25,8 +25,8 @@ install_ginkgo () {
 }
 
 setup_e2e_binaries() {
-    # download k8s external e2e binary for kubernetes v1.21
-    curl -sL https://storage.googleapis.com/kubernetes-release/release/v1.21.0/kubernetes-test-linux-amd64.tar.gz --output e2e-tests.tar.gz
+    # download k8s external e2e binary for kubernetes
+    curl -sL https://storage.googleapis.com/kubernetes-release/release/v1.22.0/kubernetes-test-linux-amd64.tar.gz --output e2e-tests.tar.gz
     tar -xvf e2e-tests.tar.gz && rm e2e-tests.tar.gz
 
     if [ ! -z ${EXTERNAL_E2E_TEST_NFS} ]; then
@@ -59,7 +59,7 @@ if [ ! -z ${EXTERNAL_E2E_TEST_SMB} ]; then
 	echo "begin to run SMB protocol tests ...."
 	cp deploy/example/storageclass-azurefile-csi.yaml /tmp/csi/storageclass.yaml
 	ginkgo -p --progress --v -focus="External.Storage.*$DRIVER.csi.azure.com" \
-		-skip='\[Disruptive\]|\[Slow\]|should be able to unmount after the subpath directory is deleted' kubernetes/test/bin/e2e.test  -- \
+		-skip='\[Disruptive\]|\[Slow\]|should be able to unmount after the subpath directory is deleted|volume contents ownership changed' kubernetes/test/bin/e2e.test  -- \
 		-storage.testdriver=$PROJECT_ROOT/test/external-e2e/testdriver-smb.yaml \
 		--kubeconfig=$KUBECONFIG
 fi

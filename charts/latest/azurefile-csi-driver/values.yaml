@@ -104,6 +104,14 @@ linux:
   distro: debian # available values: debian, fedora
   tolerations:
     - operator: "Exists"
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: type
+              operator: NotIn
+              values:
+                - virtual-kubelet
 
 windows:
   enabled: true
@@ -114,3 +122,11 @@ windows:
     - key: "node.kubernetes.io/os"
       operator: "Exists"
       effect: "NoSchedule"
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: type
+              operator: NotIn
+              values:
+                - virtual-kubelet
