@@ -4,15 +4,19 @@ apiVersion: apps/v1
 metadata:
   name: {{ .Values.snapshot.snapshotController.name}}
   namespace: {{ .Release.Namespace }}
-{{ include "azurefile.labels" . | indent 2 }}
+  labels:
+    {{- include "azurefile.labels" . | nindent 4 }}
+    app: {{ .Values.snapshot.snapshotController.name}}
 spec:
   replicas: {{ .Values.snapshot.snapshotController.replicas }}
   selector:
     matchLabels:
+      {{- include "azurefile.selectorLabels" . | nindent 6 }}
       app: {{ .Values.snapshot.snapshotController.name}}
   template:
     metadata:
-{{ include "azurefile.labels" . | indent 6 }}
+      labels:
+        {{- include "azurefile.labels" . | nindent 8 }}
         app: {{ .Values.snapshot.snapshotController.name}}
     spec:
       serviceAccountName: {{ .Values.serviceAccount.snapshotController }}

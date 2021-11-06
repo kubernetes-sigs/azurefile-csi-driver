@@ -3,7 +3,8 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ .Values.rbac.name }}-external-provisioner-role
-{{ include "azurefile.labels" . | indent 2 }}
+  labels:
+    {{- include "azurefile.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
     resources: ["persistentvolumes"]
@@ -39,7 +40,8 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ .Values.rbac.name }}-csi-provisioner-binding
-{{ include "azurefile.labels" . | indent 2 }}
+  labels:
+    {{- include "azurefile.labels" . | nindent 4 }}
 subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccount.controller }}
@@ -55,7 +57,8 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ .Values.rbac.name }}-external-attacher-role
-{{ include "azurefile.labels" . | indent 2 }}
+  labels:
+    {{- include "azurefile.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
     resources: ["persistentvolumes"]
@@ -81,7 +84,8 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ .Values.rbac.name }}-csi-attacher-binding
-{{ include "azurefile.labels" . | indent 2 }}
+  labels:
+    {{- include "azurefile.labels" . | nindent 4 }}
 subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccount.controller }}
@@ -97,7 +101,8 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ .Values.rbac.name }}-external-snapshotter-role
-{{ include "azurefile.labels" . | indent 2 }}
+  labels:
+    {{- include "azurefile.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
     resources: ["events"]
@@ -126,7 +131,8 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ .Values.rbac.name }}-csi-snapshotter-binding
-{{ include "azurefile.labels" . | indent 2 }}
+  labels:
+    {{- include "azurefile.labels" . | nindent 4 }}
 subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccount.controller }}
@@ -141,7 +147,8 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ .Values.rbac.name }}-external-resizer-role
-{{ include "azurefile.labels" . | indent 2 }}
+  labels:
+    {{- include "azurefile.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
     resources: ["persistentvolumes"]
@@ -163,7 +170,8 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ .Values.rbac.name }}-csi-resizer-role
-{{ include "azurefile.labels" . | indent 2 }}
+  labels:
+    {{- include "azurefile.labels" . | nindent 4 }}
 subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccount.controller }}
@@ -178,6 +186,8 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: csi-{{ .Values.rbac.name }}-controller-secret-role
+  labels:
+    {{- include "azurefile.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
@@ -188,6 +198,8 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: csi-{{ .Values.rbac.name }}-controller-secret-binding
+  labels:
+    {{- include "azurefile.labels" . | nindent 4 }}
 subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccount.controller }}

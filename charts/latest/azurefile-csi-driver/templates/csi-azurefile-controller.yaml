@@ -3,15 +3,19 @@ apiVersion: apps/v1
 metadata:
   name: {{ .Values.controller.name }}
   namespace: {{ .Release.Namespace }}
-{{ include "azurefile.labels" . | indent 2 }}
+  labels:
+    {{- include "azurefile.labels" . | nindent 4 }}
+    app: {{ .Values.controller.name }}
 spec:
   replicas: {{ .Values.controller.replicas }}
   selector:
     matchLabels:
+      {{- include "azurefile.selectorLabels" . | nindent 6 }}
       app: {{ .Values.controller.name }}
   template:
     metadata:
-{{ include "azurefile.labels" . | indent 6 }}
+      labels:
+        {{- include "azurefile.labels" . | nindent 8 }}
         app: {{ .Values.controller.name }}
     spec:
       hostNetwork: {{ .Values.controller.hostNetwork }}

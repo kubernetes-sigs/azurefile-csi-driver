@@ -4,7 +4,9 @@ apiVersion: apps/v1
 metadata:
   name: {{ .Values.linux.dsName }}
   namespace: {{ .Release.Namespace }}
-{{ include "azurefile.labels" . | indent 2 }}
+  labels:
+    {{- include "azurefile.labels" . | nindent 4 }}
+    app: {{ .Values.linux.dsName }}
 spec:
   updateStrategy:
     rollingUpdate:
@@ -12,10 +14,12 @@ spec:
     type: RollingUpdate
   selector:
     matchLabels:
+      {{- include "azurefile.selectorLabels" . | nindent 6 }}
       app: {{ .Values.linux.dsName }}
   template:
     metadata:
-{{ include "azurefile.labels" . | indent 6 }}
+      labels:
+        {{- include "azurefile.labels" . | nindent 8 }}
         app: {{ .Values.linux.dsName }}
     spec:
       hostNetwork: true

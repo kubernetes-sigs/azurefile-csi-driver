@@ -30,6 +30,10 @@ image:
 imagePullSecrets: []
 # - name: myRegistryKeySecretName
 
+# -- Custom labels to add into metadata
+customLabels: {}
+  # k8s-app: azurefile-csi-driver
+
 serviceAccount:
   create: true # When true, service accounts will be created for you. Set to false if you want to use your own.
   controller: csi-azurefile-controller-sa # Name of Service Account to be created or used
