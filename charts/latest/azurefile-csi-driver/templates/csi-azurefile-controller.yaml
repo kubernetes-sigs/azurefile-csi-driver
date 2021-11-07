@@ -4,8 +4,8 @@ metadata:
   name: {{ .Values.controller.name }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "azurefile.labels" . | nindent 4 }}
     app: {{ .Values.controller.name }}
+    {{- include "azurefile.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.controller.replicas }}
   selector:

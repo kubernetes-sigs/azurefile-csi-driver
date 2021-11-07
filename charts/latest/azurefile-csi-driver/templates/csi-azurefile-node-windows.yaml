@@ -5,8 +5,8 @@ metadata:
   name: {{ .Values.windows.dsName }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "azurefile.labels" . | nindent 4 }}
     app: {{ .Values.windows.dsName }}
+    {{- include "azurefile.labels" . | nindent 4 }}
 spec:
   updateStrategy:
     rollingUpdate:
@@ -14,13 +14,13 @@ spec:
     type: RollingUpdate
   selector:
     matchLabels:
-      {{- include "azurefile.selectorLabels" . | nindent 6 }}
       app: {{ .Values.windows.dsName }}
+      {{- include "azurefile.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "azurefile.labels" . | nindent 8 }}
         app: {{ .Values.windows.dsName }}
+        {{- include "azurefile.labels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ .Values.serviceAccount.node }}
 {{- with .Values.windows.tolerations }}
