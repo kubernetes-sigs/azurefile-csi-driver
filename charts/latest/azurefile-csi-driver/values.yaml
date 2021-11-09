@@ -89,7 +89,7 @@ snapshot:
       pullPolicy: IfNotPresent
   snapshotController:
     name: csi-snapshot-controller
-    replicas: 1
+    replicas: 2
 
 feature:
   enableFSGroupPolicy: false
