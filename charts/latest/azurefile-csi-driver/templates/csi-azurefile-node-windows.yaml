@@ -122,6 +122,7 @@ spec:
             - "--cloud-config-secret-namespace={{ .Values.node.cloudConfigSecretNamespace }}"
             - "--custom-user-agent={{ .Values.driver.customUserAgent }}"
             - "--user-agent-suffix={{ .Values.driver.userAgentSuffix }}"
+            - "--allow-empty-cloud-config={{ .Values.node.allowEmptyCloudConfig }}"
           ports:
             - containerPort: {{ .Values.node.livenessProbe.healthPort }}
               name: healthz

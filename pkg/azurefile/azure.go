@@ -44,7 +44,7 @@ var (
 )
 
 // getCloudProvider get Azure Cloud Provider
-func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace, userAgent string) (*azure.Cloud, error) {
+func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace, userAgent string, allowEmptyCloudConfig bool) (*azure.Cloud, error) {
 	az := &azure.Cloud{
 		InitSecretConfig: azure.InitSecretConfig{
 			SecretName:      secretName,
@@ -105,7 +105,11 @@ func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace, userAgent
 	}
 
 	if config == nil {
-		klog.V(2).Infof("no cloud config provided, error: %v, driver will run without cloud config", err)
+		if allowEmptyCloudConfig {
+			klog.V(2).Infof("no cloud config provided, error: %v, driver will run without cloud config", err)
+		} else {
+			return az, fmt.Errorf("no cloud config provided, error: %v", err)
+		}
 	} else {
 		config.UserAgent = userAgent
 		if err = az.InitializeCloudFromConfig(config, fromSecret, false); err != nil {
