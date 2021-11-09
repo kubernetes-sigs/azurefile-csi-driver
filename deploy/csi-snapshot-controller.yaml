@@ -5,7 +5,7 @@ metadata:
   name: csi-snapshot-controller
   namespace: kube-system
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: csi-snapshot-controller
@@ -32,10 +32,10 @@ spec:
           image: mcr.microsoft.com/oss/kubernetes-csi/snapshot-controller:v3.0.3
           args:
             - "--v=2"
-            - "--leader-election=false"
+            - "--leader-election=true"
           resources:
             limits:
-              cpu: 100m
+              cpu: 200m
               memory: 100Mi
             requests:
               cpu: 10m
