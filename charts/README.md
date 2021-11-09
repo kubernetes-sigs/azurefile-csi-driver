@@ -78,6 +78,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `image.nodeDriverRegistrar.tag`                   | csi-node-driver-registrar docker image tag                 | `v2.3.0`                                                            |
 | `image.nodeDriverRegistrar.pullPolicy`            | csi-node-driver-registrar image pull policy                | `IfNotPresent`                                                      |
 | `imagePullSecrets`                                | Specify docker-registry secret names as an array           | [] (does not add image pull secrets to deployed pods)             |
+| `customLabels`                                    | Custom labels to add into metadata                         | `{}`                                                                |
 | `serviceAccount.create`                           | whether create service account of csi-azurefile-controller, csi-azurefile-node, and snapshot-controller| `true`                                                    |
 | `serviceAccount.controller`                       | name of service account for csi-azurefile-controller       | `csi-azurefile-controller-sa`                                  |
 | `serviceAccount.node`                             | name of service account for csi-azurefile-node             | `csi-azurefile-node-sa`                                        |
