@@ -1,28 +1,16 @@
 ## NFS support
-[NFS 4.1 support for Azure Files](https://azure.microsoft.com/en-us/blog/nfs-41-support-for-azure-files-is-now-in-preview/preview/) is now in Public Preview. This service is optimized for random access workloads with in-place data updates and provides full POSIX file system support. This page shows how to use NFS feature by Azure File CSI driver on Azure Kubernetes cluster.
+[NFS 4.1 support for Azure Files](https://docs.microsoft.com/en-us/azure/storage/files/files-nfs-protocol) is optimized for random access workloads with in-place data updates and provides full POSIX file system support. This page shows how to use NFS feature by Azure File CSI driver on Azure Kubernetes cluster.
 
 - supported OS: Linux
 
-#### Supported CSI driver version: `v0.9.0`
-> storage account dynamic provisioning is supported from `v0.10.0`.
-
-#### [Available regions](https://aka.ms/azurefiles/nfs/preview/regions)
-We are continually adding more regions. Latest region list is available on [Azure NFS documentation](https://aka.ms/azurefiles/nfs/preview/regions)
-
 #### Prerequisite
  - [Install CSI driver](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/install-csi-driver-master.md)
- - Register `AllowNfsFileShares` feature under your subscription
-```console
-az feature register --name AllowNfsFileShares --namespace Microsoft.Storage
-az feature list -o table --query "[?contains(name, 'Microsoft.Storage/AllowNfsFileShares')].{Name:name,State:properties.state}"
-az provider register --namespace Microsoft.Storage
-```
+ - On AKS managed CSI driver, make sure cluster `Control plane` identity(with name `AKS Cluster Name`) has `Contributor` permission on vnet resource group
  - [Optional] Create a `Premium_LRS` Azure storage account with following configurations to support NFS share
    - account kind: `FileStorage`
    - secure transfer required(enable HTTPS traffic only): `false`
    - select virtual network of agent nodes in `Firewalls and virtual networks`
    - specify `storageAccount` in below storage class `parameters`
- - [Optional] If cluster identity is Managed Service Identity(MSI), make sure user assigned identity has `Contributor` role on node resource group
 
 #### How to use NFS feature
  - Create an Azure File storage class
