@@ -48,6 +48,7 @@ controller:
   name: csi-azurefile-controller
   cloudConfigSecretName: azure-cloud-provider
   cloudConfigSecretNamespace: kube-system
+  allowEmptyCloudConfig: true
   replicas: 2
   hostNetwork: true # this setting could be disabled if controller does not depend on MSI setting
   metricsPort: 29614
@@ -68,6 +69,7 @@ controller:
 node:
   cloudConfigSecretName: azure-cloud-provider
   cloudConfigSecretNamespace: kube-system
+  allowEmptyCloudConfig: true
   metricsPort: 29615
   livenessProbe:
     healthPort: 29613
