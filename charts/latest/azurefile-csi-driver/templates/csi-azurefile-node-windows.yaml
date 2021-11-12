@@ -56,13 +56,7 @@ spec:
             - name: CSI_ENDPOINT
               value: unix://C:\\csi\\csi.sock
           imagePullPolicy: {{ .Values.image.livenessProbe.pullPolicy }}
-          resources:
-            limits:
-              cpu: 200m
-              memory: 200Mi
-            requests:
-              cpu: 10m
-              memory: 20Mi
+          resources: {{- toYaml .Values.windows.resources.livenessProbe | nindent 12 }}
         - name: node-driver-registrar
 {{- if hasPrefix "/" .Values.image.nodeDriverRegistrar.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.image.nodeDriverRegistrar.repository }}:{{ .Values.image.nodeDriverRegistrar.tag }}"
@@ -98,13 +92,7 @@ spec:
               mountPath: C:\csi
             - name: registration-dir
               mountPath: C:\registration
-          resources:
-            limits:
-              cpu: 200m
-              memory: 200Mi
-            requests:
-              cpu: 10m
-              memory: 20Mi
+          resources: {{- toYaml .Values.windows.resources.nodeDriverRegistrar | nindent 12 }}
         - name: azurefile
 {{- if hasPrefix "/" .Values.image.azurefile.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
@@ -167,13 +155,7 @@ spec:
               mountPath: \\.\pipe\csi-proxy-filesystem-v1beta1
             - name: csi-proxy-smb-pipe-v1beta1
               mountPath: \\.\pipe\csi-proxy-smb-v1beta1
-          resources:
-            limits:
-              cpu: 400m
-              memory: 400Mi
-            requests:
-              cpu: 10m
-              memory: 20Mi
+          resources: {{- toYaml .Values.windows.resources.azurefile | nindent 12 }}
       volumes:
         - name: csi-proxy-fs-pipe-v1
           hostPath:
