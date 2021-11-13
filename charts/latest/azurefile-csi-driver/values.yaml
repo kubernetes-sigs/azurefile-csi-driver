@@ -57,6 +57,49 @@ controller:
   runOnMaster: false
   attachRequired: false
   logLevel: 5
+  resources:
+    csiProvisioner:
+      limits:
+        cpu: 200m
+        memory: 500Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    csiAttacher:
+      limits:
+        cpu: 200m
+        memory: 500Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    csiResizer:
+      limits:
+        cpu: 200m
+        memory: 500Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    csiSnapshotter:
+      limits:
+        cpu: 200m
+        memory: 100Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    livenessProbe:
+      limits:
+        cpu: 100m
+        memory: 100Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    azurefile:
+      limits:
+        cpu: 300m
+        memory: 200Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
   kubeconfig: ""
   tolerations:
     - key: "node-role.kubernetes.io/master"
@@ -92,6 +135,13 @@ snapshot:
   snapshotController:
     name: csi-snapshot-controller
     replicas: 2
+    resources:
+      limits:
+        cpu: 200m
+        memory: 100Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
 
 feature:
   enableFSGroupPolicy: false
@@ -108,6 +158,28 @@ linux:
   kubelet: /var/lib/kubelet
   kubeconfig: ""
   distro: debian # available values: debian, fedora
+  resources:
+    livenessProbe:
+      limits:
+        cpu: 100m
+        memory: 100Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    nodeDriverRegistrar:
+      limits:
+        cpu: 200m
+        memory: 100Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    azurefile:
+      limits:
+        cpu: 400m
+        memory: 300Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
   tolerations:
     - operator: "Exists"
   nodeAffinity:
@@ -124,6 +196,28 @@ windows:
   dsName: csi-azurefile-node-win # daemonset name
   kubelet: 'C:\var\lib\kubelet'
   kubeconfig: 'C:\\k\\config'
+  resources:
+    livenessProbe:
+      limits:
+        cpu: 200m
+        memory: 200Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    nodeDriverRegistrar:
+      limits:
+        cpu: 200m
+        memory: 200Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    azurefile:
+      limits:
+        cpu: 400m
+        memory: 400Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
   tolerations:
     - key: "node.kubernetes.io/os"
       operator: "Exists"
