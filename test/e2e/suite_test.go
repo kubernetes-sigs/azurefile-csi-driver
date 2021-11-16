@@ -59,6 +59,7 @@ var (
 		"csi.storage.k8s.io/provisioner-secret-namespace": "default",
 		"csi.storage.k8s.io/node-stage-secret-namespace":  "default",
 	}
+	supportZRSwithNFS bool
 )
 
 type testCmd struct {
@@ -87,6 +88,14 @@ var _ = ginkgo.BeforeSuite(func() {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		_, err = azureClient.EnsureResourceGroup(context.Background(), creds.ResourceGroup, creds.Location, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+		// check whether current region supports Premium_ZRS with NFS protocol
+		supportedRegions := []string{"southeastasia", "australiaeast", "europenorth", "europewest", "francecentral", "japaneast", "uksouth", "useast", "useast2", "uswest2"}
+		for _, region := range supportedRegions {
+			if creds.Location == region {
+				supportZRSwithNFS = true
+			}
+		}
 
 		// Install Azure File CSI Driver on cluster from project root
 		e2eBootstrap := testCmd{
