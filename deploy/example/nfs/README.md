@@ -5,7 +5,8 @@
 
 #### Prerequisite
  - When using AKS managed CSI driver, make sure cluster `Control plane` identity(with name `AKS Cluster Name`) has `Contributor` permission on vnet resource group
- - [Optional] Create a `Premium_LRS` Azure storage account with following configurations to support NFS share
+ - [Optional] Create a `Premium_LRS` or `Premium_ZRS` Azure storage account with following configurations to support NFS share
+   > `Premium_ZRS` account type is only supported in [limited region support](https://docs.microsoft.com/en-us/azure/storage/common/storage-redundancy#zone-redundant-storage)
    - account kind: `FileStorage`
    - secure transfer required(enable HTTPS traffic only): `false`
    - select virtual network of agent nodes in `Firewalls and virtual networks`
@@ -23,6 +24,7 @@ metadata:
 provisioner: file.csi.azure.com
 parameters:
   protocol: nfs
+  skuName: Premium_LRS  # available values: Premium_LRS, Premium_ZRS
 ```
 
 run following commands to create a storage class:
