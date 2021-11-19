@@ -160,6 +160,7 @@ type DriverOptions struct {
 	CustomUserAgent            string
 	UserAgentSuffix            string
 	AllowEmptyCloudConfig      bool
+	EnableGetVolumeStats       bool
 }
 
 // Driver implements all interfaces of CSI drivers
@@ -171,6 +172,7 @@ type Driver struct {
 	customUserAgent            string
 	userAgentSuffix            string
 	allowEmptyCloudConfig      bool
+	enableGetVolumeStats       bool
 	fileClient                 *azureFileClient
 	mounter                    *mount.SafeFormatAndMount
 	// lock per volume attach (only for vhd disk feature)
@@ -270,12 +272,15 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 		csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER,
 	})
 
-	d.AddNodeServiceCapabilities([]csi.NodeServiceCapability_RPC_Type{
+	nodeCap := []csi.NodeServiceCapability_RPC_Type{
 		csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
-		csi.NodeServiceCapability_RPC_GET_VOLUME_STATS,
-		csi.NodeServiceCapability_RPC_VOLUME_MOUNT_GROUP,
 		csi.NodeServiceCapability_RPC_SINGLE_NODE_MULTI_WRITER,
-	})
+		csi.NodeServiceCapability_RPC_VOLUME_MOUNT_GROUP,
+	}
+	if d.enableGetVolumeStats {
+		nodeCap = append(nodeCap, csi.NodeServiceCapability_RPC_GET_VOLUME_STATS)
+	}
+	d.AddNodeServiceCapabilities(nodeCap)
 
 	s := csicommon.NewNonBlockingGRPCServer()
 	// Driver d act as IdentityServer, ControllerServer and NodeServer

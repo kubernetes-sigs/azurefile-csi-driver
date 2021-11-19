@@ -46,7 +46,8 @@ var (
 	cloudConfigSecretNamespace = flag.String("cloud-config-secret-namespace", "kube-system", "secret namespace of cloud config")
 	customUserAgent            = flag.String("custom-user-agent", "", "custom userAgent")
 	userAgentSuffix            = flag.String("user-agent-suffix", "", "userAgent suffix")
-	allowEmptyCloudConfig      = flag.Bool("allow-empty-cloud-config", true, "Whether allow running driver without cloud config")
+	allowEmptyCloudConfig      = flag.Bool("allow-empty-cloud-config", true, "allow running driver without cloud config")
+	enableGetVolumeStats       = flag.Bool("enable-get-volume-stats", false, "allow GET_VOLUME_STATS on agent node")
 )
 
 func main() {
@@ -79,6 +80,7 @@ func handle() {
 		CustomUserAgent:            *customUserAgent,
 		UserAgentSuffix:            *userAgentSuffix,
 		AllowEmptyCloudConfig:      *allowEmptyCloudConfig,
+		EnableGetVolumeStats:       *enableGetVolumeStats,
 	}
 	driver := azurefile.NewDriver(&driverOptions)
 	if driver == nil {
