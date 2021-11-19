@@ -145,6 +145,7 @@ snapshot:
 
 feature:
   enableFSGroupPolicy: false
+  enableGetVolumeStats: false
 
 driver:
   name: file.csi.azure.com

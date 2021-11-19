@@ -111,6 +111,7 @@ spec:
             - "--custom-user-agent={{ .Values.driver.customUserAgent }}"
             - "--user-agent-suffix={{ .Values.driver.userAgentSuffix }}"
             - "--allow-empty-cloud-config={{ .Values.node.allowEmptyCloudConfig }}"
+            - "--enable-get-volume-stats={{ .Values.feature.enableGetVolumeStats }}"
           ports:
             - containerPort: {{ .Values.node.livenessProbe.healthPort }}
               name: healthz
