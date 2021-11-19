@@ -47,7 +47,7 @@ spec:
             - --v=2
           resources:
             limits:
-              cpu: 100m
+              cpu: 1
               memory: 100Mi
             requests:
               cpu: 10m
@@ -78,7 +78,7 @@ spec:
               mountPath: /registration
           resources:
             limits:
-              cpu: 200m
+              cpu: 1
               memory: 100Mi
             requests:
               cpu: 10m
@@ -131,7 +131,7 @@ spec:
               name: device-dir
           resources:
             limits:
-              cpu: 400m
+              cpu: 1
               memory: 300Mi
             requests:
               cpu: 10m
