@@ -3,7 +3,7 @@
 ### Option#1: Enable CSI driver in AKS cluster creation with version < 1.21
 > From AKS 1.21, Azure Disk and Azure File CSI drivers would be installed by default.
 > 
-> Make sure cluster `Control plane` identity(with name `AKS Cluster Name`) has `Contributor` permission on vnet resource group when using NFS protocol
+> Make sure cluster `Control plane` identity(with name `AKS Cluster Name`) has `Contributor` permission on vnet resource group when using NFS protocol or privateEndpoint
 > 
 Follow AKS doc: [Enable CSI drivers for Azure disks and Azure Files on AKS (preview)](https://docs.microsoft.com/en-us/azure/aks/csi-storage-drivers) 
 
