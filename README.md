@@ -31,7 +31,7 @@ follow guide [here](./docs/install-driver-on-aks.md)
  > kubectl create configmap azure-cred-file --from-literal=path="/etc/kubernetes/cloud.conf" --from-literal=path-windows="C:\\k\\cloud.conf" -n kube-system
  > ```
  - This driver also supports [read cloud config from kuberenetes secret](./docs/read-from-secret.md).
- - If cluster identity is [Managed Service Identity(MSI)](https://docs.microsoft.com/en-us/azure/aks/use-managed-identity), make sure user assigned identity has `Contributor` role on node resource group
+ - Make sure identity used by driver has `Contributor` role on node resource group and vnet resource group
  - [How to set up CSI driver on Azure RedHat OpenShift(ARO)](https://github.com/ezYakaEagle442/aro-pub-storage/blob/master/setup-store-CSI-driver-azure-file.md)
 
 #### Option#2: Bring your own storage account
