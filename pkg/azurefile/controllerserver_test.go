@@ -2081,7 +2081,7 @@ func TestSetAzureCredentials(t *testing.T) {
 
 	for _, test := range tests {
 		d.cloud.KubeClient = test.kubeClient
-		result, err := d.SetAzureCredentials(test.accountName, test.accountKey, test.secretName, test.secretNamespace)
+		result, err := d.SetAzureCredentials(context.TODO(), test.accountName, test.accountKey, test.secretName, test.secretNamespace)
 		if result != test.expectedName || !reflect.DeepEqual(err, test.expectedErr) {
 			t.Errorf("desc: %s,\n input: accountName(%v), accountKey(%v),\n setAzureCredentials result: %v, expectedName: %v err: %v, expectedErr: %v",
 				test.desc, test.accountName, test.accountKey, result, test.expectedName, err, test.expectedErr)

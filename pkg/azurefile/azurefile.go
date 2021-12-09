@@ -580,7 +580,7 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 			}
 			if secretName != "" {
 				var name string
-				name, accountKey, err = d.GetStorageAccountFromSecret(secretName, secretNamespace)
+				name, accountKey, err = d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
 				if name != "" {
 					accountName = name
 				}
@@ -759,7 +759,7 @@ func (d *Driver) GetStorageAccesskey(ctx context.Context, accountOptions *azure.
 	if secretName == "" {
 		secretName = fmt.Sprintf(secretNameTemplate, accountName)
 	}
-	_, accountKey, err := d.GetStorageAccountFromSecret(secretName, secretNamespace)
+	_, accountKey, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
 	if err != nil {
 		klog.V(2).Infof("could not get account(%s) key from secret(%s), error: %v, use cluster identity to get account key instead", accountOptions.Name, secretName, err)
 		accountKey, err = d.cloud.GetStorageAccesskey(ctx, accountName, accountOptions.ResourceGroup)
@@ -773,12 +773,12 @@ func (d *Driver) GetStorageAccesskey(ctx context.Context, accountOptions *azure.
 
 // GetStorageAccountFromSecret get storage account key from k8s secret
 // return <accountName, accountKey, error>
-func (d *Driver) GetStorageAccountFromSecret(secretName, secretNamespace string) (string, string, error) {
+func (d *Driver) GetStorageAccountFromSecret(ctx context.Context, secretName, secretNamespace string) (string, string, error) {
 	if d.cloud.KubeClient == nil {
 		return "", "", fmt.Errorf("could not get account key from secret(%s): KubeClient is nil", secretName)
 	}
 
-	secret, err := d.cloud.KubeClient.CoreV1().Secrets(secretNamespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+	secret, err := d.cloud.KubeClient.CoreV1().Secrets(secretNamespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil {
 		return "", "", fmt.Errorf("could not get secret(%v): %v", secretName, err)
 	}
@@ -809,7 +809,7 @@ func (d *Driver) useDataPlaneAPI(volumeID, accountName string) bool {
 	return useDataPlaneAPI
 }
 
-func (d *Driver) SetAzureCredentials(accountName, accountKey, secretName, secretNamespace string) (string, error) {
+func (d *Driver) SetAzureCredentials(ctx context.Context, accountName, accountKey, secretName, secretNamespace string) (string, error) {
 	if d.cloud.KubeClient == nil {
 		klog.Warningf("could not create secret: kubeClient is nil")
 		return "", nil
@@ -831,7 +831,7 @@ func (d *Driver) SetAzureCredentials(accountName, accountKey, secretName, secret
 		},
 		Type: "Opaque",
 	}
-	_, err := d.cloud.KubeClient.CoreV1().Secrets(secretNamespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+	_, err := d.cloud.KubeClient.CoreV1().Secrets(secretNamespace).Create(ctx, secret, metav1.CreateOptions{})
 	if errors.IsAlreadyExists(err) {
 		err = nil
 	}
