@@ -259,7 +259,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			return nil, fmt.Errorf("prepare stage path failed for %s with error: %v", cifsMountPath, err)
 		}
 		if err := wait.PollImmediate(1*time.Second, 2*time.Minute, func() (bool, error) {
-			return true, SMBMount(d.mounter, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions)
+			return true, SMBMount(d.mounter, source, cifsMountPath+" --verbose", mountFsType, mountOptions, sensitiveMountOptions)
 		}); err != nil {
 			return nil, status.Error(codes.Internal, fmt.Sprintf("volume(%s) mount %q on %q failed with %v", volumeID, source, cifsMountPath, err))
 		}
