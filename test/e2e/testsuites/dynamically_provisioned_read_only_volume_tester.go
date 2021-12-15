@@ -18,11 +18,11 @@ package testsuites
 
 import (
 	"fmt"
+	"strings"
 
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 
 	"github.com/onsi/ginkgo"
-	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
@@ -43,6 +43,7 @@ func (t *DynamicallyProvisionedReadOnlyVolumeTest) Run(client clientset.Interfac
 		if pod.IsWindows {
 			expectedReadOnlyLog = "FileOpenFailure"
 		}
+		permissionDeniedLog := "Permission denied"
 
 		tpod, cleanup := pod.SetupWithDynamicVolumes(client, namespace, t.CSIDriver, t.StorageClassParameters)
 		// defer must be called here for resources not get removed before using them
@@ -58,6 +59,7 @@ func (t *DynamicallyProvisionedReadOnlyVolumeTest) Run(client clientset.Interfac
 		ginkgo.By("checking that pod logs contain expected message")
 		body, err := tpod.Logs()
 		framework.ExpectNoError(err, fmt.Sprintf("Error getting logs for pod %s: %v", tpod.pod.Name, err))
-		gomega.Expect(string(body)).To(gomega.ContainSubstring(expectedReadOnlyLog))
+		hasReadOnlyLog := strings.Contains(string(body), expectedReadOnlyLog) || strings.Contains(string(body), permissionDeniedLog)
+		framework.ExpectEqual(hasReadOnlyLog, true, fmt.Sprintf("expected substring: %s or %s, current returned logs: %s", expectedReadOnlyLog, permissionDeniedLog, string(body)))
 	}
 }

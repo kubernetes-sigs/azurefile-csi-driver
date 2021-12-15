@@ -117,6 +117,7 @@ const (
 	vhdSuffix                         = ".vhd"
 	metaDataNode                      = "node"
 	networkEndpointTypeField          = "networkendpointtype"
+	premium                           = "premium"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
 	// this is a workaround fix for 429 throttling issue, will update cloud provider for better fix later
@@ -158,6 +159,8 @@ type DriverOptions struct {
 	CloudConfigSecretNamespace string
 	CustomUserAgent            string
 	UserAgentSuffix            string
+	AllowEmptyCloudConfig      bool
+	EnableGetVolumeStats       bool
 }
 
 // Driver implements all interfaces of CSI drivers
@@ -168,6 +171,8 @@ type Driver struct {
 	cloudConfigSecretNamespace string
 	customUserAgent            string
 	userAgentSuffix            string
+	allowEmptyCloudConfig      bool
+	enableGetVolumeStats       bool
 	fileClient                 *azureFileClient
 	mounter                    *mount.SafeFormatAndMount
 	// lock per volume attach (only for vhd disk feature)
@@ -202,14 +207,14 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.cloudConfigSecretNamespace = options.CloudConfigSecretNamespace
 	driver.customUserAgent = options.CustomUserAgent
 	driver.userAgentSuffix = options.UserAgentSuffix
+	driver.allowEmptyCloudConfig = options.AllowEmptyCloudConfig
 	driver.volLockMap = newLockMap()
 	driver.subnetLockMap = newLockMap()
 	driver.volumeLocks = newVolumeLocks()
-	getter := func(key string) (interface{}, error) {
-		return nil, nil
-	}
 
 	var err error
+	getter := func(key string) (interface{}, error) { return nil, nil }
+
 	if driver.accountSearchCache, err = azcache.NewTimedcache(time.Minute, getter); err != nil {
 		klog.Fatalf("%v", err)
 	}
@@ -235,7 +240,7 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 
 	userAgent := GetUserAgent(d.Name, d.customUserAgent, d.userAgentSuffix)
 	klog.V(2).Infof("driver userAgent: %s", userAgent)
-	d.cloud, err = getCloudProvider(kubeconfig, d.NodeID, d.cloudConfigSecretName, d.cloudConfigSecretNamespace, userAgent)
+	d.cloud, err = getCloudProvider(kubeconfig, d.NodeID, d.cloudConfigSecretName, d.cloudConfigSecretNamespace, userAgent, d.allowEmptyCloudConfig)
 	if err != nil {
 		klog.Fatalf("failed to get Azure Cloud Provider, error: %v", err)
 	}
@@ -267,12 +272,15 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 		csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER,
 	})
 
-	d.AddNodeServiceCapabilities([]csi.NodeServiceCapability_RPC_Type{
+	nodeCap := []csi.NodeServiceCapability_RPC_Type{
 		csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
-		csi.NodeServiceCapability_RPC_GET_VOLUME_STATS,
-		csi.NodeServiceCapability_RPC_VOLUME_MOUNT_GROUP,
 		csi.NodeServiceCapability_RPC_SINGLE_NODE_MULTI_WRITER,
-	})
+		csi.NodeServiceCapability_RPC_VOLUME_MOUNT_GROUP,
+	}
+	if d.enableGetVolumeStats {
+		nodeCap = append(nodeCap, csi.NodeServiceCapability_RPC_GET_VOLUME_STATS)
+	}
+	d.AddNodeServiceCapabilities(nodeCap)
 
 	s := csicommon.NewNonBlockingGRPCServer()
 	// Driver d act as IdentityServer, ControllerServer and NodeServer
