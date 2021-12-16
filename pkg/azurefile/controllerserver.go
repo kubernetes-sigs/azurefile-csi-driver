@@ -207,8 +207,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if fsType == nfs || protocol == nfs {
 		protocol = nfs
 		enableHTTPSTrafficOnly = false
-		// default to Premium_LRS
-		sku = string(storage.SkuNamePremiumLRS)
+		if !strings.HasPrefix(strings.ToLower(sku), premium) {
+			// NFS protocol only supports Premium storage
+			sku = string(storage.SkuNamePremiumLRS)
+		}
 		shareProtocol = storage.EnabledProtocolsNFS
 		// NFS protocol does not need account key
 		storeAccountKey = false
@@ -231,7 +233,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	fileShareSize := int(requestGiB)
 	// account kind should be FileStorage for Premium File
 	accountKind := string(storage.KindStorageV2)
-	if strings.HasPrefix(strings.ToLower(sku), "premium") {
+	if strings.HasPrefix(strings.ToLower(sku), premium) {
 		accountKind = string(storage.KindFileStorage)
 		if fileShareSize < minimumPremiumShareSize {
 			fileShareSize = minimumPremiumShareSize
