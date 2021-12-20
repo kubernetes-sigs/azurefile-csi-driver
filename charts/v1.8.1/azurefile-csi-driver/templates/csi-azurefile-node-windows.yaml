@@ -1,66 +1,72 @@
----
+{{- if .Values.windows.enabled}}
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: csi-azurefile-node-win
-  namespace: kube-system
+  name: {{ .Values.windows.dsName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.windows.dsName }}
+    {{- include "azurefile.labels" . | nindent 4 }}
 spec:
   updateStrategy:
     rollingUpdate:
-      maxUnavailable: 1
+      maxUnavailable: {{ .Values.node.maxUnavailable }}
     type: RollingUpdate
   selector:
     matchLabels:
-      app: csi-azurefile-node-win
+      app: {{ .Values.windows.dsName }}
+      {{- include "azurefile.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app: csi-azurefile-node-win
+        app: {{ .Values.windows.dsName }}
+        {{- include "azurefile.labels" . | nindent 8 }}
     spec:
-      serviceAccountName: csi-azurefile-node-sa
+      serviceAccountName: {{ .Values.serviceAccount.node }}
+{{- with .Values.windows.tolerations }}
       tolerations:
-        - key: "node.kubernetes.io/os"
-          operator: "Exists"
-          effect: "NoSchedule"
+{{ toYaml . | indent 8 }}
+{{- end }}
       nodeSelector:
         kubernetes.io/os: windows
       affinity:
         nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: type
-                    operator: NotIn
-                    values:
-                      - virtual-kubelet
+{{ toYaml .Values.windows.nodeAffinity | indent 10 }}
       priorityClassName: system-node-critical
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 8 }}
+      {{- end }}
       containers:
         - name: liveness-probe
           volumeMounts:
             - mountPath: C:\csi
               name: plugin-dir
-          image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0
+{{- if hasPrefix "/" .Values.image.livenessProbe.repository }}
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}"
+{{- else }}
+          image: "{{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}"
+{{- end }}
           args:
-            - --csi-address=$(CSI_ENDPOINT)
-            - --probe-timeout=3s
-            - --health-port=29613
-            - --v=2
+            - "--csi-address=$(CSI_ENDPOINT)"
+            - "--probe-timeout=3s"
+            - "--health-port={{ .Values.node.livenessProbe.healthPort }}"
+            - "--v=2"
           env:
             - name: CSI_ENDPOINT
               value: unix://C:\\csi\\csi.sock
-          resources:
-            limits:
-              cpu: 1
-              memory: 200Mi
-            requests:
-              cpu: 10m
-              memory: 20Mi
+          imagePullPolicy: {{ .Values.image.livenessProbe.pullPolicy }}
+          resources: {{- toYaml .Values.windows.resources.livenessProbe | nindent 12 }}
         - name: node-driver-registrar
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0
+{{- if hasPrefix "/" .Values.image.nodeDriverRegistrar.repository }}
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.nodeDriverRegistrar.repository }}:{{ .Values.image.nodeDriverRegistrar.tag }}"
+{{- else }}
+          image: "{{ .Values.image.nodeDriverRegistrar.repository }}:{{ .Values.image.nodeDriverRegistrar.tag }}"
+{{- end }}
           args:
-            - --v=2
-            - --csi-address=$(CSI_ENDPOINT)
-            - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
+            - "--csi-address=$(CSI_ENDPOINT)"
+            - "--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)"
+            - "--v=2"
           livenessProbe:
             exec:
               command:
@@ -73,11 +79,12 @@ spec:
             - name: CSI_ENDPOINT
               value: unix://C:\\csi\\csi.sock
             - name: DRIVER_REG_SOCK_PATH
-              value: C:\\var\\lib\\kubelet\\plugins\\file.csi.azure.com\\csi.sock
+              value: C:\\var\\lib\\kubelet\\plugins\\{{ .Values.driver.name }}\\csi.sock
             - name: KUBE_NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+          imagePullPolicy: {{ .Values.image.nodeDriverRegistrar.pullPolicy }}
           volumeMounts:
             - name: kubelet-dir
               mountPath: "C:\\var\\lib\\kubelet"
@@ -85,24 +92,28 @@ spec:
               mountPath: C:\csi
             - name: registration-dir
               mountPath: C:\registration
-          resources:
-            limits:
-              cpu: 1
-              memory: 200Mi
-            requests:
-              cpu: 10m
-              memory: 20Mi
+          resources: {{- toYaml .Values.windows.resources.nodeDriverRegistrar | nindent 12 }}
         - name: azurefile
-          image: mcr.microsoft.com/k8s/csi/azurefile-csi:v1.8.1
-          imagePullPolicy: IfNotPresent
+{{- if hasPrefix "/" .Values.image.azurefile.repository }}
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
+{{- else }}
+          image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
+{{- end }}
           args:
-            - --v=5
-            - --endpoint=$(CSI_ENDPOINT)
-            - --nodeid=$(KUBE_NODE_NAME)
-            - --kubeconfig=C:\\k\\config
-            - --metrics-address=0.0.0.0:29615
+            - "--v={{ .Values.node.logLevel }}"
+            - "--endpoint=$(CSI_ENDPOINT)"
+            - "--nodeid=$(KUBE_NODE_NAME)"
+            - "--metrics-address=0.0.0.0:{{ .Values.node.metricsPort }}"
+            - "--kubeconfig={{ .Values.windows.kubeconfig }}"
+            - "--drivername={{ .Values.driver.name }}"
+            - "--cloud-config-secret-name={{ .Values.node.cloudConfigSecretName }}"
+            - "--cloud-config-secret-namespace={{ .Values.node.cloudConfigSecretNamespace }}"
+            - "--custom-user-agent={{ .Values.driver.customUserAgent }}"
+            - "--user-agent-suffix={{ .Values.driver.userAgentSuffix }}"
+            - "--allow-empty-cloud-config={{ .Values.node.allowEmptyCloudConfig }}"
+            - "--enable-get-volume-stats={{ .Values.feature.enableGetVolumeStats }}"
           ports:
-            - containerPort: 29613
+            - containerPort: {{ .Values.node.livenessProbe.healthPort }}
               name: healthz
               protocol: TCP
           livenessProbe:
@@ -127,6 +138,7 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           volumeMounts:
             - name: kubelet-dir
               mountPath: "C:\\var\\lib\\kubelet"
@@ -144,41 +156,40 @@ spec:
               mountPath: \\.\pipe\csi-proxy-filesystem-v1beta1
             - name: csi-proxy-smb-pipe-v1beta1
               mountPath: \\.\pipe\csi-proxy-smb-v1beta1
-          resources:
-            limits:
-              cpu: 1
-              memory: 400Mi
-            requests:
-              cpu: 10m
-              memory: 20Mi
+          resources: {{- toYaml .Values.windows.resources.azurefile | nindent 12 }}
       volumes:
         - name: csi-proxy-fs-pipe-v1
           hostPath:
             path: \\.\pipe\csi-proxy-filesystem-v1
+            type: ""
         - name: csi-proxy-smb-pipe-v1
           hostPath:
             path: \\.\pipe\csi-proxy-smb-v1
+            type: ""
         # these paths are still included for compatibility, they're used
         # only if the node has still the beta version of the CSI proxy
         - name: csi-proxy-fs-pipe-v1beta1
           hostPath:
             path: \\.\pipe\csi-proxy-filesystem-v1beta1
+            type: ""
         - name: csi-proxy-smb-pipe-v1beta1
           hostPath:
             path: \\.\pipe\csi-proxy-smb-v1beta1
+            type: ""
         - name: registration-dir
           hostPath:
-            path: C:\var\lib\kubelet\plugins_registry\
+            path: {{ .Values.windows.kubelet }}\plugins_registry\
             type: Directory
         - name: kubelet-dir
           hostPath:
-            path: C:\var\lib\kubelet\
+            path: {{ .Values.windows.kubelet }}\
             type: Directory
         - name: plugin-dir
           hostPath:
-            path: C:\var\lib\kubelet\plugins\file.csi.azure.com\
+            path: {{ .Values.windows.kubelet }}\plugins\{{ .Values.driver.name }}\
             type: DirectoryOrCreate
         - name: azure-config
           hostPath:
             path: C:\k
-            type: DirectoryOrCreate
+            type: Directory
+{{- end -}}
