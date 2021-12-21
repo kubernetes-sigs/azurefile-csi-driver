@@ -17,10 +17,10 @@ shareName | specify Azure file share name | existing or new Azure file name | No
 accessTier | [Access tier for file share](https://docs.microsoft.com/en-us/azure/storage/files/storage-files-planning#storage-tiers) | GpV2 account can choose between `TransactionOptimized` (default), `Hot`, and `Cool`. FileStorage account can choose `Premium` | No | empty(use default setting for different storage account types)
 shareName | specify Azure file share name | existing or new Azure file name | No | if empty, driver will generate an Azure file share name
 server | specify Azure storage account server address | existing server address, e.g. `accountname.privatelink.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
-storeAccountKey | whether store account key to k8s secret | `true`,`false` | No | `true`
-secretName | specify secret name to store account key | | No |
-secretNamespace | specify the namespace of secret to store account key | `default`,`kube-system`, etc | No | `default`
-useDataPlaneAPI | specify whether use [data plane API](https://github.com/Azure/azure-sdk-for-go/blob/master/storage/share.go) for file share create/delete/resize | `true`,`false` | No | `false`
+storeAccountKey | whether store account key to k8s secret(only applies for SMB) <br><br> Note:  <br> `false` means driver would leverage kubelet identity to get account key | `true`,`false` | No | `true`
+secretName | specify secret name to store account key(only applies for SMB) | | No |
+secretNamespace | specify the namespace of secret to store account key(only applies for SMB) | `default`,`kube-system`, etc | No | `default`
+useDataPlaneAPI | specify whether use [data plane API](https://github.com/Azure/azure-sdk-for-go/blob/master/storage/share.go) for file share create/delete/resize | `true`,`false`(only applies for SMB) | No | `false`
 disableDeleteRetentionPolicy | specify whether disable DeleteRetentionPolicy for storage account created by driver | `true`,`false` | No | `false`
 allowBlobPublicAccess | Allow or disallow public access to all blobs or containers for storage account created by driver | `true`,`false` | No | `false`
 storageEndpointSuffix | specify Azure storage endpoint suffix | `core.windows.net` | No | if empty, driver will use default storage endpoint suffix according to cloud environment, e.g. `core.windows.net`
@@ -51,10 +51,14 @@ volumeAttributes.storageAccount | existing storage account name | existing stora
 volumeAttributes.shareName | Azure file share name | existing Azure file share name | Yes |
 volumeAttributes.protocol | specify file share protocol | `smb`, `nfs` | No | `smb`
 volumeAttributes.server | specify Azure storage account server address | existing server address, e.g. `accountname.privatelink.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
-volumeAttributes.secretName | secret name that stores storage account name and key | | No |
-volumeAttributes.secretNamespace | secret namespace  | `default`,`kube-system`, etc | No | `default`
-nodeStageSecretRef.name | secret name that stores storage account name and key | existing secret name |  Yes  |
-nodeStageSecretRef.namespace | secret namespace | k8s namespace  |  Yes  |
+volumeAttributes.secretName | secret name that stores storage account name and key(only applies for SMB) | | No |
+volumeAttributes.secretNamespace | secret namespace(only applies for SMB)  | `default`,`kube-system`, etc | No | `default`
+nodeStageSecretRef.name | secret name that stores storage account name and key(only applies for SMB) | existing secret name |  Yes  |
+nodeStageSecretRef.namespace | secret namespace(only applies for SMB) | k8s namespace  |  Yes  |
+
+ - Note
+   - only mounting Azure File using SMB protocol requires account key, and if secret is not provided in PV config, it would try to get `azure-storage-account-{accountname}-secret` in the pod namespace, if not found, it would try using kubelet identity to get account key directly using Azure API.
+   - mounting Azure File using NFS protocol does not need account key, it requires storage account configured with same vnet with agent node.
 
  - create a Kubernetes secret for `nodeStageSecretRef.name`
  ```console
