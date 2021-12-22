@@ -41,6 +41,7 @@ replace (
 	github.com/niemeyer/pretty => github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.7.1
 	go.etcd.io/etcd => go.etcd.io/etcd v0.0.0-20200410171415-59f5fb25a533
+	golang.org/x/text => golang.org/x/text v0.3.7
 	google.golang.org/grpc => google.golang.org/grpc v1.27.0
 	k8s.io/api => k8s.io/api v0.21.0
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.21.0
