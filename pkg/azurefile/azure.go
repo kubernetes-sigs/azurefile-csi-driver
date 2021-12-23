@@ -207,8 +207,7 @@ func (d *Driver) updateSubnetServiceEndpoints(ctx context.Context) error {
 		serviceEndpoints = append(serviceEndpoints, storageServiceEndpoint)
 		subnet.SubnetPropertiesFormat.ServiceEndpoints = &serviceEndpoints
 
-		err = d.cloud.SubnetsClient.CreateOrUpdate(context.Background(), resourceGroup, vnetName, subnetName, subnet)
-		if err != nil {
+		if err := d.cloud.SubnetsClient.CreateOrUpdate(ctx, resourceGroup, vnetName, subnetName, subnet); err != nil {
 			return fmt.Errorf("failed to update the subnet %s under vnet %s: %v", subnetName, vnetName, err)
 		}
 		klog.V(2).Infof("serviceEndpoint(%s) is appended in subnet(%s)", storageService, subnetName)
