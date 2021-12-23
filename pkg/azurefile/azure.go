@@ -169,7 +169,10 @@ func (d *Driver) updateSubnetServiceEndpoints(ctx context.Context) error {
 	vnetName := d.cloud.VnetName
 	subnetName := d.cloud.SubnetName
 
-	klog.V(2).Infof("updateSubnetServiceEndpoints on VnetName: %s, SubnetName: %s", vnetName, subnetName)
+	klog.V(2).Infof("updateSubnetServiceEndpoints on vnetName: %s, subnetName: %s, location: %s", vnetName, subnetName, location)
+	if subnetName == "" || vnetName == "" || location == "" {
+		return fmt.Errorf("value of subnetName, vnetName or location is empty")
+	}
 
 	lockKey := resourceGroup + vnetName + subnetName
 	d.subnetLockMap.LockEntry(lockKey)
