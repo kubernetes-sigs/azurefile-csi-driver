@@ -157,7 +157,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 	// don't respect fsType from req.GetVolumeCapability().GetMount().GetFsType()
 	// since it's ext4 by default on Linux
-	var fsType, server, protocol, ephemeralVolMountOptions, storageEndpointSuffix string
+	var fsType, server, protocol, ephemeralVolMountOptions, storageEndpointSuffix, folderName string
 	var ephemeralVol bool
 	for k, v := range context {
 		switch strings.ToLower(k) {
@@ -167,6 +167,8 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			protocol = v
 		case diskNameField:
 			diskName = v
+		case folderNameField:
+			folderName = v
 		case serverNameField:
 			server = v
 		case ephemeralField:
@@ -203,6 +205,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	source := fmt.Sprintf("%s%s%s%s%s", osSeparator, osSeparator, server, osSeparator, fileShareName)
 	if protocol == nfs {
 		source = fmt.Sprintf("%s:/%s/%s", server, accountName, fileShareName)
+	}
+	if folderName != "" {
+		source = fmt.Sprintf("%s%s%s", source, osSeparator, folderName)
 	}
 
 	cifsMountPath := targetPath

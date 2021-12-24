@@ -80,6 +80,7 @@ const (
 	shareNameField                    = "sharename"
 	accessTierField                   = "accesstier"
 	diskNameField                     = "diskname"
+	folderNameField                   = "foldername"
 	serverNameField                   = "server"
 	fsTypeField                       = "fstype"
 	protocolField                     = "protocol"

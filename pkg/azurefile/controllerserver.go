@@ -176,6 +176,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			// no op
 		case serverNameField:
 			// no op, only used in NodeStageVolume
+		case folderNameField:
+			// no op, only used in NodeStageVolume
 		default:
 			return nil, fmt.Errorf("invalid parameter %q in storage class", k)
 		}
