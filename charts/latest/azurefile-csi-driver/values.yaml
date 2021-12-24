@@ -159,6 +159,7 @@ linux:
   kubelet: /var/lib/kubelet
   kubeconfig: ""
   distro: debian # available values: debian, fedora
+  mountPermissions: 0755
   resources:
     livenessProbe:
       limits:

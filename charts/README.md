@@ -143,6 +143,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `linux.kubelet`                                   | configure kubelet directory path on Linux agent node node                  | `/var/lib/kubelet`                                                |
 | `linux.kubeconfig`                                | configure kubeconfig path on Linux agent node                | '' (empty, use InClusterConfig by default)                                            |
 | `linux.distro`                                    | configure ssl certificates for different Linux distribution(available values: `debian`, `fedora`)                  |
+| `linux.mountPermissions`                          | mounted folder permissions                 | `0755`
 | `linux.tolerations`                               | linux node driver tolerations                            |
 | `linux.resources.livenessProbe.limits.cpu`             | liveness-probe cpu limits                             | 1                                                           |
 | `linux.resources.livenessProbe.limits.memory`          | liveness-probe memory limits                          | 100Mi                                                          |

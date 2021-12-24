@@ -225,7 +225,7 @@ func TestNodePublishVolume(t *testing.T) {
 	}
 
 	// Setup
-	_ = makeDir(alreadyMountedTarget)
+	_ = makeDir(alreadyMountedTarget, 0755)
 	mounter, err := NewFakeMounter()
 	if err != nil {
 		t.Fatalf(fmt.Sprintf("failed to get fake mounter: %v", err))
@@ -298,7 +298,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 	}
 
 	// Setup
-	_ = makeDir(errorTarget)
+	_ = makeDir(errorTarget, 0755)
 	mounter, err := NewFakeMounter()
 	if err != nil {
 		t.Fatalf(fmt.Sprintf("failed to get fake mounter: %v", err))
@@ -660,7 +660,7 @@ func TestNodeUnstageVolume(t *testing.T) {
 	}
 
 	// Setup
-	_ = makeDir(errorTarget)
+	_ = makeDir(errorTarget, 0755)
 	mounter, err := NewFakeMounter()
 	if err != nil {
 		t.Fatalf(fmt.Sprintf("failed to get fake mounter: %v", err))
@@ -723,7 +723,7 @@ func TestNodeGetVolumeStats(t *testing.T) {
 	}
 
 	// Setup
-	_ = makeDir(fakePath)
+	_ = makeDir(fakePath, 0755)
 	d := NewFakeDriver()
 
 	for _, test := range tests {
@@ -778,7 +778,7 @@ func TestEnsureMountPoint(t *testing.T) {
 	}
 
 	// Setup
-	_ = makeDir(alreadyExistTarget)
+	_ = makeDir(alreadyExistTarget, 0755)
 	d := NewFakeDriver()
 	fakeMounter := &fakeMounter{}
 	fakeExec := &testingexec.FakeExec{ExactOrder: true}
@@ -803,11 +803,11 @@ func TestEnsureMountPoint(t *testing.T) {
 
 func TestMakeDir(t *testing.T) {
 	//Successfully create directory
-	err := makeDir(targetTest)
+	err := makeDir(targetTest, 0755)
 	assert.NoError(t, err)
 
 	//Failed case
-	err = makeDir("./azure.go")
+	err = makeDir("./azure.go", 0755)
 	var e *os.PathError
 	if !errors.As(err, &e) {
 		t.Errorf("Unexpected Error: %v", err)

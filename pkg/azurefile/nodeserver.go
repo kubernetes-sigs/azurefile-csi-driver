@@ -235,7 +235,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			mountOptions = []string{fmt.Sprintf("AZURE\\%s", accountName)}
 			sensitiveMountOptions = []string{accountKey}
 		} else {
-			if err := os.MkdirAll(targetPath, 0750); err != nil {
+			if err := os.MkdirAll(targetPath, os.FileMode(d.mountPermissions)); err != nil {
 				return nil, status.Error(codes.Internal, fmt.Sprintf("MkdirAll %s failed with error: %v", targetPath, err))
 			}
 			// parameters suggested by https://azure.microsoft.com/en-us/documentation/articles/storage-how-to-use-files-linux/
@@ -268,10 +268,16 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}); err != nil {
 			return nil, status.Error(codes.Internal, fmt.Sprintf("volume(%s) mount %q on %q failed with %v", volumeID, source, cifsMountPath, err))
 		}
-		if protocol == nfs && volumeMountGroup != "" {
-			klog.V(2).Infof("set gid of volume(%s) as %s", volumeID, volumeMountGroup)
-			if err := SetVolumeOwnership(cifsMountPath, volumeMountGroup); err != nil {
-				return nil, status.Error(codes.Internal, fmt.Sprintf("SetVolumeOwnership with volume(%s) on %q failed with %v", volumeID, cifsMountPath, err))
+		if protocol == nfs {
+			klog.V(2).Infof("volumeID(%v): mount targetPath(%s) with permissions(%o)", volumeID, targetPath, d.mountPermissions)
+			if err := os.Chmod(targetPath, os.FileMode(d.mountPermissions)); err != nil {
+				return nil, status.Error(codes.Internal, err.Error())
+			}
+			if volumeMountGroup != "" {
+				klog.V(2).Infof("set gid of volume(%s) as %s", volumeID, volumeMountGroup)
+				if err := SetVolumeOwnership(cifsMountPath, volumeMountGroup); err != nil {
+					return nil, status.Error(codes.Internal, fmt.Sprintf("SetVolumeOwnership with volume(%s) on %q failed with %v", volumeID, cifsMountPath, err))
+				}
 			}
 		}
 		klog.V(2).Infof("volume(%s) mount %q on %q succeeded", volumeID, source, cifsMountPath)
@@ -449,15 +455,15 @@ func (d *Driver) ensureMountPoint(target string) (bool, error) {
 		notMnt = true
 		return !notMnt, err
 	}
-	if err := makeDir(target); err != nil {
+	if err := makeDir(target, os.FileMode(d.mountPermissions)); err != nil {
 		klog.Errorf("MakeDir failed on target: %s (%v)", target, err)
 		return !notMnt, err
 	}
 	return !notMnt, nil
 }
 
-func makeDir(pathname string) error {
-	err := os.MkdirAll(pathname, os.FileMode(0755))
+func makeDir(pathname string, perm os.FileMode) error {
+	err := os.MkdirAll(pathname, perm)
 	if err != nil {
 		if !os.IsExist(err) {
 			return err

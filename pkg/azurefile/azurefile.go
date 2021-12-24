@@ -162,6 +162,7 @@ type DriverOptions struct {
 	UserAgentSuffix            string
 	AllowEmptyCloudConfig      bool
 	EnableGetVolumeStats       bool
+	MountPermissions           uint64
 }
 
 // Driver implements all interfaces of CSI drivers
@@ -174,6 +175,7 @@ type Driver struct {
 	userAgentSuffix            string
 	allowEmptyCloudConfig      bool
 	enableGetVolumeStats       bool
+	mountPermissions           uint64
 	fileClient                 *azureFileClient
 	mounter                    *mount.SafeFormatAndMount
 	// lock per volume attach (only for vhd disk feature)
@@ -209,6 +211,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.customUserAgent = options.CustomUserAgent
 	driver.userAgentSuffix = options.UserAgentSuffix
 	driver.allowEmptyCloudConfig = options.AllowEmptyCloudConfig
+	driver.mountPermissions = options.MountPermissions
 	driver.volLockMap = newLockMap()
 	driver.subnetLockMap = newLockMap()
 	driver.volumeLocks = newVolumeLocks()
