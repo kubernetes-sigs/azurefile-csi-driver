@@ -163,21 +163,18 @@ linux:
   resources:
     livenessProbe:
       limits:
-        cpu: 1
         memory: 100Mi
       requests:
         cpu: 10m
         memory: 20Mi
     nodeDriverRegistrar:
       limits:
-        cpu: 1
         memory: 100Mi
       requests:
         cpu: 10m
         memory: 20Mi
     azurefile:
       limits:
-        cpu: 1
         memory: 300Mi
       requests:
         cpu: 10m
@@ -201,21 +198,18 @@ windows:
   resources:
     livenessProbe:
       limits:
-        cpu: 1
         memory: 200Mi
       requests:
         cpu: 10m
         memory: 20Mi
     nodeDriverRegistrar:
       limits:
-        cpu: 1
         memory: 200Mi
       requests:
         cpu: 10m
         memory: 20Mi
     azurefile:
       limits:
-        cpu: 1
         memory: 400Mi
       requests:
         cpu: 10m

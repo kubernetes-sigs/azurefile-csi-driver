@@ -269,7 +269,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			return nil, status.Error(codes.Internal, fmt.Sprintf("volume(%s) mount %q on %q failed with %v", volumeID, source, cifsMountPath, err))
 		}
 		if protocol == nfs {
-			klog.V(2).Infof("volumeID(%v): mount targetPath(%s) with permissions(%o)", volumeID, targetPath, d.mountPermissions)
+			klog.V(2).Infof("volumeID(%v): mount targetPath(%s) with permissions(0%o)", volumeID, targetPath, d.mountPermissions)
 			if err := os.Chmod(targetPath, os.FileMode(d.mountPermissions)); err != nil {
 				return nil, status.Error(codes.Internal, err.Error())
 			}
