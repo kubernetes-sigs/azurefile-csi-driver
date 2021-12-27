@@ -48,6 +48,7 @@ var (
 	userAgentSuffix            = flag.String("user-agent-suffix", "", "userAgent suffix")
 	allowEmptyCloudConfig      = flag.Bool("allow-empty-cloud-config", true, "allow running driver without cloud config")
 	enableGetVolumeStats       = flag.Bool("enable-get-volume-stats", false, "allow GET_VOLUME_STATS on agent node")
+	mountPermissions           = flag.Uint64("mount-permissions", 0755, "mounted folder permissions")
 )
 
 func main() {
@@ -81,6 +82,7 @@ func handle() {
 		UserAgentSuffix:            *userAgentSuffix,
 		AllowEmptyCloudConfig:      *allowEmptyCloudConfig,
 		EnableGetVolumeStats:       *enableGetVolumeStats,
+		MountPermissions:           *mountPermissions,
 	}
 	driver := azurefile.NewDriver(&driverOptions)
 	if driver == nil {
