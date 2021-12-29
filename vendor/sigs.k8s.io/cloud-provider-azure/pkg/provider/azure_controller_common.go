@@ -41,17 +41,11 @@ import (
 )
 
 const (
-	// for limits check https://docs.microsoft.com/en-us/azure/azure-subscription-service-limits#storage-limits
-	maxStorageAccounts                     = 100 // max # is 200 (250 with special request). this allows 100 for everything else including stand alone disks
-	maxDisksPerStorageAccounts             = 60
-	storageAccountUtilizationBeforeGrowing = 0.5
 	// Disk Caching is not supported for disks 4 TiB and larger
 	// https://docs.microsoft.com/en-us/azure/virtual-machines/premium-storage-performance#disk-caching
 	diskCachingLimit = 4096 // GiB
 
 	maxLUN                 = 64 // max number of LUNs per VM
-	errLeaseIDMissing      = "LeaseIdMissing"
-	errContainerNotFound   = "ContainerNotFound"
 	errStatusCode400       = "statuscode=400"
 	errInvalidParameter    = `code="invalidparameter"`
 	errTargetInstanceIds   = `target="instanceids"`
@@ -105,7 +99,6 @@ type AttachDiskOptions struct {
 	cachingMode             compute.CachingTypes
 	diskName                string
 	diskEncryptionSetID     string
-	isManagedDisk           bool
 	writeAcceleratorEnabled bool
 	lun                     int32
 }
@@ -210,7 +203,6 @@ func (c *controllerCommon) AttachDisk(ctx context.Context, async bool, diskName,
 
 	options := AttachDiskOptions{
 		lun:                     -1,
-		isManagedDisk:           true,
 		diskName:                diskName,
 		cachingMode:             cachingMode,
 		diskEncryptionSetID:     diskEncryptionSetID,
@@ -315,7 +307,7 @@ func (c *controllerCommon) cleanAttachDiskRequests(nodeName string) (map[string]
 
 // DetachDisk detaches a disk from VM
 func (c *controllerCommon) DetachDisk(ctx context.Context, diskName, diskURI string, nodeName types.NodeName) error {
-	if _, err := c.cloud.InstanceID(context.TODO(), nodeName); err != nil {
+	if _, err := c.cloud.InstanceID(ctx, nodeName); err != nil {
 		if errors.Is(err, cloudprovider.InstanceNotFound) {
 			// if host doesn't exist, no need to detach
 			klog.Warningf("azureDisk - failed to get azure instance id(%q), DetachDisk(%s) will assume disk is already detached",
@@ -357,8 +349,9 @@ func (c *controllerCommon) DetachDisk(ctx context.Context, diskName, diskURI str
 			}
 		}
 	} else {
-		if lun, _, err := c.GetDiskLun(diskName, diskURI, nodeName); err == nil {
-			return fmt.Errorf("disk(%s) is still attatched to node(%s) on lun(%d)", diskURI, nodeName, lun)
+		lun, _, errGetLun := c.GetDiskLun(diskName, diskURI, nodeName)
+		if errGetLun == nil || !strings.Contains(errGetLun.Error(), consts.CannotFindDiskLUN) {
+			return fmt.Errorf("disk(%s) is still attatched to node(%s) on lun(%d), error: %v", diskURI, nodeName, lun, errGetLun)
 		}
 	}
 
@@ -460,7 +453,7 @@ func (c *controllerCommon) GetDiskLun(diskName, diskURI string, nodeName types.N
 			}
 		}
 	}
-	return -1, provisioningState, fmt.Errorf("cannot find Lun for disk %s", diskName)
+	return -1, provisioningState, fmt.Errorf("%s for disk %s", consts.CannotFindDiskLUN, diskName)
 }
 
 // SetDiskLun find unused luns and allocate lun for every disk in diskMap.
