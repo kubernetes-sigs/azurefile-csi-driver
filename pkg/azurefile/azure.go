@@ -156,29 +156,36 @@ func getKubeClient(kubeconfig string) (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(config)
 }
 
-func (d *Driver) updateSubnetServiceEndpoints(ctx context.Context) error {
+func (d *Driver) updateSubnetServiceEndpoints(ctx context.Context, vnetResourceGroup, vnetName, subnetName string) error {
 	if d.cloud.SubnetsClient == nil {
 		return fmt.Errorf("SubnetsClient is nil")
 	}
 
-	resourceGroup := d.cloud.ResourceGroup
-	if len(d.cloud.VnetResourceGroup) > 0 {
-		resourceGroup = d.cloud.VnetResourceGroup
+	if vnetResourceGroup == "" {
+		vnetResourceGroup = d.cloud.ResourceGroup
+		if len(d.cloud.VnetResourceGroup) > 0 {
+			vnetResourceGroup = d.cloud.VnetResourceGroup
+		}
 	}
+
 	location := d.cloud.Location
-	vnetName := d.cloud.VnetName
-	subnetName := d.cloud.SubnetName
+	if vnetName == "" {
+		vnetName = d.cloud.VnetName
+	}
+	if subnetName == "" {
+		subnetName = d.cloud.SubnetName
+	}
 
 	klog.V(2).Infof("updateSubnetServiceEndpoints on vnetName: %s, subnetName: %s, location: %s", vnetName, subnetName, location)
 	if subnetName == "" || vnetName == "" || location == "" {
 		return fmt.Errorf("value of subnetName, vnetName or location is empty")
 	}
 
-	lockKey := resourceGroup + vnetName + subnetName
+	lockKey := vnetResourceGroup + vnetName + subnetName
 	d.subnetLockMap.LockEntry(lockKey)
 	defer d.subnetLockMap.UnlockEntry(lockKey)
 
-	subnet, err := d.cloud.SubnetsClient.Get(ctx, resourceGroup, vnetName, subnetName, "")
+	subnet, err := d.cloud.SubnetsClient.Get(ctx, vnetResourceGroup, vnetName, subnetName, "")
 	if err != nil {
 		return fmt.Errorf("failed to get the subnet %s under vnet %s: %v", subnetName, vnetName, err)
 	}
@@ -207,7 +214,7 @@ func (d *Driver) updateSubnetServiceEndpoints(ctx context.Context) error {
 		serviceEndpoints = append(serviceEndpoints, storageServiceEndpoint)
 		subnet.SubnetPropertiesFormat.ServiceEndpoints = &serviceEndpoints
 
-		if err := d.cloud.SubnetsClient.CreateOrUpdate(ctx, resourceGroup, vnetName, subnetName, subnet); err != nil {
+		if err := d.cloud.SubnetsClient.CreateOrUpdate(ctx, vnetResourceGroup, vnetName, subnetName, subnet); err != nil {
 			return fmt.Errorf("failed to update the subnet %s under vnet %s: %v", subnetName, vnetName, err)
 		}
 		klog.V(2).Infof("serviceEndpoint(%s) is appended in subnet(%s)", storageService, subnetName)
