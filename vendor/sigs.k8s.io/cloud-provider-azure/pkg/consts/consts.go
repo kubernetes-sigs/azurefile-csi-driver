@@ -83,6 +83,8 @@ const (
 
 	// NodeLabelRole specifies the role of a node
 	NodeLabelRole = "kubernetes.io/role"
+	// NodeLabelHostName specifies the host name of a node
+	NodeLabelHostName = "kubernetes.io/hostname"
 	// MasterNodeRoleLabel specifies is the master node label for a node
 	MasterNodeRoleLabel = "node-role.kubernetes.io/master"
 	// ControlPlaneNodeRoleLabel specifies is the control-plane node label for a node
@@ -93,6 +95,8 @@ const (
 
 	// StorageAccountNameMaxLength is the max length of a storage name
 	StorageAccountNameMaxLength = 24
+
+	CannotFindDiskLUN = "cannot find Lun"
 
 	// DefaultStorageAccountType is the default storage account type
 	DefaultStorageAccountType = string(storage.SkuNameStandardLRS)
@@ -255,6 +259,14 @@ const (
 	// If not set, the local service would use the HTTP and the cluster service would use the TCP by default.
 	ServiceAnnotationLoadBalancerHealthProbeProtocol = "service.beta.kubernetes.io/azure-load-balancer-health-probe-protocol"
 
+	// ServiceAnnotationLoadBalancerHealthProbeInterval determines the probe interval of the load balancer health probe.
+	// The minimum probe interval is 5 seconds and the default value is 15. The total duration of all intervals cannot exceed 120 seconds.
+	ServiceAnnotationLoadBalancerHealthProbeInterval = "service.beta.kubernetes.io/azure-load-balancer-health-probe-interval"
+
+	// ServiceAnnotationLoadBalancerHealthProbeNumOfProbe determines the minimum number of unhealthy responses which load balancer cannot tolerate.
+	// The minimum number of probe is 1. The total duration of all intervals cannot exceed 120 seconds.
+	ServiceAnnotationLoadBalancerHealthProbeNumOfProbe = "service.beta.kubernetes.io/azure-load-balancer-health-probe-num-of-probe"
+
 	// ServiceAnnotationLoadBalancerHealthProbeRequestPath determines the request path of the load balancer health probe.
 	// This is only useful for the HTTP and HTTPS, and would be ignored when using TCP. If not set,
 	// `/healthz` would be configured by default.
@@ -305,6 +317,14 @@ const (
 	FrontendIPConfigNameMaxLength = 80
 	// LoadBalancerRuleNameMaxLength is the max length of the load balancing rule
 	LoadBalancerRuleNameMaxLength = 80
+
+	// LoadBalancerBackendPoolConfigurationTypeNodeIPConfiguration is the lb backend pool config type node IP configuration
+	LoadBalancerBackendPoolConfigurationTypeNodeIPConfiguration = "nodeIPConfiguration"
+	// LoadBalancerBackendPoolConfigurationTypeNodeIP is the lb backend pool config type node ip
+	LoadBalancerBackendPoolConfigurationTypeNodeIP = "nodeIP"
+	// LoadBalancerBackendPoolConfigurationTypePODIP is the lb backend pool config type pod ip
+	// TODO (nilo19): support pod IP in the future
+	LoadBalancerBackendPoolConfigurationTypePODIP = "podIP"
 )
 
 // error messages

@@ -118,6 +118,9 @@ const (
 	vhdSuffix                         = ".vhd"
 	metaDataNode                      = "node"
 	networkEndpointTypeField          = "networkendpointtype"
+	vnetResourceGroupField            = "vnetresourcegroup"
+	vnetNameField                     = "vnetname"
+	subnetNameField                   = "subnetname"
 	premium                           = "premium"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"

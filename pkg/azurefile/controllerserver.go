@@ -109,6 +109,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
 	var secretNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, accessTier string
 	var createAccount, useDataPlaneAPI, disableDeleteRetentionPolicy, enableLFS bool
+	var vnetResourceGroup, vnetName, subnetName string
 	// set allowBlobPublicAccess as false by default
 	allowBlobPublicAccess := to.BoolPtr(false)
 
@@ -178,6 +179,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			// no op, only used in NodeStageVolume
 		case folderNameField:
 			// no op, only used in NodeStageVolume
+		case vnetResourceGroupField:
+			vnetResourceGroup = v
+		case vnetNameField:
+			vnetName = v
+		case subnetNameField:
+			subnetName = v
 		default:
 			return nil, fmt.Errorf("invalid parameter %q in storage class", k)
 		}
@@ -225,7 +232,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			klog.V(2).Infof("set vnetResourceID(%s) for NFS protocol", vnetResourceID)
 			vnetResourceIDs = []string{vnetResourceID}
 			if account == "" {
-				if err := d.updateSubnetServiceEndpoints(ctx); err != nil {
+				if err := d.updateSubnetServiceEndpoints(ctx, vnetResourceGroup, vnetName, subnetName); err != nil {
 					return nil, status.Errorf(codes.Internal, "update service endpoints failed with error: %v", err)
 				}
 			}
@@ -278,6 +285,9 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		EnableLargeFileShare:                    enableLFS,
 		DisableFileServiceDeleteRetentionPolicy: disableDeleteRetentionPolicy,
 		AllowBlobPublicAccess:                   allowBlobPublicAccess,
+		VNetResourceGroup:                       vnetResourceGroup,
+		VNetName:                                vnetName,
+		SubnetName:                              subnetName,
 	}
 
 	var accountKey, lockKey string
