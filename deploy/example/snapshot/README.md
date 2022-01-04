@@ -31,7 +31,7 @@ $ kubectl describe volumesnapshot azurefile-volume-snapshot
 Name:         azurefile-volume-snapshot
 Namespace:    default
 Labels:       <none>
-Annotations:  API Version:  snapshot.storage.k8s.io/v1beta1
+Annotations:  API Version:  snapshot.storage.k8s.io/v1
 Kind:         VolumeSnapshot
 Metadata:
   Creation Timestamp:  2020-07-21T08:00:50Z
@@ -40,7 +40,7 @@ Metadata:
     snapshot.storage.kubernetes.io/volumesnapshot-bound-protection
   Generation:        1
   Resource Version:  16078
-  Self Link:         /apis/snapshot.storage.k8s.io/v1beta1/namespaces/default/volumesnapshots/azurefile-volume-snapshot
+  Self Link:         /apis/snapshot.storage.k8s.io/v1/namespaces/default/volumesnapshots/azurefile-volume-snapshot
   UID:               d7a3a5fb-cf58-4e57-b561-f6d7a0d10d6d
 Spec:
   Source:
