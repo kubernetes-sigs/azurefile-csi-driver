@@ -17,7 +17,9 @@ spec:
   podInfoOnMount: true
   volumeLifecycleModes:
     - Persistent
+  {{- if .Values.feature.enableInlineVolume}}
     - Ephemeral
+  {{- end}}
   {{- if .Values.feature.enableFSGroupPolicy}}
   fsGroupPolicy: File
   {{- end}}
