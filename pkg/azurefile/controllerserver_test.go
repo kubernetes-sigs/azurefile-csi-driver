@@ -29,7 +29,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/subnetclient/mocksubnetclient"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2020-12-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-07-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-02-01/storage"
 	azure2 "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/container-storage-interface/spec/lib/go/csi"

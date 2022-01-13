@@ -1,9 +1,9 @@
 # github.com/Azure/azure-pipeline-go v0.2.1
 ## explicit
 github.com/Azure/azure-pipeline-go/pipeline
-# github.com/Azure/azure-sdk-for-go v55.8.0+incompatible
+# github.com/Azure/azure-sdk-for-go v58.2.0+incompatible
 ## explicit
-github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2020-12-01/compute
+github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-07-01/compute
 github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2020-04-01/containerservice
 github.com/Azure/azure-sdk-for-go/services/network/mgmt/2020-07-01/network
 github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network
@@ -1115,7 +1115,7 @@ k8s.io/utils/trace
 ## explicit; go 1.17
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client
-# sigs.k8s.io/cloud-provider-azure v0.7.4 => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20211229055535-9d966a194558
+# sigs.k8s.io/cloud-provider-azure v0.7.4 => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220113021309-22837509ca53
 ## explicit; go 1.17
 sigs.k8s.io/cloud-provider-azure/pkg/auth
 sigs.k8s.io/cloud-provider-azure/pkg/azureclients
@@ -1210,4 +1210,4 @@ sigs.k8s.io/yaml
 # k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.23.0
 # k8s.io/sample-controller => k8s.io/sample-controller v0.23.0
 # sigs.k8s.io/azurefile-csi-driver => ./
-# sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20211229055535-9d966a194558
+# sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220113021309-22837509ca53
