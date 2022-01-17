@@ -6,7 +6,7 @@ image:
     pullPolicy: IfNotPresent
   csiProvisioner:
     repository: /oss/kubernetes-csi/csi-provisioner
-    tag: v2.2.2
+    tag: v3.1.0
     pullPolicy: IfNotPresent
   csiAttacher:
     repository: /oss/kubernetes-csi/csi-attacher

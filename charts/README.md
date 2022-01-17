@@ -58,7 +58,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `image.azurefile.tag`                             | azurefile-csi-driver docker image tag                      | `latest`                                                            |
 | `image.azurefile.pullPolicy`                      | azurefile-csi-driver image pull policy                     | `IfNotPresent`                                                      |
 | `image.csiProvisioner.repository`                 | csi-provisioner docker image                               | `/oss/kubernetes-csi/csi-provisioner`              |
-| `image.csiProvisioner.tag`                        | csi-provisioner docker image tag                           | `v2.2.2`                                                            |
+| `image.csiProvisioner.tag`                        | csi-provisioner docker image tag                           | `v3.1.0`                                                            |
 | `image.csiProvisioner.pullPolicy`                 | csi-provisioner image pull policy                          | `IfNotPresent`                                                      |
 | `image.csiAttacher.repository`                    | csi-attacher docker image                                  | `/oss/kubernetes-csi/csi-attacher`                 |
 | `image.csiAttacher.tag`                           | csi-attacher docker image tag                              | `v3.3.0`                                                            |
