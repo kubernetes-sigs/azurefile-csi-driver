@@ -25,3 +25,7 @@ kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-cs
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-nfs.yaml
 ```
  > follow guide [here](https://github.com/Azure/AKS/issues/118#issuecomment-708257760) to replace built-in storage classes on AKS
+
+ - Remove CSI driver before upgrading to AKS 1.21+
+
+Please remove manual installed open source CSI driver before upgrading to AKS 1.21+, follow the `Clean up CSI driver` section in CSI driver install guide.
