@@ -25,7 +25,7 @@ echo "==========================================================================
 echo "print out controller-manager logs ..."
 echo "======================================================================================"
 kubectl get pods -n${NS} | grep controller-manager
-kubectl get pods -n${NS} | grep controller-manager | awk '{print $1}'
-kubectl get pods -n${NS} | grep controller-manager \
+kubectl get pods -n${NS} | grep controller-manager | grep Running | awk '{print $1}'
+kubectl get pods -n${NS} | grep controller-manager | grep Running \
     | awk '{print $1}' \
     | xargs -I {} bash -c "echo 'dumping logs for ${NS}/{}' && kubectl logs {} -n${NS}"
