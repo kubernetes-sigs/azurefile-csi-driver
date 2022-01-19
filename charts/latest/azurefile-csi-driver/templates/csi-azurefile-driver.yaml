@@ -7,11 +7,7 @@ metadata:
     {{- include "azurefile.labels" . | nindent 4 }}
   annotations:
     csiDriver: "{{ .Values.image.azurefile.tag }}"
-{{- if eq .Values.snapshot.apiVersion "beta" }}
     snapshot: "{{ .Values.snapshot.image.csiSnapshotter.tag }}"
-{{- else }}
-    snapshot: "{{ .Values.snapshot.image.csiSnapshotter.gaTag }}"
-{{- end }}
 spec:
   attachRequired: {{ .Values.controller.attachRequired }}
   podInfoOnMount: true

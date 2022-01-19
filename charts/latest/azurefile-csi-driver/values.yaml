@@ -120,17 +120,14 @@ node:
 
 snapshot:
   enabled: false
-  apiVersion: beta # available values: beta, ga
   image:
     csiSnapshotter:
       repository: /oss/kubernetes-csi/csi-snapshotter
-      tag: v3.0.3
-      gaTag: v4.2.1
+      tag: v4.2.1
       pullPolicy: IfNotPresent
     csiSnapshotController:
       repository: /oss/kubernetes-csi/snapshot-controller
-      tag: v3.0.3
-      gaTag: v4.2.1
+      tag: v4.2.1
       pullPolicy: IfNotPresent
   snapshotController:
     name: csi-snapshot-controller
