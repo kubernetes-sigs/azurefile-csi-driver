@@ -120,7 +120,7 @@ node:
 
 snapshot:
   enabled: false
-  apiVersion: beta # available values: beta, ga
+  apiVersion: ga # available values: beta, ga
   image:
     csiSnapshotter:
       repository: /oss/kubernetes-csi/csi-snapshotter

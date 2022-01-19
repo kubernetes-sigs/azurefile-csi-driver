@@ -33,9 +33,8 @@ setup_e2e_binaries() {
         # enable fsGroupPolicy (only available from k8s 1.20)
         export EXTRA_HELM_OPTIONS="--set feature.enableFSGroupPolicy=true"
     fi
-    export EXTRA_HELM_OPTIONS="${EXTRA_HELM_OPTIONS} --set snapshot.apiVersion=ga"
     # test on alternative driver name
-    EXTRA_HELM_OPTIONS=$EXTRA_HELM_OPTIONS" --set driver.name=$DRIVER.csi.azure.com --set controller.name=csi-$DRIVER-controller --set linux.dsName=csi-$DRIVER-node --set windows.dsName=csi-$DRIVER-node-win"
+    export EXTRA_HELM_OPTIONS=$EXTRA_HELM_OPTIONS" --set driver.name=$DRIVER.csi.azure.com --set controller.name=csi-$DRIVER-controller --set linux.dsName=csi-$DRIVER-node --set windows.dsName=csi-$DRIVER-node-win"
     sed -i "s/file.csi.azure.com/$DRIVER.csi.azure.com/g" deploy/example/storageclass-azurefile-csi.yaml
     sed -i "s/file.csi.azure.com/$DRIVER.csi.azure.com/g" deploy/example/storageclass-azurefile-nfs.yaml
     make e2e-bootstrap
