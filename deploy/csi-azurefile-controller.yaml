@@ -28,11 +28,7 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: csi-provisioner
-<<<<<<< HEAD
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-provisioner:v3.1.0
-=======
-          image: andyzhangx/csi-provisioner:v2.2.2-uuid
->>>>>>> test: with azure file uuid translation
+          image: andyzhangx/csi-provisioner:v3.1.0-id
           args:
             - "-v=2"
             - "--csi-address=$(ADDRESS)"
