@@ -96,6 +96,7 @@ const (
 	createAccountField                = "createaccount"
 	useDataPlaneAPIField              = "usedataplaneapi"
 	storeAccountKeyField              = "storeaccountkey"
+	useSecretCacheField               = "usesecretcache"
 	getAccountKeyFromSecretField      = "getaccountkeyfromsecret"
 	disableDeleteRetentionPolicyField = "disabledeleteretentionpolicy"
 	allowBlobPublicAccessField        = "allowblobpublicaccess"
@@ -193,7 +194,7 @@ type Driver struct {
 	// a timed cache storing all account name and keys retrieved by this driver <accountName, accountkey>
 	accountCacheMap *azcache.TimedCache
 	// a map storing all secret names created by this driver <secretCacheKey, "">
-	secretCacheMap sync.Map
+	secretCacheMap *azcache.TimedCache
 	// a map storing all volumes using data plane API <volumeID, "">, <accountName, "">
 	dataPlaneAPIVolMap sync.Map
 	// a timed cache storing acount search history (solve account list throttling issue)
@@ -221,6 +222,10 @@ func NewDriver(options *DriverOptions) *Driver {
 
 	var err error
 	getter := func(key string) (interface{}, error) { return nil, nil }
+
+	if driver.secretCacheMap, err = azcache.NewTimedcache(time.Minute, getter); err != nil {
+		klog.Fatalf("%v", err)
+	}
 
 	if driver.accountSearchCache, err = azcache.NewTimedcache(time.Minute, getter); err != nil {
 		klog.Fatalf("%v", err)

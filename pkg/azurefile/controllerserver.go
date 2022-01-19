@@ -108,7 +108,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
 	var secretNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, accessTier string
-	var createAccount, useDataPlaneAPI, disableDeleteRetentionPolicy, enableLFS bool
+	var createAccount, useDataPlaneAPI, useSeretCache, disableDeleteRetentionPolicy, enableLFS bool
 	var vnetResourceGroup, vnetName, subnetName string
 	// set allowBlobPublicAccess as false by default
 	allowBlobPublicAccess := to.BoolPtr(false)
@@ -150,6 +150,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			customTags = v
 		case createAccountField:
 			createAccount = strings.EqualFold(v, trueValue)
+		case useSecretCacheField:
+			useSeretCache = strings.EqualFold(v, trueValue)
 		case enableLargeFileSharesField:
 			enableLFS = strings.EqualFold(v, trueValue)
 		case useDataPlaneAPIField:
@@ -423,7 +425,14 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	if storeAccountKey && len(req.GetSecrets()) == 0 {
 		secretCacheKey := accountName + secretName + secretNamespace
-		if _, ok := d.secretCacheMap.Load(secretCacheKey); !ok {
+		if useSeretCache {
+			cache, err := d.secretCacheMap.Get(secretCacheKey, azcache.CacheReadTypeDefault)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "get cache key(%s) failed with %v", secretCacheKey, err)
+			}
+			useSeretCache = (cache != nil)
+		}
+		if !useSeretCache {
 			if accountKey == "" {
 				if accountKey, err = d.GetStorageAccesskey(ctx, accountOptions, req.GetSecrets(), secretName, secretNamespace); err != nil {
 					return nil, fmt.Errorf("failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
@@ -436,7 +445,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			if storeSecretName != "" {
 				klog.V(2).Infof("store account key to k8s secret(%v) in %s namespace", storeSecretName, secretNamespace)
 			}
-			d.secretCacheMap.Store(secretCacheKey, "")
+			d.secretCacheMap.Set(secretCacheKey, "")
 		}
 	}
 
