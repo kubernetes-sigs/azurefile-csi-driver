@@ -79,18 +79,10 @@ spec:
             name: socket-dir
           resources: {{- toYaml .Values.controller.resources.csiAttacher | nindent 12 }}
         - name: csi-snapshotter
-{{- if eq .Values.snapshot.apiVersion "beta" }}
-  {{- if hasPrefix "/" .Values.snapshot.image.csiSnapshotter.repository }}
+{{- if hasPrefix "/" .Values.snapshot.image.csiSnapshotter.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.snapshot.image.csiSnapshotter.repository }}:{{ .Values.snapshot.image.csiSnapshotter.tag }}"
-  {{- else }}
-          image: "{{ .Values.snapshot.image.csiSnapshotter.repository }}:{{ .Values.snapshot.image.csiSnapshotter.tag }}"
-  {{- end }}
 {{- else }}
-  {{- if hasPrefix "/" .Values.snapshot.image.csiSnapshotter.repository }}
-          image: "{{ .Values.image.baseRepo }}{{ .Values.snapshot.image.csiSnapshotter.repository }}:{{ .Values.snapshot.image.csiSnapshotter.gaTag }}"
-  {{- else }}
-          image: "{{ .Values.snapshot.image.csiSnapshotter.repository }}:{{ .Values.snapshot.image.csiSnapshotter.gaTag }}"
-  {{- end }}
+          image: "{{ .Values.snapshot.image.csiSnapshotter.repository }}:{{ .Values.snapshot.image.csiSnapshotter.tag }}"
 {{- end }}
           args:
             - "-csi-address=$(ADDRESS)"

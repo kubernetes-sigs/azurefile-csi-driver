@@ -37,18 +37,10 @@ spec:
       {{- end }}
       containers:
         - name: {{ .Values.snapshot.snapshotController.name}}
-{{- if eq .Values.snapshot.apiVersion "beta" }}
-  {{- if hasPrefix "/" .Values.snapshot.image.csiSnapshotController.repository }}
+{{- if hasPrefix "/" .Values.snapshot.image.csiSnapshotController.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.snapshot.image.csiSnapshotController.repository }}:{{ .Values.snapshot.image.csiSnapshotController.tag }}"
-  {{- else }}
-          image: "{{ .Values.snapshot.image.csiSnapshotController.repository }}:{{ .Values.snapshot.image.csiSnapshotController.tag }}"
-  {{- end }}
 {{- else }}
-  {{- if hasPrefix "/" .Values.snapshot.image.csiSnapshotController.repository }}
-          image: "{{ .Values.image.baseRepo }}{{ .Values.snapshot.image.csiSnapshotController.repository }}:{{ .Values.snapshot.image.csiSnapshotController.gaTag }}"
-  {{- else }}
-          image: "{{ .Values.snapshot.image.csiSnapshotController.repository }}:{{ .Values.snapshot.image.csiSnapshotController.gaTag }}"
-  {{- end }}
+          image: "{{ .Values.snapshot.image.csiSnapshotController.repository }}:{{ .Values.snapshot.image.csiSnapshotController.tag }}"
 {{- end }}
           args:
             - "--v=2"
