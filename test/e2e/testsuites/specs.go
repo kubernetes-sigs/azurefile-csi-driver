@@ -65,8 +65,8 @@ const (
 const (
 	VolumeSnapshotKind = "VolumeSnapshot"
 	VolumePVCKind      = "PersistentVolumeClaim"
-	APIVersionv1beta1  = "v1beta1"
-	SnapshotAPIVersion = "snapshot.storage.k8s.io/" + APIVersionv1beta1
+	APIVersionv1       = "v1"
+	SnapshotAPIVersion = "snapshot.storage.k8s.io/" + APIVersionv1
 )
 
 var (
