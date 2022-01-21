@@ -12,5 +12,5 @@ jobs:
             - name: Run linter
               uses: golangci/golangci-lint-action@v2
               with:
-                  version: v1.29
-                  args: -E=gofmt,deadcode,unused,varcheck,ineffassign,golint,misspell --timeout=30m0s
+                  version: v1.37
+                  args: -E=gofmt,deadcode,unused,varcheck,ineffassign,golint,misspell,exportloopref --timeout=30m0s
