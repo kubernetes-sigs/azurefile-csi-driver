@@ -5,7 +5,6 @@
 
 ### Tips
  - make controller only run on master node: `--set controller.runOnMaster=true`
- - enable `fsGroupPolicy` on a k8s 1.20+ cluster: `--set feature.enableFSGroupPolicy=true`
  - set replica of controller as `1`: `--set controller.replicas=1` (only applied for NFS protocol)
  - specify different cloud config secret for the driver:
    - `--set controller.cloudConfigSecretName`
@@ -51,7 +50,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `driver.name`                                     | alternative driver name                                    | `file.csi.azure.com` |
 | `driver.customUserAgent`                          | custom userAgent               | `` |
 | `driver.userAgentSuffix`                          | userAgent suffix               | `OSS-helm` |
-| `feature.enableFSGroupPolicy`                     | enable `fsGroupPolicy` on a k8s 1.20+ cluster(only applied for NFS protocol)              | `false`                      |
+| `feature.enableFSGroupPolicy`                     | enable `fsGroupPolicy` on a k8s 1.20+ cluster(only applied for NFS protocol)              | `true`                      |
 | `feature.enableGetVolumeStats`                    | allow GET_VOLUME_STATS on agent node                  | `false`                      |
 | `image.baseRepo`                                  | base repository of driver images                           | `mcr.microsoft.com`                      |
 | `image.azurefile.repository`                      | azurefile-csi-driver docker image                          | `/k8s/csi/azurefile-csi`                            |
@@ -61,7 +60,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `image.csiProvisioner.tag`                        | csi-provisioner docker image tag                           | `v3.1.0`                                                            |
 | `image.csiProvisioner.pullPolicy`                 | csi-provisioner image pull policy                          | `IfNotPresent`                                                      |
 | `image.csiAttacher.repository`                    | csi-attacher docker image                                  | `/oss/kubernetes-csi/csi-attacher`                 |
-| `image.csiAttacher.tag`                           | csi-attacher docker image tag                              | `v3.3.0`                                                            |
+| `image.csiAttacher.tag`                           | csi-attacher docker image tag                              | `v3.4.0`                                                            |
 | `image.csiAttacher.pullPolicy`                    | csi-attacher image pull policy                             | `IfNotPresent`                                                      |
 | `image.csiResizer.repository`                     | csi-resizer docker image                                   | `/oss/kubernetes-csi/csi-resizer`                  |
 | `image.csiResizer.tag`                            | csi-resizer docker image tag                               | `v1.3.0`                                                            |

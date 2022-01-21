@@ -10,7 +10,7 @@ image:
     pullPolicy: IfNotPresent
   csiAttacher:
     repository: /oss/kubernetes-csi/csi-attacher
-    tag: v3.3.0
+    tag: v3.4.0
     pullPolicy: IfNotPresent
   csiResizer:
     repository: /oss/kubernetes-csi/csi-resizer
@@ -141,7 +141,7 @@ snapshot:
         memory: 20Mi
 
 feature:
-  enableFSGroupPolicy: false
+  enableFSGroupPolicy: true
   enableGetVolumeStats: false
 
 driver:
