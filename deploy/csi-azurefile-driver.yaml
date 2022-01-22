@@ -12,3 +12,4 @@ spec:
   volumeLifecycleModes:
     - Persistent
     - Ephemeral
+  fsGroupPolicy: File
