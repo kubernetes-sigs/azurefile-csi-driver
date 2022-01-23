@@ -123,11 +123,11 @@ snapshot:
   image:
     csiSnapshotter:
       repository: /oss/kubernetes-csi/csi-snapshotter
-      tag: v4.2.1
+      tag: v5.0.1
       pullPolicy: IfNotPresent
     csiSnapshotController:
       repository: /oss/kubernetes-csi/snapshot-controller
-      tag: v4.2.1
+      tag: v5.0.1
       pullPolicy: IfNotPresent
   snapshotController:
     name: csi-snapshot-controller
