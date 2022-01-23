@@ -127,7 +127,7 @@ azurefile-darwin:
 
 .PHONY: container
 container: azurefile
-	docker build --no-cache -t $(IMAGE_TAG) -f ./pkg/azurefileplugin/dev.Dockerfile .
+	docker build --no-cache --output=type=$(OUTPUT_TYPE) -t $(IMAGE_TAG) -f ./pkg/azurefileplugin/Dockerfile .
 
 .PHONY: container-linux
 container-linux:
