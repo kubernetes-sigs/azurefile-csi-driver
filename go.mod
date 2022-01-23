@@ -28,7 +28,7 @@ require (
 	k8s.io/cloud-provider v0.21.0
 	k8s.io/component-base v0.21.0
 	k8s.io/klog/v2 v2.8.0
-	k8s.io/kubernetes v1.21.0
+	k8s.io/kubernetes v1.21.1
 	k8s.io/mount-utils v0.0.0
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
 	sigs.k8s.io/cloud-provider-azure v0.7.4
@@ -40,6 +40,7 @@ replace (
 	github.com/niemeyer/pretty => github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.7.1
 	go.etcd.io/etcd => go.etcd.io/etcd v0.0.0-20200410171415-59f5fb25a533
+	golang.org/x/text => golang.org/x/text v0.3.7
 	google.golang.org/grpc => google.golang.org/grpc v1.27.0
 	k8s.io/api => k8s.io/api v0.21.0
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.21.0
