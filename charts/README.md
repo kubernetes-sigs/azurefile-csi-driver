@@ -63,7 +63,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `image.csiAttacher.tag`                           | csi-attacher docker image tag                              | `v3.4.0`                                                            |
 | `image.csiAttacher.pullPolicy`                    | csi-attacher image pull policy                             | `IfNotPresent`                                                      |
 | `image.csiResizer.repository`                     | csi-resizer docker image                                   | `/oss/kubernetes-csi/csi-resizer`                  |
-| `image.csiResizer.tag`                            | csi-resizer docker image tag                               | `v1.3.0`                                                            |
+| `image.csiResizer.tag`                            | csi-resizer docker image tag                               | `v1.4.0`                                                            |
 | `image.csiResizer.pullPolicy`                     | csi-resizer image pull policy                              | `IfNotPresent`                                                      |
 | `image.livenessProbe.repository`                  | liveness-probe docker image                                | `/oss/kubernetes-csi/livenessprobe`                |
 | `image.livenessProbe.tag`                         | liveness-probe docker image tag                            | `v2.5.0`                                                            |

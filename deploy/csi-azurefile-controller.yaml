@@ -85,12 +85,14 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: csi-resizer
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-resizer:v1.3.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-resizer:v1.4.0
           args:
             - "-csi-address=$(ADDRESS)"
             - "-v=2"
             - "-leader-election"
             - '-handle-volume-inuse-error=false'
+            - '-feature-gates=RecoverVolumeExpansionFailure=true'
+            - '-timeout=120s'
           env:
             - name: ADDRESS
               value: /csi/csi.sock
