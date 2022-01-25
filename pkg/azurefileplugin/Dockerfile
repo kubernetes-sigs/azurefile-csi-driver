@@ -20,7 +20,7 @@ COPY ./_output/${ARCH}/azurefileplugin /azurefileplugin
 RUN apt update && apt-mark unhold libcap2
 RUN clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase
 # install updated packages to fix CVE issues
-RUN clean-install libssl1.1 libgssapi-krb5-2 libk5crypto3 libkrb5-3 libkrb5support0 libgmp10 bsdutils
+RUN clean-install libgmp10 bsdutils
 
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"
