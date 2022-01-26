@@ -18,6 +18,7 @@ package azurefile
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -56,7 +57,7 @@ func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace, userAgent
 	kubeClient, err := getKubeClient(kubeconfig)
 	if err != nil {
 		klog.Warningf("get kubeconfig(%s) failed with error: %v", kubeconfig, err)
-		if !os.IsNotExist(err) && err != rest.ErrNotInCluster {
+		if !os.IsNotExist(err) && !errors.Is(err, rest.ErrNotInCluster) {
 			return az, fmt.Errorf("failed to get KubeClient: %v", err)
 		}
 	}

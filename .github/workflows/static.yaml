@@ -13,4 +13,5 @@ jobs:
               uses: golangci/golangci-lint-action@v2
               with:
                   version: v1.43
-                  args: -E=gofmt,deadcode,unused,varcheck,ineffassign,revive,misspell,exportloopref,asciicheck,bodyclose -D=staticcheck --timeout=30m0s
+                  # https://golangci-lint.run/usage/linters/
+                  args: -E=gofmt,deadcode,unused,varcheck,ineffassign,revive,misspell,exportloopref,asciicheck,bodyclose,depguard,dogsled,dupl,durationcheck,errname,forbidigo -D=staticcheck --timeout=30m0s
