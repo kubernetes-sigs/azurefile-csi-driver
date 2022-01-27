@@ -5,11 +5,11 @@ image:
     tag: latest
     pullPolicy: IfNotPresent
   csiProvisioner:
-    repository: /oss/kubernetes-csi/csi-provisioner
+    repository: andyzhangx/csi-provisioner
     tag: v3.1.0
     pullPolicy: IfNotPresent
   csiAttacher:
-    repository: /oss/kubernetes-csi/csi-attacher
+    repository: andyzhangx/csi-attacher
     tag: v3.4.0
     pullPolicy: IfNotPresent
   csiResizer:
