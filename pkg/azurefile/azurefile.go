@@ -215,6 +215,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.customUserAgent = options.CustomUserAgent
 	driver.userAgentSuffix = options.UserAgentSuffix
 	driver.allowEmptyCloudConfig = options.AllowEmptyCloudConfig
+	driver.enableGetVolumeStats = options.EnableGetVolumeStats
 	driver.mountPermissions = options.MountPermissions
 	driver.volLockMap = newLockMap()
 	driver.subnetLockMap = newLockMap()

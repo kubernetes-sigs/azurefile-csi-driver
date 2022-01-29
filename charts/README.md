@@ -51,7 +51,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `driver.customUserAgent`                          | custom userAgent               | `` |
 | `driver.userAgentSuffix`                          | userAgent suffix               | `OSS-helm` |
 | `feature.enableFSGroupPolicy`                     | enable `fsGroupPolicy` on a k8s 1.20+ cluster(only applied for NFS protocol)              | `true`                      |
-| `feature.enableGetVolumeStats`                    | allow GET_VOLUME_STATS on agent node                  | `false`                      |
+| `feature.enableGetVolumeStats`                    | allow GET_VOLUME_STATS on agent node                       | `true`                      |
 | `image.baseRepo`                                  | base repository of driver images                           | `mcr.microsoft.com`                      |
 | `image.azurefile.repository`                      | azurefile-csi-driver docker image                          | `/k8s/csi/azurefile-csi`                            |
 | `image.azurefile.tag`                             | azurefile-csi-driver docker image tag                      | `latest`                                                            |
