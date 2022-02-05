@@ -1,7 +1,7 @@
 # github.com/Azure/azure-pipeline-go v0.2.1
 ## explicit
 github.com/Azure/azure-pipeline-go/pipeline
-# github.com/Azure/azure-sdk-for-go v58.2.0+incompatible
+# github.com/Azure/azure-sdk-for-go v61.3.0+incompatible
 ## explicit
 github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-07-01/compute
 github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2020-04-01/containerservice
@@ -20,11 +20,11 @@ github.com/Azure/azure-storage-file-go/azfile
 # github.com/Azure/go-autorest v14.2.0+incompatible
 ## explicit
 github.com/Azure/go-autorest
-# github.com/Azure/go-autorest/autorest v0.11.22
+# github.com/Azure/go-autorest/autorest v0.11.24
 ## explicit; go 1.15
 github.com/Azure/go-autorest/autorest
 github.com/Azure/go-autorest/autorest/azure
-# github.com/Azure/go-autorest/autorest/adal v0.9.17
+# github.com/Azure/go-autorest/autorest/adal v0.9.18
 ## explicit; go 1.15
 github.com/Azure/go-autorest/autorest/adal
 # github.com/Azure/go-autorest/autorest/date v0.3.0
@@ -83,7 +83,7 @@ github.com/bits-and-blooms/bitset
 # github.com/blang/semver v3.5.1+incompatible
 ## explicit
 github.com/blang/semver
-# github.com/cespare/xxhash/v2 v2.1.1
+# github.com/cespare/xxhash/v2 v2.1.2
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
 # github.com/container-storage-interface/spec v1.5.0 => github.com/container-storage-interface/spec v1.5.0
@@ -99,7 +99,7 @@ github.com/davecgh/go-spew/spew
 ## explicit
 github.com/docker/distribution/digestset
 github.com/docker/distribution/reference
-# github.com/evanphx/json-patch v4.12.0+incompatible
+# github.com/evanphx/json-patch v5.6.0+incompatible
 ## explicit
 github.com/evanphx/json-patch
 # github.com/felixge/httpsnoop v1.0.1
@@ -118,7 +118,7 @@ github.com/gofrs/uuid
 ## explicit; go 1.15
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/sortkeys
-# github.com/golang-jwt/jwt/v4 v4.0.0
+# github.com/golang-jwt/jwt/v4 v4.2.0
 ## explicit; go 1.15
 github.com/golang-jwt/jwt/v4
 # github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
@@ -138,7 +138,7 @@ github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
 github.com/golang/protobuf/ptypes/wrappers
-# github.com/google/go-cmp v0.5.5
+# github.com/google/go-cmp v0.5.6
 ## explicit; go 1.8
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/internal/diff
@@ -242,11 +242,12 @@ github.com/onsi/ginkgo/reporters/stenographer
 github.com/onsi/ginkgo/reporters/stenographer/support/go-colorable
 github.com/onsi/ginkgo/reporters/stenographer/support/go-isatty
 github.com/onsi/ginkgo/types
-# github.com/onsi/gomega v1.16.0
+# github.com/onsi/gomega v1.18.1
 ## explicit; go 1.16
 github.com/onsi/gomega
 github.com/onsi/gomega/format
 github.com/onsi/gomega/internal
+github.com/onsi/gomega/internal/gutil
 github.com/onsi/gomega/matchers
 github.com/onsi/gomega/matchers/support/goraph/bipartitegraph
 github.com/onsi/gomega/matchers/support/goraph/edge
@@ -267,7 +268,7 @@ github.com/opencontainers/selinux/pkg/pwalk
 # github.com/pborman/uuid v1.2.0
 ## explicit
 github.com/pborman/uuid
-# github.com/pelletier/go-toml v1.9.3
+# github.com/pelletier/go-toml v1.9.4
 ## explicit; go 1.12
 github.com/pelletier/go-toml
 # github.com/pkg/errors v0.9.1
@@ -299,8 +300,8 @@ github.com/prometheus/procfs/internal/util
 # github.com/rubiojr/go-vhd v0.0.0-20200706105327-02e210299021
 ## explicit
 github.com/rubiojr/go-vhd/vhd
-# github.com/spf13/cobra v1.2.1
-## explicit; go 1.14
+# github.com/spf13/cobra v1.3.0
+## explicit; go 1.15
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
@@ -373,7 +374,7 @@ go.opentelemetry.io/proto/otlp/common/v1
 go.opentelemetry.io/proto/otlp/metrics/v1
 go.opentelemetry.io/proto/otlp/resource/v1
 go.opentelemetry.io/proto/otlp/trace/v1
-# golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+# golang.org/x/crypto v0.0.0-20220112180741-5e0467b6c7ce
 ## explicit; go 1.17
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/chacha20
@@ -401,11 +402,11 @@ golang.org/x/net/http2/hpack
 golang.org/x/net/idna
 golang.org/x/net/internal/timeseries
 golang.org/x/net/trace
-# golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f
+# golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 ## explicit; go 1.11
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
-# golang.org/x/sys v0.0.0-20210831042530-f4d43177bf5e
+# golang.org/x/sys v0.0.0-20220114195835-da31bd327af9
 ## explicit; go 1.17
 golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader
@@ -450,13 +451,13 @@ google.golang.org/appengine/internal/log
 google.golang.org/appengine/internal/remote_api
 google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/urlfetch
-# google.golang.org/genproto v0.0.0-20210831024726-fe130286e0e2
+# google.golang.org/genproto v0.0.0-20211208223120-3a66f561d7aa
 ## explicit; go 1.11
 google.golang.org/genproto/googleapis/api/httpbody
 google.golang.org/genproto/googleapis/rpc/status
 google.golang.org/genproto/protobuf/field_mask
-# google.golang.org/grpc v1.40.0
-## explicit; go 1.11
+# google.golang.org/grpc v1.42.0
+## explicit; go 1.14
 google.golang.org/grpc
 google.golang.org/grpc/attributes
 google.golang.org/grpc/backoff
@@ -494,6 +495,7 @@ google.golang.org/grpc/internal/status
 google.golang.org/grpc/internal/syscall
 google.golang.org/grpc/internal/transport
 google.golang.org/grpc/internal/transport/networktype
+google.golang.org/grpc/internal/xds/env
 google.golang.org/grpc/keepalive
 google.golang.org/grpc/metadata
 google.golang.org/grpc/peer
@@ -550,7 +552,7 @@ gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 ## explicit
 gopkg.in/yaml.v3
-# k8s.io/api v0.23.1 => k8s.io/api v0.23.0
+# k8s.io/api v0.23.3 => k8s.io/api v0.23.0
 ## explicit; go 1.16
 k8s.io/api/admission/v1
 k8s.io/api/admission/v1beta1
@@ -599,7 +601,7 @@ k8s.io/api/scheduling/v1beta1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apimachinery v0.23.1 => k8s.io/apimachinery v0.23.0
+# k8s.io/apimachinery v0.23.3 => k8s.io/apimachinery v0.23.0
 ## explicit; go 1.16
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
@@ -655,7 +657,7 @@ k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/netutil
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/apiserver v0.23.0 => k8s.io/apiserver v0.23.0
+# k8s.io/apiserver v0.23.3 => k8s.io/apiserver v0.23.0
 ## explicit; go 1.16
 k8s.io/apiserver/pkg/admission
 k8s.io/apiserver/pkg/admission/configuration
@@ -696,7 +698,7 @@ k8s.io/apiserver/pkg/util/feature
 k8s.io/apiserver/pkg/util/webhook
 k8s.io/apiserver/pkg/util/x509metrics
 k8s.io/apiserver/pkg/warning
-# k8s.io/client-go v0.23.1 => k8s.io/client-go v0.23.0
+# k8s.io/client-go v0.23.3 => k8s.io/client-go v0.23.0
 ## explicit; go 1.16
 k8s.io/client-go/applyconfigurations/admissionregistration/v1
 k8s.io/client-go/applyconfigurations/admissionregistration/v1beta1
@@ -986,14 +988,14 @@ k8s.io/client-go/util/keyutil
 k8s.io/client-go/util/retry
 k8s.io/client-go/util/testing
 k8s.io/client-go/util/workqueue
-# k8s.io/cloud-provider v0.23.0 => k8s.io/cloud-provider v0.23.0
+# k8s.io/cloud-provider v0.23.3 => k8s.io/cloud-provider v0.23.0
 ## explicit; go 1.16
 k8s.io/cloud-provider
 k8s.io/cloud-provider/service/helpers
 k8s.io/cloud-provider/volume
 k8s.io/cloud-provider/volume/errors
 k8s.io/cloud-provider/volume/helpers
-# k8s.io/component-base v0.23.0 => k8s.io/component-base v0.23.0
+# k8s.io/component-base v0.23.3 => k8s.io/component-base v0.23.0
 ## explicit; go 1.16
 k8s.io/component-base/cli/flag
 k8s.io/component-base/config
@@ -1003,7 +1005,7 @@ k8s.io/component-base/metrics/legacyregistry
 k8s.io/component-base/metrics/testutil
 k8s.io/component-base/traces
 k8s.io/component-base/version
-# k8s.io/component-helpers v0.23.1 => k8s.io/component-helpers v0.23.0
+# k8s.io/component-helpers v0.23.3 => k8s.io/component-helpers v0.23.0
 ## explicit; go 1.16
 k8s.io/component-helpers/node/util/sysctl
 k8s.io/component-helpers/scheduling/corev1
@@ -1020,7 +1022,7 @@ k8s.io/kube-openapi/pkg/util/proto
 ## explicit; go 1.16
 k8s.io/kubectl/pkg/scale
 k8s.io/kubectl/pkg/util/podutils
-# k8s.io/kubelet v0.23.0 => k8s.io/kubelet v0.23.0
+# k8s.io/kubelet v0.23.3 => k8s.io/kubelet v0.23.0
 ## explicit; go 1.16
 k8s.io/kubelet/pkg/apis/stats/v1alpha1
 # k8s.io/kubernetes v1.23.1
@@ -1094,7 +1096,7 @@ k8s.io/kubernetes/test/utils/image
 # k8s.io/mount-utils v0.23.0 => k8s.io/mount-utils v0.23.0
 ## explicit; go 1.16
 k8s.io/mount-utils
-# k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b
+# k8s.io/utils v0.0.0-20211116205334-6203023598ed
 ## explicit; go 1.12
 k8s.io/utils/buffer
 k8s.io/utils/clock
@@ -1113,11 +1115,11 @@ k8s.io/utils/path
 k8s.io/utils/pointer
 k8s.io/utils/strings
 k8s.io/utils/trace
-# sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.25
+# sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.27
 ## explicit; go 1.17
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client
-# sigs.k8s.io/cloud-provider-azure v0.7.4 => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220113021309-22837509ca53
+# sigs.k8s.io/cloud-provider-azure v0.7.4 => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220205033256-055704f6ecfd
 ## explicit; go 1.17
 sigs.k8s.io/cloud-provider-azure/pkg/auth
 sigs.k8s.io/cloud-provider-azure/pkg/azureclients
@@ -1169,7 +1171,7 @@ sigs.k8s.io/cloud-provider-azure/pkg/version
 ## explicit; go 1.16
 sigs.k8s.io/json
 sigs.k8s.io/json/internal/golang/encoding/json
-# sigs.k8s.io/structured-merge-diff/v4 v4.1.2
+# sigs.k8s.io/structured-merge-diff/v4 v4.2.1
 ## explicit; go 1.13
 sigs.k8s.io/structured-merge-diff/v4/fieldpath
 sigs.k8s.io/structured-merge-diff/v4/schema
@@ -1212,4 +1214,4 @@ sigs.k8s.io/yaml
 # k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.23.0
 # k8s.io/sample-controller => k8s.io/sample-controller v0.23.0
 # sigs.k8s.io/azurefile-csi-driver => ./
-# sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220113021309-22837509ca53
+# sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220205033256-055704f6ecfd
