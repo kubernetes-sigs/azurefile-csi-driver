@@ -717,7 +717,7 @@ func (d *Driver) ResizeFileShare(resourceGroup, accountName, shareName string, s
 }
 
 // RemoveStorageAccountTag remove tag from storage account
-func (d *Driver) RemoveStorageAccountTag(resourceGroup, account, key string) error {
+func (d *Driver) RemoveStorageAccountTag(ctx context.Context, resourceGroup, account, key string) error {
 	// search in cache first
 	cache, err := d.removeTagCache.Get(account, azcache.CacheReadTypeDefault)
 	if err != nil {
@@ -731,7 +731,7 @@ func (d *Driver) RemoveStorageAccountTag(resourceGroup, account, key string) err
 	klog.Infof("remove tag(%s) on account(%s) resourceGroup(%s)", key, account, resourceGroup)
 	err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 		var err error
-		rerr := d.cloud.RemoveStorageAccountTag(resourceGroup, account, key)
+		rerr := d.cloud.RemoveStorageAccountTag(ctx, resourceGroup, account, key)
 		if rerr != nil {
 			err = rerr.Error()
 		}
