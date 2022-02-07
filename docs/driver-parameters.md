@@ -69,5 +69,5 @@ nodeStageSecretRef.namespace | secret namespace(only applies for SMB) | k8s name
 
  - create a Kubernetes secret for `nodeStageSecretRef.name`
  ```console
-kubectl create secret generic azure-secret --from-literal=azurestorageaccountname="xxx" --from-literal azurestorageaccountkey="xxx" --type=Opaque
+kubectl create secret generic azure-storage-account-{accountname}-secret --from-literal=azurestorageaccountname="xxx" --from-literal azurestorageaccountkey="xxx" --type=Opaque
  ```
