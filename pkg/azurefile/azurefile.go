@@ -400,6 +400,7 @@ func getStorageAccount(secrets map[string]string) (string, string, error) {
 
 	var accountName, accountKey string
 	for k, v := range secrets {
+		v = strings.TrimSpace(v)
 		switch strings.ToLower(k) {
 		case "accountname":
 			accountName = v
@@ -796,7 +797,9 @@ func (d *Driver) GetStorageAccountFromSecret(ctx context.Context, secretName, se
 		return "", "", fmt.Errorf("could not get secret(%v): %v", secretName, err)
 	}
 
-	return string(secret.Data[defaultSecretAccountName][:]), string(secret.Data[defaultSecretAccountKey][:]), nil
+	accountName := strings.TrimSpace(string(secret.Data[defaultSecretAccountName][:]))
+	accountKey := strings.TrimSpace(string(secret.Data[defaultSecretAccountKey][:]))
+	return accountName, accountKey, nil
 }
 
 // getSubnetResourceID get default subnet resource ID from cloud provider config
