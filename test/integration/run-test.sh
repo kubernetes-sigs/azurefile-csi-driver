@@ -22,7 +22,7 @@ function cleanup {
 }
 
 readonly CSC_BIN="$GOBIN/csc"
-readonly volname="citest-$(date +%s)"
+volname="citest-$(date +%s)"
 endpoint='tcp://127.0.0.1:10000'
 if [[ "$#" -gt 0 ]]; then
   endpoint="$1"

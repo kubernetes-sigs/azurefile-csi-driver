@@ -36,7 +36,7 @@ if [[ -n "${AZURE_CREDENTIALS:-}" ]]; then
     AZURE_STORAGE_KEY="$(parse_cred StorageAccountKey < "${AZURE_CREDENTIALS}")"
 
     export AZURE_SUBSCRIPTION_ID AZURE_TENANT_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET AZURE_MULTI_TENANCY_ID AZURE_MULTI_TENANCY_SECRET AZURE_STORAGE_ACCOUNT AZURE_STORAGE_KEY
-    # workaround fpr capz tests
+    # workaround for capz tests
     docker login -u "${AZURE_CLIENT_ID}" -p "${AZURE_CLIENT_SECRET}" capzci.azurecr.io
 else
     echo "AZURE_CREDENTIALS is empty"

@@ -31,8 +31,8 @@ echo "check the driver pods if restarts ..."
 original_pods=$(kubectl get pods -n kube-system | grep azurefile | awk '{print $1}')
 original_restarts=$(kubectl get pods -n kube-system | grep azurefile | awk '{print $4}')
 
-processed_pods=($(get_array "${original_pods[@]}"))
-processed_restarts=($(get_array "${original_restarts[@]}"))
+processed_pods=("$(get_array "${original_pods[@]}")")
+processed_restarts=("$(get_array "${original_restarts[@]}")")
 
 for ((i=0; i<${#processed_restarts[@]}; i++)); do
     if [ "${processed_restarts[$i]}" -ne "0" ]
@@ -43,7 +43,7 @@ for ((i=0; i<${#processed_restarts[@]}; i++)); do
         if [[ "$1" == "log" ]]; then
             kubectl describe po ${processed_pods[$i]} -n kube-system
             echo "======================================================================================"
-            echo "print previous azurefile cotnainer logs since there is a restart"
+            echo "print previous azurefile container logs since there is a restart"
             kubectl logs ${processed_pods[$i]} -c azurefile -p -n kube-system
             echo "======================================================================================"
         fi

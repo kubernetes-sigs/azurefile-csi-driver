@@ -17,7 +17,7 @@ kubectl logs csi-azurefile-controller-56bfddd689-dh5tk -c azurefile -n kube-syst
 > note: there could be multiple controller pods, if there are no helpful logs, try to get logs from other controller pods
 
 ### Case#2: volume mount/unmount failed
- - locate csi driver pod and make sure which pod do tha actual volume mount/unmount
+ - locate csi driver pod that does the actual volume mount/unmount
 ```console
 kubectl get po -o wide -n kube-system | grep csi-azurefile-node
 ```
@@ -67,7 +67,7 @@ kubectl exec -it csi-azurefile-node-win-xxxxx -n kube-system -c azurefile cmd
 type c:\k\csi-proxy.err.log
 ```
 
-#### Update driver version quickly by editting driver deployment directly
+#### Update driver version quickly by editing driver deployment directly
  - update controller deployment
 ```console
 kubectl edit deployment csi-azurefile-controller -n kube-system

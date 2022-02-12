@@ -225,7 +225,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		shareProtocol = storage.EnabledProtocolsNFS
 		// NFS protocol does not need account key
 		storeAccountKey = false
-		// reset protocol field (compatable with "fsType: nfs")
+		// reset protocol field (compatble with "fsType: nfs")
 		parameters[protocolField] = protocol
 
 		if !createPrivateEndpoint {
