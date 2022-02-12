@@ -197,7 +197,7 @@ type Driver struct {
 	secretCacheMap *azcache.TimedCache
 	// a map storing all volumes using data plane API <volumeID, "">, <accountName, "">
 	dataPlaneAPIVolMap sync.Map
-	// a timed cache storing acount search history (solve account list throttling issue)
+	// a timed cache storing account search history (solve account list throttling issue)
 	accountSearchCache *azcache.TimedCache
 	// a timed cache storing tag removing history (solve account update throttling issue)
 	removeTagCache *azcache.TimedCache

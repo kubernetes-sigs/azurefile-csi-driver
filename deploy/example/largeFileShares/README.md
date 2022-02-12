@@ -1,6 +1,6 @@
 ## EnableLargeFileShares Example
 
-[enableLargeFileShares](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/driver-parameters.md) driver parameter allows customers to create storage accounts with [large file Shares](https://docs.microsoft.com/en-us/azure/storage/files/storage-files-how-to-create-large-file-share?tabs=azure-portal)  enabled. These storage accounts enable the customers to create file shares that can scale upto upto 100 TiB.
+[enableLargeFileShares](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/driver-parameters.md) driver parameter allows customers to create storage accounts with [large file Shares](https://docs.microsoft.com/en-us/azure/storage/files/storage-files-how-to-create-large-file-share?tabs=azure-portal)  enabled. These storage accounts enable the customers to create file shares that can scale up to 100 TiB.
 
 ### Example
 

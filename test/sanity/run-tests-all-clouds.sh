@@ -32,4 +32,6 @@ apt update && apt install cifs-utils procps -y
 if [[ -z "$(command -v csi-sanity)" ]]; then
 	install_csi_sanity_bin
 fi
+
+declare nodeid
 test/sanity/run-test.sh "$nodeid"
