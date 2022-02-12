@@ -21,7 +21,7 @@ function get_array() {
     do
         arr[${#arr[@]}]=$value
     done
-    echo ${arr[*]}
+    echo "${arr[*]}"
 }
 
 NS=kube-system
