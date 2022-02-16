@@ -198,19 +198,16 @@ windows:
         memory: 200Mi
       requests:
         cpu: 10m
-        memory: 20Mi
     nodeDriverRegistrar:
       limits:
         memory: 200Mi
       requests:
         cpu: 10m
-        memory: 20Mi
     azurefile:
       limits:
         memory: 400Mi
       requests:
         cpu: 10m
-        memory: 20Mi
   tolerations:
     - key: "node.kubernetes.io/os"
       operator: "Exists"
