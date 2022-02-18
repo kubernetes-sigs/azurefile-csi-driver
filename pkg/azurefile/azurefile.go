@@ -133,7 +133,9 @@ const (
 	accountLimitExceedManagementAPI = "TotalSharesProvisionedCapacityExceedsAccountLimit"
 	accountLimitExceedDataPlaneAPI  = "specified share does not exist"
 
-	fileShareNotFound = "ErrorCode=ShareNotFound"
+	fileShareNotFound  = "ErrorCode=ShareNotFound"
+	statusCodeNotFound = "StatusCode=404"
+	httpCodeNotFound   = "HTTPStatusCode: 404"
 
 	// define different sleep time when hit throttling
 	accountOpThrottlingSleepSec = 16
@@ -677,6 +679,16 @@ func (d *Driver) DeleteFileShare(resourceGroup, accountName, shareName string, s
 		} else {
 			err = d.cloud.DeleteFileShare(resourceGroup, accountName, shareName)
 		}
+
+		if err != nil {
+			if strings.Contains(err.Error(), statusCodeNotFound) ||
+				strings.Contains(err.Error(), httpCodeNotFound) ||
+				strings.Contains(err.Error(), fileShareNotFound) {
+				klog.Warningf("DeleteFileShare(%s) on account(%s) failed with error(%v), return as success", shareName, accountName, err)
+				return true, nil
+			}
+		}
+
 		if isRetriableError(err) {
 			klog.Warningf("DeleteFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", shareName, accountName, err)
 			if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tooManyRequests)) {
@@ -687,10 +699,6 @@ func (d *Driver) DeleteFileShare(resourceGroup, accountName, shareName string, s
 			return false, nil
 		}
 
-		if err != nil && strings.Contains(strings.ToLower(err.Error()), strings.ToLower(fileShareNotFound)) {
-			klog.Warningf("DeleteFileShare(%s) on account(%s) failed with error(%v), return as success", shareName, accountName, err)
-			return true, nil
-		}
 		return true, err
 	})
 }
