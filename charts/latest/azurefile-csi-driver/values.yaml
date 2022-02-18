@@ -195,19 +195,22 @@ windows:
   resources:
     livenessProbe:
       limits:
-        memory: 200Mi
+        memory: 100Mi
       requests:
         cpu: 10m
+        memory: 40Mi
     nodeDriverRegistrar:
       limits:
+        memory: 100Mi
+      requests:
+        cpu: 10m
+        memory: 40Mi
+    azurefile:
+      limits:
         memory: 200Mi
       requests:
         cpu: 10m
-    azurefile:
-      limits:
-        memory: 400Mi
-      requests:
-        cpu: 10m
+        memory: 40Mi
   tolerations:
     - key: "node.kubernetes.io/os"
       operator: "Exists"
