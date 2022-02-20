@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"strings"
@@ -869,6 +870,52 @@ func TestCheckGidPresentInMountFlags(t *testing.T) {
 		}
 	}
 
+}
+
+func TestNodePublishVolumeIdempotentMount(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Getuid() != 0 {
+		return
+	}
+	_ = makeDir(sourceTest, 0755)
+	_ = makeDir(targetTest, 0755)
+	d := NewFakeDriver()
+	d.mounter = &mount.SafeFormatAndMount{
+		Interface: mount.New(""),
+		Exec:      exec.New(),
+	}
+
+	volumeCap := csi.VolumeCapability_AccessMode{Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER}
+	req := csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+		VolumeId:          "vol_1",
+		TargetPath:        targetTest,
+		StagingTargetPath: sourceTest,
+		Readonly:          true}
+
+	_, err := d.NodePublishVolume(context.Background(), &req)
+	assert.NoError(t, err)
+	_, err = d.NodePublishVolume(context.Background(), &req)
+	assert.NoError(t, err)
+
+	// ensure the target not be mounted twice
+	targetAbs, err := filepath.Abs(targetTest)
+	assert.NoError(t, err)
+
+	mountList, err := d.mounter.List()
+	assert.NoError(t, err)
+	mountPointNum := 0
+	for _, mountPoint := range mountList {
+		if mountPoint.Path == targetAbs {
+			mountPointNum++
+		}
+	}
+	assert.Equal(t, 1, mountPointNum)
+	err = d.mounter.Unmount(targetTest)
+	assert.NoError(t, err)
+	_ = d.mounter.Unmount(targetTest)
+	err = os.RemoveAll(sourceTest)
+	assert.NoError(t, err)
+	err = os.RemoveAll(targetTest)
+	assert.NoError(t, err)
 }
 
 func makeFakeCmd(fakeCmd *testingexec.FakeCmd, cmd string, args ...string) testingexec.FakeCommandAction {
