@@ -91,23 +91,23 @@ The following table lists the configurable parameters of the latest Azure File C
 | `controller.attachRequired`                       | enable attach/detach (only valid for vhd disk feature)                                            |`false`                                                           |
 | `controller.logLevel`                             | controller driver log level                                                          |`5`                                                           |
 | `controller.resources.csiProvisioner.limits.memory`   | csi-provisioner memory limits                         | 500Mi                                                          |
-| `controller.resources.csiProvisioner.requests.cpu`    | csi-provisioner cpu requests limits                   | 10m                                                            |
-| `controller.resources.csiProvisioner.requests.memory` | csi-provisioner memory requests limits                | 20Mi                                                           |
+| `controller.resources.csiProvisioner.requests.cpu`    | csi-provisioner cpu requests                   | 10m                                                            |
+| `controller.resources.csiProvisioner.requests.memory` | csi-provisioner memory requests                | 20Mi                                                           |
 | `controller.resources.csiAttacher.limits.memory`      | csi-attacher memory limits                         | 500Mi                                                          |
-| `controller.resources.csiAttacher.requests.cpu`       | csi-attacher cpu requests limits                   | 10m                                                            |
-| `controller.resources.csiAttacher.requests.memory`    | csi-attacher memory requests limits                | 20Mi                                                           |
+| `controller.resources.csiAttacher.requests.cpu`       | csi-attacher cpu requests                   | 10m                                                            |
+| `controller.resources.csiAttacher.requests.memory`    | csi-attacher memory requests                | 20Mi                                                           |
 | `controller.resources.csiResizer.limits.memory`       | csi-resizer memory limits                         | 500Mi                                                          |
-| `controller.resources.csiResizer.requests.cpu`        | csi-resizer cpu requests limits                   | 10m                                                            |
-| `controller.resources.csiResizer.requests.memory`     | csi-resizer memory requests limits                | 20Mi                                                           |
+| `controller.resources.csiResizer.requests.cpu`        | csi-resizer cpu requests                   | 10m                                                            |
+| `controller.resources.csiResizer.requests.memory`     | csi-resizer memory requests                | 20Mi                                                           |
 | `controller.resources.csiSnapshotter.limits.memory`   | csi-snapshotter memory limits                         | 500Mi                                                          |
-| `controller.resources.csiSnapshotter.requests.cpu`    | csi-snapshotter cpu requests limits                   | 10m                                                            |
-| `controller.resources.csiSnapshotter.requests.memory` | csi-snapshotter memory requests limits                | 20Mi                                                           |
+| `controller.resources.csiSnapshotter.requests.cpu`    | csi-snapshotter cpu requests                   | 10m                                                            |
+| `controller.resources.csiSnapshotter.requests.memory` | csi-snapshotter memory requests                | 20Mi                                                           |
 | `controller.resources.livenessProbe.limits.memory`    | liveness-probe memory limits                          | 100Mi                                                          |
-| `controller.resources.livenessProbe.requests.cpu`     | liveness-probe cpu requests limits                    | 10m                                                            |
-| `controller.resources.livenessProbe.requests.memory`  | liveness-probe memory requests limits                 | 20Mi                                                           |
+| `controller.resources.livenessProbe.requests.cpu`     | liveness-probe cpu requests                    | 10m                                                            |
+| `controller.resources.livenessProbe.requests.memory`  | liveness-probe memory requests                 | 20Mi                                                           |
 | `controller.resources.azurefile.limits.memory`        | azurefile memory limits                         | 200Mi                                                          |
-| `controller.resources.azurefile.requests.cpu`         | azurefile cpu requests limits                   | 10m                                                            |
-| `controller.resources.azurefile.requests.memory`      | azurefile memory requests limits                | 20Mi                                                           |
+| `controller.resources.azurefile.requests.cpu`         | azurefile cpu requests                   | 10m                                                            |
+| `controller.resources.azurefile.requests.memory`      | azurefile memory requests                | 20Mi                                                           |
 | `controller.kubeconfig`                           | configure kubeconfig path on controller node                | '' (empty, use InClusterConfig by default)
 | `controller.tolerations`                          | controller pod tolerations                            |                                                              |
 | `node.cloudConfigSecretName`                      | cloud config secret name of node driver               | `azure-cloud-provider`
@@ -127,8 +127,8 @@ The following table lists the configurable parameters of the latest Azure File C
 | `snapshot.snapshotController.name`                | snapshot controller name                                   | `csi-snapshot-controller`                                                           |
 | `snapshot.snapshotController.replicas`            | the replicas of snapshot-controller                        | `2`                                                          |
 | `snapshot.snapshotController.resources.limits.memory`          | csi-snapshot-controller memory limits                          | 100Mi                                                          |
-| `snapshot.snapshotController.resources.requests.cpu`           | csi-snapshot-controller cpu requests limits                    | 10m                                                            |
-| `snapshot.snapshotController.resources.requests.memory`        | csi-snapshot-controller memory requests limits                 | 20Mi                                                           |
+| `snapshot.snapshotController.resources.requests.cpu`           | csi-snapshot-controller cpu requests                    | 10m                                                            |
+| `snapshot.snapshotController.resources.requests.memory`        | csi-snapshot-controller memory requests                 | 20Mi                                                           |
 | `linux.enabled`                                   | whether enable linux feature                               | `true`                                                              |
 | `linux.dsName`                                    | name of driver daemonset on linux                             |`csi-azurefile-node`                                                         |
 | `linux.dnsPolicy`                                 | dnsPolicy setting of driver daemonset on linux                             | `Default` (available values: `Default`, `ClusterFirst`, `ClusterFirstWithHostNet`, `None`)
@@ -138,28 +138,28 @@ The following table lists the configurable parameters of the latest Azure File C
 | `linux.mountPermissions`                          | mounted folder permissions                 | `0777`
 | `linux.tolerations`                               | linux node driver tolerations                            |
 | `linux.resources.livenessProbe.limits.memory`          | liveness-probe memory limits                          | 100Mi                                                          |
-| `linux.resources.livenessProbe.requests.cpu`           | liveness-probe cpu requests limits                    | 10m                                                            |
-| `linux.resources.livenessProbe.requests.memory`        | liveness-probe memory requests limits                 | 20Mi                                                           |
+| `linux.resources.livenessProbe.requests.cpu`           | liveness-probe cpu requests                    | 10m                                                            |
+| `linux.resources.livenessProbe.requests.memory`        | liveness-probe memory requests                 | 20Mi                                                           |
 | `linux.resources.nodeDriverRegistrar.limits.memory`    | csi-node-driver-registrar memory limits               | 100Mi                                                          |
-| `linux.resources.nodeDriverRegistrar.requests.cpu`     | csi-node-driver-registrar cpu requests limits         | 10m                                                            |
-| `linux.resources.nodeDriverRegistrar.requests.memory`  | csi-node-driver-registrar memory requests limits      | 20Mi                                                           |
+| `linux.resources.nodeDriverRegistrar.requests.cpu`     | csi-node-driver-registrar cpu requests         | 10m                                                            |
+| `linux.resources.nodeDriverRegistrar.requests.memory`  | csi-node-driver-registrar memory requests      | 20Mi                                                           |
 | `linux.resources.azurefile.limits.memory`              | azurefile memory limits                         | 200Mi                                                         |
-| `linux.resources.azurefile.requests.cpu`               | azurefile cpu requests limits                   | 10m                                                            |
-| `linux.resources.azurefile.requests.memory`            | azurefile memory requests limits                | 20Mi                                                           |
+| `linux.resources.azurefile.requests.cpu`               | azurefile cpu requests                   | 10m                                                            |
+| `linux.resources.azurefile.requests.memory`            | azurefile memory requests                | 20Mi                                                           |
 | `windows.enabled`                                 | whether enable windows feature                             | `true`                                                             |
 | `windows.dsName`                                  | name of driver daemonset on windows                             |`csi-azurefile-node-win`                                                         |
 | `windows.kubelet`                                 | configure kubelet directory path on Windows agent node                | `'C:\var\lib\kubelet'`                                            |
 | `windows.kubeconfig`                              | configure kubeconfig path on Windows agent node                | `'C:\k\config'`                                            |
 | `windows.tolerations`                             | windows node driver tolerations                            |                                                              |
-| `windows.resources.livenessProbe.limits.memory`          | liveness-probe memory limits                          | 200Mi                                                          |
-| `windows.resources.livenessProbe.requests.cpu`           | liveness-probe cpu requests limits                    | 10m                                                            |
-| `windows.resources.livenessProbe.requests.memory`        | liveness-probe memory requests limits                 | 20Mi                                                           |
-| `windows.resources.nodeDriverRegistrar.limits.memory`    | csi-node-driver-registrar memory limits               | 200Mi                                                          |
-| `windows.resources.nodeDriverRegistrar.requests.cpu`     | csi-node-driver-registrar cpu requests limits         | 10m                                                            |
-| `windows.resources.nodeDriverRegistrar.requests.memory`  | csi-node-driver-registrar memory requests limits      | 20Mi                                                           |
-| `windows.resources.azurefile.limits.memory`              | azurefile memory limits                         | 400Mi                                                         |
-| `windows.resources.azurefile.requests.cpu`               | azurefile cpu requests limits                   | 10m                                                            |
-| `windows.resources.azurefile.requests.memory`            | azurefile memory requests limits                | 20Mi                                                           |
+| `windows.resources.livenessProbe.limits.memory`          | liveness-probe memory limits                          | 100Mi                                                          |
+| `windows.resources.livenessProbe.requests.cpu`           | liveness-probe cpu requests                    | 10m                                                            |
+| `windows.resources.livenessProbe.requests.memory`        | liveness-probe memory requests                 | 40Mi                                                           |
+| `windows.resources.nodeDriverRegistrar.limits.memory`    | csi-node-driver-registrar memory limits               | 100Mi                                                          |
+| `windows.resources.nodeDriverRegistrar.requests.cpu`     | csi-node-driver-registrar cpu requests         | 10m                                                            |
+| `windows.resources.nodeDriverRegistrar.requests.memory`  | csi-node-driver-registrar memory requests      | 40Mi                                                           |
+| `windows.resources.azurefile.limits.memory`              | azurefile memory limits                         | 200Mi                                                         |
+| `windows.resources.azurefile.requests.cpu`               | azurefile cpu requests                   | 10m                                                            |
+| `windows.resources.azurefile.requests.memory`            | azurefile memory requests                | 40Mi                                                           |
 
 ## troubleshooting
  - Add `--wait -v=5 --debug` in `helm install` command to get detailed error
