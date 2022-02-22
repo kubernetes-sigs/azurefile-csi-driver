@@ -1,10 +1,10 @@
 FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.17-openshift-4.11 AS builder
 WORKDIR /go/src/github.com/openshift/azure-file-csi-driver
 COPY . .
-RUN make azurefile ARCH=$(go env GOARCH)
+RUN make azurefile ARCH=$(go env GOARCH) && cp _output/$(go env GOARCH)/azurefileplugin .
 
 FROM registry.ci.openshift.org/ocp/4.11:base
-COPY --from=builder /go/src/github.com/openshift/azure-file-csi-driver/_output/amd64/azurefileplugin /bin/azurefileplugin
+COPY --from=builder /go/src/github.com/openshift/azure-file-csi-driver/azurefileplugin /bin/azurefileplugin
 RUN yum install -y cifs-utils util-linux nfs-utils e2fsprogs xfsprogs ca-certificates && yum clean all && rm -rf /var/cache/yum
 
 LABEL description="Azure File CSI Driver"
