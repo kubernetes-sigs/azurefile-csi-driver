@@ -1037,8 +1037,9 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			CSIDriver: testDriver,
 			Pods:      pods,
 			StorageClassParameters: map[string]string{
-				"skuName":  "Premium_LRS",
-				"protocol": "nfs",
+				"skuName":        "Premium_LRS",
+				"protocol":       "nfs",
+				"rootSquashType": "RootSquash",
 			},
 		}
 		test.Run(cs, ns)
@@ -1071,6 +1072,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			"protocol":            "nfs",
 			"networkEndpointType": "privateEndpoint",
 			"skuName":             "Premium_LRS",
+			"rootSquashType":      "AllSquash",
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
 			CSIDriver:              testDriver,
@@ -1107,7 +1109,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			CSIDriver: testDriver,
 			Pods:      pods,
 			StorageClassParameters: map[string]string{
-				"protocol": "nfs",
+				"protocol":       "nfs",
+				"rootSquashType": "NoRootSquash",
 			},
 		}
 		if supportZRSwithNFS {
