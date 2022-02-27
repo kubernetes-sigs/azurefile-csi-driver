@@ -107,7 +107,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		parameters = make(map[string]string)
 	}
 	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
-	var secretNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, accessTier string
+	var secretNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, accessTier, rootSquashType string
 	var createAccount, useDataPlaneAPI, useSeretCache, disableDeleteRetentionPolicy, enableLFS bool
 	var vnetResourceGroup, vnetName, subnetName string
 	// set allowBlobPublicAccess as false by default
@@ -169,6 +169,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			networkEndpointType = v
 		case accessTierField:
 			accessTier = v
+		case rootSquashTypeField:
+			rootSquashType = v
 		case allowBlobPublicAccessField:
 			if strings.EqualFold(v, trueValue) {
 				allowBlobPublicAccess = to.BoolPtr(true)
@@ -202,6 +204,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	if !isSupportedAccessTier(accessTier) {
 		return nil, status.Errorf(codes.InvalidArgument, "accessTier(%s) is not supported, supported AccessTier list: %v", accessTier, storage.PossibleShareAccessTierValues())
+	}
+
+	if !isSupportedRootSquashType(rootSquashType) {
+		return nil, status.Errorf(codes.InvalidArgument, "rootSquashType(%s) is not supported, supported RootSquashType list: %v", rootSquashType, storage.PossibleRootSquashTypeValues())
 	}
 
 	if protocol == nfs && fsType != "" && fsType != nfs {
@@ -367,6 +373,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		Name:       validFileShareName,
 		Protocol:   shareProtocol,
 		RequestGiB: fileShareSize,
+		AccessTier: accessTier,
+		RootSquash: rootSquashType,
 	}
 
 	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_create_volume", d.cloud.ResourceGroup, d.cloud.SubscriptionID, d.Name)

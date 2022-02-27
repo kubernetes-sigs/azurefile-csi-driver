@@ -938,3 +938,38 @@ func TestIsSupportedAccessTier(t *testing.T) {
 		}
 	}
 }
+
+func TestIsSupportedRootSquashType(t *testing.T) {
+	tests := []struct {
+		rootSquashType string
+		expectedResult bool
+	}{
+		{
+			rootSquashType: "",
+			expectedResult: true,
+		},
+		{
+			rootSquashType: "AllSquash",
+			expectedResult: true,
+		},
+		{
+			rootSquashType: "NoRootSquash",
+			expectedResult: true,
+		},
+		{
+			rootSquashType: "RootSquash",
+			expectedResult: true,
+		},
+		{
+			rootSquashType: "unknown",
+			expectedResult: false,
+		},
+	}
+
+	for _, test := range tests {
+		result := isSupportedRootSquashType(test.rootSquashType)
+		if result != test.expectedResult {
+			t.Errorf("isSupportedRootSquashType(%s) returned with %v, not equal to %v", test.rootSquashType, result, test.expectedResult)
+		}
+	}
+}
