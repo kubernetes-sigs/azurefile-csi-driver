@@ -202,7 +202,9 @@ func TestNodePublishVolume(t *testing.T) {
 				VolumeId:          "vol_1",
 				TargetPath:        targetTest,
 				StagingTargetPath: sourceTest,
-				Readonly:          true},
+				Readonly:          true,
+				VolumeContext:     map[string]string{mountPermissionsField: "0755"},
+			},
 			expectedErr: testutil.TestError{},
 		},
 		{
@@ -222,6 +224,18 @@ func TestNodePublishVolume(t *testing.T) {
 				StagingTargetPath: sourceTest,
 				Readonly:          true},
 			expectedErr: testutil.TestError{},
+		},
+		{
+			desc: "[Error] invalid mountPermissions",
+			req: csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "vol_1",
+				TargetPath:        targetTest,
+				StagingTargetPath: sourceTest,
+				VolumeContext:     map[string]string{mountPermissionsField: "07ab"},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, fmt.Sprintf("invalid mountPermissions %s", "07ab")),
+			},
 		},
 	}
 
@@ -359,16 +373,18 @@ func TestNodeStageVolume(t *testing.T) {
 		serverNameField: "",
 	}
 	volContextNfs := map[string]string{
-		fsTypeField:     "nfs",
-		diskNameField:   "test_disk",
-		shareNameField:  "test_sharename",
-		serverNameField: "test_servername",
+		fsTypeField:           "nfs",
+		diskNameField:         "test_disk",
+		shareNameField:        "test_sharename",
+		serverNameField:       "test_servername",
+		mountPermissionsField: "0755",
 	}
 	volContext := map[string]string{
-		fsTypeField:     "test_field",
-		diskNameField:   "test_disk",
-		shareNameField:  "test_sharename",
-		serverNameField: "test_servername",
+		fsTypeField:           "test_field",
+		diskNameField:         "test_disk",
+		shareNameField:        "test_sharename",
+		serverNameField:       "test_servername",
+		mountPermissionsField: "0755",
 	}
 	volContextFsType := map[string]string{
 		fsTypeField:     "ext4",
@@ -545,6 +561,19 @@ func TestNodeStageVolume(t *testing.T) {
 				"smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
 				errorSource, proxyMountPath),
 			expectedErr: testutil.TestError{},
+		},
+		{
+			desc: "[Error] invalid mountPermissions",
+			req: csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					shareNameField:        "test_sharename",
+					mountPermissionsField: "07ab",
+				},
+				Secrets: secrets},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, fmt.Sprintf("invalid mountPermissions %s", "07ab")),
+			},
 		},
 	}
 
@@ -789,7 +818,7 @@ func TestEnsureMountPoint(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		_, err := d.ensureMountPoint(test.target)
+		_, err := d.ensureMountPoint(test.target, 0777)
 		if !reflect.DeepEqual(err, test.expectedErr) {
 			t.Errorf("[%s]: Unexpected Error: %v, expected error: %v", test.desc, err, test.expectedErr)
 		}

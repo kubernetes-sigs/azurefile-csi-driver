@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -54,20 +55,30 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 
 	volumeID := req.GetVolumeId()
 
+	mountPermissions := d.mountPermissions
 	context := req.GetVolumeContext()
-	if context != nil && strings.EqualFold(context[ephemeralField], trueValue) {
-		context[secretNamespaceField] = context[podNamespaceField]
-		// only get storage account from secret
-		context[getAccountKeyFromSecretField] = trueValue
-		context[storageAccountField] = ""
-		klog.V(2).Infof("NodePublishVolume: ephemeral volume(%s) mount on %s, VolumeContext: %v", volumeID, target, context)
-		_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
-			StagingTargetPath: target,
-			VolumeContext:     context,
-			VolumeCapability:  volCap,
-			VolumeId:          volumeID,
-		})
-		return &csi.NodePublishVolumeResponse{}, err
+	if context != nil {
+		if strings.EqualFold(context[ephemeralField], trueValue) {
+			context[secretNamespaceField] = context[podNamespaceField]
+			// only get storage account from secret
+			context[getAccountKeyFromSecretField] = trueValue
+			context[storageAccountField] = ""
+			klog.V(2).Infof("NodePublishVolume: ephemeral volume(%s) mount on %s, VolumeContext: %v", volumeID, target, context)
+			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
+				StagingTargetPath: target,
+				VolumeContext:     context,
+				VolumeCapability:  volCap,
+				VolumeId:          volumeID,
+			})
+			return &csi.NodePublishVolumeResponse{}, err
+		}
+
+		if perm := context[mountPermissionsField]; perm != "" {
+			var err error
+			if mountPermissions, err = strconv.ParseUint(perm, 8, 32); err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid mountPermissions %s", perm))
+			}
+		}
 	}
 
 	source := req.GetStagingTargetPath()
@@ -80,7 +91,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		mountOptions = append(mountOptions, "ro")
 	}
 
-	mnt, err := d.ensureMountPoint(target)
+	mnt, err := d.ensureMountPoint(target, os.FileMode(mountPermissions))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Could not mount target %q: %v", target, err)
 	}
@@ -156,6 +167,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	// since it's ext4 by default on Linux
 	var fsType, server, protocol, ephemeralVolMountOptions, storageEndpointSuffix, folderName string
 	var ephemeralVol bool
+	mountPermissions := d.mountPermissions
 	for k, v := range context {
 		switch strings.ToLower(k) {
 		case fsTypeField:
@@ -174,6 +186,13 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			ephemeralVolMountOptions = v
 		case storageEndpointSuffixField:
 			storageEndpointSuffix = v
+		case mountPermissionsField:
+			if v != "" {
+				var err error
+				if mountPermissions, err = strconv.ParseUint(v, 8, 32); err != nil {
+					return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid mountPermissions %s", v))
+				}
+			}
 		}
 	}
 
@@ -232,7 +251,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			mountOptions = []string{fmt.Sprintf("AZURE\\%s", accountName)}
 			sensitiveMountOptions = []string{accountKey}
 		} else {
-			if err := os.MkdirAll(targetPath, os.FileMode(d.mountPermissions)); err != nil {
+			if err := os.MkdirAll(targetPath, os.FileMode(mountPermissions)); err != nil {
 				return nil, status.Error(codes.Internal, fmt.Sprintf("MkdirAll %s failed with error: %v", targetPath, err))
 			}
 			// parameters suggested by https://azure.microsoft.com/en-us/documentation/articles/storage-how-to-use-files-linux/
@@ -246,7 +265,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	klog.V(2).Infof("cifsMountPath(%v) fstype(%v) volumeID(%v) context(%v) mountflags(%v) mountOptions(%v) volumeMountGroup(%s)", cifsMountPath, fsType, volumeID, context, mountFlags, mountOptions, volumeMountGroup)
 
-	isDirMounted, err := d.ensureMountPoint(cifsMountPath)
+	isDirMounted, err := d.ensureMountPoint(cifsMountPath, os.FileMode(mountPermissions))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Could not mount target %q: %v", cifsMountPath, err)
 	}
@@ -266,8 +285,8 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			return nil, status.Error(codes.Internal, fmt.Sprintf("volume(%s) mount %q on %q failed with %v", volumeID, source, cifsMountPath, err))
 		}
 		if protocol == nfs {
-			klog.V(2).Infof("volumeID(%v): mount targetPath(%s) with permissions(0%o)", volumeID, targetPath, d.mountPermissions)
-			if err := os.Chmod(targetPath, os.FileMode(d.mountPermissions)); err != nil {
+			klog.V(2).Infof("volumeID(%v): mount targetPath(%s) with permissions(0%o)", volumeID, targetPath, mountPermissions)
+			if err := os.Chmod(targetPath, os.FileMode(mountPermissions)); err != nil {
 				return nil, status.Error(codes.Internal, err.Error())
 			}
 			if volumeMountGroup != "" {
@@ -281,7 +300,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 
 	if isDiskMount {
-		mnt, err := d.ensureMountPoint(targetPath)
+		mnt, err := d.ensureMountPoint(targetPath, os.FileMode(mountPermissions))
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "mount %s on target %s failed with %v", volumeID, targetPath, err)
 		}
@@ -425,7 +444,7 @@ func (d *Driver) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVolume
 
 // ensureMountPoint: create mount point if not exists
 // return <true, nil> if it's already a mounted point otherwise return <false, nil>
-func (d *Driver) ensureMountPoint(target string) (bool, error) {
+func (d *Driver) ensureMountPoint(target string, perm os.FileMode) (bool, error) {
 	notMnt, err := d.mounter.IsLikelyNotMountPoint(target)
 	if err != nil && !os.IsNotExist(err) {
 		if IsCorruptedDir(target) {
@@ -473,7 +492,7 @@ func (d *Driver) ensureMountPoint(target string) (bool, error) {
 		notMnt = true
 		return !notMnt, err
 	}
-	if err := makeDir(target, os.FileMode(d.mountPermissions)); err != nil {
+	if err := makeDir(target, perm); err != nil {
 		klog.Errorf("MakeDir failed on target: %s (%v)", target, err)
 		return !notMnt, err
 	}

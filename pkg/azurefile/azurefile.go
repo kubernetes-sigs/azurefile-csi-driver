@@ -105,6 +105,7 @@ const (
 	ephemeralField                    = "csi.storage.k8s.io/ephemeral"
 	podNamespaceField                 = "csi.storage.k8s.io/pod.namespace"
 	mountOptionsField                 = "mountoptions"
+	mountPermissionsField             = "mountpermissions"
 	falseValue                        = "false"
 	trueValue                         = "true"
 	defaultSecretAccountName          = "azurestorageaccountname"

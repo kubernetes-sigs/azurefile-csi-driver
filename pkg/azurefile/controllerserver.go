@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	volumehelper "sigs.k8s.io/azurefile-csi-driver/pkg/util"
@@ -183,6 +184,13 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			// no op, only used in NodeStageVolume
 		case folderNameField:
 			// no op, only used in NodeStageVolume
+		case mountPermissionsField:
+			// only do validations here, used in NodeStageVolume, NodePublishVolume
+			if v != "" {
+				if _, err := strconv.ParseUint(v, 8, 32); err != nil {
+					return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid mountPermissions %s in storage class", v))
+				}
+			}
 		case vnetResourceGroupField:
 			vnetResourceGroup = v
 		case vnetNameField:
@@ -190,7 +198,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case subnetNameField:
 			subnetName = v
 		default:
-			return nil, fmt.Errorf("invalid parameter %q in storage class", k)
+			return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid parameter %q in storage class", k))
 		}
 	}
 
