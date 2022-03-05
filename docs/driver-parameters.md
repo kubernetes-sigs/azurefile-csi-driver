@@ -42,6 +42,11 @@ diskName | existing VHD disk file name | `pvc-062196a6-6436-11ea-ab51-9efb888c0a
 k8s-azure-created-by: azure
 ```
 
+ - `volumeHandle` format created by dynamic provisioning(example)
+```
+{resource-group-name}#{account-name}#{file-share-name}#{placeholder}#{uuid}
+```
+
  - file share name format created by dynamic provisioning(example)
 ```
 pvc-92a4d7f2-f23b-4904-bad4-2cbfcff6e388
@@ -61,11 +66,12 @@ volumeAttributes.folderName | specify folder name in Azure file share | existing
 volumeAttributes.protocol | specify file share protocol | `smb`, `nfs` | No | `smb`
 volumeAttributes.server | specify Azure storage account server address | existing server address, e.g. `accountname.privatelink.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
 --- | **Following parameters are only for SMB protocol** | --- | --- |
-volumeAttributes.secretName | secret name that stores storage account name and key(only applies for SMB) | | No |
-volumeAttributes.secretNamespace | secret namespace(only applies for SMB)  | `default`,`kube-system`, etc | No | `default`
-nodeStageSecretRef.name | secret name that stores storage account name and key(only applies for SMB) | existing secret name |  Yes  |
-nodeStageSecretRef.namespace | secret namespace(only applies for SMB) | k8s namespace  |  Yes  |
-
+volumeAttributes.secretName | secret name that stores storage account name and key | | No |
+volumeAttributes.secretNamespace | secret namespace | `default`,`kube-system`, etc | No | `default`
+nodeStageSecretRef.name | secret name that stores storage account name and key | existing secret name |  Yes  |
+nodeStageSecretRef.namespace | secret namespace | k8s namespace  |  Yes  |
+--- | **Following parameters are only for NFS protocol** | --- | --- |
+volumeAttributes.mountPermissions | mounted folder permissions. The default is `0777` |  | No |
  - Note
    - only mounting Azure File using SMB protocol requires account key, and if secret is not provided in PV config, it would try to get `azure-storage-account-{accountname}-secret` in the pod namespace, if not found, it would try using kubelet identity to get account key directly using Azure API.
    - mounting Azure File using NFS protocol does not need account key, it requires storage account configured with same vnet with agent node.
