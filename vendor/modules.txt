@@ -1,7 +1,7 @@
 # github.com/Azure/azure-pipeline-go v0.2.1
 ## explicit
 github.com/Azure/azure-pipeline-go/pipeline
-# github.com/Azure/azure-sdk-for-go v61.6.0+incompatible
+# github.com/Azure/azure-sdk-for-go v62.0.0+incompatible
 ## explicit
 github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-07-01/compute
 github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2020-04-01/containerservice
@@ -991,6 +991,8 @@ k8s.io/client-go/util/workqueue
 # k8s.io/cloud-provider v0.23.3 => k8s.io/cloud-provider v0.23.3
 ## explicit; go 1.16
 k8s.io/cloud-provider
+k8s.io/cloud-provider/api
+k8s.io/cloud-provider/node/helpers
 k8s.io/cloud-provider/service/helpers
 k8s.io/cloud-provider/volume
 k8s.io/cloud-provider/volume/errors
@@ -1007,6 +1009,7 @@ k8s.io/component-base/traces
 k8s.io/component-base/version
 # k8s.io/component-helpers v0.23.3 => k8s.io/component-helpers v0.23.3
 ## explicit; go 1.16
+k8s.io/component-helpers/node/util
 k8s.io/component-helpers/node/util/sysctl
 k8s.io/component-helpers/scheduling/corev1
 k8s.io/component-helpers/scheduling/corev1/nodeaffinity
@@ -1119,7 +1122,7 @@ k8s.io/utils/trace
 ## explicit; go 1.17
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client
-# sigs.k8s.io/cloud-provider-azure v0.7.4 => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220225072154-0f6f98d17e2b
+# sigs.k8s.io/cloud-provider-azure v0.7.4 => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220308004558-7d51a9890cbe
 ## explicit; go 1.17
 sigs.k8s.io/cloud-provider-azure/pkg/auth
 sigs.k8s.io/cloud-provider-azure/pkg/azureclients
@@ -1164,7 +1167,9 @@ sigs.k8s.io/cloud-provider-azure/pkg/azureclients/zoneclient
 sigs.k8s.io/cloud-provider-azure/pkg/cache
 sigs.k8s.io/cloud-provider-azure/pkg/consts
 sigs.k8s.io/cloud-provider-azure/pkg/metrics
+sigs.k8s.io/cloud-provider-azure/pkg/nodemanager
 sigs.k8s.io/cloud-provider-azure/pkg/provider
+sigs.k8s.io/cloud-provider-azure/pkg/provider/virtualmachine
 sigs.k8s.io/cloud-provider-azure/pkg/retry
 sigs.k8s.io/cloud-provider-azure/pkg/version
 # sigs.k8s.io/json v0.0.0-20211020170558-c049b76a60c6
@@ -1214,4 +1219,4 @@ sigs.k8s.io/yaml
 # k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.23.3
 # k8s.io/sample-controller => k8s.io/sample-controller v0.23.3
 # sigs.k8s.io/azurefile-csi-driver => ./
-# sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220225072154-0f6f98d17e2b
+# sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220308004558-7d51a9890cbe
