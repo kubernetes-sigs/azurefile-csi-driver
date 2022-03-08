@@ -191,7 +191,7 @@ windows:
   enabled: true
   dsName: csi-azurefile-node-win # daemonset name
   kubelet: 'C:\var\lib\kubelet'
-  kubeconfig: 'C:\\k\\config'
+  kubeconfig: ""
   resources:
     livenessProbe:
       limits:
