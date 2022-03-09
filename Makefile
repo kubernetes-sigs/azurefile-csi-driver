@@ -46,6 +46,9 @@ ALL_OSVERSIONS.windows := 1809 20H2 ltsc2022
 ALL_OS_ARCH.windows = $(foreach arch, $(ALL_ARCH.windows), $(foreach osversion, ${ALL_OSVERSIONS.windows}, windows-${osversion}-${arch}))
 ALL_OS_ARCH = $(foreach os, $(ALL_OS), ${ALL_OS_ARCH.${os}})
 
+# If set to true Windows containers will run as HostProcessContainers
+WINDOWS_USE_HOST_PROCESS_CONTAINERS ?= false
+
 # The current context of image building
 # The architecture of the image
 ARCH ?= amd64
@@ -96,6 +99,7 @@ ifdef TEST_WINDOWS
 	helm install azurefile-csi-driver charts/latest/azurefile-csi-driver --namespace kube-system --wait --timeout=15m -v=5 --debug \
 		${E2E_HELM_OPTIONS} \
 		--set windows.enabled=true \
+		--set windows.useHostProcessContainers=${WINDOWS_USE_HOST_PROCESS_CONTAINERS} \
 		--set linux.enabled=false \
 		--set driver.azureGoSDKLogLevel=INFO \
 	        --set controller.runOnMaster=true \

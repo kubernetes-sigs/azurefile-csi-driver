@@ -86,7 +86,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `controller.replicas`                             | replicas of csi-azurefile-controller                    | `2`                                                                 |
 | `controller.hostNetwork`                          | `hostNetwork` setting on controller driver(could be disabled if controller does not depend on MSI setting)                            | `true`                                                            | `true`, `false`
 | `controller.metricsPort`                          | metrics port of csi-azurefile-controller                   |`29614`                                                        |
-| `controller.livenessProbe.healthPort `            | health check port for liveness probe                   | `29612` |
+| `controller.livenessProbe.healthPort`             | health check port for liveness probe                   | `29612` |
 | `controller.runOnMaster`                          | run controller on master node                                                          |`false`                                                           |
 | `controller.attachRequired`                       | enable attach/detach (only valid for vhd disk feature)                                            |`false`                                                           |
 | `controller.logLevel`                             | controller driver log level                                                          |`5`                                                           |
@@ -116,7 +116,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `node.allowInlineVolumeKeyAccessWithIdentity`     | Whether allow accessing storage account key using cluster identity for inline volume          | `false`
 | `node.maxUnavailable`                             | `maxUnavailable` value of driver node daemonset                            | `1`
 | `node.metricsPort`                                | metrics port of csi-azurefile-node                         |`29615`                                                       |
-| `node.livenessProbe.healthPort `                  | health check port for liveness probe                   | `29613` |
+| `node.livenessProbe.healthPort`                   | health check port for liveness probe                   | `29613` |
 | `node.logLevel`                                   | node driver log level                                                          |`5`                                                           |
 | `snapshot.enabled`                                | whether enable snapshot feature                            | `false`                                                        |
 | `snapshot.image.csiSnapshotter.repository`        | csi-snapshotter docker image                               | `/oss/kubernetes-csi/csi-snapshotter`         |
@@ -161,6 +161,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `windows.resources.azurefile.limits.memory`              | azurefile memory limits                         | 200Mi                                                         |
 | `windows.resources.azurefile.requests.cpu`               | azurefile cpu requests                   | 10m                                                            |
 | `windows.resources.azurefile.requests.memory`            | azurefile memory requests                | 40Mi                                                           |
+| `windows.useHostProcessContainers`                       | use HostProcessContainers for deployment | false                                                          |
 
 ## troubleshooting
  - Add `--wait -v=5 --debug` in `helm install` command to get detailed error

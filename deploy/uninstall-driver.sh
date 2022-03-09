@@ -37,7 +37,11 @@ echo "Uninstalling Azure File CSI driver, version: $ver ..."
 kubectl delete -f $repo/csi-snapshot-controller.yaml --ignore-not-found
 kubectl delete -f $repo/csi-azurefile-controller.yaml --ignore-not-found
 kubectl delete -f $repo/csi-azurefile-node.yaml --ignore-not-found
-kubectl delete -f $repo/csi-azurefile-node-windows.yaml --ignore-not-found
+if [[ "${WINDOWS_USE_HOST_PROCESS_CONTAINERS:=false}" == "true" ]]; then
+  kubectl delete -f $repo/csi-azurefile-node-windows-hostprocess.yaml --ignore-not-found
+else
+  kubectl delete -f $repo/csi-azurefile-node-windows.yaml --ignore-not-found
+fi
 kubectl delete -f $repo/csi-azurefile-driver.yaml --ignore-not-found
 kubectl delete -f $repo/crd-csi-snapshot.yaml --ignore-not-found
 kubectl delete -f $repo/rbac-csi-snapshot-controller.yaml --ignore-not-found

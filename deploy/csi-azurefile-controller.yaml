@@ -26,6 +26,9 @@ spec:
         - key: "node-role.kubernetes.io/controlplane"
           operator: "Exists"
           effect: "NoSchedule"
+        - key: "node-role.kubernetes.io/control-plane"  # For CAPZ clusters with only Windows agent nodes
+          operator: "Exists"
+          effect: "NoSchedule"
       containers:
         - name: csi-provisioner
           image: mcr.microsoft.com/oss/kubernetes-csi/csi-provisioner:v3.1.0
