@@ -33,7 +33,7 @@ follow guide [here](./docs/install-driver-on-aks.md)
  - [How to set up CSI driver on Azure RedHat OpenShift(ARO)](https://github.com/ezYakaEagle442/aro-pub-storage/blob/master/setup-store-CSI-driver-azure-file.md)
 
 #### Option#2: Bring your own storage account (only for SMB protocol)
-This option does not depend on cloud provider config file, supports cross subscription and on-premise cluster scenario. Refer to [detailed steps](./deploy/example/e2e_usage.md#option2-bring-your-own-storage-account).
+This option does not depend on cloud provider config file, supports cross subscription and on-premise cluster scenario. Refer to [detailed steps](./deploy/example/e2e_usage.md#option2-bring-your-own-storage-account-only-for-smb-protocol).
 
 ### Install driver on a Kubernetes cluster
  - install by [kubectl](./docs/install-azurefile-csi-driver.md) (please use helm for RedHat/CentOS)
