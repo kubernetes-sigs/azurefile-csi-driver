@@ -236,7 +236,7 @@ func NewDriver(options *DriverOptions) *Driver {
 		klog.Fatalf("%v", err)
 	}
 
-	if driver.removeTagCache, err = azcache.NewTimedcache(time.Minute, getter); err != nil {
+	if driver.removeTagCache, err = azcache.NewTimedcache(3*time.Minute, getter); err != nil {
 		klog.Fatalf("%v", err)
 	}
 
@@ -747,28 +747,16 @@ func (d *Driver) RemoveStorageAccountTag(ctx context.Context, resourceGroup, acc
 		return err
 	}
 	if cache != nil {
-		klog.Infof("skip remove tag(%s) on account(%s) resourceGroup(%s) since tag already removed in a short time", key, account, resourceGroup)
+		klog.V(6).Infof("skip remove tag(%s) on account(%s) resourceGroup(%s) since tag already removed in a short time", key, account, resourceGroup)
 		return nil
 	}
 
-	klog.Infof("remove tag(%s) on account(%s) resourceGroup(%s)", key, account, resourceGroup)
-	err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
-		var err error
-		rerr := d.cloud.RemoveStorageAccountTag(ctx, resourceGroup, account, key)
-		if rerr != nil {
-			err = rerr.Error()
-		}
-		if isRetriableError(err) {
-			klog.Warningf("remove tag(%s) on account(%s) resourceGroup(%s) failed with error(%v), waiting for retrying", key, account, resourceGroup, err)
-			sleepIfThrottled(err, accountOpThrottlingSleepSec)
-			return false, nil
-		}
-		return true, err
-	})
-	if err == nil {
-		d.removeTagCache.Set(account, key)
+	klog.V(2).Infof("remove tag(%s) on account(%s) resourceGroup(%s)", key, account, resourceGroup)
+	defer d.removeTagCache.Set(account, key)
+	if rerr := d.cloud.RemoveStorageAccountTag(ctx, resourceGroup, account, key); rerr != nil {
+		return rerr.Error()
 	}
-	return err
+	return nil
 }
 
 // GetStorageAccesskey get Azure storage account key from
