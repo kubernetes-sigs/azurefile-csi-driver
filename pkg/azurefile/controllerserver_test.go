@@ -163,7 +163,7 @@ func TestCreateVolume(t *testing.T) {
 						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 					})
 
-				expectedErr := status.Error(codes.InvalidArgument, "CreateVolume Volume capabilities not valid: driver only supports mount access type volume capability")
+				expectedErr := status.Error(codes.InvalidArgument, "CreateVolume Volume capabilities not valid: driver does not support block volumes")
 				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)

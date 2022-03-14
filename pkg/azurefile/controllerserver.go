@@ -973,7 +973,7 @@ func isValidVolumeCapabilities(volCaps []*csi.VolumeCapability) error {
 	}
 	hasSupport := func(cap *csi.VolumeCapability) error {
 		if blk := cap.GetBlock(); blk != nil {
-			return fmt.Errorf("driver only supports mount access type volume capability")
+			return fmt.Errorf("driver does not support block volumes")
 		}
 		for _, c := range volumeCaps {
 			if c.GetMode() == cap.AccessMode.GetMode() {
