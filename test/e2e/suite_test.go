@@ -47,12 +47,11 @@ const (
 	testMigrationEnvVar = "TEST_MIGRATION"
 	testWindowsEnvVar   = "TEST_WINDOWS"
 	defaultReportDir    = "/workspace/_artifacts"
-	inTreeStorageClass  = "kubernetes.io/azure-file"
 )
 
 var (
 	azurefileDriver                *azurefile.Driver
-	isUsingInTreeVolumePlugin      = os.Getenv(driver.AzureDriverNameVar) == inTreeStorageClass
+	isUsingInTreeVolumePlugin      = os.Getenv(driver.AzureDriverNameVar) != ""
 	isTestingMigration             = os.Getenv(testMigrationEnvVar) != ""
 	isWindowsCluster               = os.Getenv(testWindowsEnvVar) != ""
 	bringKeyStorageClassParameters = map[string]string{
