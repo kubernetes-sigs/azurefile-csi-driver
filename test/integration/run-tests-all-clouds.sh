@@ -25,7 +25,7 @@ fi
 
 apt update && apt install cifs-utils procps -y
 # test azure file
-test/integration/run-test.sh 'tcp://127.0.0.1:10000' "/tmp/stagingtargetpath" "/tmp/targetpath" "skuname=Standard_LRS" "$cloud"
+test/integration/run-test.sh 'tcp://127.0.0.1:10000' "/tmp/stagingtargetpath" "/tmp/targetpath" 'skuname=Standard_LRS,useDataPlaneAPI="true",disableDeleteRetentionPolicy="true"' "$cloud"
 
 # test vhd disk feature
 test/integration/run-test.sh 'tcp://127.0.0.1:10000' "/tmp/stagingtargetpath" "/tmp/targetpath" "skuName=Premium_LRS,fsType=xfs" "$cloud"
