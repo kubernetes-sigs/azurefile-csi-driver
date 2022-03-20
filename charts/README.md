@@ -50,6 +50,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `driver.name`                                     | alternative driver name                                    | `file.csi.azure.com` |
 | `driver.customUserAgent`                          | custom userAgent               | `` |
 | `driver.userAgentSuffix`                          | userAgent suffix               | `OSS-helm` |
+| `driver.azureGoSDKLogLevel`                       | [Azure go sdk log level](https://github.com/Azure/azure-sdk-for-go/blob/main/documentation/previous-versions-quickstart.md#built-in-basic-requestresponse-logging)  | ``(no logs), `DEBUG`, `INFO`, `WARNING`, `ERROR`, [etc](https://github.com/Azure/go-autorest/blob/50e09bb39af124f28f29ba60efde3fa74a4fe93f/logger/logger.go#L65-L73). |
 | `feature.enableFSGroupPolicy`                     | enable `fsGroupPolicy` on a k8s 1.20+ cluster(only applied for NFS protocol)              | `true`                      |
 | `feature.enableGetVolumeStats`                    | allow GET_VOLUME_STATS on agent node                       | `true`                      |
 | `image.baseRepo`                                  | base repository of driver images                           | `mcr.microsoft.com`                      |
