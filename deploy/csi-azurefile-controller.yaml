@@ -153,6 +153,8 @@ spec:
                   optional: true
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
+            - name: AZURE_GO_SDK_LOG_LEVEL
+              value: DEBUG
           volumeMounts:
             - mountPath: /csi
               name: socket-dir

@@ -173,6 +173,8 @@ spec:
                   optional: true
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
+            - name: AZURE_GO_SDK_LOG_LEVEL
+              value: DEBUG
           imagePullPolicy: {{ .Values.image.azurefile.pullPolicy }}
           volumeMounts:
             - mountPath: /csi

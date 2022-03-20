@@ -24,5 +24,5 @@ RUN clean-install libgmp10 bsdutils
 
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"
-ENV AZURE_GO_SDK_LOG_LEVEL=DEBUG
+
 ENTRYPOINT ["/azurefileplugin"]
