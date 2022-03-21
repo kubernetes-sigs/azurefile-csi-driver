@@ -97,6 +97,7 @@ ifdef TEST_WINDOWS
 		${E2E_HELM_OPTIONS} \
 		--set windows.enabled=true \
 		--set linux.enabled=false \
+		--set driver.azureGoSDKLogLevel=INFO \
 		--set controller.replicas=1 \
 		--set controller.logLevel=6 \
 		--set node.logLevel=6

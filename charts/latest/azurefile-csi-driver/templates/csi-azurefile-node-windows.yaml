@@ -138,6 +138,8 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
+            - name: AZURE_GO_SDK_LOG_LEVEL
+              value: {{ .Values.driver.azureGoSDKLogLevel }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           volumeMounts:
             - name: kubelet-dir
