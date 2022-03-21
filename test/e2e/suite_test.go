@@ -70,9 +70,9 @@ type testCmd struct {
 }
 
 var _ = ginkgo.BeforeSuite(func() {
-	log.Println(driver.AzureDriverNameVar, os.Getenv(driver.AzureDriverNameVar))
-	log.Println(testMigrationEnvVar, os.Getenv(testMigrationEnvVar))
-	log.Println(testWindowsEnvVar, os.Getenv(testMigrationEnvVar))
+	log.Println(driver.AzureDriverNameVar, os.Getenv(driver.AzureDriverNameVar), fmt.Sprintf("%v", isUsingInTreeVolumePlugin))
+	log.Println(testMigrationEnvVar, os.Getenv(testMigrationEnvVar), fmt.Sprintf("%v", isTestingMigration))
+	log.Println(testWindowsEnvVar, os.Getenv(testWindowsEnvVar), fmt.Sprintf("%v", isWindowsCluster))
 
 	// k8s.io/kubernetes/test/e2e/framework requires env KUBECONFIG to be set
 	// it does not fall back to defaults
