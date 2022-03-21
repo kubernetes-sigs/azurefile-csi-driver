@@ -47,11 +47,12 @@ const (
 	testMigrationEnvVar = "TEST_MIGRATION"
 	testWindowsEnvVar   = "TEST_WINDOWS"
 	defaultReportDir    = "/workspace/_artifacts"
+	inTreeStorageClass  = "kubernetes.io/azure-file"
 )
 
 var (
 	azurefileDriver                *azurefile.Driver
-	isUsingInTreeVolumePlugin      = os.Getenv(driver.AzureDriverNameVar) != ""
+	isUsingInTreeVolumePlugin      = os.Getenv(driver.AzureDriverNameVar) == inTreeStorageClass
 	isTestingMigration             = os.Getenv(testMigrationEnvVar) != ""
 	isWindowsCluster               = os.Getenv(testWindowsEnvVar) != ""
 	bringKeyStorageClassParameters = map[string]string{
@@ -69,6 +70,10 @@ type testCmd struct {
 }
 
 var _ = ginkgo.BeforeSuite(func() {
+	log.Println(driver.AzureDriverNameVar, os.Getenv(driver.AzureDriverNameVar))
+	log.Println(testMigrationEnvVar, os.Getenv(testMigrationEnvVar))
+	log.Println(testWindowsEnvVar, os.Getenv(testMigrationEnvVar))
+
 	// k8s.io/kubernetes/test/e2e/framework requires env KUBECONFIG to be set
 	// it does not fall back to defaults
 	if os.Getenv(kubeconfigEnvVar) == "" {
