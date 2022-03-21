@@ -262,6 +262,7 @@ func skipIfTestingInWindowsCluster() {
 
 func skipIfUsingInTreeVolumePlugin() {
 	if isUsingInTreeVolumePlugin {
+		log.Println("test case is only available for CSI drivers")
 		ginkgo.Skip("test case is only available for CSI drivers")
 	}
 }
