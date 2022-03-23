@@ -42,7 +42,7 @@ diskName | existing VHD disk file name | `pvc-062196a6-6436-11ea-ab51-9efb888c0a
 k8s-azure-created-by: azure
 ```
 
- - `volumeHandle` format created by dynamic provisioning(example)
+ - `volumeHandle` format created by dynamic provisioning
 ```
 {resource-group-name}#{account-name}#{file-share-name}#{placeholder}#{uuid}
 ```
