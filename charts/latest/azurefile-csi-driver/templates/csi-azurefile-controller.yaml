@@ -49,6 +49,7 @@ spec:
             - "-v=2"
             - "--csi-address=$(ADDRESS)"
             - "--leader-election"
+            - "--leader-election-namespace={{ .Release.Namespace }}"
             - "--timeout=300s"
             - "--extra-create-metadata=true"
           env:
@@ -70,6 +71,7 @@ spec:
             - "-csi-address=$(ADDRESS)"
             - "-timeout=120s"
             - "-leader-election"
+            - "--leader-election-namespace={{ .Release.Namespace }}"
           env:
             - name: ADDRESS
               value: /csi/csi.sock
@@ -87,6 +89,7 @@ spec:
           args:
             - "-csi-address=$(ADDRESS)"
             - "-leader-election"
+            - "--leader-election-namespace={{ .Release.Namespace }}"
             - "-v=2"
           env:
             - name: ADDRESS
@@ -105,6 +108,7 @@ spec:
             - "-csi-address=$(ADDRESS)"
             - "-v=2"
             - "-leader-election"
+            - "--leader-election-namespace={{ .Release.Namespace }}"
             - '-handle-volume-inuse-error=false'
             - '-timeout=120s'
             - '-feature-gates=RecoverVolumeExpansionFailure=true'

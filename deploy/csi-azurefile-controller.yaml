@@ -33,6 +33,7 @@ spec:
             - "-v=2"
             - "--csi-address=$(ADDRESS)"
             - "--leader-election"
+            - "--leader-election-namespace=kube-system"
             - "--timeout=300s"
             - "--extra-create-metadata=true"
           env:
@@ -53,7 +54,8 @@ spec:
             - "-v=2"
             - "-csi-address=$(ADDRESS)"
             - "-timeout=120s"
-            - "-leader-election"
+            - "--leader-election"
+            - "--leader-election-namespace=kube-system"
           env:
             - name: ADDRESS
               value: /csi/csi.sock
@@ -71,7 +73,8 @@ spec:
           args:
             - "-v=2"
             - "-csi-address=$(ADDRESS)"
-            - "-leader-election"
+            - "--leader-election"
+            - "--leader-election-namespace=kube-system"
           env:
             - name: ADDRESS
               value: /csi/csi.sock
@@ -89,7 +92,8 @@ spec:
           args:
             - "-csi-address=$(ADDRESS)"
             - "-v=2"
-            - "-leader-election"
+            - "--leader-election"
+            - "--leader-election-namespace=kube-system"
             - '-handle-volume-inuse-error=false'
             - '-feature-gates=RecoverVolumeExpansionFailure=true'
             - '-timeout=120s'
