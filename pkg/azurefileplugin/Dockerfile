@@ -15,12 +15,13 @@
 FROM k8s.gcr.io/build-image/debian-base:bullseye-v1.1.0
 
 ARG ARCH=amd64
-COPY ./_output/${ARCH}/azurefileplugin /azurefileplugin
+ARG binary=./_output/${ARCH}/azurefileplugin
+COPY ${binary} /azurefileplugin
 
 RUN apt update && apt-mark unhold libcap2
 RUN clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase
 # install updated packages to fix CVE issues
-RUN clean-install libgmp10 bsdutils libssl1.1 openssl
+RUN clean-install libgmp10 bsdutils libssl1.1 openssl libc6 libc-bin libsystemd0
 
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"
