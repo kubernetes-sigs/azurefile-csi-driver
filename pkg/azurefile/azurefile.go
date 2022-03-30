@@ -539,7 +539,7 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 		err = nil
 	}
 
-	var protocol, accountKey, secretName, secretNamespace string
+	var protocol, accountKey, secretName, secretNamespace, pvcNamespace string
 	// indicates whether get account key only from k8s secret
 	getAccountKeyFromSecret := false
 
@@ -564,10 +564,7 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 		case secretNamespaceField:
 			secretNamespace = v
 		case pvcNamespaceKey:
-			if secretNamespace == "" {
-				// respect `secretNamespace` field as first priority
-				secretNamespace = v
-			}
+			pvcNamespace = v
 		}
 	}
 
@@ -579,9 +576,8 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 		return rgName, accountName, accountKey, fileShareName, diskName, err
 	}
 
-	// backward compatibility, old CSI driver PV does not have secretNamespace field
 	if secretNamespace == "" {
-		secretNamespace = "default"
+		secretNamespace = pvcNamespace
 	}
 
 	if len(secrets) == 0 {

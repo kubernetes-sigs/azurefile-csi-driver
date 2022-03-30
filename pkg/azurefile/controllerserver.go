@@ -108,7 +108,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		parameters = make(map[string]string)
 	}
 	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
-	var secretNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, accessTier, rootSquashType string
+	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, accessTier, rootSquashType string
 	var createAccount, useDataPlaneAPI, useSeretCache, disableDeleteRetentionPolicy, enableLFS bool
 	var vnetResourceGroup, vnetName, subnetName string
 	// set allowBlobPublicAccess as false by default
@@ -160,10 +160,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case disableDeleteRetentionPolicyField:
 			disableDeleteRetentionPolicy = strings.EqualFold(v, trueValue)
 		case pvcNamespaceKey:
-			if secretNamespace == "" {
-				// respect `secretNamespace` field as first priority
-				secretNamespace = v
-			}
+			pvcNamespace = v
 		case storageEndpointSuffixField:
 			storageEndpointSuffix = v
 		case networkEndpointTypeField:
@@ -200,6 +197,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid parameter %q in storage class", k))
 		}
+	}
+
+	if secretNamespace == "" {
+		secretNamespace = pvcNamespace
 	}
 
 	if !isSupportedFsType(fsType) {
