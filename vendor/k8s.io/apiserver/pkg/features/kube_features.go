@@ -31,26 +31,6 @@ const (
 	// MyFeature() bool
 
 	// owner: @tallclair
-	// alpha: v1.5
-	// beta: v1.6
-	// deprecated: v1.18
-	//
-	// StreamingProxyRedirects controls whether the apiserver should intercept (and follow)
-	// redirects from the backend (Kubelet) for streaming requests (exec/attach/port-forward).
-	//
-	// This feature is deprecated, and will be removed in v1.24.
-	StreamingProxyRedirects featuregate.Feature = "StreamingProxyRedirects"
-
-	// owner: @tallclair
-	// alpha: v1.12
-	// beta: v1.14
-	// deprecated: v1.22
-	//
-	// ValidateProxyRedirects controls whether the apiserver should validate that redirects are only
-	// followed to the same host. Only used if StreamingProxyRedirects is enabled.
-	ValidateProxyRedirects featuregate.Feature = "ValidateProxyRedirects"
-
-	// owner: @tallclair
 	// alpha: v1.7
 	// beta: v1.8
 	// GA: v1.12
@@ -124,15 +104,18 @@ const (
 	WatchBookmark featuregate.Feature = "WatchBookmark"
 
 	// owner: @MikeSpreitzer @yue9944882
-	// alpha: v1.15
+	// alpha: v1.18
+	// beta: v1.20
 	//
-	//
-	// Enables managing request concurrency with prioritization and fairness at each server
+	// Enables managing request concurrency with prioritization and fairness at each server.
+	// The FeatureGate was introduced in release 1.15 but the feature
+	// was not really implemented before 1.18.
 	APIPriorityAndFairness featuregate.Feature = "APIPriorityAndFairness"
 
 	// owner: @wojtek-t
 	// alpha: v1.16
 	// beta: v1.20
+	// GA: v1.24
 	//
 	// Deprecates and removes SelfLink from ObjectMeta and ListMeta.
 	RemoveSelfLink featuregate.Feature = "RemoveSelfLink"
@@ -145,16 +128,10 @@ const (
 	// Allows label and field based indexes in apiserver watch cache to accelerate list operations.
 	SelectorIndex featuregate.Feature = "SelectorIndex"
 
-	// owner: @liggitt
-	// beta: v1.19
-	// GA: v1.22
-	//
-	// Allows sending warning headers in API responses.
-	WarningHeaders featuregate.Feature = "WarningHeaders"
-
 	// owner: @wojtek-t
 	// alpha: v1.20
 	// beta: v1.21
+	// GA: v1.24
 	//
 	// Allows for updating watchcache resource version with progress notify events.
 	EfficientWatchResumption featuregate.Feature = "EfficientWatchResumption"
@@ -209,8 +186,6 @@ func init() {
 // To add a new feature, define a key for it above and add it here. The features will be
 // available throughout Kubernetes binaries.
 var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureSpec{
-	StreamingProxyRedirects:             {Default: false, PreRelease: featuregate.Deprecated},
-	ValidateProxyRedirects:              {Default: true, PreRelease: featuregate.Deprecated},
 	AdvancedAuditing:                    {Default: true, PreRelease: featuregate.GA},
 	APIResponseCompression:              {Default: true, PreRelease: featuregate.Beta},
 	APIListChunking:                     {Default: true, PreRelease: featuregate.Beta},
@@ -221,10 +196,9 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
 	StorageVersionAPI:                   {Default: false, PreRelease: featuregate.Alpha},
 	WatchBookmark:                       {Default: true, PreRelease: featuregate.GA, LockToDefault: true},
 	APIPriorityAndFairness:              {Default: true, PreRelease: featuregate.Beta},
-	RemoveSelfLink:                      {Default: true, PreRelease: featuregate.Beta},
+	RemoveSelfLink:                      {Default: true, PreRelease: featuregate.GA, LockToDefault: true},
 	SelectorIndex:                       {Default: true, PreRelease: featuregate.GA, LockToDefault: true},
-	WarningHeaders:                      {Default: true, PreRelease: featuregate.GA, LockToDefault: true},
-	EfficientWatchResumption:            {Default: true, PreRelease: featuregate.Beta},
+	EfficientWatchResumption:            {Default: true, PreRelease: featuregate.GA, LockToDefault: true},
 	APIServerIdentity:                   {Default: false, PreRelease: featuregate.Alpha},
 	APIServerTracing:                    {Default: false, PreRelease: featuregate.Alpha},
 	OpenAPIEnums:                        {Default: false, PreRelease: featuregate.Alpha},
