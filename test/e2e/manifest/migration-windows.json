@@ -12,16 +12,13 @@
                 "cloudProviderRateLimitQPS": 6,
                 "cloudProviderRateLimitBucket": 20,
                 "controllerManagerConfig": {
-                    "--feature-gates": "ServiceNodeExclusion=true,CSIMigration=true,CSIMigrationAzureFile=true"
+                    "--feature-gates": "CSIMigration=true,CSIMigrationAzureFile=true"
                 },
                 "kubeletConfig": {
                     "--feature-gates": "CSIMigration=true,CSIMigrationAzureFile=true"
                 },
                 "schedulerConfig": {
                     "--feature-gates": "CSIMigration=true,CSIMigrationAzureFile=true"
-                },
-                "apiServerConfig": {
-                    "--enable-admission-plugins": "NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,ResourceQuota,AlwaysPullImages"
                 }
             }
         },
