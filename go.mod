@@ -3,9 +3,9 @@ module sigs.k8s.io/azurefile-csi-driver
 go 1.17
 
 require (
-	github.com/Azure/azure-sdk-for-go v62.2.0+incompatible
+	github.com/Azure/azure-sdk-for-go v63.1.0+incompatible
 	github.com/Azure/azure-storage-file-go v0.8.0
-	github.com/Azure/go-autorest/autorest v0.11.24
+	github.com/Azure/go-autorest/autorest v0.11.25
 	github.com/Azure/go-autorest/autorest/adal v0.9.18
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/container-storage-interface/spec v1.5.0
@@ -16,12 +16,12 @@ require (
 	github.com/kubernetes-csi/csi-proxy/client v1.0.1
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.18.1
+	github.com/onsi/gomega v1.19.0
 	github.com/pborman/uuid v1.2.0
 	github.com/pelletier/go-toml v1.9.4
 	github.com/rubiojr/go-vhd v0.0.0-20200706105327-02e210299021
 	github.com/stretchr/testify v1.7.1
-	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
+	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
 	google.golang.org/grpc v1.42.0
 	google.golang.org/protobuf v1.27.1
 	k8s.io/api v0.24.0-alpha.4
@@ -41,7 +41,7 @@ require (
 	github.com/Azure/azure-pipeline-go v0.2.1 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest/date v0.3.0 // indirect
-	github.com/Azure/go-autorest/autorest/mocks v0.4.1 // indirect
+	github.com/Azure/go-autorest/autorest/mocks v0.4.2 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
@@ -150,5 +150,5 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.24.0-alpha.4
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.24.0-alpha.4
 	k8s.io/sample-controller => k8s.io/sample-controller v0.24.0-alpha.4
-	sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220318124122-66e1bec130df
+	sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220406062855-4f3bab6bc8b2
 )
