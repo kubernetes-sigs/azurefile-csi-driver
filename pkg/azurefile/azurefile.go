@@ -145,6 +145,8 @@ const (
 
 	fileShareAccountNamePrefix = "f"
 
+	defaultNamespace = "default"
+
 	pvcNameKey      = "csi.storage.k8s.io/pvc/name"
 	pvcNamespaceKey = "csi.storage.k8s.io/pvc/namespace"
 	pvNameKey       = "csi.storage.k8s.io/pv/name"
@@ -577,7 +579,11 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 	}
 
 	if secretNamespace == "" {
-		secretNamespace = pvcNamespace
+		if pvcNamespace == "" {
+			secretNamespace = defaultNamespace
+		} else {
+			secretNamespace = pvcNamespace
+		}
 	}
 
 	if len(secrets) == 0 {

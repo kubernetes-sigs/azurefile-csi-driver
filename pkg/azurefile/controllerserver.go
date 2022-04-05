@@ -200,7 +200,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	if secretNamespace == "" {
-		secretNamespace = pvcNamespace
+		if pvcNamespace == "" {
+			secretNamespace = defaultNamespace
+		} else {
+			secretNamespace = pvcNamespace
+		}
 	}
 
 	if !isSupportedFsType(fsType) {
