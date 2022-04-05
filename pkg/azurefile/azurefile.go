@@ -90,6 +90,7 @@ const (
 	storageAccountTypeField           = "storageaccounttype"
 	skuNameField                      = "skuname"
 	enableLargeFileSharesField        = "enablelargefileshares"
+	subscriptionIDField               = "subscriptionid"
 	resourceGroupField                = "resourcegroup"
 	locationField                     = "location"
 	secretNamespaceField              = "secretnamespace"
@@ -544,12 +545,14 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 		err = nil
 	}
 
-	var protocol, accountKey, secretName, secretNamespace, pvcNamespace string
+	var protocol, accountKey, secretName, secretNamespace, pvcNamespace, subsID string
 	// indicates whether get account key only from k8s secret
 	getAccountKeyFromSecret := false
 
 	for k, v := range reqContext {
 		switch strings.ToLower(k) {
+		case subscriptionIDField:
+			subsID = v
 		case resourceGroupField:
 			rgName = v
 		case storageAccountField:
@@ -609,7 +612,7 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 				}
 				if err != nil && !getAccountKeyFromSecret && d.cloud.StorageAccountClient != nil && accountName != "" {
 					klog.V(2).Infof("could not get account(%s) key from secret(%s), error: %v, use cluster identity to get account key instead", accountName, secretName, err)
-					accountKey, err = d.cloud.GetStorageAccesskey(ctx, accountName, rgName)
+					accountKey, err = d.cloud.GetStorageAccesskey(ctx, subsID, accountName, rgName)
 				}
 			}
 		}
@@ -758,7 +761,7 @@ func (d *Driver) RemoveStorageAccountTag(ctx context.Context, resourceGroup, acc
 
 	klog.V(2).Infof("remove tag(%s) on account(%s) resourceGroup(%s)", key, account, resourceGroup)
 	defer d.removeTagCache.Set(account, key)
-	if rerr := d.cloud.RemoveStorageAccountTag(ctx, resourceGroup, account, key); rerr != nil {
+	if rerr := d.cloud.RemoveStorageAccountTag(ctx, "", resourceGroup, account, key); rerr != nil {
 		return rerr.Error()
 	}
 	return nil
@@ -791,7 +794,7 @@ func (d *Driver) GetStorageAccesskey(ctx context.Context, accountOptions *azure.
 	_, accountKey, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
 	if err != nil {
 		klog.V(2).Infof("could not get account(%s) key from secret(%s), error: %v, use cluster identity to get account key instead", accountOptions.Name, secretName, err)
-		accountKey, err = d.cloud.GetStorageAccesskey(ctx, accountName, accountOptions.ResourceGroup)
+		accountKey, err = d.cloud.GetStorageAccesskey(ctx, accountOptions.SubscriptionID, accountName, accountOptions.ResourceGroup)
 	}
 
 	if err == nil && accountKey != "" {
