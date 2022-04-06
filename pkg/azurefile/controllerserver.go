@@ -107,7 +107,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if parameters == nil {
 		parameters = make(map[string]string)
 	}
-	var sku, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
+	var sku, subsID, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
 	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, accessTier, rootSquashType string
 	var createAccount, useDataPlaneAPI, useSeretCache, disableDeleteRetentionPolicy, enableLFS bool
 	var vnetResourceGroup, vnetName, subnetName string
@@ -129,6 +129,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			location = v
 		case storageAccountField:
 			account = v
+		case subscriptionIDField:
+			subsID = v
 		case resourceGroupField:
 			resourceGroup = v
 		case shareNameField:
@@ -196,6 +198,15 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			subnetName = v
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid parameter %q in storage class", k))
+		}
+	}
+
+	if subsID != "" && subsID != d.cloud.SubscriptionID {
+		if fsType == nfs || protocol == nfs {
+			return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("NFS protocol is not supported in cross subscription(%s)", subsID))
+		}
+		if !storeAccountKey {
+			return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("storeAccountKey must set as true in cross subscription(%s)", subsID))
 		}
 	}
 
@@ -296,6 +307,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		Name:                                    account,
 		Type:                                    sku,
 		Kind:                                    accountKind,
+		SubscriptionID:                          subsID,
 		ResourceGroup:                           resourceGroup,
 		Location:                                location,
 		EnableHTTPSTrafficOnly:                  enableHTTPSTrafficOnly,
@@ -404,7 +416,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			tags := map[string]*string{
 				azure.SkipMatchingTag: to.StringPtr(""),
 			}
-			if rerr := d.cloud.AddStorageAccountTags(ctx, resourceGroup, accountName, tags); rerr != nil {
+			if rerr := d.cloud.AddStorageAccountTags(ctx, subsID, resourceGroup, accountName, tags); rerr != nil {
 				klog.Warningf("AddStorageAccountTags(%v) on account(%s) rg(%s) failed with error: %v", tags, accountName, resourceGroup, rerr.Error())
 			}
 			// release volume lock first to prevent deadlock
