@@ -90,6 +90,26 @@ func isDiskFsType(fsType string) bool {
 	return false
 }
 
+// File share names can contain only lowercase letters, numbers, and hyphens,
+// and must begin and end with a letter or a number
+func isSupportedShareNamePrefix(prefix string) bool {
+	if prefix == "" {
+		return true
+	}
+	if len(prefix) > 20 {
+		return false
+	}
+	if prefix[0] == '-' {
+		return false
+	}
+	for _, v := range prefix {
+		if v != '-' && (v < '0' || v > '9') && (v < 'a' || v > 'z') {
+			return false
+		}
+	}
+	return true
+}
+
 func isSupportedFsType(fsType string) bool {
 	if fsType == "" {
 		return true

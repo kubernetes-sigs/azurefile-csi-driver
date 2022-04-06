@@ -125,6 +125,7 @@ const (
 	vnetResourceGroupField            = "vnetresourcegroup"
 	vnetNameField                     = "vnetname"
 	subnetNameField                   = "subnetname"
+	shareNamePrefixField              = "sharenameprefix"
 	premium                           = "premium"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
@@ -144,7 +145,7 @@ const (
 	accountOpThrottlingSleepSec = 16
 	fileOpThrottlingSleepSec    = 180
 
-	fileShareAccountNamePrefix = "f"
+	defaultAccountNamePrefix = "f"
 
 	defaultNamespace = "default"
 

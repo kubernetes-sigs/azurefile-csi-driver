@@ -110,7 +110,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	var sku, subsID, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
 	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, accessTier, rootSquashType string
 	var createAccount, useDataPlaneAPI, useSeretCache, disableDeleteRetentionPolicy, enableLFS bool
-	var vnetResourceGroup, vnetName, subnetName string
+	var vnetResourceGroup, vnetName, subnetName, shareNamePrefix string
 	// set allowBlobPublicAccess as false by default
 	allowBlobPublicAccess := to.BoolPtr(false)
 
@@ -196,6 +196,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			vnetName = v
 		case subnetNameField:
 			subnetName = v
+		case shareNamePrefixField:
+			shareNamePrefix = v
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid parameter %q in storage class", k))
 		}
@@ -232,6 +234,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	if !isSupportedRootSquashType(rootSquashType) {
 		return nil, status.Errorf(codes.InvalidArgument, "rootSquashType(%s) is not supported, supported RootSquashType list: %v", rootSquashType, storage.PossibleRootSquashTypeValues())
+	}
+
+	if !isSupportedShareNamePrefix(shareNamePrefix) {
+		return nil, status.Errorf(codes.InvalidArgument, "shareNamePrefix(%s) can only contain lowercase letters, numbers, hyphens, and length should be less than 21", shareNamePrefix)
 	}
 
 	if protocol == nfs && fsType != "" && fsType != nfs {
@@ -284,12 +290,16 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	validFileShareName := fileShareName
 	if validFileShareName == "" {
 		name := volName
-		if protocol == nfs {
-			// use "pvcn" prefix for nfs protocol file share
-			name = strings.Replace(name, "pvc", "pvcn", 1)
-		} else if isDiskFsType(fsType) {
-			// use "pvcd" prefix for vhd disk file share
-			name = strings.Replace(name, "pvc", "pvcd", 1)
+		if shareNamePrefix != "" {
+			name = shareNamePrefix + "-" + volName
+		} else {
+			if protocol == nfs {
+				// use "pvcn" prefix for nfs protocol file share
+				name = strings.Replace(name, "pvc", "pvcn", 1)
+			} else if isDiskFsType(fsType) {
+				// use "pvcd" prefix for vhd disk file share
+				name = strings.Replace(name, "pvc", "pvcd", 1)
+			}
 		}
 		validFileShareName = getValidFileShareName(name)
 	}
@@ -341,7 +351,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				d.volLockMap.LockEntry(lockKey)
 				err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 					var retErr error
-					accountName, accountKey, retErr = d.cloud.EnsureStorageAccount(ctx, accountOptions, fileShareAccountNamePrefix)
+					accountName, accountKey, retErr = d.cloud.EnsureStorageAccount(ctx, accountOptions, defaultAccountNamePrefix)
 					if isRetriableError(retErr) {
 						klog.Warningf("EnsureStorageAccount(%s) failed with error(%v), waiting for retrying", account, retErr)
 						sleepIfThrottled(retErr, accountOpThrottlingSleepSec)
