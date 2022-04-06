@@ -164,30 +164,32 @@ var (
 
 // DriverOptions defines driver parameters specified in driver deployment
 type DriverOptions struct {
-	NodeID                     string
-	DriverName                 string
-	CloudConfigSecretName      string
-	CloudConfigSecretNamespace string
-	CustomUserAgent            string
-	UserAgentSuffix            string
-	AllowEmptyCloudConfig      bool
-	EnableGetVolumeStats       bool
-	MountPermissions           uint64
+	NodeID                                 string
+	DriverName                             string
+	CloudConfigSecretName                  string
+	CloudConfigSecretNamespace             string
+	CustomUserAgent                        string
+	UserAgentSuffix                        string
+	AllowEmptyCloudConfig                  bool
+	AllowInlineVolumeKeyAccessWithIdentity bool
+	EnableGetVolumeStats                   bool
+	MountPermissions                       uint64
 }
 
 // Driver implements all interfaces of CSI drivers
 type Driver struct {
 	csicommon.CSIDriver
-	cloud                      *azure.Cloud
-	cloudConfigSecretName      string
-	cloudConfigSecretNamespace string
-	customUserAgent            string
-	userAgentSuffix            string
-	allowEmptyCloudConfig      bool
-	enableGetVolumeStats       bool
-	mountPermissions           uint64
-	fileClient                 *azureFileClient
-	mounter                    *mount.SafeFormatAndMount
+	cloud                                  *azure.Cloud
+	cloudConfigSecretName                  string
+	cloudConfigSecretNamespace             string
+	customUserAgent                        string
+	userAgentSuffix                        string
+	allowEmptyCloudConfig                  bool
+	allowInlineVolumeKeyAccessWithIdentity bool
+	enableGetVolumeStats                   bool
+	mountPermissions                       uint64
+	fileClient                             *azureFileClient
+	mounter                                *mount.SafeFormatAndMount
 	// lock per volume attach (only for vhd disk feature)
 	volLockMap *lockMap
 	// only for nfs feature
@@ -221,6 +223,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.customUserAgent = options.CustomUserAgent
 	driver.userAgentSuffix = options.UserAgentSuffix
 	driver.allowEmptyCloudConfig = options.AllowEmptyCloudConfig
+	driver.allowInlineVolumeKeyAccessWithIdentity = options.AllowInlineVolumeKeyAccessWithIdentity
 	driver.enableGetVolumeStats = options.EnableGetVolumeStats
 	driver.mountPermissions = options.MountPermissions
 	driver.volLockMap = newLockMap()
