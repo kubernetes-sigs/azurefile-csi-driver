@@ -142,6 +142,53 @@ func TestIsDiskFsType(t *testing.T) {
 	}
 }
 
+func TestIsSupportedShareNamePrefix(t *testing.T) {
+	tests := []struct {
+		prefix         string
+		expectedResult bool
+	}{
+		{
+			prefix:         "",
+			expectedResult: true,
+		},
+		{
+			prefix:         "ext3",
+			expectedResult: true,
+		},
+		{
+			prefix:         "ext-2",
+			expectedResult: true,
+		},
+		{
+			prefix:         "-xfs",
+			expectedResult: false,
+		},
+		{
+			prefix:         "Absdf",
+			expectedResult: false,
+		},
+		{
+			prefix:         "tooooooooooooooooooooooooolong",
+			expectedResult: false,
+		},
+		{
+			prefix:         "+invalid",
+			expectedResult: false,
+		},
+		{
+			prefix:         " invalidspace",
+			expectedResult: false,
+		},
+	}
+
+	for _, test := range tests {
+		result := isSupportedShareNamePrefix(test.prefix)
+		if result != test.expectedResult {
+			t.Errorf("isSupportedShareNamePrefix(%s) returned with %v, not equal to %v", test.prefix, result, test.expectedResult)
+		}
+	}
+}
+
 func TestIsSupportedFsType(t *testing.T) {
 	tests := []struct {
 		fsType         string

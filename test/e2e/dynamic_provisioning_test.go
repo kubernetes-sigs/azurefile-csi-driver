@@ -170,6 +170,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			"secretNamespace":       "kube-system",
 			"accessTier":            "Cool",
 			"allowBlobPublicAccess": "false",
+			"shareNamePrefix":       "fileprefix",
 		}
 		test := testsuites.DynamicallyProvisionedVolumeSubpathTester{
 			CSIDriver:              testDriver,
