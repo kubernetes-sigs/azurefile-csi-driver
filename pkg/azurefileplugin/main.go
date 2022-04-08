@@ -49,7 +49,7 @@ var (
 	allowEmptyCloudConfig                  = flag.Bool("allow-empty-cloud-config", true, "allow running driver without cloud config")
 	enableGetVolumeStats                   = flag.Bool("enable-get-volume-stats", true, "allow GET_VOLUME_STATS on agent node")
 	mountPermissions                       = flag.Uint64("mount-permissions", 0777, "mounted folder permissions")
-	allowInlineVolumeKeyAccessWithIdentity = flag.Bool("allow-inline-volume-key-access-with-idenitity", false, "allow accessing storage account key using cluster identity for inline volume")
+	allowInlineVolumeKeyAccessWithIdentity = flag.Bool("allow-inline-volume-key-access-with-identity", false, "allow accessing storage account key using cluster identity for inline volume")
 )
 
 func main() {

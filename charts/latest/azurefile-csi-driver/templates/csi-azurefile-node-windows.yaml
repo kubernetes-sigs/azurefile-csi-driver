@@ -112,7 +112,7 @@ spec:
             - "--user-agent-suffix={{ .Values.driver.userAgentSuffix }}"
             - "--allow-empty-cloud-config={{ .Values.node.allowEmptyCloudConfig }}"
             - "--enable-get-volume-stats={{ .Values.feature.enableGetVolumeStats }}"
-            - "--allow-inline-volume-key-access-with-idenitity={{ .Values.node.allowInlineVolumeKeyAccessWithIdentity }}"
+            - "--allow-inline-volume-key-access-with-identity={{ .Values.node.allowInlineVolumeKeyAccessWithIdentity }}"
           ports:
             - containerPort: {{ .Values.node.livenessProbe.healthPort }}
               name: healthz
