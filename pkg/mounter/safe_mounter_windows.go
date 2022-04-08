@@ -67,7 +67,7 @@ func normalizeWindowsPath(path string) string {
 }
 
 func (mounter *csiProxyMounter) SMBMount(source, target, fsType string, mountOptions, sensitiveMountOptions []string) error {
-	klog.V(4).Infof("SMBMount: remote path: %s. local path: %s", source, target)
+	klog.V(2).Infof("SMBMount: remote path: %s local path: %s", source, target)
 
 	if len(mountOptions) == 0 || len(sensitiveMountOptions) == 0 {
 		return fmt.Errorf("empty mountOptions(len: %d) or sensitiveMountOptions(len: %d) is not allowed", len(mountOptions), len(sensitiveMountOptions))
@@ -80,22 +80,25 @@ func (mounter *csiProxyMounter) SMBMount(source, target, fsType string, mountOpt
 	}
 
 	if !parentExists {
-		klog.Infof("Parent directory %s does not exists. Creating the directory", parentDir)
+		klog.V(2).Infof("Parent directory %s does not exists. Creating the directory", parentDir)
 		if err := mounter.MakeDir(parentDir); err != nil {
 			return fmt.Errorf("create of parent dir: %s dailed with error: %v", parentDir, err)
 		}
 	}
 
 	source = strings.Replace(source, "/", "\\", -1)
+	normalizedTarget := normalizeWindowsPath(target)
 	smbMountRequest := &smb.NewSmbGlobalMappingRequest{
-		LocalPath:  normalizeWindowsPath(target),
+		LocalPath:  normalizedTarget,
 		RemotePath: source,
 		Username:   mountOptions[0],
 		Password:   sensitiveMountOptions[0],
 	}
+	klog.V(2).Infof("begin to mount %s on %s", source, normalizedTarget)
 	if _, err := mounter.SMBClient.NewSmbGlobalMapping(context.Background(), smbMountRequest); err != nil {
 		return fmt.Errorf("smb mapping failed with error: %v", err)
 	}
+	klog.V(2).Infof("mount %s on %s successfully", source, normalizedTarget)
 	return nil
 }
 
@@ -260,6 +263,10 @@ func (mounter *csiProxyMounter) MountSensitive(source string, target string, fst
 
 func (mounter *csiProxyMounter) MountSensitiveWithoutSystemd(source string, target string, fstype string, options []string, sensitiveOptions []string) error {
 	return fmt.Errorf("MountSensitiveWithoutSystemd not implemented for CSIProxyMounter")
+}
+
+func (mounter *csiProxyMounter) MountSensitiveWithoutSystemdWithMountFlags(source string, target string, fstype string, options []string, sensitiveOptions []string, mountFlags []string) error {
+	return mounter.MountSensitive(source, target, fstype, options, sensitiveOptions /* sensitiveOptions */)
 }
 
 // NewCSIProxyMounter - creates a new CSI Proxy mounter struct which encompassed all the

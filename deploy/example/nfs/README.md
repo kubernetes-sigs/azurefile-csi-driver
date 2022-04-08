@@ -25,6 +25,8 @@ provisioner: file.csi.azure.com
 parameters:
   protocol: nfs
   skuName: Premium_LRS  # available values: Premium_LRS, Premium_ZRS
+mountOptions:
+  - nconnect=8  # only supported on linux kernel version >= 5.3
 ```
 
 run following commands to create a storage class:

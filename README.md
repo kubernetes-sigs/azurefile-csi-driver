@@ -1,5 +1,6 @@
 # Azure File CSI Driver for Kubernetes
-[![Travis](https://travis-ci.org/kubernetes-sigs/azurefile-csi-driver.svg)](https://travis-ci.org/kubernetes-sigs/azurefile-csi-driver)
+![linux build status](https://github.com/kubernetes-sigs/azurefile-csi-driver/actions/workflows/linux.yaml/badge.svg)
+![windows build status](https://github.com/kubernetes-sigs/azurefile-csi-driver/actions/workflows/windows.yaml/badge.svg)
 [![Coverage Status](https://coveralls.io/repos/github/kubernetes-sigs/azurefile-csi-driver/badge.svg?branch=master)](https://coveralls.io/github/kubernetes-sigs/azurefile-csi-driver?branch=master)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fkubernetes-sigs%2Fazurefile-csi-driver.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fkubernetes-sigs%2Fazurefile-csi-driver?ref=badge_shield)
 
@@ -11,10 +12,10 @@ This driver allows Kubernetes to use [Azure File](https://docs.microsoft.com/en-
 ### Container Images & Kubernetes Compatibility:
 |Driver Version  |Image                                           | supported k8s version |
 |----------------|----------------------------------------------- |-----------------------|
-|master branch   |mcr.microsoft.com/k8s/csi/azurefile-csi:latest  | 1.19+                 |
-|v1.8.0          |mcr.microsoft.com/k8s/csi/azurefile-csi:v1.8.0  | 1.19+                 |
-|v1.7.0          |mcr.microsoft.com/k8s/csi/azurefile-csi:v1.7.0  | 1.18+                 |
-|v1.6.0          |mcr.microsoft.com/k8s/csi/azurefile-csi:v1.6.0  | 1.18+                 |
+|master branch   |mcr.microsoft.com/k8s/csi/azurefile-csi:latest  | 1.20+                 |
+|v1.14.0         |mcr.microsoft.com/k8s/csi/azurefile-csi:v1.14.0 | 1.20+                 |
+|v1.13.0         |mcr.microsoft.com/k8s/csi/azurefile-csi:v1.13.0 | 1.20+                 |
+|v1.12.0         |mcr.microsoft.com/k8s/csi/azurefile-csi:v1.12.0 | 1.20+                 |
 
 ### Driver parameters
 Please refer to [driver parameters](./docs/driver-parameters.md)
@@ -25,17 +26,15 @@ follow guide [here](./docs/install-driver-on-aks.md)
 
 ### Prerequisite
 #### Option#1: Provide cloud provider config with Azure credentials
- - This option depends on [cloud provider config file](https://github.com/kubernetes/cloud-provider-azure/blob/master/docs/cloud-provider-config.md), usually it's `/etc/kubernetes/azure.json` on all Kubernetes agent nodes deployed by [AKS](https://docs.microsoft.com/en-us/azure/aks/) or [aks-engine](https://github.com/Azure/aks-engine), here is [azure.json example](./deploy/example/azure.json).
- > To specify a different cloud provider config file, create `azure-cred-file` configmap before driver installation, e.g. for OpenShift, it's `/etc/kubernetes/cloud.conf` (make sure config file path is in the `volumeMounts.mountPath`)
- > ```console
- > kubectl create configmap azure-cred-file --from-literal=path="/etc/kubernetes/cloud.conf" --from-literal=path-windows="C:\\k\\cloud.conf" -n kube-system
- > ```
- - This driver also supports [read cloud config from kuberenetes secret](./docs/read-from-secret.md).
- - If cluster identity is [Managed Service Identity(MSI)](https://docs.microsoft.com/en-us/azure/aks/use-managed-identity), make sure user assigned identity has `Contributor` role on node resource group
+ - This option depends on [cloud provider config file](https://github.com/kubernetes/cloud-provider-azure/blob/master/docs/cloud-provider-config.md), usually it's `/etc/kubernetes/azure.json` on agent nodes deployed by [AKS](https://docs.microsoft.com/en-us/azure/aks/) or [aks-engine](https://github.com/Azure/aks-engine), here is [azure.json example](./deploy/example/azure.json). <details> <summary>specify a different cloud provider config file</summary></br>create `azure-cred-file` configmap before driver installation, e.g. for OpenShift, it's `/etc/kubernetes/cloud.conf` (make sure config file path is in the `volumeMounts.mountPath`)
+</br><pre>```kubectl create configmap azure-cred-file --from-literal=path="/etc/kubernetes/cloud.conf" --from-literal=path-windows="C:\\k\\cloud.conf" -n kube-system```</pre></details>
+
+ - This driver also supports [read cloud config from kubernetes secret](./docs/read-from-secret.md) as first priority
+ - Make sure identity used by driver has `Contributor` role on node resource group and vnet resource group
  - [How to set up CSI driver on Azure RedHat OpenShift(ARO)](https://github.com/ezYakaEagle442/aro-pub-storage/blob/master/setup-store-CSI-driver-azure-file.md)
 
-#### Option#2: Bring your own storage account
-This option does not depend on cloud provider config file, supports cross subscription and on-premise cluster scenario. Refer to [detailed steps](./deploy/example/e2e_usage.md#option2-bring-your-own-storage-account).
+#### Option#2: Bring your own storage account (only for SMB protocol)
+This option does not depend on cloud provider config file, supports cross subscription and on-premise cluster scenario. Refer to [detailed steps](./deploy/example/e2e_usage.md#option2-bring-your-own-storage-account-only-for-smb-protocol).
 
 ### Install driver on a Kubernetes cluster
  - install by [kubectl](./docs/install-azurefile-csi-driver.md) (please use helm for RedHat/CentOS)

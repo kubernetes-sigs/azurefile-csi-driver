@@ -36,18 +36,20 @@ func init() {
 }
 
 var (
-	endpoint                   = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
-	nodeID                     = flag.String("nodeid", "", "node id")
-	version                    = flag.Bool("version", false, "Print the version and exit.")
-	metricsAddress             = flag.String("metrics-address", "0.0.0.0:29614", "export the metrics")
-	kubeconfig                 = flag.String("kubeconfig", "", "Absolute path to the kubeconfig file. Required only when running out of cluster.")
-	driverName                 = flag.String("drivername", azurefile.DefaultDriverName, "name of the driver")
-	cloudConfigSecretName      = flag.String("cloud-config-secret-name", "azure-cloud-provider", "secret name of cloud config")
-	cloudConfigSecretNamespace = flag.String("cloud-config-secret-namespace", "kube-system", "secret namespace of cloud config")
-	customUserAgent            = flag.String("custom-user-agent", "", "custom userAgent")
-	userAgentSuffix            = flag.String("user-agent-suffix", "", "userAgent suffix")
-	allowEmptyCloudConfig      = flag.Bool("allow-empty-cloud-config", true, "allow running driver without cloud config")
-	enableGetVolumeStats       = flag.Bool("enable-get-volume-stats", false, "allow GET_VOLUME_STATS on agent node")
+	endpoint                               = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
+	nodeID                                 = flag.String("nodeid", "", "node id")
+	version                                = flag.Bool("version", false, "Print the version and exit.")
+	metricsAddress                         = flag.String("metrics-address", "0.0.0.0:29614", "export the metrics")
+	kubeconfig                             = flag.String("kubeconfig", "", "Absolute path to the kubeconfig file. Required only when running out of cluster.")
+	driverName                             = flag.String("drivername", azurefile.DefaultDriverName, "name of the driver")
+	cloudConfigSecretName                  = flag.String("cloud-config-secret-name", "azure-cloud-provider", "secret name of cloud config")
+	cloudConfigSecretNamespace             = flag.String("cloud-config-secret-namespace", "kube-system", "secret namespace of cloud config")
+	customUserAgent                        = flag.String("custom-user-agent", "", "custom userAgent")
+	userAgentSuffix                        = flag.String("user-agent-suffix", "", "userAgent suffix")
+	allowEmptyCloudConfig                  = flag.Bool("allow-empty-cloud-config", true, "allow running driver without cloud config")
+	enableGetVolumeStats                   = flag.Bool("enable-get-volume-stats", true, "allow GET_VOLUME_STATS on agent node")
+	mountPermissions                       = flag.Uint64("mount-permissions", 0777, "mounted folder permissions")
+	allowInlineVolumeKeyAccessWithIdentity = flag.Bool("allow-inline-volume-key-access-with-identity", false, "allow accessing storage account key using cluster identity for inline volume")
 )
 
 func main() {
@@ -57,7 +59,7 @@ func main() {
 		if err != nil {
 			klog.Fatalln(err)
 		}
-		fmt.Println(info)
+		fmt.Println(info) // nolint
 		os.Exit(0)
 	}
 
@@ -73,14 +75,16 @@ func main() {
 
 func handle() {
 	driverOptions := azurefile.DriverOptions{
-		NodeID:                     *nodeID,
-		DriverName:                 *driverName,
-		CloudConfigSecretName:      *cloudConfigSecretName,
-		CloudConfigSecretNamespace: *cloudConfigSecretNamespace,
-		CustomUserAgent:            *customUserAgent,
-		UserAgentSuffix:            *userAgentSuffix,
-		AllowEmptyCloudConfig:      *allowEmptyCloudConfig,
-		EnableGetVolumeStats:       *enableGetVolumeStats,
+		NodeID:                                 *nodeID,
+		DriverName:                             *driverName,
+		CloudConfigSecretName:                  *cloudConfigSecretName,
+		CloudConfigSecretNamespace:             *cloudConfigSecretNamespace,
+		CustomUserAgent:                        *customUserAgent,
+		UserAgentSuffix:                        *userAgentSuffix,
+		AllowEmptyCloudConfig:                  *allowEmptyCloudConfig,
+		EnableGetVolumeStats:                   *enableGetVolumeStats,
+		MountPermissions:                       *mountPermissions,
+		AllowInlineVolumeKeyAccessWithIdentity: *allowInlineVolumeKeyAccessWithIdentity,
 	}
 	driver := azurefile.NewDriver(&driverOptions)
 	if driver == nil {

@@ -17,7 +17,7 @@ limitations under the License.
 package driver
 
 import (
-	"github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
+	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +25,7 @@ import (
 
 const (
 	VolumeSnapshotClassKind = "VolumeSnapshotClass"
-	SnapshotAPIVersion      = "snapshot.storage.k8s.io/v1beta1"
+	SnapshotAPIVersion      = "snapshot.storage.k8s.io/v1"
 )
 
 type PVTestDriver interface {
@@ -49,7 +49,7 @@ type PreProvisionedVolumeTestDriver interface {
 }
 
 type VolumeSnapshotTestDriver interface {
-	GetVolumeSnapshotClass(namespace string) *v1beta1.VolumeSnapshotClass
+	GetVolumeSnapshotClass(namespace string) *snapshotv1.VolumeSnapshotClass
 }
 
 func getStorageClass(
@@ -84,8 +84,8 @@ func getStorageClass(
 	}
 }
 
-func getVolumeSnapshotClass(generateName string, provisioner string) *v1beta1.VolumeSnapshotClass {
-	return &v1beta1.VolumeSnapshotClass{
+func getVolumeSnapshotClass(generateName string, provisioner string) *snapshotv1.VolumeSnapshotClass {
+	return &snapshotv1.VolumeSnapshotClass{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       VolumeSnapshotClassKind,
 			APIVersion: SnapshotAPIVersion,
@@ -95,6 +95,6 @@ func getVolumeSnapshotClass(generateName string, provisioner string) *v1beta1.Vo
 			GenerateName: generateName,
 		},
 		Driver:         provisioner,
-		DeletionPolicy: v1beta1.VolumeSnapshotContentDelete,
+		DeletionPolicy: snapshotv1.VolumeSnapshotContentDelete,
 	}
 }

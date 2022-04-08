@@ -1,6 +1,6 @@
 # CSI Driver on Windows
 
-## Feature Status: Beta
+## Feature Status: GA
 Refer to [Windows-CSI-Support](https://github.com/kubernetes/enhancements/blob/master/keps/sig-windows/20190714-windows-csi-support.md) for more details.
 
 ## Prerequisite

@@ -17,13 +17,14 @@ limitations under the License.
 package provider
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2020-12-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-07-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 
@@ -159,6 +160,9 @@ func (az *Cloud) CreateOrUpdateSecurityGroup(sg network.SecurityGroup) error {
 		return nil
 	}
 
+	nsgJSON, _ := json.Marshal(sg)
+	klog.Warningf("CreateOrUpdateSecurityGroup(%s) failed: %v, NSG request: %s", to.String(sg.Name), rerr.Error(), string(nsgJSON))
+
 	// Invalidate the cache because ETAG precondition mismatch.
 	if rerr.HTTPStatusCode == http.StatusPreconditionFailed {
 		klog.V(3).Infof("SecurityGroup cache for %s is cleanup because of http.StatusPreconditionFailed", *sg.Name)
@@ -217,6 +221,9 @@ func (az *Cloud) CreateOrUpdateLB(service *v1.Service, lb network.LoadBalancer) 
 		return nil
 	}
 
+	lbJSON, _ := json.Marshal(lb)
+	klog.Warningf("LoadBalancerClient.CreateOrUpdate(%s) failed: %v, LoadBalancer request: %s", to.String(lb.Name), rerr.Error(), string(lbJSON))
+
 	// Invalidate the cache because ETAG precondition mismatch.
 	if rerr.HTTPStatusCode == http.StatusPreconditionFailed {
 		klog.V(3).Infof("LoadBalancer cache for %s is cleanup because of http.StatusPreconditionFailed", to.String(lb.Name))
@@ -234,25 +241,81 @@ func (az *Cloud) CreateOrUpdateLB(service *v1.Service, lb network.LoadBalancer) 
 	if strings.Contains(strings.ToLower(retryErrorMessage), strings.ToLower(consts.ReferencedResourceNotProvisionedMessageCode)) {
 		matches := pipErrorMessageRE.FindStringSubmatch(retryErrorMessage)
 		if len(matches) != 3 {
-			klog.Warningf("Failed to parse the retry error message %s", retryErrorMessage)
+			klog.Errorf("Failed to parse the retry error message %s", retryErrorMessage)
 			return rerr.Error()
 		}
 		pipRG, pipName := matches[1], matches[2]
 		klog.V(3).Infof("The public IP %s referenced by load balancer %s is not in Succeeded provisioning state, will try to update it", pipName, to.String(lb.Name))
 		pip, _, err := az.getPublicIPAddress(pipRG, pipName)
 		if err != nil {
-			klog.Warningf("Failed to get the public IP %s in resource group %s: %v", pipName, pipRG, err)
+			klog.Errorf("Failed to get the public IP %s in resource group %s: %v", pipName, pipRG, err)
 			return rerr.Error()
 		}
 		// Perform a dummy update to fix the provisioning state
 		err = az.CreateOrUpdatePIP(service, pipRG, pip)
 		if err != nil {
-			klog.Warningf("Failed to update the public IP %s in resource group %s: %v", pipName, pipRG, err)
+			klog.Errorf("Failed to update the public IP %s in resource group %s: %v", pipName, pipRG, err)
 			return rerr.Error()
 		}
 		// Invalidate the LB cache, return the error, and the controller manager
 		// would retry the LB update in the next reconcile loop
 		_ = az.lbCache.Delete(*lb.Name)
+	}
+
+	return rerr.Error()
+}
+
+func (az *Cloud) CreateOrUpdateLBBackendPool(lbName string, backendPool network.BackendAddressPool) error {
+	ctx, cancel := getContextWithCancel()
+	defer cancel()
+
+	klog.V(4).Infof("CreateOrUpdateLBBackendPool: updating backend pool %s in LB %s", to.String(backendPool.Name), lbName)
+	rerr := az.LoadBalancerClient.CreateOrUpdateBackendPools(ctx, az.getLoadBalancerResourceGroup(), lbName, to.String(backendPool.Name), backendPool, to.String(backendPool.Etag))
+	if rerr == nil {
+		// Invalidate the cache right after updating
+		_ = az.lbCache.Delete(lbName)
+		return nil
+	}
+
+	// Invalidate the cache because ETAG precondition mismatch.
+	if rerr.HTTPStatusCode == http.StatusPreconditionFailed {
+		klog.V(3).Infof("LoadBalancer cache for %s is cleanup because of http.StatusPreconditionFailed", lbName)
+		_ = az.lbCache.Delete(lbName)
+	}
+
+	retryErrorMessage := rerr.Error().Error()
+	// Invalidate the cache because another new operation has canceled the current request.
+	if strings.Contains(strings.ToLower(retryErrorMessage), consts.OperationCanceledErrorMessage) {
+		klog.V(3).Infof("LoadBalancer cache for %s is cleanup because CreateOrUpdate is canceled by another operation", lbName)
+		_ = az.lbCache.Delete(lbName)
+	}
+
+	return rerr.Error()
+}
+
+func (az *Cloud) DeleteLBBackendPool(lbName, backendPoolName string) error {
+	ctx, cancel := getContextWithCancel()
+	defer cancel()
+
+	klog.V(4).Infof("DeleteLBBackendPool: deleting backend pool %s in LB %s", backendPoolName, lbName)
+	rerr := az.LoadBalancerClient.DeleteLBBackendPool(ctx, az.getLoadBalancerResourceGroup(), lbName, backendPoolName)
+	if rerr == nil {
+		// Invalidate the cache right after updating
+		_ = az.lbCache.Delete(lbName)
+		return nil
+	}
+
+	// Invalidate the cache because ETAG precondition mismatch.
+	if rerr.HTTPStatusCode == http.StatusPreconditionFailed {
+		klog.V(3).Infof("LoadBalancer cache for %s is cleanup because of http.StatusPreconditionFailed", lbName)
+		_ = az.lbCache.Delete(lbName)
+	}
+
+	retryErrorMessage := rerr.Error().Error()
+	// Invalidate the cache because another new operation has canceled the current request.
+	if strings.Contains(strings.ToLower(retryErrorMessage), consts.OperationCanceledErrorMessage) {
+		klog.V(3).Infof("LoadBalancer cache for %s is cleanup because CreateOrUpdate is canceled by another operation", lbName)
+		_ = az.lbCache.Delete(lbName)
 	}
 
 	return rerr.Error()
@@ -271,22 +334,32 @@ func (az *Cloud) ListManagedLBs(service *v1.Service, nodes []*v1.Node, clusterNa
 		return nil, nil
 	}
 
+	// return early if wantLb=false
+	if nodes == nil {
+		klog.V(4).Infof("ListManagedLBs: return all LBs in the resource group %s, including unmanaged LBs", az.getLoadBalancerResourceGroup())
+		return allLBs, nil
+	}
+
 	agentPoolLBs := make([]network.LoadBalancer, 0)
 	agentPoolVMSetNames, err := az.VMSet.GetAgentPoolVMSetNames(nodes)
 	if err != nil {
 		return nil, fmt.Errorf("ListManagedLBs: failed to get agent pool vmSet names: %w", err)
 	}
+
 	agentPoolVMSetNamesSet := sets.NewString()
 	if agentPoolVMSetNames != nil && len(*agentPoolVMSetNames) > 0 {
 		for _, vmSetName := range *agentPoolVMSetNames {
+			klog.V(5).Infof("ListManagedLBs: found agent pool vmSet name %s", vmSetName)
 			agentPoolVMSetNamesSet.Insert(strings.ToLower(vmSetName))
 		}
 	}
 
 	for _, lb := range allLBs {
 		vmSetNameFromLBName := az.mapLoadBalancerNameToVMSet(to.String(lb.Name), clusterName)
-		if agentPoolVMSetNamesSet.Has(strings.ToLower(vmSetNameFromLBName)) {
+		if strings.EqualFold(strings.TrimSuffix(to.String(lb.Name), consts.InternalLoadBalancerNameSuffix), clusterName) ||
+			agentPoolVMSetNamesSet.Has(strings.ToLower(vmSetNameFromLBName)) {
 			agentPoolLBs = append(agentPoolLBs, lb)
+			klog.V(4).Infof("ListManagedLBs: found agent pool LB %s", to.String(lb.Name))
 		}
 	}
 
@@ -339,7 +412,8 @@ func (az *Cloud) CreateOrUpdatePIP(service *v1.Service, pipResourceGroup string,
 	rerr := az.PublicIPAddressesClient.CreateOrUpdate(ctx, pipResourceGroup, to.String(pip.Name), pip)
 	klog.V(10).Infof("PublicIPAddressesClient.CreateOrUpdate(%s, %s): end", pipResourceGroup, to.String(pip.Name))
 	if rerr != nil {
-		klog.Errorf("PublicIPAddressesClient.CreateOrUpdate(%s, %s) failed: %s", pipResourceGroup, to.String(pip.Name), rerr.Error().Error())
+		pipJSON, _ := json.Marshal(pip)
+		klog.Warningf("PublicIPAddressesClient.CreateOrUpdate(%s, %s) failed: %s, PublicIP request: %s", pipResourceGroup, to.String(pip.Name), rerr.Error().Error(), string(pipJSON))
 		az.Event(service, v1.EventTypeWarning, "CreateOrUpdatePublicIPAddress", rerr.Error().Error())
 		return rerr.Error()
 	}
@@ -412,6 +486,9 @@ func (az *Cloud) CreateOrUpdateRouteTable(routeTable network.RouteTable) error {
 		_ = az.rtCache.Delete(*routeTable.Name)
 		return nil
 	}
+
+	rtJSON, _ := json.Marshal(routeTable)
+	klog.Warningf("RouteTablesClient.CreateOrUpdate(%s) failed: %v, RouteTable request: %s", to.String(routeTable.Name), rerr.Error(), string(rtJSON))
 
 	// Invalidate the cache because etag mismatch.
 	if rerr.HTTPStatusCode == http.StatusPreconditionFailed {
