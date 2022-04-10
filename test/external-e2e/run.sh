@@ -54,7 +54,7 @@ if [ ! -z ${EXTERNAL_E2E_TEST_SMB} ]; then
 	echo "begin to run SMB protocol tests ...."
 	cp deploy/example/storageclass-azurefile-csi.yaml /tmp/csi/storageclass.yaml
 	ginkgo -p --progress --v -focus="External.Storage.*$DRIVER.csi.azure.com" \
-		-skip='\[Disruptive\]|volume contents ownership changed' kubernetes/test/bin/e2e.test  -- \
+		-skip='\[Disruptive\]' kubernetes/test/bin/e2e.test  -- \
 		-storage.testdriver=$PROJECT_ROOT/test/external-e2e/testdriver-smb.yaml \
 		--kubeconfig=$KUBECONFIG
 fi

@@ -17,3 +17,5 @@ DriverInfo:
     volumeLimits: false
     snapshotDataSource: true
     volumeMountGroup: true
+InlineVolumes:
+- Attributes: {}
