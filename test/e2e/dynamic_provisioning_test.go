@@ -751,7 +751,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			"skuName":                      "Standard_LRS",
 			"secretNamespace":              "kube-system",
 			"useDataPlaneAPI":              "true",
-			"disableDeleteRetentionPolicy": "false",
+			"disableDeleteRetentionPolicy": "true",
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
 			CSIDriver:              testDriver,
