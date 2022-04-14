@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"strings"
@@ -201,7 +202,9 @@ func TestNodePublishVolume(t *testing.T) {
 				VolumeId:          "vol_1",
 				TargetPath:        targetTest,
 				StagingTargetPath: sourceTest,
-				Readonly:          true},
+				Readonly:          true,
+				VolumeContext:     map[string]string{mountPermissionsField: "0755"},
+			},
 			expectedErr: testutil.TestError{},
 		},
 		{
@@ -222,10 +225,22 @@ func TestNodePublishVolume(t *testing.T) {
 				Readonly:          true},
 			expectedErr: testutil.TestError{},
 		},
+		{
+			desc: "[Error] invalid mountPermissions",
+			req: csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "vol_1",
+				TargetPath:        targetTest,
+				StagingTargetPath: sourceTest,
+				VolumeContext:     map[string]string{mountPermissionsField: "07ab"},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, fmt.Sprintf("invalid mountPermissions %s", "07ab")),
+			},
+		},
 	}
 
 	// Setup
-	_ = makeDir(alreadyMountedTarget)
+	_ = makeDir(alreadyMountedTarget, 0755)
 	mounter, err := NewFakeMounter()
 	if err != nil {
 		t.Fatalf(fmt.Sprintf("failed to get fake mounter: %v", err))
@@ -298,7 +313,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 	}
 
 	// Setup
-	_ = makeDir(errorTarget)
+	_ = makeDir(errorTarget, 0755)
 	mounter, err := NewFakeMounter()
 	if err != nil {
 		t.Fatalf(fmt.Sprintf("failed to get fake mounter: %v", err))
@@ -358,16 +373,18 @@ func TestNodeStageVolume(t *testing.T) {
 		serverNameField: "",
 	}
 	volContextNfs := map[string]string{
-		fsTypeField:     "nfs",
-		diskNameField:   "test_disk",
-		shareNameField:  "test_sharename",
-		serverNameField: "test_servername",
+		fsTypeField:           "nfs",
+		diskNameField:         "test_disk",
+		shareNameField:        "test_sharename",
+		serverNameField:       "test_servername",
+		mountPermissionsField: "0755",
 	}
 	volContext := map[string]string{
-		fsTypeField:     "test_field",
-		diskNameField:   "test_disk",
-		shareNameField:  "test_sharename",
-		serverNameField: "test_servername",
+		fsTypeField:           "test_field",
+		diskNameField:         "test_disk",
+		shareNameField:        "test_sharename",
+		serverNameField:       "test_servername",
+		mountPermissionsField: "0755",
 	}
 	volContextFsType := map[string]string{
 		fsTypeField:     "ext4",
@@ -545,6 +562,19 @@ func TestNodeStageVolume(t *testing.T) {
 				errorSource, proxyMountPath),
 			expectedErr: testutil.TestError{},
 		},
+		{
+			desc: "[Error] invalid mountPermissions",
+			req: csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					shareNameField:        "test_sharename",
+					mountPermissionsField: "07ab",
+				},
+				Secrets: secrets},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, fmt.Sprintf("invalid mountPermissions %s", "07ab")),
+			},
+		},
 	}
 
 	// Setup
@@ -660,7 +690,7 @@ func TestNodeUnstageVolume(t *testing.T) {
 	}
 
 	// Setup
-	_ = makeDir(errorTarget)
+	_ = makeDir(errorTarget, 0755)
 	mounter, err := NewFakeMounter()
 	if err != nil {
 		t.Fatalf(fmt.Sprintf("failed to get fake mounter: %v", err))
@@ -723,7 +753,7 @@ func TestNodeGetVolumeStats(t *testing.T) {
 	}
 
 	// Setup
-	_ = makeDir(fakePath)
+	_ = makeDir(fakePath, 0755)
 	d := NewFakeDriver()
 
 	for _, test := range tests {
@@ -778,7 +808,7 @@ func TestEnsureMountPoint(t *testing.T) {
 	}
 
 	// Setup
-	_ = makeDir(alreadyExistTarget)
+	_ = makeDir(alreadyExistTarget, 0755)
 	d := NewFakeDriver()
 	fakeMounter := &fakeMounter{}
 	fakeExec := &testingexec.FakeExec{ExactOrder: true}
@@ -788,7 +818,7 @@ func TestEnsureMountPoint(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		_, err := d.ensureMountPoint(test.target)
+		_, err := d.ensureMountPoint(test.target, 0777)
 		if !reflect.DeepEqual(err, test.expectedErr) {
 			t.Errorf("[%s]: Unexpected Error: %v, expected error: %v", test.desc, err, test.expectedErr)
 		}
@@ -803,11 +833,11 @@ func TestEnsureMountPoint(t *testing.T) {
 
 func TestMakeDir(t *testing.T) {
 	//Successfully create directory
-	err := makeDir(targetTest)
+	err := makeDir(targetTest, 0755)
 	assert.NoError(t, err)
 
 	//Failed case
-	err = makeDir("./azure.go")
+	err = makeDir("./azure.go", 0755)
 	var e *os.PathError
 	if !errors.As(err, &e) {
 		t.Errorf("Unexpected Error: %v", err)
@@ -830,45 +860,75 @@ func TestNodeExpandVolume(t *testing.T) {
 
 func TestCheckGidPresentInMountFlags(t *testing.T) {
 	tests := []struct {
-		desc             string
-		VolumeMountGroup string
-		MountFlags       []string
-		expectedErr      error
-		result           bool
+		desc       string
+		MountFlags []string
+		result     bool
 	}{
 		{
-			desc:             "[Error] VolumeMountGroup is different from gid in mount options",
-			VolumeMountGroup: "2000",
-			MountFlags:       []string{"gid=3000"},
-			expectedErr:      status.Error(codes.InvalidArgument, "gid(3000) in storageClass and pod fsgroup(2000) are not equal"),
-			result:           false,
+			desc:       "[Success] Gid present in mount flags",
+			MountFlags: []string{"gid=3000"},
+			result:     true,
 		},
 		{
-			desc:             "[Success] Gid present in mount flags",
-			VolumeMountGroup: "",
-			MountFlags:       []string{"gid=3000"},
-			expectedErr:      nil,
-			result:           true,
-		},
-		{
-			desc:             "[Success] Gid not present in mount flags",
-			VolumeMountGroup: "",
-			MountFlags:       []string{},
-			expectedErr:      nil,
-			result:           false,
+			desc:       "[Success] Gid not present in mount flags",
+			MountFlags: []string{},
+			result:     false,
 		},
 	}
 
 	for _, test := range tests {
-		gIDPresent, err := checkGidPresentInMountFlags(test.VolumeMountGroup, test.MountFlags)
-		if !reflect.DeepEqual(err, test.expectedErr) {
-			t.Errorf("[%s]: Unexpected Error: %v, expected error: %v", test.desc, err, test.expectedErr)
-		}
+		gIDPresent := checkGidPresentInMountFlags(test.MountFlags)
 		if gIDPresent != test.result {
 			t.Errorf("[%s]: Expected result : %t, Actual result: %t", test.desc, test.result, gIDPresent)
 		}
 	}
 
+}
+
+func TestNodePublishVolumeIdempotentMount(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Getuid() != 0 {
+		return
+	}
+	_ = makeDir(sourceTest, 0755)
+	_ = makeDir(targetTest, 0755)
+	d := NewFakeDriver()
+	d.mounter = &mount.SafeFormatAndMount{
+		Interface: mount.New(""),
+		Exec:      exec.New(),
+	}
+
+	volumeCap := csi.VolumeCapability_AccessMode{Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER}
+	req := csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+		VolumeId:          "vol_1",
+		TargetPath:        targetTest,
+		StagingTargetPath: sourceTest,
+		Readonly:          true}
+
+	_, err := d.NodePublishVolume(context.Background(), &req)
+	assert.NoError(t, err)
+	_, err = d.NodePublishVolume(context.Background(), &req)
+	assert.NoError(t, err)
+
+	// ensure the target not be mounted twice
+	targetAbs, err := filepath.Abs(targetTest)
+	assert.NoError(t, err)
+
+	mountList, err := d.mounter.List()
+	assert.NoError(t, err)
+	mountPointNum := 0
+	for _, mountPoint := range mountList {
+		if mountPoint.Path == targetAbs {
+			mountPointNum++
+		}
+	}
+	assert.Equal(t, 1, mountPointNum)
+	err = d.mounter.Unmount(targetTest)
+	assert.NoError(t, err)
+	_ = d.mounter.Unmount(targetTest)
+	err = os.RemoveAll(sourceTest)
+	assert.NoError(t, err)
+	err = os.RemoveAll(targetTest)
+	assert.NoError(t, err)
 }
 
 func makeFakeCmd(fakeCmd *testingexec.FakeCmd, cmd string, args ...string) testingexec.FakeCommandAction {

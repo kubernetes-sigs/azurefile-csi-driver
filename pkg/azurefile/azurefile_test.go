@@ -34,7 +34,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/kubernetes/fake"
 
-	csicommon "sigs.k8s.io/azurefile-csi-driver/pkg/csi-common"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient/mockfileclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/storageaccountclient/mockstorageaccountclient"
 	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
@@ -678,7 +677,7 @@ func TestGetAccountInfo(t *testing.T) {
 		d.cloud.StorageAccountClient = mockStorageAccountsClient
 		d.cloud.KubeClient = clientSet
 		d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
-		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), test.rgName, gomock.Any()).Return(key, nil).AnyTimes()
+		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), test.rgName, gomock.Any()).Return(key, nil).AnyTimes()
 		rgName, accountName, _, fileShareName, diskName, err := d.GetAccountInfo(context.Background(), test.volumeID, test.secrets, test.reqContext)
 		if test.expectErr && err == nil {
 			t.Errorf("Unexpected non-error")
@@ -862,21 +861,6 @@ func TestRun(t *testing.T) {
 	}
 }
 
-func TestUtilsRunNodePublishServer(t *testing.T) {
-	d := NewFakeDriver()
-	csicommon.RunNodePublishServer("tcp://127.0.0.1:0", &d.CSIDriver, d, true)
-}
-
-func TestUtilsRunControllerandNodePublishServer(t *testing.T) {
-	d := NewFakeDriver()
-	csicommon.RunControllerandNodePublishServer("tcp://127.0.0.1:0", &d.CSIDriver, d, d, true)
-}
-
-func TestUtilsRunControllerPublishServer(t *testing.T) {
-	d := NewFakeDriver()
-	csicommon.RunControllerPublishServer("tcp://127.0.0.1:0", &d.CSIDriver, d, true)
-}
-
 func TestIsSupportedProtocol(t *testing.T) {
 	tests := []struct {
 		protocol       string
@@ -951,6 +935,41 @@ func TestIsSupportedAccessTier(t *testing.T) {
 		result := isSupportedAccessTier(test.accessTier)
 		if result != test.expectedResult {
 			t.Errorf("isSupportedTier(%s) returned with %v, not equal to %v", test.accessTier, result, test.expectedResult)
+		}
+	}
+}
+
+func TestIsSupportedRootSquashType(t *testing.T) {
+	tests := []struct {
+		rootSquashType string
+		expectedResult bool
+	}{
+		{
+			rootSquashType: "",
+			expectedResult: true,
+		},
+		{
+			rootSquashType: "AllSquash",
+			expectedResult: true,
+		},
+		{
+			rootSquashType: "NoRootSquash",
+			expectedResult: true,
+		},
+		{
+			rootSquashType: "RootSquash",
+			expectedResult: true,
+		},
+		{
+			rootSquashType: "unknown",
+			expectedResult: false,
+		},
+	}
+
+	for _, test := range tests {
+		result := isSupportedRootSquashType(test.rootSquashType)
+		if result != test.expectedResult {
+			t.Errorf("isSupportedRootSquashType(%s) returned with %v, not equal to %v", test.rootSquashType, result, test.expectedResult)
 		}
 	}
 }

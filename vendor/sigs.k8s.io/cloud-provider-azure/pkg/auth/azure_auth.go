@@ -100,6 +100,17 @@ func GetServicePrincipalToken(config *AzureAuthConfig, env *azure.Environment, r
 		}
 		if len(config.UserAssignedIdentityID) > 0 {
 			klog.V(4).Info("azure: using User Assigned MSI ID to retrieve access token")
+			resourceID, err := azure.ParseResourceID(config.UserAssignedIdentityID)
+			if err == nil &&
+				strings.EqualFold(resourceID.Provider, "Microsoft.ManagedIdentity") &&
+				strings.EqualFold(resourceID.ResourceType, "userAssignedIdentities") {
+				klog.V(4).Info("azure: User Assigned MSI ID is resource ID")
+				return adal.NewServicePrincipalTokenFromMSIWithIdentityResourceID(msiEndpoint,
+					resource,
+					config.UserAssignedIdentityID)
+			}
+
+			klog.V(4).Info("azure: User Assigned MSI ID is client ID. Resource ID parsing error: %+v", err)
 			return adal.NewServicePrincipalTokenFromMSIWithUserAssignedID(msiEndpoint,
 				resource,
 				config.UserAssignedIdentityID)
@@ -237,14 +248,12 @@ func ParseAzureEnvironment(cloudName, resourceManagerEndpoint, identitySystem st
 	return &env, err
 }
 
-// UsesNetworkResourceInDifferentTenant determines whether the AzureAuthConfig indicates to use network resources in different AAD Tenant and Subscription than those for the cluster
-// Return true only when both NetworkResourceTenantID and NetworkResourceSubscriptionID are specified
-// and they are not equals to TenantID and SubscriptionID
-func (config *AzureAuthConfig) UsesNetworkResourceInDifferentTenant() bool {
-	return len(config.NetworkResourceTenantID) > 0 &&
-		len(config.NetworkResourceSubscriptionID) > 0 &&
-		!strings.EqualFold(config.NetworkResourceTenantID, config.TenantID) &&
-		!strings.EqualFold(config.NetworkResourceSubscriptionID, config.SubscriptionID)
+// UsesNetworkResourceInDifferentTenantOrSubscription determines whether the AzureAuthConfig indicates to use network resources in different AAD Tenant and Subscription than those for the cluster
+// Return true when one of NetworkResourceTenantID and NetworkResourceSubscriptionID are specified
+// and equal to one defined in global configs
+func (config *AzureAuthConfig) UsesNetworkResourceInDifferentTenantOrSubscription() bool {
+	return (len(config.NetworkResourceTenantID) > 0 && !strings.EqualFold(config.NetworkResourceTenantID, config.TenantID)) ||
+		(len(config.NetworkResourceSubscriptionID) > 0 && !strings.EqualFold(config.NetworkResourceSubscriptionID, config.SubscriptionID))
 }
 
 // decodePkcs12 decodes a PKCS#12 client certificate by extracting the public certificate and
@@ -276,7 +285,7 @@ func azureStackOverrides(env *azure.Environment, resourceManagerEndpoint, identi
 
 // checkConfigWhenNetworkResourceInDifferentTenant checks configuration for the scenario of using network resource in different tenant
 func (config *AzureAuthConfig) checkConfigWhenNetworkResourceInDifferentTenant() error {
-	if !config.UsesNetworkResourceInDifferentTenant() {
+	if !config.UsesNetworkResourceInDifferentTenantOrSubscription() {
 		return fmt.Errorf("NetworkResourceTenantID and NetworkResourceSubscriptionID must be configured")
 	}
 

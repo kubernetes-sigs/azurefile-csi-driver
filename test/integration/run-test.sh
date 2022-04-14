@@ -22,7 +22,7 @@ function cleanup {
 }
 
 readonly CSC_BIN="$GOBIN/csc"
-readonly volname="citest-$(date +%s)"
+volname="citest-$(date +%s)"
 endpoint='tcp://127.0.0.1:10000'
 if [[ "$#" -gt 0 ]]; then
   endpoint="$1"
@@ -67,10 +67,10 @@ fi
 
 # Begin to run CSI functions one by one
 echo 'Create volume test:'
-readonly value=$("$CSC_BIN" controller new --endpoint "$endpoint" --cap 1,mount,cifs "$volname" --req-bytes 2147483648 --params "$params")
+value=$("$CSC_BIN" controller new --endpoint "$endpoint" --cap 1,mount,cifs "$volname" --req-bytes 2147483648 --params "$params")
 sleep 15
 
-readonly volumeid=$(echo "$value" | awk '{print $1}' | sed 's/"//g')
+volumeid=$(echo "$value" | awk '{print $1}' | sed 's/"//g')
 echo "Got volume id: $volumeid"
 
 "$CSC_BIN" controller validate-volume-capabilities --endpoint "$endpoint" --cap 1,mount,cifs "$volumeid"

@@ -21,32 +21,24 @@ function get_array() {
     do
         arr[${#arr[@]}]=$value
     done
-    echo ${arr[*]}
+    echo "${arr[*]}"
 }
 
-NS=kube-system
-CONTAINER=azurefile
-
 echo "check the driver pods if restarts ..."
-original_pods=$(kubectl get pods -n kube-system | grep azurefile | awk '{print $1}')
-original_restarts=$(kubectl get pods -n kube-system | grep azurefile | awk '{print $4}')
+mapfile -t PODS_WITH_RESTARTS < <(kubectl get pods --namespace kube-system \
+    --selector app.kubernetes.io/name=azurefile-csi-driver \
+    --output=jsonpath='{range .items[*]}{.metadata.name} {range .status.containerStatuses[?(@.restartCount!=0)]}{.name};{end}{"\n"}{end}' \
+    | awk '{if ($2 != "") print $1}')
 
-processed_pods=($(get_array "${original_pods[@]}"))
-processed_restarts=($(get_array "${original_restarts[@]}"))
+for POD_WITH_RESTART in "${PODS_WITH_RESTARTS[@]}"; do
+    echo "there is a driver pod which has restarted"
 
-for ((i=0; i<${#processed_restarts[@]}; i++)); do
-    if [ "${processed_restarts[$i]}" -ne "0" ]
-    then
-        echo "there is a driver pod which has restarted"
-	    #disable pods restart check temporarily since there is driver restart in MSI enabled cluster
-        #exit 3
-        if [[ "$1" == "log" ]]; then
-            kubectl describe po ${processed_pods[$i]} -n kube-system
-            echo "======================================================================================"
-            echo "print previous azurefile cotnainer logs since there is a restart"
-            kubectl logs ${processed_pods[$i]} -c azurefile -p -n kube-system
-            echo "======================================================================================"
-        fi
+    if [[ "$1" == "log" ]]; then
+        kubectl describe pod "$POD_WITH_RESTART" --namespace kube-system
+        echo "======================================================================================"
+        echo "print previous azurefile container logs since there is a restart"
+        kubectl logs "$POD_WITH_RESTART" --container azurefile --previous --namespace kube-system
+        echo "======================================================================================"
     fi
 done
 

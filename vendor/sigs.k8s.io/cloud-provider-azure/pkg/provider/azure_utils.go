@@ -23,13 +23,13 @@ import (
 	"strings"
 	"sync"
 
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
+	utilnet "k8s.io/utils/net"
 
 	"sigs.k8s.io/cloud-provider-azure/pkg/consts"
 )
@@ -99,26 +99,42 @@ func convertMapToMapPointer(origin map[string]string) map[string]*string {
 	return newly
 }
 
-func parseTags(tags string) map[string]*string {
+func parseTags(tags string, tagsMap map[string]string) map[string]*string {
 	formatted := make(map[string]*string)
-	if len(tags) == 0 {
-		return formatted
+
+	if tags != "" {
+		kvs := strings.Split(tags, consts.TagsDelimiter)
+		for _, kv := range kvs {
+			res := strings.Split(kv, consts.TagKeyValueDelimiter)
+			if len(res) != 2 {
+				klog.Warningf("parseTags: error when parsing key-value pair %s, would ignore this one", kv)
+				continue
+			}
+			k, v := strings.TrimSpace(res[0]), strings.TrimSpace(res[1])
+			if k == "" {
+				klog.Warning("parseTags: empty key, ignoring this key-value pair")
+				continue
+			}
+			formatted[k] = to.StringPtr(v)
+		}
 	}
 
-	kvs := strings.Split(tags, consts.TagsDelimiter)
-	for _, kv := range kvs {
-		res := strings.Split(kv, consts.TagKeyValueDelimiter)
-		if len(res) != 2 {
-			klog.Warningf("parseTags: error when parsing key-value pair %s, would ignore this one", kv)
-			continue
+	if len(tagsMap) > 0 {
+		for key, value := range tagsMap {
+			key, value := strings.TrimSpace(key), strings.TrimSpace(value)
+			if key == "" {
+				klog.Warningf("parseTags: empty key, ignoring this key-value pair")
+				continue
+			}
+
+			if found, k := findKeyInMapCaseInsensitive(formatted, key); found && k != key {
+				klog.V(4).Infof("parseTags: found identical keys: %s from tags and %s from tagsMap (case-insensitive), %s will replace %s", k, key, key, k)
+				delete(formatted, k)
+			}
+			formatted[key] = to.StringPtr(value)
 		}
-		k, v := strings.TrimSpace(res[0]), strings.TrimSpace(res[1])
-		if k == "" || v == "" {
-			klog.Warningf("parseTags: error when parsing key-value pair %s-%s, would ignore this one", k, v)
-			continue
-		}
-		formatted[k] = to.StringPtr(v)
 	}
+
 	return formatted
 }
 
@@ -218,4 +234,45 @@ func getServiceAdditionalPublicIPs(service *v1.Service) ([]string, error) {
 	}
 
 	return result, nil
+}
+
+func getNodePrivateIPAddress(service *v1.Service, node *v1.Node) string {
+	isIPV6SVC := utilnet.IsIPv6String(service.Spec.ClusterIP)
+	for _, nodeAddress := range node.Status.Addresses {
+		if strings.EqualFold(string(nodeAddress.Type), string(v1.NodeInternalIP)) &&
+			utilnet.IsIPv6String(nodeAddress.Address) == isIPV6SVC {
+			klog.V(4).Infof("getNodePrivateIPAddress: node %s, ip %s", node.Name, nodeAddress.Address)
+			return nodeAddress.Address
+		}
+	}
+
+	klog.Warningf("getNodePrivateIPAddress: empty ip found for node %s", node.Name)
+	return ""
+}
+
+func getNodePrivateIPAddresses(node *v1.Node) []string {
+	addresses := make([]string, 0)
+	for _, nodeAddress := range node.Status.Addresses {
+		if strings.EqualFold(string(nodeAddress.Type), string(v1.NodeInternalIP)) {
+			addresses = append(addresses, nodeAddress.Address)
+		}
+	}
+
+	return addresses
+}
+
+func isLBBackendPoolTypeIPConfig(service *v1.Service, lb *network.LoadBalancer, clusterName string) bool {
+	if lb == nil || lb.LoadBalancerPropertiesFormat == nil || lb.BackendAddressPools == nil {
+		klog.V(4).Infof("isLBBackendPoolTypeIPConfig: no backend pools in the LB %s", to.String(lb.Name))
+		return false
+	}
+	lbBackendPoolName := getBackendPoolName(clusterName, service)
+	for _, bp := range *lb.BackendAddressPools {
+		if strings.EqualFold(to.String(bp.Name), lbBackendPoolName) {
+			return bp.BackendAddressPoolPropertiesFormat != nil &&
+				bp.BackendIPConfigurations != nil &&
+				len(*bp.BackendIPConfigurations) != 0
+		}
+	}
+	return false
 }

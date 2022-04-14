@@ -139,9 +139,9 @@ func (t *DynamicallyProvisionedResizeVolumeTest) Run(client clientset.Interface,
 		//get file information
 		fileshareClient, err := azureClient.GetAzureFilesClient()
 		framework.ExpectNoError(err, fmt.Sprintf("Error getting client for azurefile %v", err))
-		filetest, err := fileshareClient.Get(context.Background(), resourceGroup, accountName, shareName, "")
+		share, err := fileshareClient.Get(context.Background(), resourceGroup, accountName, shareName, "")
 		framework.ExpectNoError(err, fmt.Sprintf("Error getting file for azurefile %v", err))
-		newfileSize := strconv.Itoa(int(*filetest.ShareQuota)) + "Gi"
+		newfileSize := strconv.Itoa(int(*share.ShareQuota)) + "Gi"
 		if !(newSize.String() == newfileSize) {
 			framework.Failf("newPVCSize(%+v) is not equal to new azurefileSize(%+v)", newSize.String(), newfileSize)
 		}

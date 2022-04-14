@@ -62,7 +62,7 @@ func New(config *azclients.ClientConfig) *Client {
 	if strings.EqualFold(config.CloudName, AzureStackCloudName) && !config.DisableAzureStackCloud {
 		apiVersion = AzureStackCloudAPIVersion
 	}
-	armClient := armclient.New(authorizer, baseURI, config.UserAgent, apiVersion, config.Location, config.Backoff)
+	armClient := armclient.New(authorizer, *config, baseURI, apiVersion)
 	rateLimiterReader, rateLimiterWriter := azclients.NewRateLimiter(config.RateLimitConfig)
 
 	if azclients.RateLimitEnabled(config.RateLimitConfig) {
@@ -490,6 +490,49 @@ func (c *Client) createOrUpdateLBBackendPool(ctx context.Context, resourceGroupN
 	}
 
 	return nil
+}
+
+// DeleteLBBackendPool deletes a LoadBalancer backend pool by name.
+func (c *Client) DeleteLBBackendPool(ctx context.Context, resourceGroupName, loadBalancerName, backendPoolName string) *retry.Error {
+	mc := metrics.NewMetricContext("load_balancers", "delete_backend_pool", resourceGroupName, c.subscriptionID, "")
+
+	// Report errors if the client is rate limited.
+	if !c.rateLimiterWriter.TryAccept() {
+		mc.RateLimitedCount()
+		return retry.GetRateLimitError(true, "LBDeleteBackendPool")
+	}
+
+	// Report errors if the client is throttled.
+	if c.RetryAfterWriter.After(time.Now()) {
+		mc.ThrottledCount()
+		rerr := retry.GetThrottlingError("LBDeleteBackendPool", "client throttled", c.RetryAfterWriter)
+		return rerr
+	}
+
+	rerr := c.deleteLBBackendPool(ctx, resourceGroupName, loadBalancerName, backendPoolName)
+	mc.Observe(rerr)
+	if rerr != nil {
+		if rerr.IsThrottled() {
+			// Update RetryAfterReader so that no more requests would be sent until RetryAfter expires.
+			c.RetryAfterWriter = rerr.RetryAfter
+		}
+
+		return rerr
+	}
+
+	return nil
+}
+
+func (c *Client) deleteLBBackendPool(ctx context.Context, resourceGroupName, loadBalancerName, backendPoolName string) *retry.Error {
+	resourceID := armclient.GetChildResourceID(
+		c.subscriptionID,
+		resourceGroupName,
+		"Microsoft.Network/loadBalancers",
+		loadBalancerName,
+		"backendAddressPools",
+		backendPoolName,
+	)
+	return c.armClient.DeleteResource(ctx, resourceID, "")
 }
 
 func (c *Client) createOrUpdateBackendPoolResponder(resp *http.Response) (*network.BackendAddressPool, *retry.Error) {
