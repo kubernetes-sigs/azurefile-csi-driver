@@ -85,6 +85,7 @@ const (
 	serverNameField                   = "server"
 	fsTypeField                       = "fstype"
 	protocolField                     = "protocol"
+	matchTagsField                    = "matchtags"
 	tagsField                         = "tags"
 	storageAccountField               = "storageaccount"
 	storageAccountTypeField           = "storageaccounttype"

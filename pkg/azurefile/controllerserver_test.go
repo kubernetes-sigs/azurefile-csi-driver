@@ -174,19 +174,10 @@ func TestCreateVolume(t *testing.T) {
 			name: "Volume lock already present",
 			testFunc: func(t *testing.T) {
 				req := &csi.CreateVolumeRequest{
-					Name:          "random-vol-name-vol-cap-invalid",
-					CapacityRange: stdCapRange,
-					VolumeCapabilities: []*csi.VolumeCapability{
-						{
-							AccessType: &csi.VolumeCapability_Block{
-								Block: nil,
-							},
-							AccessMode: &csi.VolumeCapability_AccessMode{
-								Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
-							},
-						},
-					},
-					Parameters: nil,
+					Name:               "random-vol-name-vol-cap-invalid",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         nil,
 				}
 
 				ctx := context.Background()
@@ -215,19 +206,10 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				req := &csi.CreateVolumeRequest{
-					Name:          "random-vol-name-vol-cap-invalid",
-					CapacityRange: stdCapRange,
-					VolumeCapabilities: []*csi.VolumeCapability{
-						{
-							AccessType: &csi.VolumeCapability_Block{
-								Block: nil,
-							},
-							AccessMode: &csi.VolumeCapability_AccessMode{
-								Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
-							},
-						},
-					},
-					Parameters: allParam,
+					Name:               "random-vol-name-vol-cap-invalid",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         allParam,
 				}
 
 				ctx := context.Background()
@@ -253,19 +235,10 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				req := &csi.CreateVolumeRequest{
-					Name:          "random-vol-name-vol-cap-invalid",
-					CapacityRange: stdCapRange,
-					VolumeCapabilities: []*csi.VolumeCapability{
-						{
-							AccessType: &csi.VolumeCapability_Block{
-								Block: nil,
-							},
-							AccessMode: &csi.VolumeCapability_AccessMode{
-								Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
-							},
-						},
-					},
-					Parameters: allParam,
+					Name:               "random-vol-name-vol-cap-invalid",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         allParam,
 				}
 
 				ctx := context.Background()
@@ -292,19 +265,10 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				req := &csi.CreateVolumeRequest{
-					Name:          "random-vol-name-vol-cap-invalid",
-					CapacityRange: stdCapRange,
-					VolumeCapabilities: []*csi.VolumeCapability{
-						{
-							AccessType: &csi.VolumeCapability_Block{
-								Block: nil,
-							},
-							AccessMode: &csi.VolumeCapability_AccessMode{
-								Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
-							},
-						},
-					},
-					Parameters: allParam,
+					Name:               "random-vol-name-vol-cap-invalid",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         allParam,
 				}
 
 				ctx := context.Background()
@@ -331,19 +295,10 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				req := &csi.CreateVolumeRequest{
-					Name:          "random-vol-name-vol-cap-invalid",
-					CapacityRange: stdCapRange,
-					VolumeCapabilities: []*csi.VolumeCapability{
-						{
-							AccessType: &csi.VolumeCapability_Block{
-								Block: nil,
-							},
-							AccessMode: &csi.VolumeCapability_AccessMode{
-								Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
-							},
-						},
-					},
-					Parameters: allParam,
+					Name:               "random-vol-name-vol-cap-invalid",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         allParam,
 				}
 
 				d := NewFakeDriver()
@@ -372,19 +327,10 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				req := &csi.CreateVolumeRequest{
-					Name:          "random-vol-name-vol-cap-invalid",
-					CapacityRange: stdCapRange,
-					VolumeCapabilities: []*csi.VolumeCapability{
-						{
-							AccessType: &csi.VolumeCapability_Block{
-								Block: nil,
-							},
-							AccessMode: &csi.VolumeCapability_AccessMode{
-								Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
-							},
-						},
-					},
-					Parameters: allParam,
+					Name:               "random-vol-name-vol-cap-invalid",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         allParam,
 				}
 
 				d := NewFakeDriver()
@@ -398,6 +344,38 @@ func TestCreateVolume(t *testing.T) {
 					})
 
 				expectedErr := status.Errorf(codes.InvalidArgument, "storeAccountKey must set as true in cross subscription(abc)")
+				_, err := d.CreateVolume(context.Background(), req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "storageAccount and matchTags conflict",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{
+					storageAccountField: "abc",
+					matchTagsField:      "true",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name-vol-cap-invalid",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         allParam,
+				}
+
+				d := NewFakeDriver()
+				d.cloud = &azure.Cloud{
+					Config: azure.Config{},
+				}
+
+				d.AddControllerServiceCapabilities(
+					[]csi.ControllerServiceCapability_RPC_Type{
+						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					})
+
+				expectedErr := status.Errorf(codes.InvalidArgument, "matchTags must set as false when storageAccount(abc) is provided")
 				_, err := d.CreateVolume(context.Background(), req)
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
@@ -422,19 +400,10 @@ func TestCreateVolume(t *testing.T) {
 				retErr := retry.NewError(false, fmt.Errorf("the subnet does not exist"))
 
 				req := &csi.CreateVolumeRequest{
-					Name:          "random-vol-name-vol-cap-invalid",
-					CapacityRange: stdCapRange,
-					VolumeCapabilities: []*csi.VolumeCapability{
-						{
-							AccessType: &csi.VolumeCapability_Block{
-								Block: nil,
-							},
-							AccessMode: &csi.VolumeCapability_AccessMode{
-								Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
-							},
-						},
-					},
-					Parameters: allParam,
+					Name:               "random-vol-name-vol-cap-invalid",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         allParam,
 				}
 				ctx := context.Background()
 				d := NewFakeDriver()
