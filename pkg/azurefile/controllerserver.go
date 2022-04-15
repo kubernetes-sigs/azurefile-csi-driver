@@ -109,7 +109,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 	var sku, subsID, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
 	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, accessTier, rootSquashType string
-	var createAccount, useDataPlaneAPI, useSeretCache, disableDeleteRetentionPolicy, enableLFS bool
+	var createAccount, useDataPlaneAPI, useSeretCache, disableDeleteRetentionPolicy, enableLFS, matchTags bool
 	var vnetResourceGroup, vnetName, subnetName, shareNamePrefix string
 	// set allowBlobPublicAccess as false by default
 	allowBlobPublicAccess := to.BoolPtr(false)
@@ -149,6 +149,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			secretNamespace = v
 		case protocolField:
 			protocol = v
+		case matchTagsField:
+			matchTags = strings.EqualFold(v, trueValue)
 		case tagsField:
 			customTags = v
 		case createAccountField:
@@ -201,6 +203,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid parameter %q in storage class", k))
 		}
+	}
+
+	if matchTags && account != "" {
+		return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("matchTags must set as false when storageAccount(%s) is provided", account))
 	}
 
 	if subsID != "" && subsID != d.cloud.SubscriptionID {
@@ -321,6 +327,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		ResourceGroup:                           resourceGroup,
 		Location:                                location,
 		EnableHTTPSTrafficOnly:                  enableHTTPSTrafficOnly,
+		MatchTags:                               matchTags,
 		Tags:                                    tags,
 		VirtualNetworkResourceIDs:               vnetResourceIDs,
 		CreateAccount:                           createAccount,

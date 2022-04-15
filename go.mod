@@ -3,7 +3,7 @@ module sigs.k8s.io/azurefile-csi-driver
 go 1.17
 
 require (
-	github.com/Azure/azure-sdk-for-go v63.1.0+incompatible
+	github.com/Azure/azure-sdk-for-go v63.2.0+incompatible
 	github.com/Azure/azure-storage-file-go v0.8.0
 	github.com/Azure/go-autorest/autorest v0.11.25
 	github.com/Azure/go-autorest/autorest/adal v0.9.18
@@ -150,5 +150,5 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.24.0-alpha.4
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.24.0-alpha.4
 	k8s.io/sample-controller => k8s.io/sample-controller v0.24.0-alpha.4
-	sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220406062855-4f3bab6bc8b2
+	sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220415032100-325969906b39
 )
