@@ -748,7 +748,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		}
 
 		scParameters := map[string]string{
-			"skuName":                      "Standard_LRS",
+			"skuName":                      "Premium_LRS",
 			"secretNamespace":              "kube-system",
 			"useDataPlaneAPI":              "true",
 			"disableDeleteRetentionPolicy": "true",
