@@ -214,6 +214,8 @@ var _ = ginkgo.AfterSuite(func() {
 				execTestCmd([]testCmd{installDriver, uninstallDriver})
 			}
 
+			checkAccountCreationLeak()
+
 			err := credentials.DeleteAzureCredentialFile()
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		}
@@ -252,6 +254,20 @@ func execTestCmd(cmds []testCmd) {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		log.Println(cmd.endLog)
 	}
+}
+
+func checkAccountCreationLeak() {
+	creds, err := credentials.CreateAzureCredentialFile(false)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	accountNum, err := azureClient.GetAccountNumByResourceGroup(context.TODO(), creds.ResourceGroup)
+	framework.ExpectNoError(err, fmt.Sprintf("failed to GetAccountNumByResourceGroup(%s): %v", creds.ResourceGroup, err))
+	ginkgo.By(fmt.Sprintf("GetAccountNumByResourceGroup(%s) returns %d accounts", creds.ResourceGroup, accountNum))
+
+	accountLimitInTest := 10
+	framework.ExpectEqual(accountNum >= accountLimitInTest, false, fmt.Sprintf("current account num %d should not exceed %d", accountNum, accountLimitInTest))
 }
 
 func skipIfTestingInWindowsCluster() {

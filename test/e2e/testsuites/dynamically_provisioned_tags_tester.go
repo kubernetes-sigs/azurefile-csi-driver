@@ -63,7 +63,6 @@ func (t *DynamicallyProvisionedAccountWithTags) Run(client clientset.Interface, 
 		azureClient, err := azureUtils.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		//get disk information
 		account, err := azureClient.GetStorageAccount(context.TODO(), resourceGroupName, accountName)
 		framework.ExpectNoError(err, fmt.Sprintf("failed to get storage account(%s): %v", accountName, err))
 
