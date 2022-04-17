@@ -661,8 +661,9 @@ func NewTestPod(c clientset.Interface, ns *v1.Namespace, command string, isWindo
 						VolumeMounts: make([]v1.VolumeMount, 0),
 					},
 				},
-				RestartPolicy: v1.RestartPolicyNever,
-				Volumes:       make([]v1.Volume, 0),
+				RestartPolicy:                v1.RestartPolicyNever,
+				Volumes:                      make([]v1.Volume, 0),
+				AutomountServiceAccountToken: to.BoolPtr(false),
 			},
 		},
 	}
