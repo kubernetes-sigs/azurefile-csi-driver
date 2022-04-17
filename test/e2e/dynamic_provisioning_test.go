@@ -749,10 +749,11 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		}
 
 		scParameters := map[string]string{
-			"skuName":                      "Standard_LRS",
+			"skuName":                      "Premium_LRS",
 			"secretNamespace":              "kube-system",
+			"createAccount":                "true",
 			"useDataPlaneAPI":              "true",
-			"disableDeleteRetentionPolicy": "false",
+			"disableDeleteRetentionPolicy": "true",
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
 			CSIDriver:              testDriver,
