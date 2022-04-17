@@ -38,7 +38,7 @@ type DynamicallyProvisionedVolumeSnapshotTest struct {
 }
 
 func (t *DynamicallyProvisionedVolumeSnapshotTest) Run(client clientset.Interface, restclient restclientset.Interface, namespace *v1.Namespace) {
-	tpod := NewTestPod(client, namespace, t.Pod.Cmd, t.Pod.IsWindows)
+	tpod := NewTestPod(client, namespace, t.Pod.Cmd, t.Pod.IsWindows, t.Pod.WinServerVer)
 	volume := t.Pod.Volumes[0]
 	tpvc, pvcCleanup := volume.SetupDynamicPersistentVolumeClaim(client, namespace, t.CSIDriver, t.StorageClassParameters)
 	for i := range pvcCleanup {
