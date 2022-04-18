@@ -29,7 +29,7 @@ require (
 	k8s.io/client-go v0.24.0-alpha.4
 	k8s.io/cloud-provider v0.24.0-alpha.4
 	k8s.io/component-base v0.24.0-alpha.4
-	k8s.io/klog/v2 v2.40.1
+	k8s.io/klog/v2 v2.60.1
 	k8s.io/kubernetes v1.24.0-alpha.4
 	k8s.io/mount-utils v0.24.0-alpha.4
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
@@ -150,5 +150,5 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.24.0-alpha.4
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.24.0-alpha.4
 	k8s.io/sample-controller => k8s.io/sample-controller v0.24.0-alpha.4
-	sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220415032100-325969906b39
+	sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220419011517-bc8d54ba6ad3
 )
