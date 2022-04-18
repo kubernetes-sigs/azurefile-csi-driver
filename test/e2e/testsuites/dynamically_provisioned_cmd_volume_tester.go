@@ -17,6 +17,8 @@ limitations under the License.
 package testsuites
 
 import (
+	"time"
+
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 
 	"github.com/onsi/ginkgo"
@@ -44,6 +46,10 @@ func (t *DynamicallyProvisionedCmdVolumeTest) Run(client clientset.Interface, na
 		ginkgo.By("deploying the pod")
 		tpod.Create()
 		defer tpod.Cleanup()
+		if pod.WinServerVer == "windows-2022" {
+			ginkgo.By("sleep 1s waiting for volume ready in windows-2022")
+			time.Sleep(time.Second)
+		}
 		ginkgo.By("checking that the pods command exits with no error")
 		tpod.WaitForSuccess()
 	}
