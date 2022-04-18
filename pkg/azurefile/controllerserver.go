@@ -500,12 +500,13 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
-	volumeID = fmt.Sprintf(volumeIDTemplate, resourceGroup, accountName, validFileShareName, diskName)
+	var uuid string
 	if fileShareName != "" {
 		// add volume name as suffix to differentiate volumeID since "shareName" is specified
 		// not necessary for dynamic file share name creation since volumeID already contains volume name
-		volumeID = volumeID + "#" + volName
+		uuid = volName
 	}
+	volumeID = fmt.Sprintf(volumeIDTemplate, resourceGroup, accountName, validFileShareName, diskName, uuid, secretNamespace)
 
 	if useDataPlaneAPI {
 		d.dataPlaneAPIVolMap.Store(volumeID, "")

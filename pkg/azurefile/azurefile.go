@@ -52,7 +52,7 @@ import (
 const (
 	DefaultDriverName  = "file.csi.azure.com"
 	separator          = "#"
-	volumeIDTemplate   = "%s#%s#%s#%s"
+	volumeIDTemplate   = "%s#%s#%s#%s#%s#%s"
 	secretNameTemplate = "azure-storage-account-%s-secret"
 	serviceURLTemplate = "https://%s.file.%s"
 	fileURLTemplate    = "https://%s.file.%s/%s/%s"
