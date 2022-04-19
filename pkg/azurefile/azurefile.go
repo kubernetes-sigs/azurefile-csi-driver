@@ -350,18 +350,27 @@ func (d *Driver) getFileShareQuota(resourceGroupName, accountName, fileShareName
 }
 
 // get file share info according to volume id, e.g.
-// input: "rg#f5713de20cde511e8ba4900#pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41#diskname.vhd#uuid"
-// output: rg, f5713de20cde511e8ba4900, pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41, diskname.vhd
-func GetFileShareInfo(id string) (string, string, string, string, error) {
+// input: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace"
+// output: rg, f5713de20cde511e8ba4900, fileShareName, diskname.vhd, namespace
+func GetFileShareInfo(id string) (string, string, string, string, string, error) {
 	segments := strings.Split(id, separator)
 	if len(segments) < 3 {
-		return "", "", "", "", fmt.Errorf("error parsing volume id: %q, should at least contain two #", id)
+		return "", "", "", "", "", fmt.Errorf("error parsing volume id: %q, should at least contain two #", id)
 	}
-	var diskName string
+	rg := segments[0]
+	var diskName, namespace string
 	if len(segments) > 3 {
 		diskName = segments[3]
 	}
-	return segments[0], segments[1], segments[2], diskName, nil
+	if len(segments) > 4 && rg == "" {
+		// in csi migration, rg could be empty, then the 5th element is namespace
+		// https://github.com/kubernetes/kubernetes/blob/v1.23.5/staging/src/k8s.io/csi-translation-lib/plugins/azure_file.go#L137
+		namespace = segments[4]
+	}
+	if len(segments) > 5 {
+		namespace = segments[5]
+	}
+	return rg, segments[1], segments[2], diskName, namespace, nil
 }
 
 // check whether mountOptions contains file_mode, dir_mode, vers, if not, append default mode
@@ -540,14 +549,14 @@ func IsCorruptedDir(dir string) bool {
 // GetAccountInfo get account info
 // return <rgName, accountName, accountKey, fileShareName, diskName, err>
 func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, reqContext map[string]string) (string, string, string, string, string, error) {
-	rgName, accountName, fileShareName, diskName, err := GetFileShareInfo(volumeID)
+	rgName, accountName, fileShareName, diskName, secretNamespace, err := GetFileShareInfo(volumeID)
 	if err != nil {
 		// ignore volumeID parsing error
 		klog.Warningf("parsing volumeID(%s) return with error: %v", volumeID, err)
 		err = nil
 	}
 
-	var protocol, accountKey, secretName, secretNamespace, pvcNamespace, subsID string
+	var protocol, accountKey, secretName, pvcNamespace, subsID string
 	// indicates whether get account key only from k8s secret
 	getAccountKeyFromSecret := false
 

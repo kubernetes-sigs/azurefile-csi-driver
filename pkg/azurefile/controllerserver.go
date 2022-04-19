@@ -542,7 +542,7 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 	}
 	defer d.volumeLocks.Release(volumeID)
 
-	resourceGroupName, accountName, fileShareName, _, err := GetFileShareInfo(volumeID)
+	resourceGroupName, accountName, fileShareName, _, secretNamespace, err := GetFileShareInfo(volumeID)
 	if err != nil {
 		// According to CSI Driver Sanity Tester, should succeed when an invalid volume id is used
 		klog.Errorf("GetFileShareInfo(%s) in DeleteVolume failed with error: %v", volumeID, err)
@@ -557,7 +557,7 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 	if len(secret) == 0 {
 		// use data plane api, get account key first
 		if d.useDataPlaneAPI(volumeID, accountName) {
-			_, _, accountKey, _, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), map[string]string{})
+			_, _, accountKey, _, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), map[string]string{secretNamespaceField: secretNamespace})
 			if err != nil {
 				return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
 			}
@@ -895,7 +895,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 		return nil, status.Errorf(codes.InvalidArgument, "invalid expand volume request: %v", req)
 	}
 
-	resourceGroupName, accountName, fileShareName, diskName, err := GetFileShareInfo(volumeID)
+	resourceGroupName, accountName, fileShareName, diskName, secretNamespace, err := GetFileShareInfo(volumeID)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("GetAccountInfo(%s) failed with error: %v", volumeID, err))
 	}
@@ -916,7 +916,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 	secrets := req.GetSecrets()
 	if len(secrets) == 0 && d.useDataPlaneAPI(volumeID, accountName) {
 		// use data plane api, get account key first
-		_, _, accountKey, _, _, err := d.GetAccountInfo(ctx, volumeID, secrets, map[string]string{})
+		_, _, accountKey, _, _, err := d.GetAccountInfo(ctx, volumeID, secrets, map[string]string{secretNamespaceField: secretNamespace})
 		if err != nil {
 			return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
 		}
