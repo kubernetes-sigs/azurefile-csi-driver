@@ -456,6 +456,16 @@ func TestGetSnapshot(t *testing.T) {
 			expected2: nil,
 		},
 		{
+			options:   "rg#f123#csivolumename#diskname#uuid#2020-08-22T07:17:53.0000000Z",
+			expected1: "2020-08-22T07:17:53.0000000Z",
+			expected2: nil,
+		},
+		{
+			options:   "rg#f123#csivolumename#diskname#uuid#default#2021-08-22T07:17:53.0000000Z",
+			expected1: "2021-08-22T07:17:53.0000000Z",
+			expected2: nil,
+		},
+		{
 			options:   "rg#f123#csivolumename",
 			expected1: "",
 			expected2: fmt.Errorf("error parsing volume id: \"rg#f123#csivolumename\", should at least contain four #"),

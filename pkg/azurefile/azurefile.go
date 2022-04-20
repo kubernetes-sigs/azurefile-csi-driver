@@ -480,13 +480,13 @@ func checkShareNameBeginAndEnd(fileShareName string) bool {
 
 // get snapshot name according to snapshot id, e.g.
 // input: "rg#f5713de20cde511e8ba4900#csivolumename#diskname#2019-08-22T07:17:53.0000000Z"
-// output: 2019-08-22T07:17:53.0000000Z
+// output: 2019-08-22T07:17:53.0000000Z (last element)
 func getSnapshot(id string) (string, error) {
 	segments := strings.Split(id, separator)
 	if len(segments) < 5 {
 		return "", fmt.Errorf("error parsing volume id: %q, should at least contain four #", id)
 	}
-	return segments[4], nil
+	return segments[len(segments)-1], nil
 }
 
 func getFileURL(accountName, accountKey, storageEndpointSuffix, fileShareName, diskName string) (*azfile.FileURL, error) {
@@ -547,7 +547,7 @@ func IsCorruptedDir(dir string) bool {
 }
 
 // GetAccountInfo get account info
-// return <rgName, accountName, accountKey, fileShareName, diskName, err>
+// return <rgName, accountName, accountKey, fileShareName, diskName, secretNamespace, err>
 func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, reqContext map[string]string) (string, string, string, string, string, error) {
 	rgName, accountName, fileShareName, diskName, secretNamespace, err := GetFileShareInfo(volumeID)
 	if err != nil {
