@@ -12,16 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM k8s.gcr.io/build-image/debian-base:bullseye-v1.1.0
+FROM k8s.gcr.io/build-image/debian-base:bullseye-v1.2.0
 
 ARG ARCH=amd64
 ARG binary=./_output/${ARCH}/azurefileplugin
 COPY ${binary} /azurefileplugin
 
-RUN apt update && apt-mark unhold libcap2
+RUN apt update && apt upgrade -y && apt-mark unhold libcap2
 RUN clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase
-# install updated packages to fix CVE issues
-RUN clean-install libgmp10 bsdutils libssl1.1 openssl libc6 libc-bin libsystemd0 zlib1g gzip liblzma5
 
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"
