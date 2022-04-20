@@ -17,13 +17,14 @@ limitations under the License.
 package testsuites
 
 import (
-	"time"
+	"fmt"
 
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 
 	"github.com/onsi/ginkgo"
 	v1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 )
 
 // DynamicallyProvisionedCmdVolumeTest will provision required StorageClass(es), PVC(s) and Pod(s)
@@ -46,11 +47,14 @@ func (t *DynamicallyProvisionedCmdVolumeTest) Run(client clientset.Interface, na
 		ginkgo.By("deploying the pod")
 		tpod.Create()
 		defer tpod.Cleanup()
-		if pod.WinServerVer == "windows-2022" {
-			ginkgo.By("sleep 1s waiting for volume ready in windows-2022")
-			time.Sleep(time.Second)
-		}
 		ginkgo.By("checking that the pods command exits with no error")
-		tpod.WaitForSuccess()
+		if pod.WinServerVer == "windows-2022" {
+			if err := e2epod.WaitForPodSuccessInNamespaceSlow(tpod.client, tpod.pod.Name, tpod.namespace.Name); err != nil {
+				ginkgo.By(fmt.Sprintf("hit error(%v) in first run, give another try", err))
+			}
+			tpod.WaitForSuccess()
+		} else {
+			tpod.WaitForSuccess()
+		}
 	}
 }
