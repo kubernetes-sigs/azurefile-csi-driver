@@ -214,11 +214,11 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		scParameters := map[string]string{
 			"skuName":         "Standard_LRS",
 			"secretNamespace": "default",
-			"matchTags":       "true",
 		}
 		if !isUsingInTreeVolumePlugin {
 			scParameters["allowBlobPublicAccess"] = "false"
 			scParameters["accessTier"] = "TransactionOptimized"
+			scParameters["matchTags"] = "true"
 		}
 		test := testsuites.DynamicallyProvisionedCollocatedPodTest{
 			CSIDriver:              testDriver,
