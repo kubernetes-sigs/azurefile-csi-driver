@@ -162,6 +162,7 @@ func TestGetFileShareInfo(t *testing.T) {
 		accountName       string
 		fileShareName     string
 		diskName          string
+		namespace         string
 		expectedError     error
 	}{
 		{
@@ -170,6 +171,25 @@ func TestGetFileShareInfo(t *testing.T) {
 			accountName:       "f5713de20cde511e8ba4900",
 			fileShareName:     "pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41",
 			diskName:          "diskname1.vhd",
+			namespace:         "",
+			expectedError:     nil,
+		},
+		{
+			id:                "rg#f5713de20cde511e8ba4900#pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41#diskname1.vhd#1620118846#namespace",
+			resourceGroupName: "rg",
+			accountName:       "f5713de20cde511e8ba4900",
+			fileShareName:     "pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41",
+			diskName:          "diskname1.vhd",
+			namespace:         "namespace",
+			expectedError:     nil,
+		},
+		{
+			id:                "#f5713de20cde511e8ba4900#pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41#diskname1.vhd#namespace",
+			resourceGroupName: "",
+			accountName:       "f5713de20cde511e8ba4900",
+			fileShareName:     "pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41",
+			diskName:          "diskname1.vhd",
+			namespace:         "namespace",
 			expectedError:     nil,
 		},
 		{
@@ -223,7 +243,7 @@ func TestGetFileShareInfo(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		resourceGroupName, accountName, fileShareName, diskName, expectedError := GetFileShareInfo(test.id)
+		resourceGroupName, accountName, fileShareName, diskName, namespace, expectedError := GetFileShareInfo(test.id)
 		if resourceGroupName != test.resourceGroupName {
 			t.Errorf("GetFileShareInfo(%q) returned with: %q, expected: %q", test.id, resourceGroupName, test.resourceGroupName)
 		}
@@ -235,6 +255,9 @@ func TestGetFileShareInfo(t *testing.T) {
 		}
 		if diskName != test.diskName {
 			t.Errorf("GetFileShareInfo(%q) returned with: %q, expected: %q", test.id, diskName, test.diskName)
+		}
+		if namespace != test.namespace {
+			t.Errorf("GetFileShareInfo(%q) returned with: %q, expected: %q", test.id, namespace, test.namespace)
 		}
 		if !reflect.DeepEqual(expectedError, test.expectedError) {
 			t.Errorf("GetFileShareInfo(%q) returned with: %v, expected: %v", test.id, expectedError, test.expectedError)
@@ -430,6 +453,16 @@ func TestGetSnapshot(t *testing.T) {
 		{
 			options:   "rg#f123#csivolumename#diskname#2019-08-22T07:17:53.0000000Z",
 			expected1: "2019-08-22T07:17:53.0000000Z",
+			expected2: nil,
+		},
+		{
+			options:   "rg#f123#csivolumename#diskname#uuid#2020-08-22T07:17:53.0000000Z",
+			expected1: "2020-08-22T07:17:53.0000000Z",
+			expected2: nil,
+		},
+		{
+			options:   "rg#f123#csivolumename#diskname#uuid#default#2021-08-22T07:17:53.0000000Z",
+			expected1: "2021-08-22T07:17:53.0000000Z",
 			expected2: nil,
 		},
 		{
