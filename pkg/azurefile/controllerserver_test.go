@@ -383,6 +383,38 @@ func TestCreateVolume(t *testing.T) {
 			},
 		},
 		{
+			name: "disableDeleteRetentionPolicy is not supported with Standard account type",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{
+					storageAccountTypeField:           "standard",
+					disableDeleteRetentionPolicyField: "true",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         allParam,
+				}
+
+				d := NewFakeDriver()
+				d.cloud = &azure.Cloud{
+					Config: azure.Config{},
+				}
+
+				d.AddControllerServiceCapabilities(
+					[]csi.ControllerServiceCapability_RPC_Type{
+						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					})
+
+				expectedErr := status.Errorf(codes.InvalidArgument, "disableDeleteRetentionPolicy is not supported with Standard account type(standard)")
+				_, err := d.CreateVolume(context.Background(), req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
 			name: "Failed to update subnet service endpoints",
 			testFunc: func(t *testing.T) {
 				allParam := map[string]string{
@@ -436,9 +468,8 @@ func TestCreateVolume(t *testing.T) {
 				kind := "StorageV2"
 				location := "centralus"
 				value := ""
-				accounts := []storage.Account{
-					{Name: &name, Sku: &storage.Sku{Name: storage.SkuName(sku)}, Kind: storage.Kind(kind), Location: &location},
-				}
+				account := storage.Account{Name: &name, Sku: &storage.Sku{Name: storage.SkuName(sku)}, Kind: storage.Kind(kind), Location: &location}
+				accounts := []storage.Account{account}
 				keys := storage.AccountListKeysResult{
 					Keys: &[]storage.AccountKey{
 						{Value: &value},
@@ -446,15 +477,16 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				allParam := map[string]string{
-					skuNameField:         "premium",
-					locationField:        "loc",
-					storageAccountField:  "",
-					resourceGroupField:   "rg",
-					shareNameField:       "",
-					diskNameField:        "diskname",
-					fsTypeField:          "",
-					storeAccountKeyField: "storeaccountkey",
-					secretNamespaceField: "secretnamespace",
+					skuNameField:                      "premium",
+					locationField:                     "loc",
+					storageAccountField:               "",
+					resourceGroupField:                "rg",
+					shareNameField:                    "",
+					diskNameField:                     "diskname",
+					fsTypeField:                       "",
+					storeAccountKeyField:              "storeaccountkey",
+					secretNamespaceField:              "secretnamespace",
+					disableDeleteRetentionPolicyField: "true",
 				}
 
 				req := &csi.CreateVolumeRequest{
@@ -476,10 +508,16 @@ func TestCreateVolume(t *testing.T) {
 				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
 				d.cloud.StorageAccountClient = mockStorageAccountsClient
 
+				fileServiceProperties := storage.FileServiceProperties{
+					FileServicePropertiesProperties: &storage.FileServicePropertiesProperties{},
+				}
+
 				mockFileClient.EXPECT().CreateFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+				mockFileClient.EXPECT().GetServiceProperties(gomock.Any(), gomock.Any()).Return(fileServiceProperties, nil).AnyTimes()
+				mockFileClient.EXPECT().SetServiceProperties(gomock.Any(), gomock.Any(), gomock.Any()).Return(fileServiceProperties, nil).AnyTimes()
 
 				d.AddControllerServiceCapabilities(
 					[]csi.ControllerServiceCapability_RPC_Type{
@@ -513,16 +551,15 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				allParam := map[string]string{
-					skuNameField:            "premium",
-					storageAccountTypeField: "stoacctype",
-					locationField:           "loc",
-					storageAccountField:     "",
-					resourceGroupField:      "rg",
-					shareNameField:          "",
-					diskNameField:           "diskname",
-					fsTypeField:             "",
-					storeAccountKeyField:    "storeaccountkey",
-					secretNamespaceField:    "secretnamespace",
+					skuNameField:         "premium",
+					locationField:        "loc",
+					storageAccountField:  "",
+					resourceGroupField:   "rg",
+					shareNameField:       "",
+					diskNameField:        "diskname",
+					fsTypeField:          "",
+					storeAccountKeyField: "storeaccountkey",
+					secretNamespaceField: "secretnamespace",
 				}
 
 				req := &csi.CreateVolumeRequest{
@@ -637,16 +674,16 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				allParam := map[string]string{
-					skuNameField:            "premium",
-					storageAccountTypeField: "stoacctype",
-					locationField:           "loc",
-					storageAccountField:     "stoacc",
-					resourceGroupField:      "rg",
-					shareNameField:          "",
-					diskNameField:           "diskname",
-					fsTypeField:             "",
-					storeAccountKeyField:    "storeaccountkey",
-					secretNamespaceField:    "secretnamespace",
+					storageAccountTypeField:           "premium",
+					locationField:                     "loc",
+					storageAccountField:               "stoacc",
+					resourceGroupField:                "rg",
+					shareNameField:                    "",
+					diskNameField:                     "diskname",
+					fsTypeField:                       "",
+					storeAccountKeyField:              "storeaccountkey",
+					secretNamespaceField:              "secretnamespace",
+					disableDeleteRetentionPolicyField: "true",
 				}
 
 				req := &csi.CreateVolumeRequest{
