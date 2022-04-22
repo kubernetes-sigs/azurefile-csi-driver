@@ -554,15 +554,18 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 	}
 
 	secret := req.GetSecrets()
-	if len(secret) == 0 {
-		// use data plane api, get account key first
-		if d.useDataPlaneAPI(volumeID, accountName) {
-			_, _, accountKey, _, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), map[string]string{secretNamespaceField: secretNamespace})
-			if err != nil {
-				return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
-			}
-			secret = createStorageAccountSecret(accountName, accountKey)
+	if len(secret) == 0 && d.useDataPlaneAPI(volumeID, accountName) {
+		reqContext := map[string]string{}
+		if secretNamespace != "" {
+			reqContext[secretNamespaceField] = secretNamespace
 		}
+
+		// use data plane api, get account key first
+		_, _, accountKey, _, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), reqContext)
+		if err != nil {
+			return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
+		}
+		secret = createStorageAccountSecret(accountName, accountKey)
 	}
 
 	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_delete_volume", d.cloud.ResourceGroup, d.cloud.SubscriptionID, d.Name)
@@ -915,8 +918,12 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 
 	secrets := req.GetSecrets()
 	if len(secrets) == 0 && d.useDataPlaneAPI(volumeID, accountName) {
+		reqContext := map[string]string{}
+		if secretNamespace != "" {
+			reqContext[secretNamespaceField] = secretNamespace
+		}
 		// use data plane api, get account key first
-		_, _, accountKey, _, _, err := d.GetAccountInfo(ctx, volumeID, secrets, map[string]string{secretNamespaceField: secretNamespace})
+		_, _, accountKey, _, _, err := d.GetAccountInfo(ctx, volumeID, secrets, reqContext)
 		if err != nil {
 			return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
 		}
