@@ -55,6 +55,7 @@ var (
 	isUsingInTreeVolumePlugin      = os.Getenv(driver.AzureDriverNameVar) == inTreeStorageClass
 	isTestingMigration             = os.Getenv(testMigrationEnvVar) != ""
 	isWindowsCluster               = os.Getenv(testWindowsEnvVar) != ""
+	isCapzTest                     = os.Getenv("WORKER_MACHINE_COUNT") != ""
 	bringKeyStorageClassParameters = map[string]string{
 		"csi.storage.k8s.io/provisioner-secret-namespace": "default",
 		"csi.storage.k8s.io/node-stage-secret-namespace":  "default",

@@ -946,6 +946,10 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 	ginkgo.It("should mount on-prem smb server [file.csi.azure.com]", func() {
 		skipIfUsingInTreeVolumePlugin()
+		if isWindowsCluster && isCapzTest {
+			log.Println("test case is not available for capz Windows test")
+			ginkgo.Skip("test case is not available for capz Windows test")
+		}
 
 		secretName := "smbcreds"
 		ginkgo.By(fmt.Sprintf("creating secret %s in namespace %s", secretName, ns.Name))
