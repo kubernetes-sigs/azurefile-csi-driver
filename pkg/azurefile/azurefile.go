@@ -155,6 +155,10 @@ const (
 	pvNameKey       = "csi.storage.k8s.io/pv/name"
 
 	defaultStorageEndPointSuffix = "core.windows.net"
+
+	VolumeID         = "volumeid"
+	SourceResourceID = "source_resource_id"
+	SnapshotID       = "snapshotid"
 )
 
 var (
