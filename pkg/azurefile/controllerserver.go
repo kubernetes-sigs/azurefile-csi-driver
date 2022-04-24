@@ -781,7 +781,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_create_snapshot", d.cloud.ResourceGroup, d.cloud.SubscriptionID, d.Name)
 	isOperationSucceeded := false
 	defer func() {
-		mc.ObserveOperationWithResult(isOperationSucceeded, SourceResourceID, sourceVolumeID, SnapshotID, snapshotName)
+		mc.ObserveOperationWithResult(isOperationSucceeded, SourceResourceID, sourceVolumeID, SnapshotName, snapshotName)
 	}()
 
 	exists, item, err := d.snapshotExists(ctx, sourceVolumeID, snapshotName, req.GetSecrets())
@@ -796,6 +796,9 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		tp := timestamppb.New(item.Properties.LastModified)
 		if tp == nil {
 			return nil, status.Errorf(codes.Internal, "Failed to convert timestamp(%v)", item.Properties.LastModified)
+		}
+		if item.Snapshot == nil {
+			return nil, status.Errorf(codes.Internal, "Snapshot property of %s is nil", item.Name)
 		}
 		return &csi.CreateSnapshotResponse{
 			Snapshot: &csi.Snapshot{
