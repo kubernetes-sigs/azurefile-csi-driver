@@ -158,7 +158,8 @@ const (
 
 	VolumeID         = "volumeid"
 	SourceResourceID = "source_resource_id"
-	SnapshotID       = "snapshotid"
+	SnapshotName     = "snapshot_name"
+	SnapshotID       = "snapshot_id"
 )
 
 var (
