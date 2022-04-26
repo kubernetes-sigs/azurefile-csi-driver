@@ -353,19 +353,23 @@ func (az *Cloud) createPrivateEndpoint(ctx context.Context, accountName string, 
 		Location:                  &location,
 		PrivateEndpointProperties: &network.PrivateEndpointProperties{Subnet: &subnet, PrivateLinkServiceConnections: &privateLinkServiceConnections},
 	}
-	return az.privateendpointclient.CreateOrUpdate(ctx, vnetResourceGroup, privateEndpointName, privateEndpoint, true)
+
+	if rerr := az.privateendpointclient.CreateOrUpdate(ctx, vnetResourceGroup, privateEndpointName, privateEndpoint, "", true); rerr != nil {
+		return rerr.Error()
+	}
+	return nil
 }
 
 func (az *Cloud) createPrivateDNSZone(ctx context.Context, vnetResourceGroup string) error {
 	klog.V(2).Infof("Creating private dns zone(%s) in resourceGroup (%s)", PrivateDNSZoneName, vnetResourceGroup)
 	location := LocationGlobal
 	privateDNSZone := privatedns.PrivateZone{Location: &location}
-	if err := az.privatednsclient.CreateOrUpdate(ctx, vnetResourceGroup, PrivateDNSZoneName, privateDNSZone, true); err != nil {
-		if strings.Contains(err.Error(), "exists already") {
+	if err := az.privatednsclient.CreateOrUpdate(ctx, vnetResourceGroup, PrivateDNSZoneName, privateDNSZone, "", true); err != nil {
+		if strings.Contains(err.Error().Error(), "exists already") {
 			klog.V(2).Infof("private dns zone(%s) in resourceGroup (%s) already exists", PrivateDNSZoneName, vnetResourceGroup)
 			return nil
 		}
-		return err
+		return err.Error()
 	}
 	return nil
 }
@@ -380,7 +384,7 @@ func (az *Cloud) createVNetLink(ctx context.Context, vNetLinkName, vnetResourceG
 			VirtualNetwork:      &privatedns.SubResource{ID: &vnetID},
 			RegistrationEnabled: to.BoolPtr(true)},
 	}
-	return az.virtualNetworkLinksClient.CreateOrUpdate(ctx, vnetResourceGroup, PrivateDNSZoneName, vNetLinkName, parameters, false)
+	return az.virtualNetworkLinksClient.CreateOrUpdate(ctx, vnetResourceGroup, PrivateDNSZoneName, vNetLinkName, parameters, "", false).Error()
 }
 
 func (az *Cloud) createPrivateDNSZoneGroup(ctx context.Context, dnsZoneGroupName, privateEndpointName, vnetResourceGroup, vnetName string) error {
@@ -398,7 +402,7 @@ func (az *Cloud) createPrivateDNSZoneGroup(ctx context.Context, dnsZoneGroupName
 			PrivateDNSZoneConfigs: &privateDNSZoneConfigs,
 		},
 	}
-	return az.privatednszonegroupclient.CreateOrUpdate(ctx, vnetResourceGroup, privateEndpointName, dnsZoneGroupName, privateDNSZoneGroup, false)
+	return az.privatednszonegroupclient.CreateOrUpdate(ctx, vnetResourceGroup, privateEndpointName, dnsZoneGroupName, privateDNSZoneGroup, "", false).Error()
 }
 
 // AddStorageAccountTags add tags to storage account
