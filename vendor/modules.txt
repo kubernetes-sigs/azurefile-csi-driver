@@ -1,10 +1,10 @@
 # github.com/Azure/azure-pipeline-go v0.2.1
 ## explicit
 github.com/Azure/azure-pipeline-go/pipeline
-# github.com/Azure/azure-sdk-for-go v63.2.0+incompatible
+# github.com/Azure/azure-sdk-for-go v63.4.0+incompatible
 ## explicit
 github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-07-01/compute
-github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2020-04-01/containerservice
+github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2021-10-01/containerservice
 github.com/Azure/azure-sdk-for-go/services/network/mgmt/2020-07-01/network
 github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network
 github.com/Azure/azure-sdk-for-go/services/privatedns/mgmt/2018-09-01/privatedns
@@ -20,7 +20,7 @@ github.com/Azure/azure-storage-file-go/azfile
 # github.com/Azure/go-autorest v14.2.0+incompatible
 ## explicit
 github.com/Azure/go-autorest
-# github.com/Azure/go-autorest/autorest v0.11.25
+# github.com/Azure/go-autorest/autorest v0.11.27
 ## explicit; go 1.15
 github.com/Azure/go-autorest/autorest
 github.com/Azure/go-autorest/autorest/azure
@@ -102,7 +102,7 @@ github.com/evanphx/json-patch
 # github.com/felixge/httpsnoop v1.0.1
 ## explicit; go 1.13
 github.com/felixge/httpsnoop
-# github.com/fsnotify/fsnotify v1.5.1
+# github.com/fsnotify/fsnotify v1.5.3
 ## explicit; go 1.13
 github.com/fsnotify/fsnotify
 # github.com/go-logr/logr v1.2.0
@@ -1116,7 +1116,7 @@ k8s.io/utils/trace
 ## explicit; go 1.17
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client
-# sigs.k8s.io/cloud-provider-azure v0.7.4 => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220419011517-bc8d54ba6ad3
+# sigs.k8s.io/cloud-provider-azure v0.7.4 => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220428013254-8d8ea5d4d4ad
 ## explicit; go 1.17
 sigs.k8s.io/cloud-provider-azure/pkg/auth
 sigs.k8s.io/cloud-provider-azure/pkg/azureclients
@@ -1211,4 +1211,4 @@ sigs.k8s.io/yaml
 # k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.24.0-alpha.4
 # k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.24.0-alpha.4
 # k8s.io/sample-controller => k8s.io/sample-controller v0.24.0-alpha.4
-# sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220419011517-bc8d54ba6ad3
+# sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220428013254-8d8ea5d4d4ad
