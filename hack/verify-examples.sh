@@ -47,7 +47,12 @@ if [[ "$1" == "linux" ]]; then
         )
 fi
 
-if [[ "$1" == "windows" ]]; then
+if [[ "$1" == "windows-2022" ]]; then
+    sed -i 's/ltsc2019/ltsc2022/g' deploy/example/windows/deployment.yaml
+    sed -i 's/ltsc2019/ltsc2022/g' deploy/example/windows/statefulset.yaml
+fi
+
+if [[ "$1" == *"windows"* ]]; then
     EXAMPLES+=(\
     deploy/example/windows/deployment.yaml \
     deploy/example/windows/statefulset.yaml \
