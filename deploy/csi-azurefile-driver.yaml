@@ -5,7 +5,7 @@ metadata:
   name: file.csi.azure.com
   annotations:
     csiDriver: latest
-    snapshot: v3.0.3
+    snapshot: v5.0.1
 spec:
   attachRequired: false
   podInfoOnMount: true
