@@ -1100,7 +1100,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			"networkEndpointType": "privateEndpoint",
 			"skuName":             "Premium_LRS",
 			"rootSquashType":      "AllSquash",
-			"mountPermissions":    "0777",
+			"mountPermissions":    "0",
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
 			CSIDriver:              testDriver,
