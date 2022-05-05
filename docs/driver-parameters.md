@@ -27,7 +27,7 @@ matchTags | whether matching tags when driver tries to find a suitable storage a
 subscriptionID | specify Azure subscription ID in which Azure file share will be created | Azure subscription ID | No | if not empty, `resourceGroup` must be provided
 storeAccountKey | whether store account key to k8s secret <br><br> Note:  <br> `false` means driver would leverage kubelet identity to get account key | `true`,`false` | No | `true`
 secretName | specify secret name to store account key | | No |
-secretNamespace | specify the namespace of secret to store account key | `default`,`kube-system`, etc | No | pvc namespace
+secretNamespace | specify the namespace of secret to store account key | `default`,`kube-system`, etc | No | pvc namespace (`csi.storage.k8s.io/pvc/namespace`)
 useDataPlaneAPI | specify whether use [data plane API](https://github.com/Azure/azure-sdk-for-go/blob/master/storage/share.go) for file share create/delete/resize | `true`,`false` | No | `false`
 --- | **Following parameters are only for NFS protocol** | --- | --- |
 rootSquashType | specify root squashing behavior on the share. The default is `NoRootSquash` | `AllSquash`, `NoRootSquash`, `RootSquash` | No |
@@ -70,7 +70,7 @@ volumeAttributes.protocol | specify file share protocol | `smb`, `nfs` | No | `s
 volumeAttributes.server | specify Azure storage account server address | existing server address, e.g. `accountname.privatelink.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
 --- | **Following parameters are only for SMB protocol** | --- | --- |
 volumeAttributes.secretName | secret name that stores storage account name and key | | No |
-volumeAttributes.secretNamespace | secret namespace | `default`,`kube-system`, etc | No | pvc namespace
+volumeAttributes.secretNamespace | secret namespace | `default`,`kube-system`, etc | No | pvc namespace (`csi.storage.k8s.io/pvc/namespace`)
 nodeStageSecretRef.name | secret name that stores storage account name and key | existing secret name |  Yes  |
 nodeStageSecretRef.namespace | secret namespace | k8s namespace  |  Yes  |
 --- | **Following parameters are only for NFS protocol** | --- | --- |
