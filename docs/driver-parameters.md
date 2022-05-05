@@ -47,7 +47,7 @@ k8s-azure-created-by: azure
 
  - `volumeHandle` format created by dynamic provisioning
 ```
-{resource-group-name}#{account-name}#{file-share-name}#{placeholder}#{uuid}
+{resource-group-name}#{account-name}#{file-share-name}#{placeholder}#{uuid}#{secret-namespace}
 ```
 
  - file share name format created by dynamic provisioning(example)
