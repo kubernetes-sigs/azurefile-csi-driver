@@ -111,10 +111,14 @@ mount -v -t nfs -o vers=4,minorversion=1,sec=sys accountname.blob.core.windows.n
 
 ### Troubleshooting performance issues on Azure Files
 
-##### File shares are being throttled and overall performance is slow 
+#### AzFileDiagnostics script
+ - [AzFileDiagnostics script for Linux](https://github.com/Azure-Samples/azure-files-samples/tree/master/AzFileDiagnostics/Linux)
+ - [AzFileDiagnostics script for Windows](https://github.com/Azure-Samples/azure-files-samples/tree/master/AzFileDiagnostics/Windows)
+
+#### File shares are being throttled and overall performance is slow 
 Find out whether you have been throttled by looking at your Azure Monitor by following this documentation - [Link](https://docs.microsoft.com/en-us/azure/storage/files/storage-troubleshooting-files-performance#cause-1-share-was-throttled)
 
-###### Standard Files
+##### Standard Files
 
 Enable [large file shares](https://docs.microsoft.com/azure/storage/files/storage-files-how-to-create-large-file-share?tabs=azure-portal) on your storage account. Large file shares support up to 10,000 IOPS per share at no extra cost on standard tier. To use a storage account with large file shares enabled, the 'enableLargeFileShares' driver parameter should be set to true. If this flag is set to true and a storage account with large file shares enabled doesn't exist, a new storage account will be created. The quota needs to be set to 100 TiB to get 10K IOPS. We recommend that you enable large file shares when creating the Storage Account. However, if you do enable this manually for a storage account at a later time, you will not need to remount the file share. Same storage account can have multiple large file shares.
 
