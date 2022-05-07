@@ -329,6 +329,15 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}
 		klog.V(2).Infof("NodeStageVolume: volume %s format %s and mounting at %s successfully", volumeID, targetPath, diskPath)
 	}
+
+	if protocol == nfs || isDiskMount {
+		if volumeMountGroup != "" {
+			klog.V(2).Infof("set gid of volume(%s) as %s", volumeID, volumeMountGroup)
+			if err := SetVolumeOwnership(cifsMountPath, volumeMountGroup); err != nil {
+				return nil, status.Error(codes.Internal, fmt.Sprintf("SetVolumeOwnership with volume(%s) on %s failed with %v", volumeID, cifsMountPath, err))
+			}
+		}
+	}
 	return &csi.NodeStageVolumeResponse{}, nil
 }
 
