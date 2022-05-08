@@ -39,7 +39,11 @@ setup_e2e_binaries() {
 }
 
 print_logs() {
-    bash ./hack/verify-examples.sh linux
+    os="linux"
+    if [ ! -z ${TEST_WINDOWS} ]; then
+        os="windows"
+        echo "run windows tests..."
+    fi
     echo "print out driver logs ..."
     bash ./test/utils/azurefile_log.sh $DRIVER
 }
