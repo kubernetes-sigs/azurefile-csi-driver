@@ -86,6 +86,7 @@ change below deployment config, e.g.
 > server address of sovereign cloud: accountname.blob.core.chinacloudapi.cn
 ##### SMB
  - On Linux node
+> get `/var/log/messages` and `dmesg` output when there is mount failure on Linux node
 ```console
 mkdir /tmp/test
 sudo mount -v -t cifs //accountname.blob.core.windows.net/filesharename /tmp/test -o  username=accountname,password=accountkey,dir_mode=0777,file_mode=0777,cache=strict,actimeo=30
