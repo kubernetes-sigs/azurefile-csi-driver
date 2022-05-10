@@ -1,5 +1,5 @@
 ## CSI driver debug tips
-### Case#1: volume create/delete issue
+### case#1: volume create/delete issue
  - locate csi driver pod
 ```console
 kubectl get po -o wide -n kube-system | grep csi-azurefile-controller
@@ -16,7 +16,7 @@ kubectl logs csi-azurefile-controller-56bfddd689-dh5tk -c azurefile -n kube-syst
 ```
 > note: there could be multiple controller pods, if there are no helpful logs, try to get logs from other controller pods
 
-### Case#2: volume mount/unmount failed
+### case#2: volume mount/unmount failed
  - locate csi driver pod that does the actual volume mount/unmount
 ```console
 kubectl get po -o wide -n kube-system | grep csi-azurefile-node
@@ -110,6 +110,8 @@ mkdir /tmp/test
 mount -v -t nfs -o vers=4,minorversion=1,sec=sys accountname.blob.core.windows.net:/accountname/filesharename /tmp/test
 ```
 
+ - [Troubleshoot Azure File mount issues on AKS](https://docs.microsoft.com/en-us/troubleshoot/azure/azure-kubernetes/fail-to-mount-azure-file-share)
+
 ### Troubleshooting performance issues on Azure Files
 
 #### AzFileDiagnostics script
@@ -127,3 +129,4 @@ Enable [large file shares](https://docs.microsoft.com/azure/storage/files/storag
 Azure premium files follows provisioned model where IOPS and throughput are associated to the quota. See this article that explains the co-relation between share size and IOPS and throughput - [link](https://docs.microsoft.com/azure/storage/files/understanding-billing#provisioned-model). Increase the share quota by following this guide - [link](https://github.com/kubernetes-sigs/azurefile-csi-driver/tree/master/deploy/example/resize).
 
 ##### For more, refer to this doc for perforance troubleshooting tips - [Link to performance troubleshooting tips](https://docs.microsoft.com/en-us/azure/storage/files/storage-troubleshooting-files-performance)
+
