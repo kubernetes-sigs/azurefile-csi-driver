@@ -18,12 +18,10 @@ package azurefile
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/volume"
 )
@@ -206,15 +204,4 @@ func (l *VolumeMounter) SetUpAt(dir string, mounterArgs volume.MounterArgs) erro
 
 func (l *VolumeMounter) GetMetrics() (*volume.Metrics, error) {
 	return nil, nil
-}
-
-// SetVolumeOwnership would set gid for path recursively
-func SetVolumeOwnership(path, gid string) error {
-	id, err := strconv.Atoi(gid)
-	if err != nil {
-		return fmt.Errorf("convert %s to int failed with %v", gid, err)
-	}
-	gidInt64 := int64(id)
-	fsGroupChangePolicy := v1.FSGroupChangeAlways
-	return volume.SetVolumeOwnership(&VolumeMounter{path: path}, &gidInt64, &fsGroupChangePolicy, nil)
 }

@@ -142,7 +142,7 @@ snapshot:
         memory: 20Mi
 
 feature:
-  enableFSGroupPolicy: true
+  enableFSGroupPolicy: false
   enableGetVolumeStats: true
 
 driver:
