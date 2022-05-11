@@ -24,6 +24,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	utiltesting "k8s.io/client-go/util/testing"
 )
 
 func TestSimpleLockEntry(t *testing.T) {
@@ -235,6 +237,41 @@ func TestIsSupportedFsType(t *testing.T) {
 	}
 }
 
+func TestIsSupportedFSGroupChangePolicy(t *testing.T) {
+	tests := []struct {
+		policy         string
+		expectedResult bool
+	}{
+		{
+			policy:         "",
+			expectedResult: true,
+		},
+		{
+			policy:         "Always",
+			expectedResult: true,
+		},
+		{
+			policy:         "OnRootMismatch",
+			expectedResult: true,
+		},
+		{
+			policy:         "onRootMismatch",
+			expectedResult: false,
+		},
+		{
+			policy:         "invalid",
+			expectedResult: false,
+		},
+	}
+
+	for _, test := range tests {
+		result := isSupportedFSGroupChangePolicy(test.policy)
+		if result != test.expectedResult {
+			t.Errorf("isSupportedFSGroupChangePolicy(%s) returned with %v, not equal to %v", test.policy, result, test.expectedResult)
+		}
+	}
+}
+
 func TestIsRetriableError(t *testing.T) {
 	tests := []struct {
 		desc         string
@@ -385,4 +422,60 @@ func getWorkDirPath(dir string) (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%s%c%s", path, os.PathSeparator, dir), nil
+}
+
+func TestSetVolumeOwnership(t *testing.T) {
+	tmpVDir, err := utiltesting.MkTmpdir("SetVolumeOwnership")
+	if err != nil {
+		t.Fatalf("can't make a temp dir: %v", err)
+	}
+	//deferred clean up
+	defer os.RemoveAll(tmpVDir)
+
+	tests := []struct {
+		path                string
+		gid                 string
+		fsGroupChangePolicy string
+		expectedError       error
+	}{
+		{
+			path:          "path",
+			gid:           "",
+			expectedError: fmt.Errorf("convert %s to int failed with %v", "", `strconv.Atoi: parsing "": invalid syntax`),
+		},
+		{
+			path:          "path",
+			gid:           "alpha",
+			expectedError: fmt.Errorf("convert %s to int failed with %v", "alpha", `strconv.Atoi: parsing "alpha": invalid syntax`),
+		},
+		{
+			path:          "not-exists",
+			gid:           "1000",
+			expectedError: fmt.Errorf("lstat not-exists: no such file or directory"),
+		},
+		{
+			path:          tmpVDir,
+			gid:           "1000",
+			expectedError: nil,
+		},
+		{
+			path:                tmpVDir,
+			gid:                 "1000",
+			fsGroupChangePolicy: "Always",
+			expectedError:       nil,
+		},
+		{
+			path:                tmpVDir,
+			gid:                 "1000",
+			fsGroupChangePolicy: "OnRootMismatch",
+			expectedError:       nil,
+		},
+	}
+
+	for _, test := range tests {
+		err := SetVolumeOwnership(test.path, test.gid, test.fsGroupChangePolicy)
+		if err != nil && (err.Error() != test.expectedError.Error()) {
+			t.Errorf("unexpected error: %v, expected error: %v", err, test.expectedError)
+		}
+	}
 }

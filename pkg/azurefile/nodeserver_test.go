@@ -367,7 +367,7 @@ func TestNodeStageVolume(t *testing.T) {
 		serverNameField: "test_servername",
 	}
 	volContextEmptyShareName := map[string]string{
-		fsTypeField:     "test_field",
+		fsTypeField:     "smb",
 		diskNameField:   "test_disk",
 		shareNameField:  "test_sharename",
 		serverNameField: "",
@@ -380,7 +380,7 @@ func TestNodeStageVolume(t *testing.T) {
 		mountPermissionsField: "0755",
 	}
 	volContext := map[string]string{
-		fsTypeField:           "test_field",
+		fsTypeField:           "smb",
 		diskNameField:         "test_disk",
 		shareNameField:        "test_sharename",
 		serverNameField:       "test_servername",
