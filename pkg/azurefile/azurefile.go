@@ -307,7 +307,6 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 	nodeCap := []csi.NodeServiceCapability_RPC_Type{
 		csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
 		csi.NodeServiceCapability_RPC_SINGLE_NODE_MULTI_WRITER,
-		csi.NodeServiceCapability_RPC_VOLUME_MOUNT_GROUP,
 	}
 	if d.enableGetVolumeStats {
 		nodeCap = append(nodeCap, csi.NodeServiceCapability_RPC_GET_VOLUME_STATS)
