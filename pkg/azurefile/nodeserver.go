@@ -303,12 +303,6 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			} else {
 				klog.V(2).Infof("skip chmod on targetPath(%s) since mountPermissions is set as 0", targetPath)
 			}
-			if volumeMountGroup != "" {
-				klog.V(2).Infof("set gid of volume(%s) as %s", volumeID, volumeMountGroup)
-				if err := SetVolumeOwnership(cifsMountPath, volumeMountGroup); err != nil {
-					return nil, status.Error(codes.Internal, fmt.Sprintf("SetVolumeOwnership with volume(%s) on %s failed with %v", volumeID, cifsMountPath, err))
-				}
-			}
 		}
 		klog.V(2).Infof("volume(%s) mount %s on %s succeeded", volumeID, source, cifsMountPath)
 	}
