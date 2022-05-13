@@ -18,7 +18,10 @@ package azurefile
 
 import (
 	"errors"
+	"fmt"
+	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -305,17 +308,21 @@ func TestConvertTagsToMap(t *testing.T) {
 		tags          string
 		expectedError error
 	}{
-		{desc: "Invalid tag",
+		{
+			desc:          "Invalid tag",
 			tags:          "invalid=test=tag",
 			expectedError: errors.New("Tags 'invalid=test=tag' are invalid, the format should like: 'key1=value1,key2=value2'"),
 		},
-		{desc: "Invalid key",
+		{
+			desc:          "Invalid key",
 			tags:          "=test",
 			expectedError: errors.New("Tags '=test' are invalid, the format should like: 'key1=value1,key2=value2'"),
 		},
-		{desc: "Valid tags",
+		{
+			desc:          "Valid tags",
 			tags:          "testTag=testValue",
-			expectedError: nil},
+			expectedError: nil,
+		},
 	}
 
 	for _, test := range tests {
@@ -324,4 +331,58 @@ func TestConvertTagsToMap(t *testing.T) {
 			t.Errorf("test[%s]: unexpected error: %v, expected error: %v", test.desc, err, test.expectedError)
 		}
 	}
+}
+
+func TestChmodIfPermissionMismatch(t *testing.T) {
+	permissionMatchingPath, _ := getWorkDirPath("permissionMatchingPath")
+	_ = makeDir(permissionMatchingPath, 0755)
+	defer os.RemoveAll(permissionMatchingPath)
+
+	permissionMismatchPath, _ := getWorkDirPath("permissionMismatchPath")
+	_ = makeDir(permissionMismatchPath, 0721)
+	defer os.RemoveAll(permissionMismatchPath)
+
+	tests := []struct {
+		desc          string
+		path          string
+		mode          os.FileMode
+		expectedError error
+	}{
+		{
+			desc:          "Invalid path",
+			path:          "invalid-path",
+			mode:          0755,
+			expectedError: fmt.Errorf("CreateFile invalid-path: The system cannot find the file specified"),
+		},
+		{
+			desc:          "permission matching path",
+			path:          permissionMatchingPath,
+			mode:          0755,
+			expectedError: nil,
+		},
+		{
+			desc:          "permission mismatch path",
+			path:          permissionMismatchPath,
+			mode:          0755,
+			expectedError: nil,
+		},
+	}
+
+	for _, test := range tests {
+		err := chmodIfPermissionMismatch(test.path, test.mode)
+		if !reflect.DeepEqual(err, test.expectedError) {
+			if err == nil || test.expectedError == nil && !strings.Contains(err.Error(), test.expectedError.Error()) {
+				t.Errorf("test[%s]: unexpected error: %v, expected error: %v", test.desc, err, test.expectedError)
+			}
+		}
+	}
+}
+
+// getWorkDirPath returns the path to the current working directory
+func getWorkDirPath(dir string) (string, error) {
+	path, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s%c%s", path, os.PathSeparator, dir), nil
 }

@@ -295,10 +295,8 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}
 		if protocol == nfs {
 			if performChmodOp {
-				klog.V(2).Infof("volumeID(%v): chmod targetPath(%s) with permissions(0%o)", volumeID, targetPath, mountPermissions)
-				// set permissions for NFSv3 root folder
-				if err := os.Chmod(targetPath, os.FileMode(mountPermissions)); err != nil {
-					return nil, status.Error(codes.Internal, fmt.Sprintf("Chmod(%s) failed with %v", targetPath, err))
+				if err := chmodIfPermissionMismatch(targetPath, os.FileMode(mountPermissions)); err != nil {
+					return nil, status.Error(codes.Internal, err.Error())
 				}
 			} else {
 				klog.V(2).Infof("skip chmod on targetPath(%s) since mountPermissions is set as 0", targetPath)
