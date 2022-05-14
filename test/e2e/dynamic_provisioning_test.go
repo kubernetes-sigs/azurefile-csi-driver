@@ -1140,7 +1140,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			StorageClassParameters: map[string]string{
 				"protocol":         "nfs",
 				"rootSquashType":   "NoRootSquash",
-				"mountPermissions": "0700",
+				"mountPermissions": "0777",
 			},
 		}
 		if supportZRSwithNFS {
