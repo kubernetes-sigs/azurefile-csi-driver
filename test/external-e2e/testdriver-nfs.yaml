@@ -16,4 +16,4 @@ DriverInfo:
     nodeExpansion: true
     volumeLimits: false
     snapshotDataSource: true
-    volumeMountGroup: true
+    volumeMountGroup: false
