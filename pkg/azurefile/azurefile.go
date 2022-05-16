@@ -104,6 +104,7 @@ const (
 	disableDeleteRetentionPolicyField = "disabledeleteretentionpolicy"
 	allowBlobPublicAccessField        = "allowblobpublicaccess"
 	storageEndpointSuffixField        = "storageendpointsuffix"
+	fsGroupChangePolicyField          = "fsgroupchangepolicy"
 	ephemeralField                    = "csi.storage.k8s.io/ephemeral"
 	podNamespaceField                 = "csi.storage.k8s.io/pod.namespace"
 	mountOptionsField                 = "mountoptions"
@@ -163,9 +164,10 @@ const (
 )
 
 var (
-	supportedFsTypeList     = []string{cifs, smb, nfs, ext4, ext3, ext2, xfs}
-	supportedProtocolList   = []string{smb, nfs}
-	supportedDiskFsTypeList = []string{ext4, ext3, ext2, xfs}
+	supportedFsTypeList              = []string{cifs, smb, nfs, ext4, ext3, ext2, xfs}
+	supportedProtocolList            = []string{smb, nfs}
+	supportedDiskFsTypeList          = []string{ext4, ext3, ext2, xfs}
+	supportedFSGroupChangePolicyList = []string{"Always", "OnRootMismatch"}
 
 	retriableErrors = []string{accountNotProvisioned, tooManyRequests, shareBeingDeleted, clientThrottled}
 )
@@ -678,6 +680,18 @@ func isSupportedRootSquashType(rootSquashType string) bool {
 	}
 	for _, tier := range storage.PossibleRootSquashTypeValues() {
 		if rootSquashType == string(tier) {
+			return true
+		}
+	}
+	return false
+}
+
+func isSupportedFSGroupChangePolicy(policy string) bool {
+	if policy == "" {
+		return true
+	}
+	for _, v := range supportedFSGroupChangePolicyList {
+		if policy == v {
 			return true
 		}
 	}

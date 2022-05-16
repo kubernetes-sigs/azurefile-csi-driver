@@ -167,7 +167,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 	// don't respect fsType from req.GetVolumeCapability().GetMount().GetFsType()
 	// since it's ext4 by default on Linux
-	var fsType, server, protocol, ephemeralVolMountOptions, storageEndpointSuffix, folderName string
+	var fsType, server, protocol, ephemeralVolMountOptions, storageEndpointSuffix, folderName, fsGroupChangePolicy string
 	var ephemeralVol bool
 	mountPermissions := d.mountPermissions
 	performChmodOp := (mountPermissions > 0)
@@ -189,6 +189,8 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			ephemeralVolMountOptions = v
 		case storageEndpointSuffixField:
 			storageEndpointSuffix = v
+		case fsGroupChangePolicyField:
+			fsGroupChangePolicy = v
 		case mountPermissionsField:
 			if v != "" {
 				var err error
@@ -207,6 +209,18 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	if server == "" && accountName == "" {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("failed to get account name from %s", volumeID))
+	}
+
+	if !isSupportedFsType(fsType) {
+		return nil, status.Errorf(codes.InvalidArgument, "fsType(%s) is not supported, supported fsType list: %v", fsType, supportedFsTypeList)
+	}
+
+	if !isSupportedProtocol(protocol) {
+		return nil, status.Errorf(codes.InvalidArgument, "protocol(%s) is not supported, supported protocol list: %v", protocol, supportedProtocolList)
+	}
+
+	if !isSupportedFSGroupChangePolicy(fsGroupChangePolicy) {
+		return nil, status.Errorf(codes.InvalidArgument, "fsGroupChangePolicy(%s) is not supported, supported fsGroupChangePolicy list: %v", fsGroupChangePolicy, supportedFSGroupChangePolicyList)
 	}
 
 	if acquired := d.volumeLocks.TryAcquire(volumeID); !acquired {
@@ -328,6 +342,15 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			return nil, status.Error(codes.Internal, fmt.Sprintf("could not format %s and mount it at %s", targetPath, diskPath))
 		}
 		klog.V(2).Infof("NodeStageVolume: volume %s format %s and mounting at %s successfully", volumeID, targetPath, diskPath)
+	}
+
+	if protocol == nfs || isDiskMount {
+		if volumeMountGroup != "" {
+			klog.V(2).Infof("set gid of volume(%s) as %s using fsGroupChangePolicy(%s)", volumeID, volumeMountGroup, fsGroupChangePolicy)
+			if err := SetVolumeOwnership(cifsMountPath, volumeMountGroup, fsGroupChangePolicy); err != nil {
+				return nil, status.Error(codes.Internal, fmt.Sprintf("SetVolumeOwnership with volume(%s) on %s failed with %v", volumeID, cifsMountPath, err))
+			}
+		}
 	}
 	return &csi.NodeStageVolumeResponse{}, nil
 }

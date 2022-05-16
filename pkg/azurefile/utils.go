@@ -19,10 +19,12 @@ package azurefile
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/volume"
 )
@@ -223,4 +225,18 @@ func chmodIfPermissionMismatch(targetPath string, mode os.FileMode) error {
 		klog.V(2).Infof("skip chmod on targetPath(%s) since mode is already 0%o)", targetPath, info.Mode())
 	}
 	return nil
+}
+
+// SetVolumeOwnership would set gid for path recursively
+func SetVolumeOwnership(path, gid, policy string) error {
+	id, err := strconv.Atoi(gid)
+	if err != nil {
+		return fmt.Errorf("convert %s to int failed with %v", gid, err)
+	}
+	gidInt64 := int64(id)
+	fsGroupChangePolicy := v1.FSGroupChangeAlways
+	if policy != "" {
+		fsGroupChangePolicy = v1.PodFSGroupChangePolicy(policy)
+	}
+	return volume.SetVolumeOwnership(&VolumeMounter{path: path}, &gidInt64, &fsGroupChangePolicy, nil)
 }
