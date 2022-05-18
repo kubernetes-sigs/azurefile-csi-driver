@@ -215,8 +215,9 @@ func TestCreateVolume(t *testing.T) {
 				ctx := context.Background()
 
 				driverOptions := DriverOptions{
-					NodeID:                   fakeNodeID,
-					DriverName:               DefaultDriverName,
+					NodeID:               fakeNodeID,
+					DriverName:           DefaultDriverName,
+					EnableVHDDiskFeature: true,
 				}
 				d := NewFakeDriverCustomOptions(driverOptions)
 
@@ -279,8 +280,9 @@ func TestCreateVolume(t *testing.T) {
 				ctx := context.Background()
 
 				driverOptions := DriverOptions{
-					NodeID:                   fakeNodeID,
-					DriverName:               DefaultDriverName,
+					NodeID:               fakeNodeID,
+					DriverName:           DefaultDriverName,
+					EnableVHDDiskFeature: true,
 				}
 				d := NewFakeDriverCustomOptions(driverOptions)
 
@@ -776,8 +778,9 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				driverOptions := DriverOptions{
-					NodeID:                   fakeNodeID,
-					DriverName:               DefaultDriverName,
+					NodeID:               fakeNodeID,
+					DriverName:           DefaultDriverName,
+					EnableVHDDiskFeature: true,
 				}
 				d := NewFakeDriverCustomOptions(driverOptions)
 
