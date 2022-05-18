@@ -231,7 +231,12 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				ctx := context.Background()
-				d := NewFakeDriver()
+
+				driverOptions := DriverOptions{
+					NodeID:                   fakeNodeID,
+					DriverName:               DefaultDriverName,
+				}
+				d := NewFakeDriverCustomOptions(driverOptions)
 
 				d.AddControllerServiceCapabilities(
 					[]csi.ControllerServiceCapability_RPC_Type{
@@ -308,7 +313,12 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				ctx := context.Background()
-				d := NewFakeDriver()
+
+				driverOptions := DriverOptions{
+					NodeID:                   fakeNodeID,
+					DriverName:               DefaultDriverName,
+				}
+				d := NewFakeDriverCustomOptions(driverOptions)
 
 				d.AddControllerServiceCapabilities(
 					[]csi.ControllerServiceCapability_RPC_Type{
@@ -759,7 +769,12 @@ func TestCreateVolume(t *testing.T) {
 					Parameters:         allParam,
 				}
 
-				d := NewFakeDriver()
+				driverOptions := DriverOptions{
+					NodeID:                   fakeNodeID,
+					DriverName:               DefaultDriverName,
+				}
+				d := NewFakeDriverCustomOptions(driverOptions)
+
 				d.cloud = &azure.Cloud{}
 				d.cloud.KubeClient = fake.NewSimpleClientset()
 
