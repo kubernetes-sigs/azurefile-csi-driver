@@ -37,6 +37,8 @@ import (
 
 var _ Interface = &Client{}
 
+const routeTablesResourceType = "Microsoft.Network/routeTables"
+
 // Client implements RouteTable client Interface.
 type Client struct {
 	armClient      armclient.Interface
@@ -119,12 +121,12 @@ func (c *Client) getRouteTable(ctx context.Context, resourceGroupName string, ro
 	resourceID := armclient.GetResourceID(
 		c.subscriptionID,
 		resourceGroupName,
-		"Microsoft.Network/routeTables",
+		routeTablesResourceType,
 		routeTableName,
 	)
 	result := network.RouteTable{}
 
-	response, rerr := c.armClient.GetResource(ctx, resourceID, expand)
+	response, rerr := c.armClient.GetResourceWithExpandQuery(ctx, resourceID, expand)
 	defer c.armClient.CloseResponse(ctx, response)
 	if rerr != nil {
 		klog.V(5).Infof("Received error in %s: resourceID: %s, error: %s", "routetable.get.request", resourceID, rerr.Error())
@@ -180,7 +182,7 @@ func (c *Client) createOrUpdateRouteTable(ctx context.Context, resourceGroupName
 	resourceID := armclient.GetResourceID(
 		c.subscriptionID,
 		resourceGroupName,
-		"Microsoft.Network/routeTables",
+		routeTablesResourceType,
 		routeTableName,
 	)
 	decorators := []autorest.PrepareDecorator{

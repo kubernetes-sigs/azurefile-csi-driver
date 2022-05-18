@@ -18,7 +18,6 @@ package containerserviceclient
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -37,6 +36,8 @@ import (
 )
 
 var _ Interface = &Client{}
+
+const managedClusterResourceType = "Microsoft.ContainerService/managedClusters"
 
 // Client implements ContainerService client Interface.
 type Client struct {
@@ -114,12 +115,12 @@ func (c *Client) getManagedCluster(ctx context.Context, resourceGroupName string
 	resourceID := armclient.GetResourceID(
 		c.subscriptionID,
 		resourceGroupName,
-		"Microsoft.ContainerService/managedClusters",
+		managedClusterResourceType,
 		managedClusterName,
 	)
 	result := containerservice.ManagedCluster{}
 
-	response, rerr := c.armClient.GetResource(ctx, resourceID, "")
+	response, rerr := c.armClient.GetResource(ctx, resourceID)
 	defer c.armClient.CloseResponse(ctx, response)
 	if rerr != nil {
 		klog.V(5).Infof("Received error in %s: resourceID: %s, error: %s", "managedcluster.get.request", resourceID, rerr.Error())
@@ -172,14 +173,12 @@ func (c *Client) List(ctx context.Context, resourceGroupName string) ([]containe
 
 // listManagedCluster gets a list of ManagedClusters in the resource group.
 func (c *Client) listManagedCluster(ctx context.Context, resourceGroupName string) ([]containerservice.ManagedCluster, *retry.Error) {
-	resourceID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters",
-		autorest.Encode("path", c.subscriptionID),
-		autorest.Encode("path", resourceGroupName))
+	resourceID := armclient.GetResourceListID(c.subscriptionID, resourceGroupName, managedClusterResourceType)
 	result := make([]containerservice.ManagedCluster, 0)
 	page := &ManagedClusterResultPage{}
 	page.fn = c.listNextResults
 
-	resp, rerr := c.armClient.GetResource(ctx, resourceID, "")
+	resp, rerr := c.armClient.GetResource(ctx, resourceID)
 	defer c.armClient.CloseResponse(ctx, resp)
 	if rerr != nil {
 		klog.V(5).Infof("Received error in %s: resourceID: %s, error: %s", "managedcluster.list.request", resourceID, rerr.Error())
@@ -336,7 +335,7 @@ func (c *Client) createOrUpdateManagedCluster(ctx context.Context, resourceGroup
 	resourceID := armclient.GetResourceID(
 		c.subscriptionID,
 		resourceGroupName,
-		"Microsoft.ContainerService/managedClusters",
+		managedClusterResourceType,
 		managedClusterName,
 	)
 	decorators := []autorest.PrepareDecorator{
@@ -411,7 +410,7 @@ func (c *Client) deleteManagedCluster(ctx context.Context, resourceGroupName str
 	resourceID := armclient.GetResourceID(
 		c.subscriptionID,
 		resourceGroupName,
-		"Microsoft.ContainerService/managedClusters",
+		managedClusterResourceType,
 		managedClusterName,
 	)
 

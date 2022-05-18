@@ -18,7 +18,6 @@ package storageaccountclient
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -38,6 +37,8 @@ import (
 )
 
 var _ Interface = &Client{}
+
+const saResourceType = "Microsoft.Storage/storageAccounts"
 
 // Client implements StorageAccount client Interface.
 type Client struct {
@@ -124,12 +125,12 @@ func (c *Client) getStorageAccount(ctx context.Context, subsID, resourceGroupNam
 	resourceID := armclient.GetResourceID(
 		subsID,
 		resourceGroupName,
-		"Microsoft.Storage/storageAccounts",
+		saResourceType,
 		accountName,
 	)
 	result := storage.Account{}
 
-	response, rerr := c.armClient.GetResource(ctx, resourceID, "")
+	response, rerr := c.armClient.GetResource(ctx, resourceID)
 	defer c.armClient.CloseResponse(ctx, response)
 	if rerr != nil {
 		klog.V(5).Infof("Received error in %s: resourceID: %s, error: %s", "storageaccount.get.request", resourceID, rerr.Error())
@@ -188,7 +189,7 @@ func (c *Client) listStorageAccountKeys(ctx context.Context, subsID, resourceGro
 	resourceID := armclient.GetResourceID(
 		subsID,
 		resourceGroupName,
-		"Microsoft.Storage/storageAccounts",
+		saResourceType,
 		accountName,
 	)
 
@@ -250,7 +251,7 @@ func (c *Client) createStorageAccount(ctx context.Context, subsID, resourceGroup
 	resourceID := armclient.GetResourceID(
 		subsID,
 		resourceGroupName,
-		"Microsoft.Storage/storageAccounts",
+		saResourceType,
 		accountName,
 	)
 
@@ -319,7 +320,7 @@ func (c *Client) updateStorageAccount(ctx context.Context, subsID, resourceGroup
 	resourceID := armclient.GetResourceID(
 		subsID,
 		resourceGroupName,
-		"Microsoft.Storage/storageAccounts",
+		saResourceType,
 		accountName,
 	)
 
@@ -390,7 +391,7 @@ func (c *Client) deleteStorageAccount(ctx context.Context, subsID, resourceGroup
 	resourceID := armclient.GetResourceID(
 		subsID,
 		resourceGroupName,
-		"Microsoft.Storage/storageAccounts",
+		saResourceType,
 		accountName,
 	)
 
@@ -434,14 +435,12 @@ func (c *Client) ListStorageAccountByResourceGroup(ctx context.Context, subsID, 
 	if subsID == "" {
 		subsID = c.subscriptionID
 	}
-	resourceID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts",
-		autorest.Encode("path", subsID),
-		autorest.Encode("path", resourceGroupName))
+	resourceID := armclient.GetResourceListID(subsID, resourceGroupName, saResourceType)
 	result := make([]storage.Account, 0)
 	page := &AccountListResultPage{}
 	page.fn = c.listNextResults
 
-	resp, rerr := c.armClient.GetResource(ctx, resourceID, "")
+	resp, rerr := c.armClient.GetResource(ctx, resourceID)
 	defer c.armClient.CloseResponse(ctx, resp)
 	if rerr != nil {
 		klog.V(5).Infof("Received error in %s: resourceID: %s, error: %s", "storageAccount.list.request", resourceID, rerr.Error())
