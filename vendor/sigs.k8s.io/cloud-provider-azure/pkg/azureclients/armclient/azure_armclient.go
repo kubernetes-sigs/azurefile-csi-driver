@@ -192,10 +192,11 @@ func DoHackRegionalRetryDecorator(c *Client) autorest.SendDecorator {
 }
 
 // Send sends a http request to ARM service with possible retry to regional ARM endpoint.
-func (c *Client) Send(ctx context.Context, request *http.Request) (*http.Response, *retry.Error) {
+func (c *Client) Send(ctx context.Context, request *http.Request, decorators ...autorest.SendDecorator) (*http.Response, *retry.Error) {
 	response, err := autorest.SendWithSender(
 		c.client,
 		request,
+		decorators...,
 	)
 
 	if response == nil && err == nil {
@@ -204,15 +205,6 @@ func (c *Client) Send(ctx context.Context, request *http.Request) (*http.Respons
 
 	return response, retry.GetError(response, err)
 }
-
-// func dumpResponse(resp *http.Response, v klog.Level) {
-// 	responseDump, err := httputil.DumpResponse(resp, true)
-// 	if err != nil {
-// 		klog.Errorf("Failed to dump response: %v", err)
-// 	} else {
-// 		klog.V(v).Infof("Dumping response: %s", string(responseDump))
-// 	}
-// }
 
 func dumpRequest(req *http.Request, v klog.Level) {
 	if req == nil {
@@ -339,7 +331,7 @@ func (c *Client) SendAsync(ctx context.Context, request *http.Request) (*azure.F
 }
 
 // GetResource get a resource by resource ID
-func (c *Client) GetResource(ctx context.Context, resourceID, expand string) (*http.Response, *retry.Error) {
+func (c *Client) GetResourceWithExpandQuery(ctx context.Context, resourceID, expand string) (*http.Response, *retry.Error) {
 	var decorators []autorest.PrepareDecorator
 	if expand != "" {
 		queryParameters := map[string]interface{}{
@@ -347,15 +339,14 @@ func (c *Client) GetResource(ctx context.Context, resourceID, expand string) (*h
 		}
 		decorators = append(decorators, autorest.WithQueryParameters(queryParameters))
 	}
-	return c.GetResourceWithDecorators(ctx, resourceID, decorators)
+	return c.GetResource(ctx, resourceID, decorators...)
 }
 
 // GetResourceWithDecorators get a resource with decorators by resource ID
-func (c *Client) GetResourceWithDecorators(ctx context.Context, resourceID string, decorators []autorest.PrepareDecorator) (*http.Response, *retry.Error) {
-	getDecorators := []autorest.PrepareDecorator{
+func (c *Client) GetResource(ctx context.Context, resourceID string, decorators ...autorest.PrepareDecorator) (*http.Response, *retry.Error) {
+	getDecorators := append([]autorest.PrepareDecorator{
 		autorest.WithPathParameters("{resourceID}", map[string]interface{}{"resourceID": resourceID}),
-	}
-	getDecorators = append(getDecorators, decorators...)
+	}, decorators...)
 	request, err := c.PrepareGetRequest(ctx, getDecorators...)
 	if err != nil {
 		klog.V(5).Infof("Received error in %s: resourceID: %s, error: %s", "get.prepare", resourceID, err)
@@ -505,8 +496,17 @@ func (c *Client) PutResourcesInBatches(ctx context.Context, resources map[string
 	return responses
 }
 
-// PutResourceWithDecorators puts a resource by resource ID
+// PutResourceWithDecorators puts a resource by resource ID and waits for response
 func (c *Client) PutResourceWithDecorators(ctx context.Context, resourceID string, parameters interface{}, decorators []autorest.PrepareDecorator) (*http.Response, *retry.Error) {
+	return c.putResourceWithDecorators(ctx, resourceID, parameters, decorators, true)
+}
+
+// PutResourceWithDecoratorsAsync puts a resource by resource ID in async mode.
+func (c *Client) PutResourceWithDecoratorsAsync(ctx context.Context, resourceID string, parameters interface{}, decorators []autorest.PrepareDecorator) (*http.Response, *retry.Error) {
+	return c.putResourceWithDecorators(ctx, resourceID, parameters, decorators, false)
+}
+
+func (c *Client) putResourceWithDecorators(ctx context.Context, resourceID string, parameters interface{}, decorators []autorest.PrepareDecorator, wait bool) (*http.Response, *retry.Error) {
 	request, err := c.PreparePutRequest(ctx, decorators...)
 	dumpRequest(request, 10)
 	if err != nil {
@@ -521,6 +521,9 @@ func (c *Client) PutResourceWithDecorators(ctx context.Context, resourceID strin
 		return nil, clientErr
 	}
 
+	if !wait {
+		return resp, nil
+	}
 	response, err := c.WaitForAsyncOperationResult(ctx, future, "armclient.PutResource")
 	if err != nil {
 		if response != nil {
@@ -775,6 +778,14 @@ func GetResourceID(subscriptionID, resourceGroupName, resourceType, resourceName
 		autorest.Encode("path", resourceGroupName),
 		resourceType,
 		autorest.Encode("path", resourceName))
+}
+
+// GetResourceListID gets Azure resource list ID
+func GetResourceListID(subscriptionID, resourceGroupName, resourceType string) string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s",
+		autorest.Encode("path", subscriptionID),
+		autorest.Encode("path", resourceGroupName),
+		resourceType)
 }
 
 // GetChildResourceID gets Azure child resource ID

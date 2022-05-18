@@ -18,7 +18,6 @@ package diskclient
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -38,6 +37,8 @@ import (
 )
 
 var _ Interface = &Client{}
+
+const diskResourceType = "Microsoft.Compute/disks"
 
 // Client implements Disk client Interface.
 type Client struct {
@@ -127,12 +128,12 @@ func (c *Client) getDisk(ctx context.Context, subsID, resourceGroupName, diskNam
 	resourceID := armclient.GetResourceID(
 		subsID,
 		resourceGroupName,
-		"Microsoft.Compute/disks",
+		diskResourceType,
 		diskName,
 	)
 	result := compute.Disk{}
 
-	response, rerr := c.armClient.GetResource(ctx, resourceID, "")
+	response, rerr := c.armClient.GetResource(ctx, resourceID)
 	defer c.armClient.CloseResponse(ctx, response)
 	if rerr != nil {
 		klog.V(5).Infof("Received error in %s: resourceID: %s, error: %s", "disk.get.request", resourceID, rerr.Error())
@@ -191,7 +192,7 @@ func (c *Client) createOrUpdateDisk(ctx context.Context, subsID, resourceGroupNa
 	resourceID := armclient.GetResourceID(
 		subsID,
 		resourceGroupName,
-		"Microsoft.Compute/disks",
+		diskResourceType,
 		diskName,
 	)
 
@@ -262,7 +263,7 @@ func (c *Client) updateDisk(ctx context.Context, subsID, resourceGroupName, disk
 	resourceID := armclient.GetResourceID(
 		subsID,
 		resourceGroupName,
-		"Microsoft.Compute/disks",
+		diskResourceType,
 		diskName,
 	)
 
@@ -333,7 +334,7 @@ func (c *Client) deleteDisk(ctx context.Context, subsID, resourceGroupName strin
 	resourceID := armclient.GetResourceID(
 		subsID,
 		resourceGroupName,
-		"Microsoft.Compute/disks",
+		diskResourceType,
 		diskName,
 	)
 
@@ -345,15 +346,13 @@ func (c *Client) ListByResourceGroup(ctx context.Context, subsID, resourceGroupN
 	if subsID == "" {
 		subsID = c.subscriptionID
 	}
-	resourceID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks",
-		autorest.Encode("path", subsID),
-		autorest.Encode("path", resourceGroupName))
+	resourceID := armclient.GetResourceListID(subsID, resourceGroupName, diskResourceType)
 
 	result := make([]compute.Disk, 0)
 	page := &DiskListPage{}
 	page.fn = c.listNextResults
 
-	resp, rerr := c.armClient.GetResource(ctx, resourceID, "")
+	resp, rerr := c.armClient.GetResource(ctx, resourceID)
 	defer c.armClient.CloseResponse(ctx, resp)
 	if rerr != nil {
 		klog.V(5).Infof("Received error in %s: resourceID: %s, error: %s", "disk.list.request", resourceID, rerr.Error())

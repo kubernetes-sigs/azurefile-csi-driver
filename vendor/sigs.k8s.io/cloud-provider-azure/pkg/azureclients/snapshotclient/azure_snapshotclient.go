@@ -18,7 +18,6 @@ package snapshotclient
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -38,6 +37,8 @@ import (
 )
 
 var _ Interface = &Client{}
+
+const snapshotsResourceType = "Microsoft.Compute/snapshots"
 
 // Client implements Snapshot client Interface.
 type Client struct {
@@ -124,12 +125,12 @@ func (c *Client) getSnapshot(ctx context.Context, subsID, resourceGroupName, sna
 	resourceID := armclient.GetResourceID(
 		subsID,
 		resourceGroupName,
-		"Microsoft.Compute/snapshots",
+		snapshotsResourceType,
 		snapshotName,
 	)
 	result := compute.Snapshot{}
 
-	response, rerr := c.armClient.GetResource(ctx, resourceID, "")
+	response, rerr := c.armClient.GetResource(ctx, resourceID)
 	defer c.armClient.CloseResponse(ctx, response)
 	if rerr != nil {
 		klog.V(5).Infof("Received error in %s: resourceID: %s, error: %s", "snapshot.get.request", resourceID, rerr.Error())
@@ -188,7 +189,7 @@ func (c *Client) deleteSnapshot(ctx context.Context, subsID, resourceGroupName, 
 	resourceID := armclient.GetResourceID(
 		subsID,
 		resourceGroupName,
-		"Microsoft.Compute/snapshots",
+		snapshotsResourceType,
 		snapshotName,
 	)
 
@@ -234,7 +235,7 @@ func (c *Client) createOrUpdateSnapshot(ctx context.Context, subsID, resourceGro
 	resourceID := armclient.GetResourceID(
 		subsID,
 		resourceGroupName,
-		"Microsoft.Compute/snapshots",
+		snapshotsResourceType,
 		snapshotName,
 	)
 
@@ -305,14 +306,12 @@ func (c *Client) listSnapshotsByResourceGroup(ctx context.Context, subsID, resou
 	if subsID == "" {
 		subsID = c.subscriptionID
 	}
-	resourceID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/snapshots",
-		autorest.Encode("path", subsID),
-		autorest.Encode("path", resourceGroupName))
+	resourceID := armclient.GetResourceListID(subsID, resourceGroupName, snapshotsResourceType)
 	result := make([]compute.Snapshot, 0)
 	page := &SnapshotListPage{}
 	page.fn = c.listNextResults
 
-	resp, rerr := c.armClient.GetResource(ctx, resourceID, "")
+	resp, rerr := c.armClient.GetResource(ctx, resourceID)
 	defer c.armClient.CloseResponse(ctx, resp)
 	if rerr != nil {
 		klog.V(5).Infof("Received error in %s: resourceID: %s, error: %s", "snapshot.list.request", resourceID, rerr.Error())
