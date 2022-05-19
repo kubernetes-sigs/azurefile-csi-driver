@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/volume"
 )
@@ -234,7 +234,7 @@ func SetVolumeOwnership(path, gid, policy string) error {
 		return fmt.Errorf("convert %s to int failed with %v", gid, err)
 	}
 	gidInt64 := int64(id)
-	fsGroupChangePolicy := v1.FSGroupChangeAlways
+	fsGroupChangePolicy := v1.FSGroupChangeOnRootMismatch
 	if policy != "" {
 		fsGroupChangePolicy = v1.PodFSGroupChangePolicy(policy)
 	}
