@@ -1101,7 +1101,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			"skuName":             "Premium_LRS",
 			"rootSquashType":      "AllSquash",
 			"mountPermissions":    "0",
-			"fsGroupChangePolicy": "OnRootMismatch",
+			"fsGroupChangePolicy": "Always",
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
 			CSIDriver:              testDriver,
