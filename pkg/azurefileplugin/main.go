@@ -50,6 +50,7 @@ var (
 	enableGetVolumeStats                   = flag.Bool("enable-get-volume-stats", true, "allow GET_VOLUME_STATS on agent node")
 	mountPermissions                       = flag.Uint64("mount-permissions", 0777, "mounted folder permissions")
 	allowInlineVolumeKeyAccessWithIdentity = flag.Bool("allow-inline-volume-key-access-with-identity", false, "allow accessing storage account key using cluster identity for inline volume")
+	fsGroupChangePolicy                    = flag.String("fsgroup-change-policy", "", "indicates how the volume's ownership will be changed by the driver, OnRootMismatch is the default value")
 )
 
 func main() {
@@ -85,6 +86,7 @@ func handle() {
 		EnableGetVolumeStats:                   *enableGetVolumeStats,
 		MountPermissions:                       *mountPermissions,
 		AllowInlineVolumeKeyAccessWithIdentity: *allowInlineVolumeKeyAccessWithIdentity,
+		FSGroupChangePolicy:                    *fsGroupChangePolicy,
 	}
 	driver := azurefile.NewDriver(&driverOptions)
 	if driver == nil {

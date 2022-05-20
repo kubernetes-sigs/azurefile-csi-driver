@@ -167,10 +167,12 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 	// don't respect fsType from req.GetVolumeCapability().GetMount().GetFsType()
 	// since it's ext4 by default on Linux
-	var fsType, server, protocol, ephemeralVolMountOptions, storageEndpointSuffix, folderName, fsGroupChangePolicy string
+	var fsType, server, protocol, ephemeralVolMountOptions, storageEndpointSuffix, folderName string
 	var ephemeralVol bool
 	mountPermissions := d.mountPermissions
 	performChmodOp := (mountPermissions > 0)
+	fsGroupChangePolicy := d.fsGroupChangePolicy
+
 	for k, v := range context {
 		switch strings.ToLower(k) {
 		case fsTypeField:
@@ -345,7 +347,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 
 	if protocol == nfs || isDiskMount {
-		if volumeMountGroup != "" && fsGroupChangePolicy != "" {
+		if volumeMountGroup != "" && fsGroupChangePolicy != FSGroupChangeNone {
 			klog.V(2).Infof("set gid of volume(%s) as %s using fsGroupChangePolicy(%s)", volumeID, volumeMountGroup, fsGroupChangePolicy)
 			if err := SetVolumeOwnership(cifsMountPath, volumeMountGroup, fsGroupChangePolicy); err != nil {
 				return nil, status.Error(codes.Internal, fmt.Sprintf("SetVolumeOwnership with volume(%s) on %s failed with %v", volumeID, cifsMountPath, err))

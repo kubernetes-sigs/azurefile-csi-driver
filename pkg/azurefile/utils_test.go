@@ -247,6 +247,10 @@ func TestIsSupportedFSGroupChangePolicy(t *testing.T) {
 			expectedResult: true,
 		},
 		{
+			policy:         "None",
+			expectedResult: true,
+		},
+		{
 			policy:         "Always",
 			expectedResult: true,
 		},

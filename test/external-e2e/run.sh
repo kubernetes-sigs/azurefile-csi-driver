@@ -62,7 +62,6 @@ fi
 if [ ! -z ${EXTERNAL_E2E_TEST_NFS} ]; then
 	echo "begin to run NFS protocol tests ...."
 	cp deploy/example/storageclass-azurefile-nfs.yaml /tmp/csi/storageclass.yaml
-	sed -i 's/fsGroupChangePolicy: ""/fsGroupChangePolicy: "Always"/g' /tmp/csi/storageclass.yaml
 	ginkgo -p --progress --v -focus="External.Storage.*$DRIVER.csi.azure.com" \
 		-skip='\[Disruptive\]|should provision storage with any volume data source|should mount multiple PV pointing to the same storage on the same node' kubernetes/test/bin/e2e.test  -- \
 		-storage.testdriver=$PROJECT_ROOT/test/external-e2e/testdriver-nfs.yaml \

@@ -161,13 +161,15 @@ const (
 	SourceResourceID = "source_resource_id"
 	SnapshotName     = "snapshot_name"
 	SnapshotID       = "snapshot_id"
+
+	FSGroupChangeNone = "None"
 )
 
 var (
 	supportedFsTypeList              = []string{cifs, smb, nfs, ext4, ext3, ext2, xfs}
 	supportedProtocolList            = []string{smb, nfs}
 	supportedDiskFsTypeList          = []string{ext4, ext3, ext2, xfs}
-	supportedFSGroupChangePolicyList = []string{"Always", "OnRootMismatch"}
+	supportedFSGroupChangePolicyList = []string{FSGroupChangeNone, string(v1.FSGroupChangeAlways), string(v1.FSGroupChangeOnRootMismatch)}
 
 	retriableErrors = []string{accountNotProvisioned, tooManyRequests, shareBeingDeleted, clientThrottled}
 )
@@ -184,6 +186,7 @@ type DriverOptions struct {
 	AllowInlineVolumeKeyAccessWithIdentity bool
 	EnableGetVolumeStats                   bool
 	MountPermissions                       uint64
+	FSGroupChangePolicy                    string
 }
 
 // Driver implements all interfaces of CSI drivers
@@ -194,6 +197,7 @@ type Driver struct {
 	cloudConfigSecretNamespace             string
 	customUserAgent                        string
 	userAgentSuffix                        string
+	fsGroupChangePolicy                    string
 	allowEmptyCloudConfig                  bool
 	allowInlineVolumeKeyAccessWithIdentity bool
 	enableGetVolumeStats                   bool
@@ -236,6 +240,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.allowInlineVolumeKeyAccessWithIdentity = options.AllowInlineVolumeKeyAccessWithIdentity
 	driver.enableGetVolumeStats = options.EnableGetVolumeStats
 	driver.mountPermissions = options.MountPermissions
+	driver.fsGroupChangePolicy = options.FSGroupChangePolicy
 	driver.volLockMap = newLockMap()
 	driver.subnetLockMap = newLockMap()
 	driver.volumeLocks = newVolumeLocks()
