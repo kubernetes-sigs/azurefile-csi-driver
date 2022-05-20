@@ -854,8 +854,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 					{
 						ClaimSize: "100Gi",
 						MountOptions: []string{
-							"dir_mode=0777",
-							"file_mode=0777",
 							"uid=0",
 							"gid=0",
 							"mfsymlinks",
