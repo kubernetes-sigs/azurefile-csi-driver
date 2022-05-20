@@ -36,11 +36,11 @@ mountPermissions | mounted folder permissions. The default is `0777`, if set as 
 vnetResourceGroup | specify vnet resource group where virtual network is | existing resource group name | No | if empty, driver will use the `vnetResourceGroup` value in azure cloud config file
 vnetName | virtual network name | existing virtual network name | No | if empty, driver will use the `vnetName` value in azure cloud config file
 subnetName | subnet name | existing subnet name of the agent node | No | if empty, driver will use the `subnetName` value in azure cloud config file
-fsGroupChangePolicy | indicates how volume's ownership and permissions will be changed | `OnRootMismatch`(default), `Always` | No | `OnRootMismatch`
+fsGroupChangePolicy | indicates how volume's ownership will be changed by the driver, pod `securityContext.fsGroupChangePolicy` is ignored  | `OnRootMismatch`(by default), `Always`, `None` | No | `OnRootMismatch`
 --- | **Following parameters are only for [VHD disk feature](../deploy/example/disk)** | --- | --- |
 fsType | File System Type | `ext4`, `ext3`, `ext2`, `xfs` | Yes | `ext4`
 diskName | existing VHD disk file name | `pvc-062196a6-6436-11ea-ab51-9efb888c0afb.vhd` | No |
-fsGroupChangePolicy | indicates how volume's ownership and permissions will be changed | `OnRootMismatch`(default), `Always` | No | `OnRootMismatch`
+fsGroupChangePolicy | indicates how volume's ownership will be changed by the driver, pod `securityContext.fsGroupChangePolicy` is ignored  | `OnRootMismatch`(by default), `Always`, `None` | No | `OnRootMismatch`
 
  - account tags format created by dynamic provisioning
 ```
@@ -76,7 +76,7 @@ volumeAttributes.secretNamespace | secret namespace | `default`,`kube-system`, e
 nodeStageSecretRef.name | secret name that stores storage account name and key | existing secret name |  Yes  |
 nodeStageSecretRef.namespace | secret namespace | k8s namespace  |  Yes  |
 --- | **Following parameters are only for NFS protocol** | --- | --- |
-fsGroupChangePolicy | indicates how volume's ownership and permissions will be changed | `OnRootMismatch`(default), `Always` | No | `OnRootMismatch`
+fsGroupChangePolicy | indicates how volume's ownership will be changed by the driver, pod `securityContext.fsGroupChangePolicy` is ignored  | `OnRootMismatch`(by default), `Always`, `None` | No | `OnRootMismatch`
 volumeAttributes.mountPermissions | mounted folder permissions. The default is `0777` |  | No |
  - Note
    - only mounting Azure File using SMB protocol requires account key, and if secret is not provided in PV config, it would try to get `azure-storage-account-{accountname}-secret` in the pod namespace, if not found, it would try using kubelet identity to get account key directly using Azure API.
