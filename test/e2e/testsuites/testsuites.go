@@ -821,7 +821,7 @@ func (t *TestPod) SetupCSIInlineVolume(name, mountPath, secretName, shareName, s
 					"secretName":   secretName,
 					"shareName":    shareName,
 					"server":       server,
-					"mountOptions": "cache=singleclient",
+					"mountOptions": "dir_mode=0755,file_mode=0721,cache=singleclient",
 				},
 				ReadOnly: to.BoolPtr(readOnly),
 			},
