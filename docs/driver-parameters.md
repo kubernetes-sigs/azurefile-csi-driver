@@ -37,7 +37,7 @@ vnetResourceGroup | specify vnet resource group where virtual network is | exist
 vnetName | virtual network name | existing virtual network name | No | if empty, driver will use the `vnetName` value in azure cloud config file
 subnetName | subnet name | existing subnet name of the agent node | No | if empty, driver will use the `subnetName` value in azure cloud config file
 fsGroupChangePolicy | indicates how volume's ownership will be changed by the driver, pod `securityContext.fsGroupChangePolicy` is ignored  | `OnRootMismatch`(by default), `Always`, `None` | No | `OnRootMismatch`
---- | **Following parameters are only for [VHD disk feature](../deploy/example/disk)** | --- | --- |
+--- | **Following parameters are only for experimental [VHD disk feature](../deploy/example/disk)** | --- | --- |
 fsType | File System Type | `ext4`, `ext3`, `ext2`, `xfs` | Yes | `ext4`
 diskName | existing VHD disk file name | `pvc-062196a6-6436-11ea-ab51-9efb888c0afb.vhd` | No |
 fsGroupChangePolicy | indicates how volume's ownership will be changed by the driver, pod `securityContext.fsGroupChangePolicy` is ignored  | `OnRootMismatch`(by default), `Always`, `None` | No | `OnRootMismatch`
