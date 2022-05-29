@@ -32,6 +32,8 @@ import (
 	smb "github.com/kubernetes-csi/csi-proxy/client/api/smb/v1"
 	smbclient "github.com/kubernetes-csi/csi-proxy/client/groups/smb/v1"
 
+	volclient "github.com/kubernetes-csi/csi-proxy/client/groups/volume/v1"
+
 	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
 	utilexec "k8s.io/utils/exec"
@@ -56,6 +58,7 @@ var _ CSIProxyMounter = &csiProxyMounter{}
 type csiProxyMounter struct {
 	FsClient  *fsclient.Client
 	SMBClient *smbclient.Client
+	VolClient *volclient.Client
 }
 
 func normalizeWindowsPath(path string) string {

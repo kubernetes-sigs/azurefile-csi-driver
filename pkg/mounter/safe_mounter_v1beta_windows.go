@@ -26,11 +26,13 @@ import (
 	filepath "path/filepath"
 	"strings"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	fs "github.com/kubernetes-csi/csi-proxy/client/api/filesystem/v1beta1"
 	fsclient "github.com/kubernetes-csi/csi-proxy/client/groups/filesystem/v1beta1"
 	volclient "github.com/kubernetes-csi/csi-proxy/client/groups/volume/v1beta2"
 
 	smb "github.com/kubernetes-csi/csi-proxy/client/api/smb/v1beta1"
+	vol "github.com/kubernetes-csi/csi-proxy/client/api/volume/v1beta2"
 	smbclient "github.com/kubernetes-csi/csi-proxy/client/groups/smb/v1beta1"
 
 	"k8s.io/klog/v2"
@@ -207,6 +209,26 @@ func (mounter *csiProxyMounterV1Beta) ExistsPath(path string) (bool, error) {
 		return false, err
 	}
 	return isExistsResponse.Exists, err
+}
+
+// GetVolumeStats get volume usage
+func (mounter *csiProxyMounterV1Beta) GetVolumeStats(ctx context.Context, volumeID string) (*csi.VolumeUsage, error) {
+	klog.V(4).Infof("GetVolumeStats(%s)", volumeID)
+	request := &vol.VolumeStatsRequest{VolumeId: volumeID}
+	resp, err := mounter.VolClient.VolumeStats(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("GetVolumeStats(%s) return nil response", volumeID)
+	}
+	volUsage := &csi.VolumeUsage{
+		Unit:      csi.VolumeUsage_BYTES,
+		Available: resp.VolumeSize - resp.VolumeUsedSize,
+		Total:     resp.VolumeSize,
+		Used:      resp.VolumeUsedSize,
+	}
+	return volUsage, nil
 }
 
 // GetAPIVersions returns the versions of the client APIs this mounter is using.
