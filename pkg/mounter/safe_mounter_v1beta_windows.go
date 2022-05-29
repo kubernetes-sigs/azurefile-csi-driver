@@ -28,6 +28,7 @@ import (
 
 	fs "github.com/kubernetes-csi/csi-proxy/client/api/filesystem/v1beta1"
 	fsclient "github.com/kubernetes-csi/csi-proxy/client/groups/filesystem/v1beta1"
+	volclient "github.com/kubernetes-csi/csi-proxy/client/groups/volume/v1beta2"
 
 	smb "github.com/kubernetes-csi/csi-proxy/client/api/smb/v1beta1"
 	smbclient "github.com/kubernetes-csi/csi-proxy/client/groups/smb/v1beta1"
@@ -41,6 +42,7 @@ var _ CSIProxyMounter = &csiProxyMounterV1Beta{}
 type csiProxyMounterV1Beta struct {
 	FsClient  *fsclient.Client
 	SMBClient *smbclient.Client
+	VolClient *volclient.Client
 }
 
 func (mounter *csiProxyMounterV1Beta) SMBMount(source, target, fsType string, mountOptions, sensitiveMountOptions []string) error {
