@@ -98,6 +98,7 @@ ifdef TEST_WINDOWS
 		--set windows.enabled=true \
 		--set linux.enabled=false \
 		--set driver.azureGoSDKLogLevel=INFO \
+	        --set controller.runOnMaster=true \
 		--set controller.replicas=1 \
 		--set controller.logLevel=6 \
 		--set node.logLevel=6
