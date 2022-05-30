@@ -93,19 +93,19 @@ func GetVolumeStats(ctx context.Context, m *mount.SafeFormatAndMount, target str
 	}
 
 	return []*csi.VolumeUsage{
-			{
-				Unit:      csi.VolumeUsage_BYTES,
-				Available: available,
-				Total:     capacity,
-				Used:      used,
-			},
-			{
-				Unit:      csi.VolumeUsage_INODES,
-				Available: inodesFree,
-				Total:     inodes,
-				Used:      inodesUsed,
-			},
-		}, nil
+		{
+			Unit:      csi.VolumeUsage_BYTES,
+			Available: available,
+			Total:     capacity,
+			Used:      used,
+		},
+		{
+			Unit:      csi.VolumeUsage_INODES,
+			Available: inodesFree,
+			Total:     inodes,
+			Used:      inodesUsed,
+		},
+	}, nil
 }
 
 func preparePublishPath(path string, m *mount.SafeFormatAndMount) error {
