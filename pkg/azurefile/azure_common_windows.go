@@ -20,8 +20,10 @@ limitations under the License.
 package azurefile
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/mounter"
@@ -60,6 +62,14 @@ func CleanupMountPoint(m *mount.SafeFormatAndMount, target string, extensiveMoun
 		return proxy.Rmdir(target)
 	}
 	return fmt.Errorf("could not cast to csi proxy class")
+}
+
+func GetVolumeStats(ctx context.Context, m *mount.SafeFormatAndMount, target string) ([]*csi.VolumeUsage, error) {
+	if proxy, ok := m.Interface.(mounter.CSIProxyMounter); ok {
+		volUsage, err := proxy.GetVolumeStats(ctx, target)
+		return []*csi.VolumeUsage{volUsage}, err
+	}
+	return []*csi.VolumeUsage{}, fmt.Errorf("could not cast to csi proxy class")
 }
 
 func removeDir(path string, m *mount.SafeFormatAndMount) error {

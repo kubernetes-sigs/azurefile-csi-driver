@@ -29,11 +29,12 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	fs "github.com/kubernetes-csi/csi-proxy/client/api/filesystem/v1beta1"
 	fsclient "github.com/kubernetes-csi/csi-proxy/client/groups/filesystem/v1beta1"
-	volclient "github.com/kubernetes-csi/csi-proxy/client/groups/volume/v1beta2"
 
 	smb "github.com/kubernetes-csi/csi-proxy/client/api/smb/v1beta1"
-	vol "github.com/kubernetes-csi/csi-proxy/client/api/volume/v1beta2"
 	smbclient "github.com/kubernetes-csi/csi-proxy/client/groups/smb/v1beta1"
+
+	vol "github.com/kubernetes-csi/csi-proxy/client/api/volume/v1beta2"
+	volclient "github.com/kubernetes-csi/csi-proxy/client/groups/volume/v1beta2"
 
 	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
@@ -212,15 +213,15 @@ func (mounter *csiProxyMounterV1Beta) ExistsPath(path string) (bool, error) {
 }
 
 // GetVolumeStats get volume usage
-func (mounter *csiProxyMounterV1Beta) GetVolumeStats(ctx context.Context, volumeID string) (*csi.VolumeUsage, error) {
-	klog.V(4).Infof("GetVolumeStats(%s)", volumeID)
-	request := &vol.VolumeStatsRequest{VolumeId: volumeID}
-	resp, err := mounter.VolClient.VolumeStats(ctx, request)
-	if err != nil {
-		return nil, err
+func (mounter *csiProxyMounterV1Beta) GetVolumeStats(ctx context.Context, path string) (*csi.VolumeUsage, error) {
+	volIDResp, err := mounter.VolClient.GetVolumeIDFromMount(ctx, &vol.VolumeIDFromMountRequest{Mount: path})
+	if err != nil || volIDResp == nil {
+		return nil, fmt.Errorf("GetVolumeIDFromMount(%s) failed with error: %v, response: %v", path, err, volIDResp)
 	}
-	if resp == nil {
-		return nil, fmt.Errorf("GetVolumeStats(%s) return nil response", volumeID)
+	klog.V(4).Infof("GetVolumeStats(%s) returned volumeID(%s)", path, volIDResp.VolumeId)
+	resp, err := mounter.VolClient.VolumeStats(ctx, &vol.VolumeStatsRequest{VolumeId: volIDResp.VolumeId})
+	if err != nil || resp == nil {
+		return nil, fmt.Errorf("GetVolumeStats(%s) failed with error: %v, response: %v", volIDResp.VolumeId, err, resp)
 	}
 	volUsage := &csi.VolumeUsage{
 		Unit:      csi.VolumeUsage_BYTES,

@@ -45,6 +45,10 @@ func CleanupMountPoint(m *mount.SafeFormatAndMount, target string, extensiveMoun
 	return nil
 }
 
+func GetVolumeStats(ctx context.Context, m *mount.SafeFormatAndMount, target string) ([]*csi.VolumeUsage, error) {
+	return []*csi.VolumeUsage{}, nil
+}
+
 func preparePublishPath(path string, m *mount.SafeFormatAndMount) error {
 	return nil
 }

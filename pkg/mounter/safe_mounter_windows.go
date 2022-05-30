@@ -26,12 +26,14 @@ import (
 	filepath "path/filepath"
 	"strings"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	fs "github.com/kubernetes-csi/csi-proxy/client/api/filesystem/v1"
 	fsclient "github.com/kubernetes-csi/csi-proxy/client/groups/filesystem/v1"
 
 	smb "github.com/kubernetes-csi/csi-proxy/client/api/smb/v1"
 	smbclient "github.com/kubernetes-csi/csi-proxy/client/groups/smb/v1"
 
+	vol "github.com/kubernetes-csi/csi-proxy/client/api/volume/v1"
 	volclient "github.com/kubernetes-csi/csi-proxy/client/groups/volume/v1"
 
 	"k8s.io/klog/v2"
@@ -51,6 +53,7 @@ type CSIProxyMounter interface {
 	ExistsPath(path string) (bool, error)
 	GetAPIVersions() string
 	EvalHostSymlinks(pathname string) (string, error)
+	GetVolumeStats(ctx context.Context, path string) (*csi.VolumeUsage, error)
 }
 
 var _ CSIProxyMounter = &csiProxyMounter{}
@@ -229,6 +232,26 @@ func (mounter *csiProxyMounter) ExistsPath(path string) (bool, error) {
 		return false, err
 	}
 	return isExistsResponse.Exists, err
+}
+
+// GetVolumeStats get volume usage
+func (mounter *csiProxyMounter) GetVolumeStats(ctx context.Context, path string) (*csi.VolumeUsage, error) {
+	volIDResp, err := mounter.VolClient.GetVolumeIDFromTargetPath(ctx, &vol.GetVolumeIDFromTargetPathRequest{TargetPath: path})
+	if err != nil || volIDResp == nil {
+		return nil, fmt.Errorf("GetVolumeIDFromMount(%s) failed with error: %v, response: %v", path, err, volIDResp)
+	}
+	klog.V(4).Infof("GetVolumeStats(%s) returned volumeID(%s)", path, volIDResp.VolumeId)
+	resp, err := mounter.VolClient.GetVolumeStats(ctx, &vol.GetVolumeStatsRequest{VolumeId: volIDResp.VolumeId})
+	if err != nil || resp == nil {
+		return nil, fmt.Errorf("GetVolumeStats(%s) failed with error: %v, response: %v", volIDResp.VolumeId, err, resp)
+	}
+	volUsage := &csi.VolumeUsage{
+		Unit:      csi.VolumeUsage_BYTES,
+		Available: resp.TotalBytes - resp.UsedBytes,
+		Total:     resp.TotalBytes,
+		Used:      resp.UsedBytes,
+	}
+	return volUsage, nil
 }
 
 // GetAPIVersions returns the versions of the client APIs this mounter is using.
