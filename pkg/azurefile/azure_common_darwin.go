@@ -20,8 +20,10 @@ limitations under the License.
 package azurefile
 
 import (
+	"context"
 	"os"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	mount "k8s.io/mount-utils"
 )
 
