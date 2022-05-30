@@ -284,9 +284,14 @@ func NewCSIProxyMounterV1Beta() (*csiProxyMounterV1Beta, error) {
 	if err != nil {
 		return nil, err
 	}
+	volClient, err := volclient.NewClient()
+	if err != nil {
+		return nil, err
+	}
 
 	return &csiProxyMounterV1Beta{
 		FsClient:  fsClient,
 		SMBClient: smbClient,
+		VolClient: volClient,
 	}, nil
 }

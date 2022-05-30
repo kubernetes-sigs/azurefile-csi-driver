@@ -755,6 +755,11 @@ func TestNodeGetVolumeStats(t *testing.T) {
 	// Setup
 	_ = makeDir(fakePath, 0755)
 	d := NewFakeDriver()
+	mounter, err := NewFakeMounter()
+	if err != nil {
+		t.Fatalf(fmt.Sprintf("failed to get fake mounter: %v", err))
+	}
+	d.mounter = mounter
 
 	for _, test := range tests {
 		_, err := d.NodeGetVolumeStats(context.Background(), &test.req)
@@ -765,7 +770,7 @@ func TestNodeGetVolumeStats(t *testing.T) {
 	}
 
 	// Clean up
-	err := os.RemoveAll(fakePath)
+	err = os.RemoveAll(fakePath)
 	assert.NoError(t, err)
 }
 

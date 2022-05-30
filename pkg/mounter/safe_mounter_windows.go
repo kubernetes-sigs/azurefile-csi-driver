@@ -306,10 +306,15 @@ func NewCSIProxyMounter() (*csiProxyMounter, error) {
 	if err != nil {
 		return nil, err
 	}
+	volClient, err := volclient.NewClient()
+	if err != nil {
+		return nil, err
+	}
 
 	return &csiProxyMounter{
 		FsClient:  fsClient,
 		SMBClient: smbClient,
+		VolClient: volClient,
 	}, nil
 }
 
