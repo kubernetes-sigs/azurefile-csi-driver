@@ -70,7 +70,14 @@ func GetVolumeStats(ctx context.Context, m *mount.SafeFormatAndMount, target str
 		total     uint64
 		totalFree uint64
 	)
-	if err := windows.GetDiskFreeSpaceEx(windows.StringToUTF16Ptr(target), nil, &total, &totalFree); err != nil {
+	klog.V(4).Infof("call GetVolumeStats on %s", target)
+	dirName, err := windows.UTF16PtrFromString(target)
+	if err != nil {
+		klog.Errorf("UTF16PtrFromString(%s) failed with %v", target, err)
+		return []*csi.VolumeUsage{}, err
+	}
+	if err := windows.GetDiskFreeSpaceEx(dirName, nil, &total, &totalFree); err != nil {
+		klog.Errorf("GetDiskFreeSpaceEx(%s) failed with %v", target, err)
 		return []*csi.VolumeUsage{}, err
 	}
 
