@@ -24,6 +24,7 @@ import (
 	"fmt"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"golang.org/x/sys/windows"
 	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/mounter"
@@ -65,11 +66,22 @@ func CleanupMountPoint(m *mount.SafeFormatAndMount, target string, extensiveMoun
 }
 
 func GetVolumeStats(ctx context.Context, m *mount.SafeFormatAndMount, target string) ([]*csi.VolumeUsage, error) {
-	if proxy, ok := m.Interface.(mounter.CSIProxyMounter); ok {
-		volUsage, err := proxy.GetVolumeStats(ctx, target)
-		return []*csi.VolumeUsage{volUsage}, err
+	var (
+		total     uint64
+		totalFree uint64
+	)
+	if err := windows.GetDiskFreeSpaceEx(windows.StringToUTF16Ptr(target), nil, &total, &totalFree); err != nil {
+		return []*csi.VolumeUsage{}, err
 	}
-	return []*csi.VolumeUsage{}, fmt.Errorf("could not cast to csi proxy class")
+
+	return []*csi.VolumeUsage{
+		{
+			Unit:      csi.VolumeUsage_BYTES,
+			Available: int64(totalFree),
+			Total:     int64(total),
+			Used:      int64(total - totalFree),
+		},
+	}, nil
 }
 
 func removeDir(path string, m *mount.SafeFormatAndMount) error {
