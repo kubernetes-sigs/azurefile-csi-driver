@@ -4,7 +4,7 @@
  - [install Helm](https://helm.sh/docs/intro/quickstart/#install-helm)
 
 ### Tips
- - make controller only run on master node: `--set controller.runOnMaster=true`
+ - make controller only run on control plane node: `--set controller.runOnControlPlane=true`
  - set replica of controller as `1`: `--set controller.replicas=1` (only applied for NFS protocol)
  - specify different cloud config secret for the driver:
    - `--set controller.cloudConfigSecretName`
@@ -87,7 +87,8 @@ The following table lists the configurable parameters of the latest Azure File C
 | `controller.hostNetwork`                          | `hostNetwork` setting on controller driver(could be disabled if controller does not depend on MSI setting)                            | `true`                                                            | `true`, `false`
 | `controller.metricsPort`                          | metrics port of csi-azurefile-controller                   |`29614`                                                        |
 | `controller.livenessProbe.healthPort `            | health check port for liveness probe                   | `29612` |
-| `controller.runOnMaster`                          | run controller on master node                                                          |`false`                                                           |
+| `controller.runOnMaster`                          | run controller on master node(deprecated on k8s 1.25+)                                                          |`false`                                                           |
+| `controller.runOnControlPlane`                    | run controller on control plane node                                                          |`false`                                                           |
 | `controller.attachRequired`                       | enable attach/detach (only valid for vhd disk feature)                                            |`false`                                                           |
 | `controller.logLevel`                             | controller driver log level                                                          |`5`                                                           |
 | `controller.resources.csiProvisioner.limits.memory`   | csi-provisioner memory limits                         | 500Mi                                                          |

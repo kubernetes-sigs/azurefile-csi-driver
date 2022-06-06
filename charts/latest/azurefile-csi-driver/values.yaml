@@ -55,6 +55,7 @@ controller:
   livenessProbe:
     healthPort: 29612
   runOnMaster: false
+  runOnControlPlane: false
   attachRequired: false
   logLevel: 5
   resources:
