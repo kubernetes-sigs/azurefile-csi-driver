@@ -59,6 +59,14 @@ func NewFakeDriver() *Driver {
 	return driver
 }
 
+func NewFakeDriverCustomOptions(opts DriverOptions) *Driver {
+	driverOptions := opts
+	driver := NewDriver(&driverOptions)
+	driver.Name = fakeDriverName
+	driver.Version = vendorVersion
+	return driver
+}
+
 func TestNewFakeDriver(t *testing.T) {
 	driverOptions := DriverOptions{
 		NodeID:     fakeNodeID,

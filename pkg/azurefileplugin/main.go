@@ -51,6 +51,7 @@ var (
 	mountPermissions                       = flag.Uint64("mount-permissions", 0777, "mounted folder permissions")
 	allowInlineVolumeKeyAccessWithIdentity = flag.Bool("allow-inline-volume-key-access-with-identity", false, "allow accessing storage account key using cluster identity for inline volume")
 	fsGroupChangePolicy                    = flag.String("fsgroup-change-policy", "", "indicates how the volume's ownership will be changed by the driver, OnRootMismatch is the default value")
+	enableVHDDiskFeature                   = flag.Bool("enable-vhd", true, "enable VHD disk feature (experimental)")
 )
 
 func main() {
@@ -87,6 +88,7 @@ func handle() {
 		MountPermissions:                       *mountPermissions,
 		AllowInlineVolumeKeyAccessWithIdentity: *allowInlineVolumeKeyAccessWithIdentity,
 		FSGroupChangePolicy:                    *fsGroupChangePolicy,
+		EnableVHDDiskFeature:                   *enableVHDDiskFeature,
 	}
 	driver := azurefile.NewDriver(&driverOptions)
 	if driver == nil {

@@ -184,6 +184,7 @@ type DriverOptions struct {
 	UserAgentSuffix                        string
 	AllowEmptyCloudConfig                  bool
 	AllowInlineVolumeKeyAccessWithIdentity bool
+	EnableVHDDiskFeature                   bool
 	EnableGetVolumeStats                   bool
 	MountPermissions                       uint64
 	FSGroupChangePolicy                    string
@@ -200,6 +201,7 @@ type Driver struct {
 	fsGroupChangePolicy                    string
 	allowEmptyCloudConfig                  bool
 	allowInlineVolumeKeyAccessWithIdentity bool
+	enableVHDDiskFeature                   bool
 	enableGetVolumeStats                   bool
 	mountPermissions                       uint64
 	fileClient                             *azureFileClient
@@ -238,6 +240,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.userAgentSuffix = options.UserAgentSuffix
 	driver.allowEmptyCloudConfig = options.AllowEmptyCloudConfig
 	driver.allowInlineVolumeKeyAccessWithIdentity = options.AllowInlineVolumeKeyAccessWithIdentity
+	driver.enableVHDDiskFeature = options.EnableVHDDiskFeature
 	driver.enableGetVolumeStats = options.EnableGetVolumeStats
 	driver.mountPermissions = options.MountPermissions
 	driver.fsGroupChangePolicy = options.FSGroupChangePolicy
