@@ -24,7 +24,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-08-01/network"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"

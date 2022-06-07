@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-07-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-08-01/network"
 	"github.com/Azure/azure-sdk-for-go/services/privatedns/mgmt/2018-09-01/privatedns"
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-02-01/storage"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -333,8 +333,12 @@ func (az *Cloud) createPrivateEndpoint(ctx context.Context, accountName string, 
 	if err != nil {
 		return err
 	}
-	// Disable the private endpoint network policies before creating private endpoint
-	subnet.SubnetPropertiesFormat.PrivateEndpointNetworkPolicies = network.VirtualNetworkPrivateEndpointNetworkPoliciesDisabled
+	if subnet.SubnetPropertiesFormat == nil {
+		klog.Errorf("SubnetPropertiesFormat of (%s, %s) is nil", vnetName, subnetName)
+	} else {
+		// Disable the private endpoint network policies before creating private endpoint
+		subnet.SubnetPropertiesFormat.PrivateEndpointNetworkPolicies = network.VirtualNetworkPrivateEndpointNetworkPoliciesDisabled
+	}
 	if rerr := az.SubnetsClient.CreateOrUpdate(ctx, vnetResourceGroup, vnetName, subnetName, subnet); rerr != nil {
 		return rerr.Error()
 	}
