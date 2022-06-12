@@ -282,7 +282,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		// NFS protocol does not need account key
 		storeAccountKey = false
 		// reset protocol field (compatble with "fsType: nfs")
-		parameters[protocolField] = protocol
+		setKeyValueInMap(parameters, protocolField, protocol)
 
 		if !createPrivateEndpoint {
 			// set VirtualNetworkResourceIDs for storage account firewall setting
@@ -404,7 +404,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		d.fileClient.StorageEndpointSuffix = storageEndpointSuffix
 	}
 	if createPrivateEndpoint {
-		parameters[serverNameField] = fmt.Sprintf("%s.privatelink.file.%s", accountName, storageEndpointSuffix)
+		setKeyValueInMap(parameters, serverNameField, fmt.Sprintf("%s.privatelink.file.%s", accountName, storageEndpointSuffix))
 	}
 
 	accountOptions.Name = accountName
@@ -485,7 +485,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 		klog.V(2).Infof("create vhd file(%s) size(%d) on share(%s) on account(%s) type(%s) rg(%s) location(%s) successfully",
 			diskName, diskSizeBytes, validFileShareName, account, sku, resourceGroup, location)
-		parameters[diskNameField] = diskName
+		setKeyValueInMap(parameters, diskNameField, diskName)
 	}
 
 	if storeAccountKey && len(req.GetSecrets()) == 0 {
@@ -530,7 +530,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	isOperationSucceeded = true
 
 	// reset secretNamespace field in VolumeContext
-	parameters[secretNamespaceField] = secretNamespace
+	setKeyValueInMap(parameters, secretNamespaceField, secretNamespace)
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
 			VolumeId:      volumeID,
@@ -571,7 +571,7 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 	if len(secret) == 0 && d.useDataPlaneAPI(volumeID, accountName) {
 		reqContext := map[string]string{}
 		if secretNamespace != "" {
-			reqContext[secretNamespaceField] = secretNamespace
+			setKeyValueInMap(reqContext, secretNamespaceField, secretNamespace)
 		}
 
 		// use data plane api, get account key first
@@ -937,7 +937,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 	if len(secrets) == 0 && d.useDataPlaneAPI(volumeID, accountName) {
 		reqContext := map[string]string{}
 		if secretNamespace != "" {
-			reqContext[secretNamespaceField] = secretNamespace
+			setKeyValueInMap(reqContext, secretNamespaceField, secretNamespace)
 		}
 		// use data plane api, get account key first
 		_, _, accountKey, _, _, err := d.GetAccountInfo(ctx, volumeID, secrets, reqContext)
