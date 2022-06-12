@@ -29,7 +29,13 @@ spec:
 {{- end }}
       nodeSelector:
         kubernetes.io/os: windows
+{{- with .Values.windows.nodeSelector }}
+{{ toYaml . | indent 8 }}
+{{- end }}
       affinity:
+{{- with .Values.windows.affinity }}
+{{ toYaml . | indent 8 }}
+{{- end }}
         nodeAffinity:
 {{ toYaml .Values.windows.nodeAffinity | indent 10 }}
       priorityClassName: system-node-critical

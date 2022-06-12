@@ -102,6 +102,8 @@ controller:
         cpu: 10m
         memory: 20Mi
   kubeconfig: ""
+  affinity: {}
+  nodeSelector: {}
   tolerations:
     - key: "node-role.kubernetes.io/master"
       operator: "Exists"
@@ -180,6 +182,8 @@ linux:
         memory: 20Mi
   tolerations:
     - operator: "Exists"
+  nodeSelector: {}
+  affinity: {}
   nodeAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
       nodeSelectorTerms:
@@ -217,6 +221,8 @@ windows:
     - key: "node.kubernetes.io/os"
       operator: "Exists"
       effect: "NoSchedule"
+  nodeSelector: {}
+  affinity: {}
   nodeAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
       nodeSelectorTerms:
