@@ -109,8 +109,10 @@ The following table lists the configurable parameters of the latest Azure File C
 | `controller.resources.azurefile.limits.memory`        | azurefile memory limits                         | 200Mi                                                          |
 | `controller.resources.azurefile.requests.cpu`         | azurefile cpu requests                   | 10m                                                            |
 | `controller.resources.azurefile.requests.memory`      | azurefile memory requests                | 20Mi                                                           |
-| `controller.kubeconfig`                           | configure kubeconfig path on controller node                | '' (empty, use InClusterConfig by default)
-| `controller.tolerations`                          | controller pod tolerations                            |                                                              |
+| `controller.kubeconfig`                               | configure kubeconfig path on controller node                | '' (empty, use InClusterConfig by default)
+| `controller.tolerations`                              | controller pod tolerations                            |                                                              |
+| `controller.affinity`                                 | controller pod affinity                               | `{}`                                                             |
+| `controller.nodeSelector`                             | controller pod node selector                          | `{}`                                                             |
 | `node.cloudConfigSecretName`                      | cloud config secret name of node driver               | `azure-cloud-provider`
 | `node.cloudConfigSecretNamespace`                 | cloud config secret namespace of node driver          | `kube-system`
 | `node.allowEmptyCloudConfig`                      | Whether allow running node driver without cloud config          | `true`
@@ -139,6 +141,8 @@ The following table lists the configurable parameters of the latest Azure File C
 | `linux.distro`                                    | configure ssl certificates for different Linux distribution(available values: `debian`, `fedora`)                  |
 | `linux.mountPermissions`                          | mounted folder permissions                 | `0777`
 | `linux.tolerations`                               | linux node driver tolerations                            |
+| `linux.affinity`                                  | linux node pod affinity                                     | `{}`                                                             |
+| `linux.nodeSelector`                              | linux node pod node selector                                | `{}`                                                             |
 | `linux.resources.livenessProbe.limits.memory`          | liveness-probe memory limits                          | 100Mi                                                          |
 | `linux.resources.livenessProbe.requests.cpu`           | liveness-probe cpu requests                    | 10m                                                            |
 | `linux.resources.livenessProbe.requests.memory`        | liveness-probe memory requests                 | 20Mi                                                           |
@@ -153,6 +157,8 @@ The following table lists the configurable parameters of the latest Azure File C
 | `windows.kubelet`                                 | configure kubelet directory path on Windows agent node                | `'C:\var\lib\kubelet'`                                            |
 | `windows.kubeconfig`                              | configure kubeconfig path on Windows agent node                | `'C:\k\config'`                                            |
 | `windows.tolerations`                             | windows node driver tolerations                            |                                                              |
+| `windows.affinity`                                | windows node pod affinity                                     | `{}`                                                             |
+| `windows.nodeSelector`                            | windows node pod node selector                                | `{}`                                                             |
 | `windows.resources.livenessProbe.limits.memory`          | liveness-probe memory limits                          | 100Mi                                                          |
 | `windows.resources.livenessProbe.requests.cpu`           | liveness-probe cpu requests                    | 10m                                                            |
 | `windows.resources.livenessProbe.requests.memory`        | liveness-probe memory requests                 | 40Mi                                                           |

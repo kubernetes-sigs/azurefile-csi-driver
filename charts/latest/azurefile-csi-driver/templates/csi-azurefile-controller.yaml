@@ -22,6 +22,9 @@ spec:
       serviceAccountName: {{ .Values.serviceAccount.controller }}
       nodeSelector:
         kubernetes.io/os: linux
+{{- with .Values.controller.nodeSelector }}
+{{ toYaml . | indent 8 }}
+{{- end }}
         {{- if .Values.controller.runOnMaster}}
         node-role.kubernetes.io/master: ""
         {{- end}}

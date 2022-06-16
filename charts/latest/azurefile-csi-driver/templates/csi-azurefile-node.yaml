@@ -27,7 +27,13 @@ spec:
       serviceAccountName: {{ .Values.serviceAccount.node }}
       nodeSelector:
         kubernetes.io/os: linux
+{{- with .Values.linux.nodeSelector }}
+{{ toYaml . | indent 8 }}
+{{- end }}
       affinity:
+{{- with .Values.linux.affinity }}
+{{ toYaml . | indent 8 }}
+{{- end }}
         nodeAffinity:
 {{ toYaml .Values.linux.nodeAffinity | indent 10 }}
       priorityClassName: system-node-critical
