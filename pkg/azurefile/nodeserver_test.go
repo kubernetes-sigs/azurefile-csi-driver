@@ -357,7 +357,7 @@ func TestNodeStageVolume(t *testing.T) {
 		sourceTest             = testutil.GetWorkDirPath("source_test", t)
 		azureStagingTargetPath = testutil.GetWorkDirPath("azure.go", t)
 		proxyMountPath         = testutil.GetWorkDirPath("proxy-mount", t)
-		testDiskPath           = fmt.Sprintf("%s/test_disk", proxyMountPath)
+		testDiskPath           = fmt.Sprintf("%s/test_disk.vhd", proxyMountPath)
 	)
 
 	volContextEmptyDiskName := map[string]string{
@@ -368,27 +368,27 @@ func TestNodeStageVolume(t *testing.T) {
 	}
 	volContextEmptyShareName := map[string]string{
 		fsTypeField:     "smb",
-		diskNameField:   "test_disk",
+		diskNameField:   "test_disk.vhd",
 		shareNameField:  "test_sharename",
 		serverNameField: "",
 	}
 	volContextNfs := map[string]string{
 		fsTypeField:           "nfs",
-		diskNameField:         "test_disk",
+		diskNameField:         "test_disk.vhd",
 		shareNameField:        "test_sharename",
 		serverNameField:       "test_servername",
 		mountPermissionsField: "0755",
 	}
 	volContext := map[string]string{
 		fsTypeField:           "smb",
-		diskNameField:         "test_disk",
+		diskNameField:         "test_disk.vhd",
 		shareNameField:        "test_sharename",
 		serverNameField:       "test_servername",
 		mountPermissionsField: "0755",
 	}
 	volContextFsType := map[string]string{
 		fsTypeField:     "ext4",
-		diskNameField:   "test_disk",
+		diskNameField:   "test_disk.vhd",
 		shareNameField:  "test_sharename",
 		serverNameField: "test_servername",
 	}
