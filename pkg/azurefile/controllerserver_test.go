@@ -494,7 +494,7 @@ func TestCreateVolume(t *testing.T) {
 					storageAccountField:               "",
 					resourceGroupField:                "rg",
 					shareNameField:                    "",
-					diskNameField:                     "diskname",
+					diskNameField:                     "diskname.vhd",
 					fsTypeField:                       "",
 					storeAccountKeyField:              "storeaccountkey",
 					secretNamespaceField:              "secretnamespace",
@@ -568,7 +568,7 @@ func TestCreateVolume(t *testing.T) {
 					storageAccountField:  "",
 					resourceGroupField:   "rg",
 					shareNameField:       "",
-					diskNameField:        "diskname",
+					diskNameField:        "diskname.vhd",
 					fsTypeField:          "",
 					storeAccountKeyField: "storeaccountkey",
 					secretNamespaceField: "secretnamespace",
@@ -691,7 +691,7 @@ func TestCreateVolume(t *testing.T) {
 					storageAccountField:               "stoacc",
 					resourceGroupField:                "rg",
 					shareNameField:                    "",
-					diskNameField:                     "diskname",
+					diskNameField:                     "diskname.vhd",
 					fsTypeField:                       "",
 					storeAccountKeyField:              "storeaccountkey",
 					secretNamespaceField:              "secretnamespace",
@@ -858,7 +858,7 @@ func TestCreateVolume(t *testing.T) {
 					storageAccountField:     "stoacc",
 					resourceGroupField:      "rg",
 					shareNameField:          "",
-					diskNameField:           "diskname",
+					diskNameField:           "diskname.vhd",
 					fsTypeField:             "",
 					storeAccountKeyField:    "storeaccountkey",
 					secretNamespaceField:    "default",
@@ -1049,7 +1049,7 @@ func TestCreateVolume(t *testing.T) {
 					storageAccountField:     "stoacc",
 					resourceGroupField:      "rg",
 					shareNameField:          "",
-					diskNameField:           "diskname",
+					diskNameField:           "diskname.vhd",
 					fsTypeField:             "",
 					storeAccountKeyField:    "storeaccountkey",
 					secretNamespaceField:    "default",
@@ -1173,7 +1173,7 @@ func TestDeleteVolume(t *testing.T) {
 			name: "Delete file share returns error",
 			testFunc: func(t *testing.T) {
 				req := &csi.DeleteVolumeRequest{
-					VolumeId: "vol_1#f5713de20cde511e8ba4900#fileshare#diskname#",
+					VolumeId: "vol_1#f5713de20cde511e8ba4900#fileshare#diskname.vhd#",
 					Secrets:  map[string]string{},
 				}
 
@@ -1204,7 +1204,7 @@ func TestDeleteVolume(t *testing.T) {
 			name: "Valid request",
 			testFunc: func(t *testing.T) {
 				req := &csi.DeleteVolumeRequest{
-					VolumeId: "vol_1#f5713de20cde511e8ba4900#fileshare#diskname#",
+					VolumeId: "vol_1#f5713de20cde511e8ba4900#fileshare#diskname.vhd#",
 					Secrets:  map[string]string{},
 				}
 
@@ -1355,7 +1355,7 @@ func TestValidateVolumeCapabilities(t *testing.T) {
 		{
 			desc: "Valid request volume capability is multi node single writer",
 			req: csi.ValidateVolumeCapabilitiesRequest{
-				VolumeId:           "vol_1#f5713de20cde511e8ba4900#fileshare#diskname#",
+				VolumeId:           "vol_1#f5713de20cde511e8ba4900#fileshare#diskname.vhd#",
 				VolumeCapabilities: multiNodeVolCap,
 			},
 			expectedErr:        nil,
@@ -1364,7 +1364,7 @@ func TestValidateVolumeCapabilities(t *testing.T) {
 		{
 			desc: "Valid request",
 			req: csi.ValidateVolumeCapabilitiesRequest{
-				VolumeId:           "vol_1#f5713de20cde511e8ba4900#fileshare#diskname#",
+				VolumeId:           "vol_1#f5713de20cde511e8ba4900#fileshare#diskname.vhd#",
 				VolumeCapabilities: stdVolCap,
 			},
 			expectedErr:        nil,
@@ -1373,11 +1373,11 @@ func TestValidateVolumeCapabilities(t *testing.T) {
 		{
 			desc: "Resource group empty",
 			req: csi.ValidateVolumeCapabilitiesRequest{
-				VolumeId:           "vol_1#f5713de20cde511e8ba4900#fileshare#diskname#",
+				VolumeId:           "vol_1#f5713de20cde511e8ba4900#fileshare#diskname.vhd#",
 				VolumeCapabilities: stdVolCap,
 				VolumeContext: map[string]string{
 					shareNameField: "sharename",
-					diskNameField:  "diskname",
+					diskNameField:  "diskname.vhd",
 				},
 			},
 			expectedErr:        nil,
@@ -1487,25 +1487,25 @@ func TestControllerPublishVolume(t *testing.T) {
 		{
 			desc: "Get account info returns error",
 			req: &csi.ControllerPublishVolumeRequest{
-				VolumeId:         "vol_2#f5713de20cde511e8ba4900#fileshare#diskname",
+				VolumeId:         "vol_2#f5713de20cde511e8ba4900#fileshare#diskname.vhd",
 				VolumeCapability: &stdVolCap,
 				NodeId:           "vm3",
 			},
-			expectedErr: status.Error(codes.InvalidArgument, "GetAccountInfo(vol_2#f5713de20cde511e8ba4900#fileshare#diskname) failed with error: Retriable: false, RetryAfter: 0s, HTTPStatusCode: 502, RawError: instance not found"),
+			expectedErr: status.Error(codes.InvalidArgument, "GetAccountInfo(vol_2#f5713de20cde511e8ba4900#fileshare#diskname.vhd) failed with error: Retriable: false, RetryAfter: 0s, HTTPStatusCode: 502, RawError: instance not found"),
 		},
 		{
 			desc: "Unsupported access mode",
 			req: &csi.ControllerPublishVolumeRequest{
-				VolumeId:         "vol_1#f5713de20cde511e8ba4900#fileshare#diskname",
+				VolumeId:         "vol_1#f5713de20cde511e8ba4900#fileshare#diskname.vhd",
 				VolumeCapability: &multiWriterVolCap,
 				NodeId:           "vm3",
 			},
-			expectedErr: status.Error(codes.InvalidArgument, "unsupported AccessMode(mode:MULTI_NODE_MULTI_WRITER ) for volume(vol_1#f5713de20cde511e8ba4900#fileshare#diskname)"),
+			expectedErr: status.Error(codes.InvalidArgument, "unsupported AccessMode(mode:MULTI_NODE_MULTI_WRITER ) for volume(vol_1#f5713de20cde511e8ba4900#fileshare#diskname.vhd)"),
 		},
 		{
 			desc: "Read only access mode",
 			req: &csi.ControllerPublishVolumeRequest{
-				VolumeId:         "vol_1#f5713de20cde511e8ba4900#fileshare#diskname",
+				VolumeId:         "vol_1#f5713de20cde511e8ba4900#fileshare#diskname.vhd",
 				VolumeCapability: &readOnlyVolCap,
 				NodeId:           "vm3",
 			},
@@ -1576,11 +1576,11 @@ func TestControllerUnpublishVolume(t *testing.T) {
 		{
 			desc: "Get account info returns error",
 			req: &csi.ControllerUnpublishVolumeRequest{
-				VolumeId: "vol_2#f5713de20cde511e8ba4901#fileshare#diskname#",
+				VolumeId: "vol_2#f5713de20cde511e8ba4901#fileshare#diskname.vhd#",
 				NodeId:   fakeNodeID,
 				Secrets:  map[string]string{},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, "GetAccountInfo(vol_2#f5713de20cde511e8ba4901#fileshare#diskname#) failed with error: Retriable: false, RetryAfter: 0s, HTTPStatusCode: 502, RawError: instance not found"),
+			expectedErr: status.Error(codes.InvalidArgument, "GetAccountInfo(vol_2#f5713de20cde511e8ba4901#fileshare#diskname.vhd#) failed with error: Retriable: false, RetryAfter: 0s, HTTPStatusCode: 502, RawError: instance not found"),
 		},
 	}
 
@@ -1802,7 +1802,7 @@ func TestControllerExpandVolume(t *testing.T) {
 				}
 				clientSet := fake.NewSimpleClientset()
 				req := &csi.ControllerExpandVolumeRequest{
-					VolumeId:      "vol_1#f5713de20cde511e8ba4900#filename#diskname#",
+					VolumeId:      "vol_1#f5713de20cde511e8ba4900#filename#diskname.vhd#",
 					CapacityRange: stdCapRange,
 				}
 
@@ -1813,7 +1813,7 @@ func TestControllerExpandVolume(t *testing.T) {
 				d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
 				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), "vol_1", gomock.Any()).Return(key, nil).AnyTimes()
 
-				expectErr := status.Error(codes.Unimplemented, "vhd disk volume(vol_1#f5713de20cde511e8ba4900#filename#diskname#) is not supported on ControllerExpandVolume")
+				expectErr := status.Error(codes.Unimplemented, "vhd disk volume(vol_1#f5713de20cde511e8ba4900#filename#diskname.vhd#) is not supported on ControllerExpandVolume")
 				_, err := d.ControllerExpandVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectErr) {
 					t.Errorf("Unexpected error: %v", err)
