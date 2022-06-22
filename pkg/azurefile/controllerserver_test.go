@@ -1813,10 +1813,10 @@ func TestControllerExpandVolume(t *testing.T) {
 				d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
 				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), "vol_1", gomock.Any()).Return(key, nil).AnyTimes()
 
-				expectErr := status.Error(codes.Unimplemented, "vhd disk volume(vol_1#f5713de20cde511e8ba4900#filename#diskname.vhd#) is not supported on ControllerExpandVolume")
+				expectErr := status.Error(codes.Unimplemented, "vhd disk volume(vol_1#f5713de20cde511e8ba4900#filename#diskname.vhd#, diskName:diskname.vhd) is not supported on ControllerExpandVolume")
 				_, err := d.ControllerExpandVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectErr) {
-					t.Errorf("Unexpected error: %v", err)
+					t.Errorf("Unexpected error: %v, expected error: %v", err, expectErr)
 				}
 			},
 		},
@@ -1881,7 +1881,7 @@ func TestControllerExpandVolume(t *testing.T) {
 				}
 				clientSet := fake.NewSimpleClientset()
 				req := &csi.ControllerExpandVolumeRequest{
-					VolumeId:      "vol_1#f5713de20cde511e8ba4900#filename#",
+					VolumeId:      "capz-d18sqm#f25f6e46c62274a4a8e433a#pvc-66ced8fb-a027-4eb6-87ca-e720ff36f683#pvc-66ced8fb-a027-4eb6-87ca-e720ff36f683#azurefile-2546",
 					CapacityRange: stdCapRange,
 				}
 
@@ -1890,7 +1890,7 @@ func TestControllerExpandVolume(t *testing.T) {
 				d.cloud.StorageAccountClient = mockStorageAccountsClient
 				d.cloud.KubeClient = clientSet
 				d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
-				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), "vol_1", gomock.Any()).Return(key, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), "capz-d18sqm", gomock.Any()).Return(key, nil).AnyTimes()
 				mockFileClient := mockfileclient.NewMockInterface(ctrl)
 				mockFileClient.EXPECT().ResizeFileShare(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 				shareQuota := int32(0)

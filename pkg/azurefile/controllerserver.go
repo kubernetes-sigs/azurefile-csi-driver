@@ -921,7 +921,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 	}
 	if strings.HasSuffix(diskName, vhdSuffix) {
 		// todo: figure out how to support vhd disk resize
-		return nil, status.Error(codes.Unimplemented, fmt.Sprintf("vhd disk volume(%s) is not supported on ControllerExpandVolume", volumeID))
+		return nil, status.Error(codes.Unimplemented, fmt.Sprintf("vhd disk volume(%s, diskName:%s) is not supported on ControllerExpandVolume", volumeID, diskName))
 	}
 	if resourceGroupName == "" {
 		resourceGroupName = d.cloud.ResourceGroup
