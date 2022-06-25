@@ -169,6 +169,8 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	// since it's ext4 by default on Linux
 	var fsType, server, protocol, ephemeralVolMountOptions, storageEndpointSuffix, folderName string
 	var ephemeralVol bool
+	fileShareNameReplaceMap := map[string]string{}
+
 	mountPermissions := d.mountPermissions
 	performChmodOp := (mountPermissions > 0)
 	fsGroupChangePolicy := d.fsGroupChangePolicy
@@ -193,6 +195,12 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			storageEndpointSuffix = v
 		case fsGroupChangePolicyField:
 			fsGroupChangePolicy = v
+		case pvcNamespaceKey:
+			fileShareNameReplaceMap[pvcNamespaceMetadata] = v
+		case pvcNameKey:
+			fileShareNameReplaceMap[pvcNameMetadata] = v
+		case pvNameKey:
+			fileShareNameReplaceMap[pvNameMetadata] = v
 		case mountPermissionsField:
 			if v != "" {
 				var err error
@@ -237,6 +245,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			storageEndpointSuffix = defaultStorageEndPointSuffix
 		}
 	}
+
+	// replace pv/pvc name namespace metadata in fileShareName
+	fileShareName = replaceWithMap(fileShareName, fileShareNameReplaceMap)
 
 	osSeparator := string(os.PathSeparator)
 	if strings.TrimSpace(server) == "" {

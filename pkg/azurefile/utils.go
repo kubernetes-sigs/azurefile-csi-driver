@@ -255,3 +255,13 @@ func setKeyValueInMap(m map[string]string, key, value string) {
 	}
 	m[key] = value
 }
+
+// replaceWithMap replace key with value for str
+func replaceWithMap(str string, m map[string]string) string {
+	for k, v := range m {
+		if k != "" {
+			str = strings.ReplaceAll(str, k, v)
+		}
+	}
+	return str
+}
