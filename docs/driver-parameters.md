@@ -78,11 +78,18 @@ nodeStageSecretRef.namespace | secret namespace | k8s namespace  |  Yes  |
 --- | **Following parameters are only for NFS protocol** | --- | --- |
 fsGroupChangePolicy | indicates how volume's ownership will be changed by the driver, pod `securityContext.fsGroupChangePolicy` is ignored  | `OnRootMismatch`(by default), `Always`, `None` | No | `OnRootMismatch`
 volumeAttributes.mountPermissions | mounted folder permissions. The default is `0777` |  | No |
- - Note
-   - only mounting Azure File using SMB protocol requires account key, and if secret is not provided in PV config, it would try to get `azure-storage-account-{accountname}-secret` in the pod namespace, if not found, it would try using kubelet identity to get account key directly using Azure API.
-   - mounting Azure File using NFS protocol does not need account key, it requires storage account configured with same vnet with agent node.
 
  - create a Kubernetes secret for `nodeStageSecretRef.name`
  ```console
 kubectl create secret generic azure-storage-account-{accountname}-secret --from-literal=azurestorageaccountname="xxx" --from-literal azurestorageaccountkey="xxx" --type=Opaque
  ```
+
+### Tips
+  - only mounting Azure SMB File share requires account key, and if secret is not provided in PV config, it would try to get `azure-storage-account-{accountname}-secret` in the pod namespace, if not found, it would try using kubelet identity to get account key directly using Azure API.
+  - mounting Azure NFS File share does not require account key, storage account needs to be configured with same vnet with agent node.
+
+#### `shareName` parameter supports following pv/pvc metadata transform
+> if `shareName` value contains following strings, it would be converted into corresponding pv/pvc name or namespace
+ - `${pvc.metadata.name}`
+ - `${pvc.metadata.namespace}`
+ - `${pv.metadata.name}`

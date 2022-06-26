@@ -223,6 +223,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			scParameters["allowBlobPublicAccess"] = "false"
 			scParameters["accessTier"] = "TransactionOptimized"
 			scParameters["matchTags"] = "true"
+			scParameters["shareName"] = "sharename-${pvc.metadata.name}"
 		}
 		test := testsuites.DynamicallyProvisionedCollocatedPodTest{
 			CSIDriver:              testDriver,
