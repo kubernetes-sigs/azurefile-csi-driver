@@ -53,11 +53,11 @@ The following table lists the configurable parameters of the latest Azure File C
 | `driver.azureGoSDKLogLevel`                       | [Azure go sdk log level](https://github.com/Azure/azure-sdk-for-go/blob/main/documentation/previous-versions-quickstart.md#built-in-basic-requestresponse-logging)  | ``(no logs), `DEBUG`, `INFO`, `WARNING`, `ERROR`, [etc](https://github.com/Azure/go-autorest/blob/50e09bb39af124f28f29ba60efde3fa74a4fe93f/logger/logger.go#L65-L73). |
 | `feature.enableGetVolumeStats`                    | allow GET_VOLUME_STATS on agent node                       | `true`                      |
 | `image.baseRepo`                                  | base repository of driver images                           | `mcr.microsoft.com`                      |
-| `image.azurefile.repository`                      | azurefile-csi-driver docker image                          | `/k8s/csi/azurefile-csi`                            |
-| `image.azurefile.tag`                             | azurefile-csi-driver docker image tag                      | `latest`                                                            |
+| `image.azurefile.repository`                      | azurefile-csi-driver docker image                          | `/oss/kubernetes-csi/azurefile-csi`                            |
+| `image.azurefile.tag`                             | azurefile-csi-driver docker image tag                      | ``                                                            |
 | `image.azurefile.pullPolicy`                      | azurefile-csi-driver image pull policy                     | `IfNotPresent`                                                      |
 | `image.csiProvisioner.repository`                 | csi-provisioner docker image                               | `/oss/kubernetes-csi/csi-provisioner`              |
-| `image.csiProvisioner.tag`                        | csi-provisioner docker image tag                           | `v3.1.1`                                                            |
+| `image.csiProvisioner.tag`                        | csi-provisioner docker image tag                           | `v3.2.0`                                                            |
 | `image.csiProvisioner.pullPolicy`                 | csi-provisioner image pull policy                          | `IfNotPresent`                                                      |
 | `image.csiAttacher.repository`                    | csi-attacher docker image                                  | `/oss/kubernetes-csi/csi-attacher`                 |
 | `image.csiAttacher.tag`                           | csi-attacher docker image tag                              | `v3.5.0`                                                            |
