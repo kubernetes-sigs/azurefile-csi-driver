@@ -1,6 +1,5 @@
 ## CSI driver debug tips
 ### case#1: volume create/delete issue
-> skip this step on AKS since CSI driver controller is managed by AKS
  - locate csi driver pod
 ```console
 kubectl get po -o wide -n kube-system | grep csi-azurefile-controller
