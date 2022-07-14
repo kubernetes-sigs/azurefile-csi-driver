@@ -367,7 +367,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			// search in cache first
 			cache, err := d.accountSearchCache.Get(lockKey, azcache.CacheReadTypeDefault)
 			if err != nil {
-				status.Errorf(codes.Internal, err.Error())
+				return nil, status.Errorf(codes.Internal, err.Error())
 			}
 			if cache != nil {
 				accountName = cache.(string)
@@ -457,7 +457,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			d.volumeLocks.Release(volName)
 			// clean search cache
 			if err := d.accountSearchCache.Delete(lockKey); err != nil {
-				status.Errorf(codes.Internal, err.Error())
+				return nil, status.Errorf(codes.Internal, err.Error())
 			}
 			// remove the volName from the volMap to stop it matching the same storage account
 			d.volMap.Delete(volName)
