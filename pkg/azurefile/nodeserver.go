@@ -103,7 +103,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	}
 
 	if err = preparePublishPath(target, d.mounter); err != nil {
-		return nil, fmt.Errorf("prepare publish failed for %s with error: %v", target, err)
+		return nil, status.Errorf(codes.Internal, "prepare publish failed for %s with error: %v", target, err)
 	}
 
 	klog.V(2).Infof("NodePublishVolume: mounting %s at %s with mountOptions: %v", source, target, mountOptions)
@@ -313,7 +313,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			mountFsType = nfs
 		}
 		if err := prepareStagePath(cifsMountPath, d.mounter); err != nil {
-			return nil, fmt.Errorf("prepare stage path failed for %s with error: %v", cifsMountPath, err)
+			return nil, status.Errorf(codes.Internal, "prepare stage path failed for %s with error: %v", cifsMountPath, err)
 		}
 		if err := wait.PollImmediate(1*time.Second, 2*time.Minute, func() (bool, error) {
 			return true, SMBMount(d.mounter, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions)

@@ -333,7 +333,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	tags, err := ConvertTagsToMap(customTags)
 	if err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	accountOptions := &azure.AccountOptions{
@@ -367,7 +367,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			// search in cache first
 			cache, err := d.accountSearchCache.Get(lockKey, azcache.CacheReadTypeDefault)
 			if err != nil {
-				return nil, err
+				status.Errorf(codes.Internal, err.Error())
 			}
 			if cache != nil {
 				accountName = cache.(string)
@@ -415,7 +415,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if len(secret) == 0 && useDataPlaneAPI {
 		if accountKey == "" {
 			if accountKey, err = d.GetStorageAccesskey(ctx, accountOptions, secret, secretName, secretNamespace); err != nil {
-				return nil, fmt.Errorf("failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
+				return nil, status.Errorf(codes.Internal, "failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
 			}
 		}
 		secret = createStorageAccountSecret(accountName, accountKey)
@@ -457,20 +457,20 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			d.volumeLocks.Release(volName)
 			// clean search cache
 			if err := d.accountSearchCache.Delete(lockKey); err != nil {
-				return nil, err
+				status.Errorf(codes.Internal, err.Error())
 			}
 			// remove the volName from the volMap to stop it matching the same storage account
 			d.volMap.Delete(volName)
 			return d.CreateVolume(ctx, req)
 		}
-		return nil, fmt.Errorf("failed to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d), error: %v", validFileShareName, account, sku, resourceGroup, location, fileShareSize, err)
+		return nil, status.Errorf(codes.Internal, "failed to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d), error: %v", validFileShareName, account, sku, resourceGroup, location, fileShareSize, err)
 	}
 	klog.V(2).Infof("create file share %s on storage account %s successfully", validFileShareName, accountName)
 
 	if isDiskFsType(fsType) && !strings.HasSuffix(diskName, vhdSuffix) {
 		if accountKey == "" {
 			if accountKey, err = d.GetStorageAccesskey(ctx, accountOptions, req.GetSecrets(), secretName, secretNamespace); err != nil {
-				return nil, fmt.Errorf("failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
+				return nil, status.Errorf(codes.Internal, "failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
 			}
 		}
 		if fileShareName == "" {
@@ -503,7 +503,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		if !useSeretCache {
 			if accountKey == "" {
 				if accountKey, err = d.GetStorageAccesskey(ctx, accountOptions, req.GetSecrets(), secretName, secretNamespace); err != nil {
-					return nil, fmt.Errorf("failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
+					return nil, status.Errorf(codes.Internal, "failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
 				}
 			}
 			storeSecretName, err := d.SetAzureCredentials(ctx, accountName, accountKey, secretName, secretNamespace)
