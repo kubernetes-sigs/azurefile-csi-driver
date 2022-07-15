@@ -209,7 +209,7 @@ windows:
       limits:
         memory: 100Mi
       requests:
-        cpu: 10m
+        cpu: 30m
         memory: 40Mi
     azurefile:
       limits:
