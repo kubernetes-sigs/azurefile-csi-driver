@@ -1,6 +1,6 @@
 ## NFS support
 [NFS 4.1 support for Azure Files](https://docs.microsoft.com/en-us/azure/storage/files/files-nfs-protocol) is optimized for random access workloads with in-place data updates and provides full POSIX file system support. This page shows how to use NFS feature by Azure File CSI driver on Azure Kubernetes cluster.
-
+- [Compare access to Azure Files, Blob Storage, and Azure NetApp Files with NFS](https://docs.microsoft.com/en-us/azure/storage/common/nfs-comparison)
 - supported OS: Linux
 
 #### Prerequisite
