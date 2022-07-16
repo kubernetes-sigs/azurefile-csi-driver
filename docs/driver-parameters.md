@@ -87,7 +87,7 @@ kubectl create secret generic azure-storage-account-{accountname}-secret --from-
   - only mounting Azure SMB File share requires account key, and if secret is not provided in PV config, it would try to get `azure-storage-account-{accountname}-secret` in the pod namespace, if not found, it would try using kubelet identity to get account key directly using Azure API.
   - mounting Azure NFS File share does not require account key, storage account needs to be configured with same vnet with agent node.
 
-#### `shareName` parameter supports following pv/pvc metadata convension
+#### `shareName` parameter supports following pv/pvc metadata conversion
 > if `shareName` value contains following strings, it would be converted into corresponding pv/pvc name or namespace
  - `${pvc.metadata.name}`
  - `${pvc.metadata.namespace}`
