@@ -32,6 +32,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-07-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-02-01/storage"
 	azure2 "github.com/Azure/go-autorest/autorest/azure"
+	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -735,6 +736,78 @@ func TestCreateVolume(t *testing.T) {
 
 				expectedErr := status.Errorf(codes.Internal, "FileShareProperties or FileShareProperties.ShareQuota is nil")
 
+				_, err := d.CreateVolume(ctx, req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("test name: %s, Unexpected error: %v, expected error: %v", name, err, expectedErr)
+				}
+			},
+		},
+		{
+			name: "existing file share quota is smaller than request quota",
+			testFunc: func(t *testing.T) {
+				name := "baz"
+				sku := "sku"
+				kind := "StorageV2"
+				location := "centralus"
+				value := "foo bar"
+				accounts := []storage.Account{
+					{Name: &name, Sku: &storage.Sku{Name: storage.SkuName(sku)}, Kind: storage.Kind(kind), Location: &location},
+				}
+				keys := storage.AccountListKeysResult{
+					Keys: &[]storage.AccountKey{
+						{Value: &value},
+					},
+				}
+
+				allParam := map[string]string{
+					storageAccountTypeField:           "premium",
+					locationField:                     "loc",
+					storageAccountField:               "stoacc",
+					resourceGroupField:                "rg",
+					shareNameField:                    "",
+					diskNameField:                     "diskname.vhd",
+					fsTypeField:                       "",
+					storeAccountKeyField:              "storeaccountkey",
+					secretNamespaceField:              "secretnamespace",
+					disableDeleteRetentionPolicyField: "true",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name-crete-file-error",
+					VolumeCapabilities: stdVolCap,
+					CapacityRange:      lessThanPremCapRange,
+					Parameters:         allParam,
+				}
+
+				d := NewFakeDriver()
+				d.cloud = &azure.Cloud{}
+
+				ctrl := gomock.NewController(t)
+				defer ctrl.Finish()
+
+				mockFileClient := mockfileclient.NewMockInterface(ctrl)
+				d.cloud.FileClient = mockFileClient
+
+				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
+				d.cloud.StorageAccountClient = mockStorageAccountsClient
+				d.cloud.CloudProviderBackoff = true
+				d.cloud.ResourceRequestBackoff = wait.Backoff{
+					Steps: 6,
+				}
+
+				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+				mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: to.Int32Ptr(1)}}, nil).AnyTimes()
+
+				d.AddControllerServiceCapabilities(
+					[]csi.ControllerServiceCapability_RPC_Type{
+						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					})
+
+				ctx := context.Background()
+
+				expectedErr := status.Errorf(codes.AlreadyExists, "request file share(random-vol-name-crete-file-error) already exists, but its capacity 1 is smaller than 100")
 				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("test name: %s, Unexpected error: %v, expected error: %v", name, err, expectedErr)
