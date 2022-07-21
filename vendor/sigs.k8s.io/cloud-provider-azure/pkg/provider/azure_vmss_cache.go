@@ -62,9 +62,15 @@ func (ss *ScaleSet) newVMSSCache() (*azcache.TimedCache, error) {
 			return nil, err
 		}
 
+		resourceGroupNotFound := false
 		for _, resourceGroup := range allResourceGroups.List() {
 			allScaleSets, rerr := ss.VirtualMachineScaleSetsClient.List(context.Background(), resourceGroup)
 			if rerr != nil {
+				if rerr.IsNotFound() {
+					klog.Warningf("Skip caching vmss for resource group %s due to error: %v", resourceGroup, rerr.Error())
+					resourceGroupNotFound = true
+					continue
+				}
 				klog.Errorf("VirtualMachineScaleSetsClient.List failed: %v", rerr)
 				return nil, rerr.Error()
 			}
@@ -83,6 +89,23 @@ func (ss *ScaleSet) newVMSSCache() (*azcache.TimedCache, error) {
 			}
 		}
 
+		if resourceGroupNotFound {
+			// gc vmss vm cache when there is resource group not found
+			removed := map[string]bool{}
+			ss.vmssVMCache.Range(func(key, value interface{}) bool {
+				cacheKey := key.(string)
+				vlistIdx := cacheKey[strings.LastIndex(cacheKey, "/")+1:]
+				if _, ok := localCache.Load(vlistIdx); !ok {
+					klog.V(2).Infof("remove vmss %s from cache due to rg not found", cacheKey)
+					removed[cacheKey] = true
+				}
+				return true
+			})
+
+			for key := range removed {
+				ss.vmssVMCache.Delete(key)
+			}
+		}
 		return localCache, nil
 	}
 
@@ -200,11 +223,9 @@ func (ss *ScaleSet) newVMSSVirtualMachinesCache(resourceGroupName, vmssName, cac
 				virtualMachine: &vm,
 				lastUpdate:     time.Now().UTC(),
 			}
-			// set cache entry to nil when the VM is under deleting.
 			if vm.VirtualMachineScaleSetVMProperties != nil &&
 				strings.EqualFold(to.String(vm.VirtualMachineScaleSetVMProperties.ProvisioningState), string(compute.ProvisioningStateDeleting)) {
-				klog.V(4).Infof("VMSS virtualMachine %q is under deleting, setting its cache to nil", computerName)
-				vmssVMCacheEntry.virtualMachine = nil
+				klog.V(4).Infof("VMSS virtualMachine %q is under deleting", computerName)
 			}
 			localCache.Store(computerName, vmssVMCacheEntry)
 
