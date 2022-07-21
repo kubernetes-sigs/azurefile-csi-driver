@@ -105,7 +105,7 @@ github.com/felixge/httpsnoop
 # github.com/fsnotify/fsnotify v1.5.4
 ## explicit; go 1.16
 github.com/fsnotify/fsnotify
-# github.com/go-logr/logr v1.2.0
+# github.com/go-logr/logr v1.2.3
 ## explicit; go 1.16
 github.com/go-logr/logr
 # github.com/gofrs/uuid v4.2.0+incompatible
@@ -294,13 +294,13 @@ github.com/prometheus/procfs/internal/util
 # github.com/rubiojr/go-vhd v0.0.0-20200706105327-02e210299021
 ## explicit
 github.com/rubiojr/go-vhd/vhd
-# github.com/spf13/cobra v1.4.0
+# github.com/spf13/cobra v1.5.0
 ## explicit; go 1.15
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
 github.com/spf13/pflag
-# github.com/stretchr/testify v1.7.2
+# github.com/stretchr/testify v1.8.0
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
 # go.opentelemetry.io/contrib v0.20.0
@@ -547,7 +547,7 @@ gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# k8s.io/api v0.24.1 => k8s.io/api v0.24.0-alpha.4
+# k8s.io/api v0.24.3 => k8s.io/api v0.24.0-alpha.4
 ## explicit; go 1.16
 k8s.io/api/admission/v1
 k8s.io/api/admission/v1beta1
@@ -596,7 +596,7 @@ k8s.io/api/scheduling/v1beta1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apimachinery v0.24.1 => k8s.io/apimachinery v0.24.0-alpha.4
+# k8s.io/apimachinery v0.24.3 => k8s.io/apimachinery v0.24.0-alpha.4
 ## explicit; go 1.16
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
@@ -652,7 +652,7 @@ k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/netutil
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/apiserver v0.24.1 => k8s.io/apiserver v0.24.0-alpha.4
+# k8s.io/apiserver v0.24.3 => k8s.io/apiserver v0.24.0-alpha.4
 ## explicit; go 1.16
 k8s.io/apiserver/pkg/admission
 k8s.io/apiserver/pkg/admission/configuration
@@ -691,7 +691,7 @@ k8s.io/apiserver/pkg/util/feature
 k8s.io/apiserver/pkg/util/webhook
 k8s.io/apiserver/pkg/util/x509metrics
 k8s.io/apiserver/pkg/warning
-# k8s.io/client-go v0.24.1 => k8s.io/client-go v0.24.0-alpha.4
+# k8s.io/client-go v0.24.3 => k8s.io/client-go v0.24.0-alpha.4
 ## explicit; go 1.16
 k8s.io/client-go/applyconfigurations/admissionregistration/v1
 k8s.io/client-go/applyconfigurations/admissionregistration/v1beta1
@@ -980,7 +980,7 @@ k8s.io/client-go/util/keyutil
 k8s.io/client-go/util/retry
 k8s.io/client-go/util/testing
 k8s.io/client-go/util/workqueue
-# k8s.io/cloud-provider v0.24.1 => k8s.io/cloud-provider v0.24.0-alpha.4
+# k8s.io/cloud-provider v0.24.2 => k8s.io/cloud-provider v0.24.0-alpha.4
 ## explicit; go 1.16
 k8s.io/cloud-provider
 k8s.io/cloud-provider/api
@@ -989,7 +989,7 @@ k8s.io/cloud-provider/service/helpers
 k8s.io/cloud-provider/volume
 k8s.io/cloud-provider/volume/errors
 k8s.io/cloud-provider/volume/helpers
-# k8s.io/component-base v0.24.1 => k8s.io/component-base v0.24.0-alpha.4
+# k8s.io/component-base v0.24.3 => k8s.io/component-base v0.24.0-alpha.4
 ## explicit; go 1.16
 k8s.io/component-base/cli/flag
 k8s.io/component-base/config
@@ -999,18 +999,19 @@ k8s.io/component-base/metrics/legacyregistry
 k8s.io/component-base/metrics/testutil
 k8s.io/component-base/traces
 k8s.io/component-base/version
-# k8s.io/component-helpers v0.24.1 => k8s.io/component-helpers v0.24.0-alpha.4
+# k8s.io/component-helpers v0.24.3 => k8s.io/component-helpers v0.24.0-alpha.4
 ## explicit; go 1.16
 k8s.io/component-helpers/node/util
 k8s.io/component-helpers/node/util/sysctl
 k8s.io/component-helpers/scheduling/corev1
 k8s.io/component-helpers/scheduling/corev1/nodeaffinity
 k8s.io/component-helpers/storage/volume
-# k8s.io/klog/v2 v2.60.1
+# k8s.io/klog/v2 v2.70.1
 ## explicit; go 1.13
 k8s.io/klog/v2
 k8s.io/klog/v2/internal/buffer
 k8s.io/klog/v2/internal/clock
+k8s.io/klog/v2/internal/dbg
 k8s.io/klog/v2/internal/serialize
 k8s.io/klog/v2/internal/severity
 # k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42
@@ -1021,7 +1022,7 @@ k8s.io/kube-openapi/pkg/util/proto
 ## explicit; go 1.16
 k8s.io/kubectl/pkg/scale
 k8s.io/kubectl/pkg/util/podutils
-# k8s.io/kubelet v0.24.1 => k8s.io/kubelet v0.24.0-alpha.4
+# k8s.io/kubelet v0.24.2 => k8s.io/kubelet v0.24.0-alpha.4
 ## explicit; go 1.16
 k8s.io/kubelet/pkg/apis/stats/v1alpha1
 # k8s.io/kubernetes v1.24.0-alpha.4
@@ -1117,7 +1118,7 @@ k8s.io/utils/trace
 ## explicit; go 1.17
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client
-# sigs.k8s.io/cloud-provider-azure v0.7.4 => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220607080148-4e6516b6482c
+# sigs.k8s.io/cloud-provider-azure v0.7.4 => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220721071156-49e3ba00fb91
 ## explicit; go 1.18
 sigs.k8s.io/cloud-provider-azure/pkg/auth
 sigs.k8s.io/cloud-provider-azure/pkg/azureclients
@@ -1215,4 +1216,4 @@ sigs.k8s.io/yaml
 # k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.24.0-alpha.4
 # k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.24.0-alpha.4
 # k8s.io/sample-controller => k8s.io/sample-controller v0.24.0-alpha.4
-# sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220607080148-4e6516b6482c
+# sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.7.1-0.20220721071156-49e3ba00fb91
