@@ -28,7 +28,7 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: csi-provisioner
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-provisioner:v3.1.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-provisioner@sha256:542c9258a1441e4927883ea73425e21f9a14043a649686bf6b51700f34c64f8e
           args:
             - "-v=2"
             - "--csi-address=$(ADDRESS)"
@@ -48,7 +48,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: csi-attacher
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-attacher:v3.4.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-attacher@sha256:19fbca01394f7ed80151731180cfde0a3367f038beae2a97cda7928034010057
           args:
             - "-v=2"
             - "-csi-address=$(ADDRESS)"
@@ -67,7 +67,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: csi-snapshotter
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-snapshotter:v5.0.1
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-snapshotter@sha256:a889e925e15f9423f7842f1b769f64cbcf6a20b6956122836fc835cf22d9073f
           args:
             - "-v=2"
             - "-csi-address=$(ADDRESS)"
@@ -85,7 +85,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: csi-resizer
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-resizer:v1.4.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-resizer@sha256:ab6c2e18a4d943f2bf8688e1779622277a1d14c355c9d4bfc0d761d86c5108b3
           args:
             - "-csi-address=$(ADDRESS)"
             - "-v=2"
@@ -106,7 +106,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: liveness-probe
-          image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe@sha256:c96a6255c42766f6b8bb1a7cda02b0060ab1b20b2e2dafcc64ec09e7646745a6
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
@@ -122,7 +122,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: azurefile
-          image: mcr.microsoft.com/k8s/csi/azurefile-csi:v1.12.0
+          image: mcr.microsoft.com/k8s/csi/azurefile-csi@sha256:e48a5045decd1b55480da9ceb8b4ee557c043c9d8c19776998c1424e6f4a5af0
           imagePullPolicy: IfNotPresent
           args:
             - "--v=5"

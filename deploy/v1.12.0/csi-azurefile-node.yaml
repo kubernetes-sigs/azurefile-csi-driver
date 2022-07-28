@@ -39,7 +39,7 @@ spec:
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
-          image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe@sha256:c96a6255c42766f6b8bb1a7cda02b0060ab1b20b2e2dafcc64ec09e7646745a6
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
@@ -52,7 +52,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: node-driver-registrar
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar@sha256:dbec3a8166686b09b242176ab5b99e993da4126438bbce68147c3fd654f35662
           args:
             - --csi-address=$(ADDRESS)
             - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
@@ -82,7 +82,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: azurefile
-          image: mcr.microsoft.com/k8s/csi/azurefile-csi:v1.12.0
+          image: mcr.microsoft.com/k8s/csi/azurefile-csi@sha256:e48a5045decd1b55480da9ceb8b4ee557c043c9d8c19776998c1424e6f4a5af0
           imagePullPolicy: IfNotPresent
           args:
             - "--v=5"
