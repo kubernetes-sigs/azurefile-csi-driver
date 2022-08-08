@@ -111,6 +111,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, accessTier, rootSquashType string
 	var createAccount, useDataPlaneAPI, useSeretCache, disableDeleteRetentionPolicy, enableLFS, matchTags bool
 	var vnetResourceGroup, vnetName, subnetName, shareNamePrefix, fsGroupChangePolicy string
+	var requireInfraEncryption *bool
 	// set allowBlobPublicAccess as false by default
 	allowBlobPublicAccess := to.BoolPtr(false)
 
@@ -204,6 +205,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			subnetName = v
 		case shareNamePrefixField:
 			shareNamePrefix = v
+		case requireInfraEncryptionField:
+			if strings.EqualFold(v, trueValue) {
+				requireInfraEncryption = to.BoolPtr(true)
+			}
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid parameter %q in storage class", k))
 		}
@@ -355,6 +360,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		VNetResourceGroup:                       vnetResourceGroup,
 		VNetName:                                vnetName,
 		SubnetName:                              subnetName,
+		RequireInfrastructureEncryption:         requireInfraEncryption,
 	}
 
 	var accountKey, lockKey string

@@ -128,6 +128,7 @@ const (
 	vnetNameField                     = "vnetname"
 	subnetNameField                   = "subnetname"
 	shareNamePrefixField              = "sharenameprefix"
+	requireInfraEncryptionField       = "requireinfraencryption"
 	premium                           = "premium"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
