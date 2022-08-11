@@ -811,9 +811,9 @@ func (d *Driver) RemoveStorageAccountTag(ctx context.Context, resourceGroup, acc
 }
 
 // GetStorageAccesskey get Azure storage account key from
-// 	1. secrets (if not empty)
-// 	2. use k8s client identity to read from k8s secret
-// 	3. use cluster identity to get from storage account directly
+//  1. secrets (if not empty)
+//  2. use k8s client identity to read from k8s secret
+//  3. use cluster identity to get from storage account directly
 func (d *Driver) GetStorageAccesskey(ctx context.Context, accountOptions *azure.AccountOptions, secrets map[string]string, secretName, secretNamespace string) (string, error) {
 	if len(secrets) > 0 {
 		_, accountKey, err := getStorageAccount(secrets)
