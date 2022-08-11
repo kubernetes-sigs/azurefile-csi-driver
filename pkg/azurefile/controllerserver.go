@@ -1004,7 +1004,7 @@ func (d *Driver) getServiceURL(ctx context.Context, sourceVolumeID string, secre
 // Since `ListSharesSegment` lists all file shares and snapshots, the process of checking existence is divided into two steps.
 // 1. Judge if the specify snapshot name already exists.
 // 2. If it exists, we should judge if its source file share name equals that we specify.
-//    As long as the snapshot already exists, returns true. But when the source is different, an error will be returned.
+// As long as the snapshot already exists, returns true. But when the source is different, an error will be returned.
 func (d *Driver) snapshotExists(ctx context.Context, sourceVolumeID, snapshotName string, secrets map[string]string) (bool, azfile.ShareItem, error) {
 	serviceURL, fileShareName, err := d.getServiceURL(ctx, sourceVolumeID, secrets)
 	if err != nil {
