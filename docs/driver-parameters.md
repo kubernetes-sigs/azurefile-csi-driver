@@ -46,10 +46,11 @@ diskName | existing VHD disk file name | `pvc-062196a6-6436-11ea-ab51-9efb888c0a
 k8s-azure-created-by: azure
 ```
 
- - `volumeHandle` format created by dynamic provisioning
+ - VolumeID(`volumeHandle`) is the identifier of the volume handled by the driver, format of VolumeID: 
 ```
 {resource-group-name}#{account-name}#{file-share-name}#{placeholder}#{uuid}#{secret-namespace}
 ```
+ > `placeholder`, `uuid`, `secret-namespace` are optional
 
  - file share name format created by dynamic provisioning(example)
 ```
