@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-08-01/network"
@@ -200,6 +201,43 @@ func TestCreateVolume(t *testing.T) {
 			},
 		},
 		{
+			name: "Disabled fsType",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{
+					fsTypeField:     "test_fs",
+					secretNameField: "secretname",
+					pvcNamespaceKey: "pvcname",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name-vol-cap-invalid",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         allParam,
+				}
+
+				ctx := context.Background()
+
+				driverOptions := DriverOptions{
+					NodeID:               fakeNodeID,
+					DriverName:           DefaultDriverName,
+					EnableVHDDiskFeature: false,
+				}
+				d := NewFakeDriverCustomOptions(driverOptions)
+
+				d.AddControllerServiceCapabilities(
+					[]csi.ControllerServiceCapability_RPC_Type{
+						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					})
+
+				expectedErr := status.Errorf(codes.InvalidArgument, "fsType storage class parameter enables experimental VDH disk feature which is currently disabled, use --enable-vhd driver option to enable it")
+				_, err := d.CreateVolume(ctx, req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
 			name: "Invalid fsType",
 			testFunc: func(t *testing.T) {
 				allParam := map[string]string{
@@ -257,6 +295,205 @@ func TestCreateVolume(t *testing.T) {
 					})
 
 				expectedErr := status.Errorf(codes.InvalidArgument, "protocol(test_protocol) is not supported, supported protocol list: [smb nfs]")
+				_, err := d.CreateVolume(ctx, req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "Invalid accessTier",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{
+					protocolField:   "smb",
+					accessTierField: "test_accessTier",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name-vol-cap-invalid",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         allParam,
+				}
+
+				ctx := context.Background()
+				d := NewFakeDriver()
+
+				d.AddControllerServiceCapabilities(
+					[]csi.ControllerServiceCapability_RPC_Type{
+						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					})
+
+				expectedErr := status.Errorf(codes.InvalidArgument, "accessTier(test_accessTier) is not supported, supported AccessTier list: [Cool Hot Premium TransactionOptimized]")
+				_, err := d.CreateVolume(ctx, req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "Invalid rootSquashType",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{
+					rootSquashTypeField: "test_rootSquashType",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name-vol-cap-invalid",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         allParam,
+				}
+
+				ctx := context.Background()
+				d := NewFakeDriver()
+
+				d.AddControllerServiceCapabilities(
+					[]csi.ControllerServiceCapability_RPC_Type{
+						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					})
+
+				expectedErr := status.Errorf(codes.InvalidArgument, "rootSquashType(test_rootSquashType) is not supported, supported RootSquashType list: [AllSquash NoRootSquash RootSquash]")
+				_, err := d.CreateVolume(ctx, req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "Invalid fsGroupChangePolicy",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{
+					fsGroupChangePolicyField: "test_fsGroupChangePolicy",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name-vol-cap-invalid",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         allParam,
+				}
+
+				ctx := context.Background()
+				d := NewFakeDriver()
+
+				d.AddControllerServiceCapabilities(
+					[]csi.ControllerServiceCapability_RPC_Type{
+						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					})
+
+				expectedErr := status.Errorf(codes.InvalidArgument, "fsGroupChangePolicy(test_fsGroupChangePolicy) is not supported, supported fsGroupChangePolicy list: [None Always OnRootMismatch]")
+				_, err := d.CreateVolume(ctx, req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "Invalid shareNamePrefix",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{
+					shareNamePrefixField: "-invalid",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name-vol-cap-invalid",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         allParam,
+				}
+
+				ctx := context.Background()
+				d := NewFakeDriver()
+
+				d.AddControllerServiceCapabilities(
+					[]csi.ControllerServiceCapability_RPC_Type{
+						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					})
+
+				expectedErr := status.Errorf(codes.InvalidArgument, "shareNamePrefix(-invalid) can only contain lowercase letters, numbers, hyphens, and length should be less than 21")
+				_, err := d.CreateVolume(ctx, req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "invalid tags format to convert to map",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{
+					skuNameField:               "premium",
+					resourceGroupField:         "rg",
+					tagsField:                  "tags",
+					createAccountField:         "true",
+					useSecretCacheField:        "true",
+					enableLargeFileSharesField: "true",
+					pvcNameKey:                 "pvc",
+					pvNameKey:                  "pv",
+					shareNamePrefixField:       "pre",
+					storageEndpointSuffixField: ".core",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name-vol-cap-invalid",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         allParam,
+				}
+
+				ctx := context.Background()
+				d := NewFakeDriver()
+
+				d.AddControllerServiceCapabilities(
+					[]csi.ControllerServiceCapability_RPC_Type{
+						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					})
+
+				expectedErr := status.Errorf(codes.InvalidArgument, fmt.Errorf("Tags 'tags' are invalid, the format should like: 'key1=value1,key2=value2'").Error())
+				_, err := d.CreateVolume(ctx, req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "failed to GetStorageAccesskey",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{
+					protocolField:            "nfs",
+					networkEndpointTypeField: "privateendpoint",
+					useDataPlaneAPIField:     "true",
+					vnetResourceGroupField:   "",
+					vnetNameField:            "",
+					subnetNameField:          "",
+				}
+				fakeCloud := &azure.Cloud{
+					Config: azure.Config{},
+					Environment: azure2.Environment{
+						StorageEndpointSuffix: "core.windows.net",
+					},
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name-vol-cap-invalid",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         allParam,
+				}
+
+				ctx := context.Background()
+				d := NewFakeDriver()
+				d.cloud = fakeCloud
+				d.volMap = sync.Map{}
+				d.volMap.Store("random-vol-name-vol-cap-invalid", "account")
+				d.fileClient = &azureFileClient{}
+
+				d.AddControllerServiceCapabilities(
+					[]csi.ControllerServiceCapability_RPC_Type{
+						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					})
+
+				expectedErr := status.Errorf(codes.Internal, "failed to GetStorageAccesskey on account(account) rg(), error: StorageAccountClient is nil")
 				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
@@ -1243,10 +1480,38 @@ func TestDeleteVolume(t *testing.T) {
 			},
 		},
 		{
+			name: "failed to get account info",
+			testFunc: func(t *testing.T) {
+				req := &csi.DeleteVolumeRequest{
+					VolumeId: "vol_1#f5713de20cde511e8ba4900#fileshare#diskname.vhd##secret",
+					Secrets:  map[string]string{},
+				}
+
+				ctx := context.Background()
+				d := NewFakeDriver()
+				d.Cap = []*csi.ControllerServiceCapability{
+					{
+						Type: &csi.ControllerServiceCapability_Rpc{
+							Rpc: &csi.ControllerServiceCapability_RPC{Type: csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME},
+						},
+					},
+				}
+				d.dataPlaneAPIVolMap = sync.Map{}
+				d.dataPlaneAPIVolMap.Store("vol_1#f5713de20cde511e8ba4900#fileshare#diskname.vhd##secret", "1")
+				d.cloud = &azure.Cloud{}
+
+				expectedErr := status.Errorf(codes.NotFound, "get account info from(vol_1#f5713de20cde511e8ba4900#fileshare#diskname.vhd##secret) failed with error: could not get account key from secret(azure-storage-account-f5713de20cde511e8ba4900-secret): KubeClient is nil")
+				_, err := d.DeleteVolume(ctx, req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
 			name: "Delete file share returns error",
 			testFunc: func(t *testing.T) {
 				req := &csi.DeleteVolumeRequest{
-					VolumeId: "vol_1#f5713de20cde511e8ba4900#fileshare#diskname.vhd#",
+					VolumeId: "#f5713de20cde511e8ba4900#fileshare#diskname.vhd#",
 					Secrets:  map[string]string{},
 				}
 
@@ -1266,7 +1531,7 @@ func TestDeleteVolume(t *testing.T) {
 				d.cloud.FileClient = mockFileClient
 				mockFileClient.EXPECT().DeleteFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("test error")).Times(1)
 
-				expectedErr := status.Errorf(codes.Internal, "DeleteFileShare fileshare under account(f5713de20cde511e8ba4900) rg(vol_1) failed with error: test error")
+				expectedErr := status.Errorf(codes.Internal, "DeleteFileShare fileshare under account(f5713de20cde511e8ba4900) rg() failed with error: test error")
 				_, err := d.DeleteVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
@@ -1483,6 +1748,7 @@ func TestControllerPublishVolume(t *testing.T) {
 	d.cloud = azure.GetTestCloud(ctrl)
 	d.cloud.Location = "centralus"
 	d.cloud.ResourceGroup = "rg"
+	d.dataPlaneAPIVolMap = sync.Map{}
 	nodeName := "vm1"
 	instanceID := fmt.Sprintf("/subscriptions/subscription/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/%s", nodeName)
 	vm := compute.VirtualMachine{
@@ -1554,6 +1820,9 @@ func TestControllerPublishVolume(t *testing.T) {
 				VolumeId:         "vol_1",
 				VolumeCapability: &stdVolCap,
 				NodeId:           "vm3",
+				VolumeContext: map[string]string{
+					useDataPlaneAPIField: "true",
+				},
 			},
 			expectedErr: nil,
 		},
@@ -1583,6 +1852,15 @@ func TestControllerPublishVolume(t *testing.T) {
 				NodeId:           "vm3",
 			},
 			expectedErr: nil,
+		},
+		{
+			desc: "parse fileURLTemplate error",
+			req: &csi.ControllerPublishVolumeRequest{
+				VolumeId:         "vol_1#^f5713de20cde511e8ba4900#fileshare#diskname.vhd",
+				VolumeCapability: &stdVolCap,
+				NodeId:           "vm3",
+			},
+			expectedErr: status.Error(codes.Internal, fmt.Sprintf("getFileURL(^f5713de20cde511e8ba4900,abc,fileshare,diskname.vhd) returned with error: %v", fmt.Errorf("parse fileURLTemplate error: %v", &url.Error{Op: "parse", URL: "https://^f5713de20cde511e8ba4900.file.abc/fileshare/diskname.vhd", Err: url.InvalidHostError("^")}))),
 		},
 	}
 
@@ -1654,6 +1932,15 @@ func TestControllerUnpublishVolume(t *testing.T) {
 				Secrets:  map[string]string{},
 			},
 			expectedErr: status.Error(codes.InvalidArgument, "GetAccountInfo(vol_2#f5713de20cde511e8ba4901#fileshare#diskname.vhd#) failed with error: Retriable: false, RetryAfter: 0s, HTTPStatusCode: 502, RawError: instance not found"),
+		},
+		{
+			desc: "parse fileURLTemplate error",
+			req: &csi.ControllerUnpublishVolumeRequest{
+				VolumeId: "vol_1#^f5713de20cde511e8ba4900#fileshare#diskname.vhd#",
+				NodeId:   fakeNodeID,
+				Secrets:  map[string]string{},
+			},
+			expectedErr: status.Error(codes.Internal, fmt.Sprintf("getFileURL(^f5713de20cde511e8ba4900,abc,fileshare,diskname.vhd) returned with error: %v", fmt.Errorf("parse fileURLTemplate error: %v", &url.Error{Op: "parse", URL: "https://^f5713de20cde511e8ba4900.file.abc/fileshare/diskname.vhd", Err: url.InvalidHostError("^")}))),
 		},
 	}
 
@@ -1928,6 +2215,50 @@ func TestControllerExpandVolume(t *testing.T) {
 				d.cloud.FileClient = mockFileClient
 
 				expectErr := status.Errorf(codes.Internal, "expand volume error: test error")
+				_, err := d.ControllerExpandVolume(ctx, req)
+				if !reflect.DeepEqual(err, expectErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "get account info failed",
+			testFunc: func(t *testing.T) {
+				d := NewFakeDriver()
+				d.AddControllerServiceCapabilities(
+					[]csi.ControllerServiceCapability_RPC_Type{
+						csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
+					})
+				d.cloud = &azure.Cloud{
+					Config: azure.Config{
+						ResourceGroup: "vol_2",
+					},
+				}
+				d.dataPlaneAPIVolMap = sync.Map{}
+				d.dataPlaneAPIVolMap.Store("#f5713de20cde511e8ba4900#filename##secret", "1")
+
+				ctrl := gomock.NewController(t)
+				defer ctrl.Finish()
+				value := base64.StdEncoding.EncodeToString([]byte("acc_key"))
+				key := storage.AccountListKeysResult{
+					Keys: &[]storage.AccountKey{
+						{Value: &value},
+					},
+				}
+				clientSet := fake.NewSimpleClientset()
+				req := &csi.ControllerExpandVolumeRequest{
+					VolumeId:      "#f5713de20cde511e8ba4900#filename##secret",
+					CapacityRange: stdCapRange,
+				}
+
+				ctx := context.Background()
+				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
+				d.cloud.StorageAccountClient = mockStorageAccountsClient
+				d.cloud.KubeClient = clientSet
+				d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
+				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), "vol_2", gomock.Any()).Return(key, &retry.Error{HTTPStatusCode: http.StatusBadGateway, RawError: cloudprovider.InstanceNotFound}).AnyTimes()
+
+				expectErr := status.Error(codes.NotFound, "get account info from(#f5713de20cde511e8ba4900#filename##secret) failed with error: Retriable: false, RetryAfter: 0s, HTTPStatusCode: 502, RawError: instance not found")
 				_, err := d.ControllerExpandVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectErr) {
 					t.Errorf("Unexpected error: %v", err)
