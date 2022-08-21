@@ -31,7 +31,7 @@ csi-azurefile-node-dr4s4                        3/3     Running   0          7m4
 
  - get pod description and logs
 ```console
-kubectl describe pod csi-azurefile-node-cvgbs -c azurefile -n kube-system > csi-azurefile-node-description.log
+kubectl describe pod csi-azurefile-node-cvgbs -n kube-system > csi-azurefile-node-description.log
 kubectl logs csi-azurefile-node-cvgbs -c azurefile -n kube-system > csi-azurefile-node.log
 ```
 
