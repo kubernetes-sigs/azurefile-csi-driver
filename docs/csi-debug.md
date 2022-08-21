@@ -1,6 +1,6 @@
 ## CSI driver debug tips
 ### case#1: volume create/delete issue
-> This step is not available if you are using managed CSI driver on AKS.
+> This step is not available if you are using [managed CSI driver on AKS](https://docs.microsoft.com/en-us/azure/aks/csi-storage-drivers).
  - find csi driver controller pod
 > There could be multiple controller pods (only one pod is the leader), if there are no helpful logs, try to get logs from the leader controller pod.
 ```console
@@ -12,8 +12,9 @@ csi-azurefile-controller-56bfddd689-dh5tk       5/5     Running   0          35s
 csi-azurefile-controller-56bfddd689-sl4ll       5/5     Running   0          35s     10.240.0.23    k8s-agentpool-22533604-1
 </pre>
 
- - get logs
+ - get pod description and logs
 ```console
+kubectl describe pod csi-azurefile-controller-56bfddd689-dh5tk -n kube-system > csi-azurefile-controller-description.log
 kubectl logs csi-azurefile-controller-56bfddd689-dh5tk -c azurefile -n kube-system > csi-azurefile-controller.log
 ```
 
