@@ -19,6 +19,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"reflect"
@@ -98,7 +99,9 @@ func (az *Cloud) reconcileService(ctx context.Context, clusterName string, servi
 	lbStatus, fipConfig, err := az.getServiceLoadBalancerStatus(service, lb, nil)
 	if err != nil {
 		klog.Errorf("getServiceLoadBalancerStatus(%s) failed: %v", serviceName, err)
-		return nil, err
+		if !errors.Is(err, ErrorNotVmssInstance) {
+			return nil, err
+		}
 	}
 
 	var serviceIP *string
@@ -1070,7 +1073,7 @@ func (az *Cloud) reconcileIPSettings(pip *network.PublicIPAddress, service *v1.S
 	} else {
 		klog.V(2).Infof("service(%s): pip(%s) - creating as ipv4 for clusterIP:%v", serviceName, *pip.Name, service.Spec.ClusterIP)
 
-		if !strings.EqualFold(string(pip.PublicIPAddressVersion), string(network.IPVersionIPv6)) {
+		if !strings.EqualFold(string(pip.PublicIPAddressVersion), string(network.IPVersionIPv4)) {
 			pip.PublicIPAddressVersion = network.IPVersionIPv4
 			changed = true
 		}
@@ -1770,7 +1773,7 @@ func (az *Cloud) reconcileFrontendIPConfigs(clusterName string, service *v1.Serv
 				}
 
 				if !existsSubnet {
-					return nil, toDeleteConfigs, false, fmt.Errorf("ensure(%s): lb(%s) - failed to get subnet: %s/%s", serviceName, lbName, az.VnetName, az.SubnetName)
+					return nil, toDeleteConfigs, false, fmt.Errorf("ensure(%s): lb(%s) - failed to get subnet: %s/%s", serviceName, lbName, az.VnetName, *subnetName)
 				}
 
 				configProperties := network.FrontendIPConfigurationPropertiesFormat{
@@ -2212,7 +2215,7 @@ func (az *Cloud) getExpectedLBRules(
 	return expectedProbes, expectedRules, nil
 }
 
-//getDefaultLoadBalancingRulePropertiesFormat returns the loadbalancing rule for one port
+// getDefaultLoadBalancingRulePropertiesFormat returns the loadbalancing rule for one port
 func (az *Cloud) getExpectedLoadBalancingRulePropertiesForPort(
 	service *v1.Service,
 	lbFrontendIPConfigID string,
@@ -2268,7 +2271,7 @@ func (az *Cloud) getExpectedLoadBalancingRulePropertiesForPort(
 	return props, nil
 }
 
-//getExpectedHAModeLoadBalancingRuleProperties build load balancing rule for lb in HA mode
+// getExpectedHAModeLoadBalancingRuleProperties build load balancing rule for lb in HA mode
 func (az *Cloud) getExpectedHAModeLoadBalancingRuleProperties(
 	service *v1.Service,
 	lbFrontendIPConfigID string,

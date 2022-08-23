@@ -92,8 +92,9 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				"skuName": "Premium_LRS",
 				"tags":    tags,
 				// make sure this is the first test case due to storeAccountKey is set as false
-				"storeAccountKey": "false",
-				"accessTier":      "Premium",
+				"storeAccountKey":        "false",
+				"accessTier":             "Premium",
+				"requireInfraEncryption": "true",
 			},
 			Tags: tags,
 		}

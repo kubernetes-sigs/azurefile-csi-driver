@@ -63,9 +63,9 @@ func checkResourceExistsFromError(err *retry.Error) (bool, *retry.Error) {
 	return false, err
 }
 
-/// getVirtualMachine calls 'VirtualMachinesClient.Get' with a timed cache
-/// The service side has throttling control that delays responses if there are multiple requests onto certain vm
-/// resource request in short period.
+// getVirtualMachine calls 'VirtualMachinesClient.Get' with a timed cache
+// The service side has throttling control that delays responses if there are multiple requests onto certain vm
+// resource request in short period.
 func (az *Cloud) getVirtualMachine(nodeName types.NodeName, crt azcache.AzureCacheReadType) (vm compute.VirtualMachine, err error) {
 	vmName := string(nodeName)
 	cachedVM, err := az.vmCache.Get(vmName, crt)
@@ -405,8 +405,8 @@ func (az *Cloud) IsNodeUnmanagedByProviderID(providerID string) bool {
 	return !azureNodeProviderIDRE.Match([]byte(providerID))
 }
 
-// convertResourceGroupNameToLower converts the resource group name in the resource ID to be lowered.
-func convertResourceGroupNameToLower(resourceID string) (string, error) {
+// ConvertResourceGroupNameToLower converts the resource group name in the resource ID to be lowered.
+func ConvertResourceGroupNameToLower(resourceID string) (string, error) {
 	matches := azureResourceGroupNameRE.FindStringSubmatch(resourceID)
 	if len(matches) != 2 {
 		return "", fmt.Errorf("%q isn't in Azure resource ID format %q", resourceID, azureResourceGroupNameRE.String())
