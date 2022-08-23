@@ -19,6 +19,7 @@ package azurefile
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -110,6 +111,25 @@ func TestCreateFileShare(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "",
+			testFunc: func(t *testing.T) {
+				accountName := "test"
+				accountKey := "dW5pdHRlc3Q="
+				options := &fileclient.ShareOptions{
+					Name:       "devstoreaccount1",
+					RequestGiB: 10,
+				}
+				f := azureFileClient{
+					env: &azure.Environment{},
+				}
+				actualErr := f.CreateFileShare(accountName, accountKey, options)
+				expectedErr := fmt.Errorf("failed to create file share, err: ")
+				if !strings.HasPrefix(actualErr.Error(), expectedErr.Error()) {
+					t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
+				}
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, tc.testFunc)
@@ -132,28 +152,62 @@ func TestDeleteFileShare(t *testing.T) {
 }
 
 func TestResizeFileShare(t *testing.T) {
-	accountName := "ut"
-	accountKey := "dW5pdHRlc3Q="
-	f := azureFileClient{
-		env: &azure.Environment{
-			StorageEndpointSuffix: "ut",
+	testCases := []struct {
+		name     string
+		testFunc func(t *testing.T)
+	}{
+		{
+			name: "invalid account name",
+			testFunc: func(t *testing.T) {
+				accountName := "ut"
+				accountKey := "dW5pdHRlc3Q="
+				f := azureFileClient{
+					env: &azure.Environment{
+						StorageEndpointSuffix: "ut",
+					},
+				}
+				actualErr := f.resizeFileShare(accountName, accountKey, "", 10)
+				expectedErr := fmt.Errorf("error creating azure client: azure: account name is not valid: it must be between 3 and 24 characters, and only may contain numbers and lowercase letters: ut")
+				if !reflect.DeepEqual(actualErr, expectedErr) {
+					t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
+				}
+			},
+		},
+		{
+			name: "file share size is already greater or equal than requested size",
+			testFunc: func(t *testing.T) {
+				//file share size is already greater or equal than requested size
+				accountName := "unittest"
+				accountKey := "dW5pdHRlc3Q="
+				f := azureFileClient{
+					env: &azure.Environment{
+						StorageEndpointSuffix: "ut",
+					},
+				}
+				actualErr := f.resizeFileShare(accountName, accountKey, "", -2)
+				assert.NoError(t, actualErr)
+			},
+		},
+		{
+			name: "Request quota size is invalid",
+			testFunc: func(t *testing.T) {
+				//Request quota size is invalid
+				accountName := "unittest"
+				accountKey := "dW5pdHRlc3Q="
+				f := azureFileClient{
+					env: &azure.Environment{
+						StorageEndpointSuffix: "ut",
+					},
+				}
+				actualErr := f.resizeFileShare(accountName, accountKey, "", 6000)
+				expectedErr := fmt.Errorf("failed to set quota on file share , err: invalid value 6000 for quota, valid values are [1, 5120]")
+				if !reflect.DeepEqual(actualErr, expectedErr) {
+					t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
+				}
+			},
 		},
 	}
-	actualErr := f.resizeFileShare(accountName, accountKey, "", 10)
-	expectedErr := fmt.Errorf("error creating azure client: azure: account name is not valid: it must be between 3 and 24 characters, and only may contain numbers and lowercase letters: ut")
-	if !reflect.DeepEqual(actualErr, expectedErr) {
-		t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
-	}
-	//file share size is already greater or equal than requested size
-	accountName = "unittest"
-	actualErr = f.resizeFileShare(accountName, accountKey, "", -2)
-	assert.NoError(t, actualErr)
-
-	//Request quota size is invalid
-	accountName = "unittest"
-	actualErr = f.resizeFileShare(accountName, accountKey, "", 6000)
-	expectedErr = fmt.Errorf("failed to set quota on file share , err: invalid value 6000 for quota, valid values are [1, 5120]")
-	if !reflect.DeepEqual(actualErr, expectedErr) {
-		t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
+	for _, tc := range testCases {
+		t.Run(tc.name, tc.testFunc)
 	}
 }
