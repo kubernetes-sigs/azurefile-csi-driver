@@ -777,6 +777,7 @@ func TestCreateDisk(t *testing.T) {
 func TestGetFileShareQuota(t *testing.T) {
 	d := NewFakeDriver()
 	d.cloud = &azure.Cloud{}
+	d.fileClient = &azureFileClient{env: &azure2.Environment{}}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	shareQuota := int32(10)
@@ -786,6 +787,7 @@ func TestGetFileShareQuota(t *testing.T) {
 
 	tests := []struct {
 		desc                string
+		secrets             map[string]string
 		mockedFileShareResp storage.FileShare
 		mockedFileShareErr  error
 		expectedQuota       int
@@ -793,6 +795,7 @@ func TestGetFileShareQuota(t *testing.T) {
 	}{
 		{
 			desc:                "Get file share return error",
+			secrets:             map[string]string{},
 			mockedFileShareResp: storage.FileShare{},
 			mockedFileShareErr:  fmt.Errorf("test error"),
 			expectedQuota:       -1,
@@ -800,6 +803,7 @@ func TestGetFileShareQuota(t *testing.T) {
 		},
 		{
 			desc:                "Share not found",
+			secrets:             map[string]string{},
 			mockedFileShareResp: storage.FileShare{},
 			mockedFileShareErr:  fmt.Errorf("ShareNotFound"),
 			expectedQuota:       -1,
@@ -807,10 +811,32 @@ func TestGetFileShareQuota(t *testing.T) {
 		},
 		{
 			desc:                "Volume already exists",
+			secrets:             map[string]string{},
 			mockedFileShareResp: storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &shareQuota}},
 			mockedFileShareErr:  nil,
 			expectedQuota:       int(shareQuota),
 			expectedError:       nil,
+		},
+		{
+			desc: "Could not find accountname in secrets",
+			secrets: map[string]string{
+				"secrets": "secrets",
+			},
+			mockedFileShareResp: storage.FileShare{},
+			mockedFileShareErr:  nil,
+			expectedQuota:       -1,
+			expectedError:       fmt.Errorf("could not find accountname or azurestorageaccountname field secrets(map[secrets:secrets])"),
+		},
+		{
+			desc: "Error creating azure client",
+			secrets: map[string]string{
+				"accountname": "ut",
+				"accountkey":  "testkey",
+			},
+			mockedFileShareResp: storage.FileShare{},
+			mockedFileShareErr:  nil,
+			expectedQuota:       -1,
+			expectedError:       fmt.Errorf("error creating azure client: azure: account name is not valid: it must be between 3 and 24 characters, and only may contain numbers and lowercase letters: ut"),
 		},
 	}
 
@@ -818,7 +844,7 @@ func TestGetFileShareQuota(t *testing.T) {
 		mockFileClient := mockfileclient.NewMockInterface(ctrl)
 		d.cloud.FileClient = mockFileClient
 		mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
-		quota, err := d.getFileShareQuota(resourceGroupName, accountName, fileShareName, map[string]string{})
+		quota, err := d.getFileShareQuota(resourceGroupName, accountName, fileShareName, test.secrets)
 		if !reflect.DeepEqual(err, test.expectedError) {
 			t.Errorf("test name: %s, Unexpected error: %v, expected error: %v", test.desc, err, test.expectedError)
 		}
