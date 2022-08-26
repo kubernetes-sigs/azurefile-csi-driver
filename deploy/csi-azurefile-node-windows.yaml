@@ -50,7 +50,7 @@ spec:
               value: unix://C:\\csi\\csi.sock
           resources:
             limits:
-              memory: 100Mi
+              memory: 150Mi
             requests:
               cpu: 10m
               memory: 40Mi
@@ -86,7 +86,7 @@ spec:
               mountPath: C:\registration
           resources:
             limits:
-              memory: 100Mi
+              memory: 150Mi
             requests:
               cpu: 30m
               memory: 40Mi
