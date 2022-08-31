@@ -158,7 +158,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	volumeMountGroup := req.GetVolumeCapability().GetMount().GetVolumeMountGroup()
 	gidPresent := checkGidPresentInMountFlags(mountFlags)
 
-	_, accountName, accountKey, fileShareName, diskName, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), context)
+	_, accountName, accountKey, fileShareName, diskName, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), context)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("GetAccountInfo(%s) failed with error: %v", volumeID, err))
 	}

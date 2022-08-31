@@ -41,7 +41,7 @@ type PreProvisionedProvidedCredentiasTest struct {
 func (t *PreProvisionedProvidedCredentiasTest) Run(client clientset.Interface, namespace *v1.Namespace) {
 	for _, pod := range t.Pods {
 		for n, volume := range pod.Volumes {
-			_, accountName, accountKey, fileShareName, _, err := t.Azurefile.GetAccountInfo(context.Background(), volume.VolumeID, nil, nil)
+			_, accountName, accountKey, fileShareName, _, _, err := t.Azurefile.GetAccountInfo(context.Background(), volume.VolumeID, nil, nil)
 			framework.ExpectNoError(err, fmt.Sprintf("Error GetAccountInfo from volumeID(%s): %v", volume.VolumeID, err))
 
 			ginkgo.By("creating the secret")
