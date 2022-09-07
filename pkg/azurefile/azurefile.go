@@ -642,9 +642,15 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 				if name != "" {
 					accountName = name
 				}
-				if err != nil && !getAccountKeyFromSecret && d.cloud.StorageAccountClient != nil && accountName != "" {
-					klog.V(2).Infof("could not get account(%s) key from secret(%s), error: %v, use cluster identity to get account key instead", accountName, secretName, err)
-					accountKey, err = d.cloud.GetStorageAccesskey(ctx, subsID, accountName, rgName)
+				if err != nil {
+					klog.Warningf("GetStorageAccountFromSecret(%s, %s) failed with error: %v", secretName, secretNamespace, err)
+					if !getAccountKeyFromSecret && d.cloud.StorageAccountClient != nil && accountName != "" {
+						klog.V(2).Infof("use cluster identity to get account key from (%s, %s, %s)", subsID, rgName, accountName)
+						accountKey, err = d.cloud.GetStorageAccesskey(ctx, subsID, accountName, rgName)
+						if err != nil {
+							klog.Errorf("GetStorageAccesskey(%s, %s, %s) failed with error: %v", subsID, rgName, accountName, err)
+						}
+					}
 				}
 			}
 		}
@@ -653,6 +659,9 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 		account, accountKey, err = getStorageAccount(secrets)
 		if account != "" {
 			accountName = account
+		}
+		if err != nil {
+			klog.Errorf("getStorageAccount failed with error: %v", err)
 		}
 	}
 
