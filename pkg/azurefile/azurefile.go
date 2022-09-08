@@ -223,8 +223,8 @@ type Driver struct {
 	accountCacheMap *azcache.TimedCache
 	// a map storing all secret names created by this driver <secretCacheKey, "">
 	secretCacheMap *azcache.TimedCache
-	// a map storing all volumes using data plane API <volumeID, "">, <accountName, "">
-	dataPlaneAPIVolMap sync.Map
+	// a timed cache storing all volumeIDs and storage accounts that are using data plane API
+	dataPlaneAPIVolCache *azcache.TimedCache
 	// a timed cache storing account search history (solve account list throttling issue)
 	accountSearchCache *azcache.TimedCache
 	// a timed cache storing tag removing history (solve account update throttling issue)
@@ -268,6 +268,10 @@ func NewDriver(options *DriverOptions) *Driver {
 	}
 
 	if driver.accountCacheMap, err = azcache.NewTimedcache(3*time.Minute, getter); err != nil {
+		klog.Fatalf("%v", err)
+	}
+
+	if driver.dataPlaneAPIVolCache, err = azcache.NewTimedcache(10*time.Minute, getter); err != nil {
 		klog.Fatalf("%v", err)
 	}
 
@@ -768,7 +772,7 @@ func (d *Driver) DeleteFileShare(resourceGroup, accountName, shareName string, s
 			klog.Warningf("DeleteFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", shareName, accountName, err)
 			if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tooManyRequests)) {
 				klog.Warningf("switch to use data plane API instead for account %s since it's throttled", accountName)
-				d.dataPlaneAPIVolMap.Store(accountName, "")
+				d.dataPlaneAPIVolCache.Set(accountName, "")
 				return true, err
 			}
 			return false, nil
@@ -889,11 +893,21 @@ func (d *Driver) getSubnetResourceID() string {
 }
 
 func (d *Driver) useDataPlaneAPI(volumeID, accountName string) bool {
-	_, useDataPlaneAPI := d.dataPlaneAPIVolMap.Load(volumeID)
-	if !useDataPlaneAPI {
-		_, useDataPlaneAPI = d.dataPlaneAPIVolMap.Load(accountName)
+	cache, err := d.dataPlaneAPIVolCache.Get(volumeID, azcache.CacheReadTypeDefault)
+	if err != nil {
+		klog.Errorf("get(%s) from dataPlaneAPIVolCache failed with error: %v", volumeID, err)
 	}
-	return useDataPlaneAPI
+	if cache != nil {
+		return true
+	}
+	cache, err = d.dataPlaneAPIVolCache.Get(accountName, azcache.CacheReadTypeDefault)
+	if err != nil {
+		klog.Errorf("get(%s) from dataPlaneAPIVolCache failed with error: %v", accountName, err)
+	}
+	if cache != nil {
+		return true
+	}
+	return false
 }
 
 func (d *Driver) SetAzureCredentials(ctx context.Context, accountName, accountKey, secretName, secretNamespace string) (string, error) {

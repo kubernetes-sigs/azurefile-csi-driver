@@ -532,8 +532,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	volumeID = fmt.Sprintf(volumeIDTemplate, resourceGroup, accountName, validFileShareName, diskName, uuid, secretNamespace)
 
 	if useDataPlaneAPI {
-		d.dataPlaneAPIVolMap.Store(volumeID, "")
-		d.dataPlaneAPIVolMap.Store(accountName, "")
+		d.dataPlaneAPIVolCache.Set(volumeID, "")
+		d.dataPlaneAPIVolCache.Set(accountName, "")
 	}
 
 	isOperationSucceeded = true
@@ -691,8 +691,8 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 	if !strings.HasSuffix(diskName, vhdSuffix) {
 		klog.V(2).Infof("skip ControllerPublishVolume(%s) since it's not vhd disk attach", volumeID)
 		if useDataPlaneAPI(volContext) {
-			d.dataPlaneAPIVolMap.Store(volumeID, "")
-			d.dataPlaneAPIVolMap.Store(accountName, "")
+			d.dataPlaneAPIVolCache.Set(volumeID, "")
+			d.dataPlaneAPIVolCache.Set(accountName, "")
 		}
 		return &csi.ControllerPublishVolumeResponse{}, nil
 	}
