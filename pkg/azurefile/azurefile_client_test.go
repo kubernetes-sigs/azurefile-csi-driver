@@ -17,6 +17,7 @@ limitations under the License.
 package azurefile
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -144,7 +145,7 @@ func TestDeleteFileShare(t *testing.T) {
 			StorageEndpointSuffix: "ut",
 		},
 	}
-	actualErr := f.deleteFileShare(accountName, accountKey, "")
+	actualErr := f.deleteFileShare(context.TODO(), accountName, accountKey, "")
 	expectedErr := fmt.Errorf("error creating azure client: azure: account name is not valid: it must be between 3 and 24 characters, and only may contain numbers and lowercase letters: ut")
 	if !reflect.DeepEqual(actualErr, expectedErr) {
 		t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)

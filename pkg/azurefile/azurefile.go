@@ -755,7 +755,7 @@ func (d *Driver) CreateFileShare(accountOptions *azure.AccountOptions, shareOpti
 }
 
 // DeleteFileShare deletes a file share using storage account name and key
-func (d *Driver) DeleteFileShare(subsID, resourceGroup, accountName, shareName string, secrets map[string]string) error {
+func (d *Driver) DeleteFileShare(ctx context.Context, subsID, resourceGroup, accountName, shareName string, secrets map[string]string) error {
 	return wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 		var err error
 		if len(secrets) > 0 {
@@ -763,7 +763,7 @@ func (d *Driver) DeleteFileShare(subsID, resourceGroup, accountName, shareName s
 			if rerr != nil {
 				return true, rerr
 			}
-			err = d.fileClient.deleteFileShare(accountName, accountKey, shareName)
+			err = d.fileClient.deleteFileShare(ctx, accountName, accountKey, shareName)
 		} else {
 			err = d.cloud.DeleteFileShare(subsID, resourceGroup, accountName, shareName)
 		}
