@@ -41,7 +41,7 @@ type PreProvisionedExistingCredentialsTest struct {
 func (t *PreProvisionedExistingCredentialsTest) Run(client clientset.Interface, namespace *v1.Namespace) {
 	for _, pod := range t.Pods {
 		for n, volume := range pod.Volumes {
-			resourceGroupName, accountName, _, fileShareName, _, err := t.Azurefile.GetAccountInfo(context.Background(), volume.VolumeID, nil, nil)
+			resourceGroupName, accountName, _, fileShareName, _, _, err := t.Azurefile.GetAccountInfo(context.Background(), volume.VolumeID, nil, nil)
 			if err != nil {
 				framework.ExpectNoError(err, fmt.Sprintf("Error GetContainerInfo from volumeID(%s): %v", volume.VolumeID, err))
 				return

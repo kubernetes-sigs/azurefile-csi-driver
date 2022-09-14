@@ -34,6 +34,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"sigs.k8s.io/cloud-provider-azure/pkg/auth"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient/mockfileclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/storageaccountclient/mockstorageaccountclient"
 	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
@@ -56,6 +57,13 @@ func NewFakeDriver() *Driver {
 	driver := NewDriver(&driverOptions)
 	driver.Name = fakeDriverName
 	driver.Version = vendorVersion
+	driver.cloud = &azure.Cloud{
+		Config: azure.Config{
+			AzureAuthConfig: auth.AzureAuthConfig{
+				SubscriptionID: "subscriptionID",
+			},
+		},
+	}
 	return driver
 }
 
@@ -64,6 +72,13 @@ func NewFakeDriverCustomOptions(opts DriverOptions) *Driver {
 	driver := NewDriver(&driverOptions)
 	driver.Name = fakeDriverName
 	driver.Version = vendorVersion
+	driver.cloud = &azure.Cloud{
+		Config: azure.Config{
+			AzureAuthConfig: auth.AzureAuthConfig{
+				SubscriptionID: "subscriptionID",
+			},
+		},
+	}
 	return driver
 }
 
@@ -171,6 +186,7 @@ func TestGetFileShareInfo(t *testing.T) {
 		fileShareName     string
 		diskName          string
 		namespace         string
+		subsID            string
 		expectedError     error
 	}{
 		{
@@ -248,10 +264,30 @@ func TestGetFileShareInfo(t *testing.T) {
 			diskName:          "",
 			expectedError:     fmt.Errorf("error parsing volume id: \"\", should at least contain two #"),
 		},
+		{
+			id:                "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID",
+			resourceGroupName: "rg",
+			accountName:       "f5713de20cde511e8ba4900",
+			fileShareName:     "fileShareName",
+			diskName:          "diskname.vhd",
+			namespace:         "namespace",
+			subsID:            "subsID",
+			expectedError:     nil,
+		},
+		{
+			id:                "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace",
+			resourceGroupName: "rg",
+			accountName:       "f5713de20cde511e8ba4900",
+			fileShareName:     "fileShareName",
+			diskName:          "diskname.vhd",
+			namespace:         "namespace",
+			subsID:            "",
+			expectedError:     nil,
+		},
 	}
 
 	for _, test := range tests {
-		resourceGroupName, accountName, fileShareName, diskName, namespace, expectedError := GetFileShareInfo(test.id)
+		resourceGroupName, accountName, fileShareName, diskName, namespace, subsID, expectedError := GetFileShareInfo(test.id)
 		if resourceGroupName != test.resourceGroupName {
 			t.Errorf("GetFileShareInfo(%q) returned with: %q, expected: %q", test.id, resourceGroupName, test.resourceGroupName)
 		}
@@ -266,6 +302,9 @@ func TestGetFileShareInfo(t *testing.T) {
 		}
 		if namespace != test.namespace {
 			t.Errorf("GetFileShareInfo(%q) returned with: %q, expected: %q", test.id, namespace, test.namespace)
+		}
+		if subsID != test.subsID {
+			t.Errorf("GetFileShareInfo(%q) returned with: %q, expected: %q", test.id, subsID, test.subsID)
 		}
 		if !reflect.DeepEqual(expectedError, test.expectedError) {
 			t.Errorf("GetFileShareInfo(%q) returned with: %v, expected: %v", test.id, expectedError, test.expectedError)
@@ -719,7 +758,7 @@ func TestGetAccountInfo(t *testing.T) {
 		d.cloud.KubeClient = clientSet
 		d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
 		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), test.rgName, gomock.Any()).Return(key, nil).AnyTimes()
-		rgName, accountName, _, fileShareName, diskName, err := d.GetAccountInfo(context.Background(), test.volumeID, test.secrets, test.reqContext)
+		rgName, accountName, _, fileShareName, diskName, _, err := d.GetAccountInfo(context.Background(), test.volumeID, test.secrets, test.reqContext)
 		if test.expectErr && err == nil {
 			t.Errorf("Unexpected non-error")
 			continue
@@ -844,7 +883,8 @@ func TestGetFileShareQuota(t *testing.T) {
 		mockFileClient := mockfileclient.NewMockInterface(ctrl)
 		d.cloud.FileClient = mockFileClient
 		mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
-		quota, err := d.getFileShareQuota(resourceGroupName, accountName, fileShareName, test.secrets)
+		mockFileClient.EXPECT().WithSubscriptionID(gomock.Any()).Return(mockFileClient).AnyTimes()
+		quota, err := d.getFileShareQuota("", resourceGroupName, accountName, fileShareName, test.secrets)
 		if !reflect.DeepEqual(err, test.expectedError) {
 			t.Errorf("test name: %s, Unexpected error: %v, expected error: %v", test.desc, err, test.expectedError)
 		}

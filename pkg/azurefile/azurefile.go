@@ -339,7 +339,7 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 }
 
 // getFileShareQuota return (-1, nil) means file share does not exist
-func (d *Driver) getFileShareQuota(resourceGroupName, accountName, fileShareName string, secrets map[string]string) (int, error) {
+func (d *Driver) getFileShareQuota(subsID, resourceGroupName, accountName, fileShareName string, secrets map[string]string) (int, error) {
 	if len(secrets) > 0 {
 		accountName, accountKey, err := getStorageAccount(secrets)
 		if err != nil {
@@ -360,7 +360,7 @@ func (d *Driver) getFileShareQuota(resourceGroupName, accountName, fileShareName
 		return share.Properties.Quota, nil
 	}
 
-	fileShare, err := d.cloud.GetFileShare(resourceGroupName, accountName, fileShareName)
+	fileShare, err := d.cloud.GetFileShare(subsID, resourceGroupName, accountName, fileShareName)
 	if err != nil {
 		if strings.Contains(err.Error(), "ShareNotFound") {
 			return -1, nil
@@ -375,27 +375,33 @@ func (d *Driver) getFileShareQuota(resourceGroupName, accountName, fileShareName
 }
 
 // get file share info according to volume id, e.g.
-// input: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace"
-// output: rg, f5713de20cde511e8ba4900, fileShareName, diskname.vhd, namespace
-func GetFileShareInfo(id string) (string, string, string, string, string, error) {
+// input: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID"
+// output: rg, f5713de20cde511e8ba4900, fileShareName, diskname.vhd, namespace, subsID
+func GetFileShareInfo(id string) (string, string, string, string, string, string, error) {
 	segments := strings.Split(id, separator)
 	if len(segments) < 3 {
-		return "", "", "", "", "", fmt.Errorf("error parsing volume id: %q, should at least contain two #", id)
+		return "", "", "", "", "", "", fmt.Errorf("error parsing volume id: %q, should at least contain two #", id)
 	}
 	rg := segments[0]
-	var diskName, namespace string
+	var diskName, namespace, subsID string
 	if len(segments) > 3 {
 		diskName = segments[3]
 	}
-	if len(segments) > 4 && rg == "" {
+	if rg == "" {
 		// in csi migration, rg could be empty, then the 5th element is namespace
 		// https://github.com/kubernetes/kubernetes/blob/v1.23.5/staging/src/k8s.io/csi-translation-lib/plugins/azure_file.go#L137
-		namespace = segments[4]
+		if len(segments) > 4 {
+			namespace = segments[4]
+		}
+	} else {
+		if len(segments) > 5 {
+			namespace = segments[5]
+		}
+		if len(segments) > 6 {
+			subsID = segments[6]
+		}
 	}
-	if len(segments) > 5 {
-		namespace = segments[5]
-	}
-	return rg, segments[1], segments[2], diskName, namespace, nil
+	return rg, segments[1], segments[2], diskName, namespace, subsID, nil
 }
 
 // check whether mountOptions contains file_mode, dir_mode, vers, if not, append default mode
@@ -572,16 +578,16 @@ func IsCorruptedDir(dir string) bool {
 }
 
 // GetAccountInfo get account info
-// return <rgName, accountName, accountKey, fileShareName, diskName, secretNamespace, err>
-func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, reqContext map[string]string) (string, string, string, string, string, error) {
-	rgName, accountName, fileShareName, diskName, secretNamespace, err := GetFileShareInfo(volumeID)
+// return <rgName, accountName, accountKey, fileShareName, diskName, subsID, err>
+func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, reqContext map[string]string) (string, string, string, string, string, string, error) {
+	rgName, accountName, fileShareName, diskName, secretNamespace, subsID, err := GetFileShareInfo(volumeID)
 	if err != nil {
 		// ignore volumeID parsing error
 		klog.Warningf("parsing volumeID(%s) return with error: %v", volumeID, err)
 		err = nil
 	}
 
-	var protocol, accountKey, secretName, pvcNamespace, subsID string
+	var protocol, accountKey, secretName, pvcNamespace string
 	// indicates whether get account key only from k8s secret
 	getAccountKeyFromSecret := false
 
@@ -615,9 +621,12 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 	if rgName == "" {
 		rgName = d.cloud.ResourceGroup
 	}
+	if subsID == "" {
+		subsID = d.cloud.SubscriptionID
+	}
 	if protocol == nfs && fileShareName != "" {
 		// nfs protocol does not need account key, return directly
-		return rgName, accountName, accountKey, fileShareName, diskName, err
+		return rgName, accountName, accountKey, fileShareName, diskName, subsID, err
 	}
 
 	if secretNamespace == "" {
@@ -632,7 +641,7 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 		// read account key from cache first
 		cache, errCache := d.accountCacheMap.Get(accountName, azcache.CacheReadTypeDefault)
 		if errCache != nil {
-			return rgName, accountName, accountKey, fileShareName, diskName, errCache
+			return rgName, accountName, accountKey, fileShareName, diskName, subsID, errCache
 		}
 		if cache != nil {
 			accountKey = cache.(string)
@@ -672,7 +681,7 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 	if err == nil && accountKey != "" {
 		d.accountCacheMap.Set(accountName, accountKey)
 	}
-	return rgName, accountName, accountKey, fileShareName, diskName, err
+	return rgName, accountName, accountKey, fileShareName, diskName, subsID, err
 }
 
 func isSupportedProtocol(protocol string) bool {
@@ -734,7 +743,7 @@ func (d *Driver) CreateFileShare(accountOptions *azure.AccountOptions, shareOpti
 			}
 			err = d.fileClient.CreateFileShare(accountName, accountKey, shareOptions)
 		} else {
-			err = d.cloud.FileClient.CreateFileShare(accountOptions.ResourceGroup, accountOptions.Name, shareOptions)
+			err = d.cloud.FileClient.WithSubscriptionID(accountOptions.SubscriptionID).CreateFileShare(accountOptions.ResourceGroup, accountOptions.Name, shareOptions)
 		}
 		if isRetriableError(err) {
 			klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", shareOptions.Name, accountOptions.Name, err)
@@ -746,7 +755,7 @@ func (d *Driver) CreateFileShare(accountOptions *azure.AccountOptions, shareOpti
 }
 
 // DeleteFileShare deletes a file share using storage account name and key
-func (d *Driver) DeleteFileShare(resourceGroup, accountName, shareName string, secrets map[string]string) error {
+func (d *Driver) DeleteFileShare(subsID, resourceGroup, accountName, shareName string, secrets map[string]string) error {
 	return wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 		var err error
 		if len(secrets) > 0 {
@@ -756,7 +765,7 @@ func (d *Driver) DeleteFileShare(resourceGroup, accountName, shareName string, s
 			}
 			err = d.fileClient.deleteFileShare(accountName, accountKey, shareName)
 		} else {
-			err = d.cloud.DeleteFileShare(resourceGroup, accountName, shareName)
+			err = d.cloud.DeleteFileShare(subsID, resourceGroup, accountName, shareName)
 		}
 
 		if err != nil {
@@ -783,7 +792,7 @@ func (d *Driver) DeleteFileShare(resourceGroup, accountName, shareName string, s
 }
 
 // ResizeFileShare resizes a file share
-func (d *Driver) ResizeFileShare(resourceGroup, accountName, shareName string, sizeGiB int, secrets map[string]string) error {
+func (d *Driver) ResizeFileShare(subsID, resourceGroup, accountName, shareName string, sizeGiB int, secrets map[string]string) error {
 	return wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 		var err error
 		if len(secrets) > 0 {
@@ -793,7 +802,7 @@ func (d *Driver) ResizeFileShare(resourceGroup, accountName, shareName string, s
 			}
 			err = d.fileClient.resizeFileShare(accountName, accountKey, shareName, sizeGiB)
 		} else {
-			err = d.cloud.ResizeFileShare(resourceGroup, accountName, shareName, sizeGiB)
+			err = d.cloud.ResizeFileShare(subsID, resourceGroup, accountName, shareName, sizeGiB)
 		}
 		if isRetriableError(err) {
 			klog.Warningf("ResizeFileShare(%s) on account(%s) with new size(%d) failed with error(%v), waiting for retrying", shareName, accountName, sizeGiB, err)
@@ -805,20 +814,20 @@ func (d *Driver) ResizeFileShare(resourceGroup, accountName, shareName string, s
 }
 
 // RemoveStorageAccountTag remove tag from storage account
-func (d *Driver) RemoveStorageAccountTag(ctx context.Context, resourceGroup, account, key string) error {
+func (d *Driver) RemoveStorageAccountTag(ctx context.Context, subsID, resourceGroup, account, key string) error {
 	// search in cache first
 	cache, err := d.removeTagCache.Get(account, azcache.CacheReadTypeDefault)
 	if err != nil {
 		return err
 	}
 	if cache != nil {
-		klog.V(6).Infof("skip remove tag(%s) on account(%s) resourceGroup(%s) since tag already removed in a short time", key, account, resourceGroup)
+		klog.V(6).Infof("skip remove tag(%s) on account(%s) subsID(%s) resourceGroup(%s) since tag already removed in a short time", key, account, subsID, resourceGroup)
 		return nil
 	}
 
-	klog.V(2).Infof("remove tag(%s) on account(%s) resourceGroup(%s)", key, account, resourceGroup)
+	klog.V(2).Infof("remove tag(%s) on account(%s) subsID(%s), resourceGroup(%s)", key, account, subsID, resourceGroup)
 	defer d.removeTagCache.Set(account, key)
-	if rerr := d.cloud.RemoveStorageAccountTag(ctx, "", resourceGroup, account, key); rerr != nil {
+	if rerr := d.cloud.RemoveStorageAccountTag(ctx, subsID, resourceGroup, account, key); rerr != nil {
 		return rerr.Error()
 	}
 	return nil
