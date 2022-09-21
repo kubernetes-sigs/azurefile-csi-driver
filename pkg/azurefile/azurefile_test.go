@@ -882,9 +882,9 @@ func TestGetFileShareQuota(t *testing.T) {
 	for _, test := range tests {
 		mockFileClient := mockfileclient.NewMockInterface(ctrl)
 		d.cloud.FileClient = mockFileClient
-		mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
+		mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
 		mockFileClient.EXPECT().WithSubscriptionID(gomock.Any()).Return(mockFileClient).AnyTimes()
-		quota, err := d.getFileShareQuota("", resourceGroupName, accountName, fileShareName, test.secrets)
+		quota, err := d.getFileShareQuota(context.TODO(), "", resourceGroupName, accountName, fileShareName, test.secrets)
 		if !reflect.DeepEqual(err, test.expectedError) {
 			t.Errorf("test name: %s, Unexpected error: %v, expected error: %v", test.desc, err, test.expectedError)
 		}

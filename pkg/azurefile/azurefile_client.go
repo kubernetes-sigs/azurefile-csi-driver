@@ -17,7 +17,6 @@ limitations under the License.
 package azurefile
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
@@ -83,7 +82,7 @@ func (f *azureFileClient) createFileShare(accountName, accountKey, name string, 
 }
 
 // delete a file share
-func (f *azureFileClient) deleteFileShare(ctx context.Context, accountName, accountKey, name string) error {
+func (f *azureFileClient) deleteFileShare(accountName, accountKey, name string) error {
 	fileClient, err := f.getFileSvcClient(accountName, accountKey)
 	if err != nil {
 		return err

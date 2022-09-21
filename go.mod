@@ -16,7 +16,7 @@ require (
 	github.com/kubernetes-csi/csi-proxy/client v1.0.1
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.20.1
+	github.com/onsi/gomega v1.20.2
 	github.com/pborman/uuid v1.2.0
 	github.com/pelletier/go-toml v1.9.4
 	github.com/rubiojr/go-vhd v0.0.0-20200706105327-02e210299021
@@ -24,16 +24,16 @@ require (
 	golang.org/x/net v0.0.0-20220906165146-f3363e06e74c
 	google.golang.org/grpc v1.47.0
 	google.golang.org/protobuf v1.28.0
-	k8s.io/api v0.25.0
-	k8s.io/apimachinery v0.25.0
-	k8s.io/client-go v0.25.0
-	k8s.io/cloud-provider v0.25.0
-	k8s.io/component-base v0.25.0
-	k8s.io/klog/v2 v2.70.1
+	k8s.io/api v0.25.1
+	k8s.io/apimachinery v0.25.1
+	k8s.io/client-go v0.25.1
+	k8s.io/cloud-provider v0.25.1
+	k8s.io/component-base v0.25.1
+	k8s.io/klog/v2 v2.80.1
 	k8s.io/kubernetes v1.24.0-alpha.4
 	k8s.io/mount-utils v0.24.0-alpha.4
 	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed
-	sigs.k8s.io/cloud-provider-azure v1.24.1-0.20220901065104-dcdfb69c1793
+	sigs.k8s.io/cloud-provider-azure v0.0.0-20220920180921-7ea14ebef199
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -107,11 +107,11 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiserver v0.25.0 // indirect
-	k8s.io/component-helpers v0.25.0 // indirect
+	k8s.io/apiserver v0.25.1 // indirect
+	k8s.io/component-helpers v0.25.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
 	k8s.io/kubectl v0.0.0 // indirect
-	k8s.io/kubelet v0.25.0 // indirect
+	k8s.io/kubelet v0.25.1 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.32 // indirect
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
@@ -150,5 +150,5 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.24.0-alpha.4
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.24.0-alpha.4
 	k8s.io/sample-controller => k8s.io/sample-controller v0.24.0-alpha.4
-	sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v1.24.1-0.20220901065104-dcdfb69c1793
+	sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.0.0-20220920180921-7ea14ebef199
 )

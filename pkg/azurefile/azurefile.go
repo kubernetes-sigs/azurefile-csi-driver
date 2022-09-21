@@ -18,6 +18,7 @@ package azurefile
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"net/url"
@@ -30,8 +31,6 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/pborman/uuid"
 	"github.com/rubiojr/go-vhd/vhd"
-
-	"golang.org/x/net/context"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -339,7 +338,7 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 }
 
 // getFileShareQuota return (-1, nil) means file share does not exist
-func (d *Driver) getFileShareQuota(subsID, resourceGroupName, accountName, fileShareName string, secrets map[string]string) (int, error) {
+func (d *Driver) getFileShareQuota(ctx context.Context, subsID, resourceGroupName, accountName, fileShareName string, secrets map[string]string) (int, error) {
 	if len(secrets) > 0 {
 		accountName, accountKey, err := getStorageAccount(secrets)
 		if err != nil {
@@ -360,7 +359,7 @@ func (d *Driver) getFileShareQuota(subsID, resourceGroupName, accountName, fileS
 		return share.Properties.Quota, nil
 	}
 
-	fileShare, err := d.cloud.GetFileShare(subsID, resourceGroupName, accountName, fileShareName)
+	fileShare, err := d.cloud.GetFileShare(ctx, subsID, resourceGroupName, accountName, fileShareName)
 	if err != nil {
 		if strings.Contains(err.Error(), "ShareNotFound") {
 			return -1, nil
@@ -733,7 +732,7 @@ func isSupportedFSGroupChangePolicy(policy string) bool {
 }
 
 // CreateFileShare creates a file share
-func (d *Driver) CreateFileShare(accountOptions *azure.AccountOptions, shareOptions *fileclient.ShareOptions, secrets map[string]string) error {
+func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *azure.AccountOptions, shareOptions *fileclient.ShareOptions, secrets map[string]string) error {
 	return wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 		var err error
 		if len(secrets) > 0 {
@@ -743,7 +742,7 @@ func (d *Driver) CreateFileShare(accountOptions *azure.AccountOptions, shareOpti
 			}
 			err = d.fileClient.CreateFileShare(accountName, accountKey, shareOptions)
 		} else {
-			err = d.cloud.FileClient.WithSubscriptionID(accountOptions.SubscriptionID).CreateFileShare(accountOptions.ResourceGroup, accountOptions.Name, shareOptions)
+			err = d.cloud.FileClient.WithSubscriptionID(accountOptions.SubscriptionID).CreateFileShare(ctx, accountOptions.ResourceGroup, accountOptions.Name, shareOptions)
 		}
 		if isRetriableError(err) {
 			klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", shareOptions.Name, accountOptions.Name, err)
@@ -763,9 +762,9 @@ func (d *Driver) DeleteFileShare(ctx context.Context, subsID, resourceGroup, acc
 			if rerr != nil {
 				return true, rerr
 			}
-			err = d.fileClient.deleteFileShare(ctx, accountName, accountKey, shareName)
+			err = d.fileClient.deleteFileShare(accountName, accountKey, shareName)
 		} else {
-			err = d.cloud.DeleteFileShare(subsID, resourceGroup, accountName, shareName)
+			err = d.cloud.DeleteFileShare(ctx, subsID, resourceGroup, accountName, shareName)
 		}
 
 		if err != nil {
@@ -792,7 +791,7 @@ func (d *Driver) DeleteFileShare(ctx context.Context, subsID, resourceGroup, acc
 }
 
 // ResizeFileShare resizes a file share
-func (d *Driver) ResizeFileShare(subsID, resourceGroup, accountName, shareName string, sizeGiB int, secrets map[string]string) error {
+func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, accountName, shareName string, sizeGiB int, secrets map[string]string) error {
 	return wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 		var err error
 		if len(secrets) > 0 {
@@ -802,7 +801,7 @@ func (d *Driver) ResizeFileShare(subsID, resourceGroup, accountName, shareName s
 			}
 			err = d.fileClient.resizeFileShare(accountName, accountKey, shareName, sizeGiB)
 		} else {
-			err = d.cloud.ResizeFileShare(subsID, resourceGroup, accountName, shareName, sizeGiB)
+			err = d.cloud.ResizeFileShare(ctx, subsID, resourceGroup, accountName, shareName, sizeGiB)
 		}
 		if isRetriableError(err) {
 			klog.Warningf("ResizeFileShare(%s) on account(%s) with new size(%d) failed with error(%v), waiting for retrying", shareName, accountName, sizeGiB, err)
