@@ -7,6 +7,13 @@ metadata:
   labels:
     app: {{ .Values.windows.dsName }}
     {{- include "azurefile.labels" . | nindent 4 }}
+{{- with .Values.windows.labels }}
+{{ . | toYaml | indent 4 }}
+{{- end }}
+{{- with .Values.windows.annotations }}
+  annotations:
+{{ . | toYaml | indent 4 }}
+{{- end }}
 spec:
   updateStrategy:
     rollingUpdate:
@@ -21,6 +28,13 @@ spec:
       labels:
         app: {{ .Values.windows.dsName }}
         {{- include "azurefile.labels" . | nindent 8 }}
+{{- with .Values.windows.podLabels }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- with .Values.windows.podAnnotations }}
+      annotations:
+{{ toYaml . | indent 8 }}
+{{- end }}
     spec:
       serviceAccountName: {{ .Values.serviceAccount.node }}
 {{- with .Values.windows.tolerations }}

@@ -84,6 +84,10 @@ The following table lists the configurable parameters of the latest Azure File C
 | `controller.cloudConfigSecretNamespace`           | cloud config secret namespace of controller driver          | `kube-system`
 | `controller.allowEmptyCloudConfig`                | Whether allow running controller driver without cloud config          | `true`
 | `controller.replicas`                             | replicas of csi-azurefile-controller                    | `2`                                                                 |
+| `controller.labels`                               | controller deployment extra labels                    | `{}`
+| `controller.annotations`                          | controller deployment extra annotations               | `{}`
+| `controller.podLabels`                            | controller pods extra labels                          | `{}`
+| `controller.podAnnotations`                       | controller pods extra annotations                     | `{}`
 | `controller.hostNetwork`                          | `hostNetwork` setting on controller driver(could be disabled if controller does not depend on MSI setting)                            | `true`                                                            | `true`, `false`
 | `controller.metricsPort`                          | metrics port of csi-azurefile-controller                   |`29614`                                                        |
 | `controller.livenessProbe.healthPort `            | health check port for liveness probe                   | `29612` |
@@ -130,6 +134,10 @@ The following table lists the configurable parameters of the latest Azure File C
 | `snapshot.image.csiSnapshotController.pullPolicy` | snapshot-controller image pull policy                      | `IfNotPresent`                                                 |
 | `snapshot.snapshotController.name`                | snapshot controller name                                   | `csi-snapshot-controller`                                                           |
 | `snapshot.snapshotController.replicas`            | the replicas of snapshot-controller                        | `2`                                                          |
+| `snapshot.snapshotController.labels`                               | snapshot controller deployment extra labels                    | `{}`
+| `snapshot.snapshotController.annotations`                          | snapshot controller deployment extra annotations               | `{}`
+| `snapshot.snapshotController.podLabels`                            | snapshot controller pods extra labels                          | `{}`
+| `snapshot.snapshotController.podAnnotations`                       | snapshot controller pods extra annotations                     | `{}`
 | `snapshot.snapshotController.resources.limits.memory`          | csi-snapshot-controller memory limits                          | 100Mi                                                          |
 | `snapshot.snapshotController.resources.requests.cpu`           | csi-snapshot-controller cpu requests                    | 10m                                                            |
 | `snapshot.snapshotController.resources.requests.memory`        | csi-snapshot-controller memory requests                 | 20Mi                                                           |
@@ -143,6 +151,10 @@ The following table lists the configurable parameters of the latest Azure File C
 | `linux.tolerations`                               | linux node driver tolerations                            |
 | `linux.affinity`                                  | linux node pod affinity                                     | `{}`                                                             |
 | `linux.nodeSelector`                              | linux node pod node selector                                | `{}`                                                             |
+| `linux.labels`                                    | linux node daemonset extra labels                     | `{}`
+| `linux.annotations`                               | linux node daemonset extra annotations                | `{}`
+| `linux.podLabels`                                 | linux node pods extra labels                          | `{}`
+| `linux.podAnnotations`                            | linux node pods extra annotations                     | `{}`
 | `linux.resources.livenessProbe.limits.memory`          | liveness-probe memory limits                          | 100Mi                                                          |
 | `linux.resources.livenessProbe.requests.cpu`           | liveness-probe cpu requests                    | 10m                                                            |
 | `linux.resources.livenessProbe.requests.memory`        | liveness-probe memory requests                 | 20Mi                                                           |
@@ -159,6 +171,10 @@ The following table lists the configurable parameters of the latest Azure File C
 | `windows.tolerations`                             | windows node driver tolerations                            |                                                              |
 | `windows.affinity`                                | windows node pod affinity                                     | `{}`                                                             |
 | `windows.nodeSelector`                            | windows node pod node selector                                | `{}`                                                             |
+| `windows.labels`                                  | windows node daemonset extra labels                     | `{}`
+| `windows.annotations`                             | windows node daemonset extra annotations                | `{}`
+| `windows.podLabels`                               | windows node pods extra labels                          | `{}`
+| `windows.podAnnotations`                          | windows node pods extra annotations                     | `{}`
 | `windows.resources.livenessProbe.limits.memory`          | liveness-probe memory limits                          | 150Mi                                                          |
 | `windows.resources.livenessProbe.requests.cpu`           | liveness-probe cpu requests                    | 10m                                                            |
 | `windows.resources.livenessProbe.requests.memory`        | liveness-probe memory requests                 | 40Mi                                                           |
