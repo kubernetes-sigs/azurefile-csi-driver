@@ -178,6 +178,8 @@ var (
 	supportedFSGroupChangePolicyList = []string{FSGroupChangeNone, string(v1.FSGroupChangeAlways), string(v1.FSGroupChangeOnRootMismatch)}
 
 	retriableErrors = []string{accountNotProvisioned, tooManyRequests, shareBeingDeleted, clientThrottled}
+
+	enableWindowsHostProcess = false
 )
 
 // DriverOptions defines driver parameters specified in driver deployment
@@ -196,6 +198,7 @@ type DriverOptions struct {
 	FSGroupChangePolicy                    string
 	KubeAPIQPS                             float64
 	KubeAPIBurst                           int
+	EnableWindowsHostProcess               bool
 }
 
 // Driver implements all interfaces of CSI drivers
@@ -214,6 +217,7 @@ type Driver struct {
 	mountPermissions                       uint64
 	kubeAPIQPS                             float64
 	kubeAPIBurst                           int
+	enableWindowsHostProcess               bool
 	fileClient                             *azureFileClient
 	mounter                                *mount.SafeFormatAndMount
 	// lock per volume attach (only for vhd disk feature)
@@ -258,6 +262,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.fsGroupChangePolicy = options.FSGroupChangePolicy
 	driver.kubeAPIQPS = options.KubeAPIQPS
 	driver.kubeAPIBurst = options.KubeAPIBurst
+	driver.enableWindowsHostProcess = options.EnableWindowsHostProcess
 	driver.volLockMap = newLockMap()
 	driver.subnetLockMap = newLockMap()
 	driver.volumeLocks = newVolumeLocks()
@@ -307,10 +312,11 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 	// todo: set backoff from cloud provider config
 	d.fileClient = newAzureFileClient(&d.cloud.Environment, &retry.Backoff{Steps: 1})
 
-	d.mounter, err = mounter.NewSafeMounter()
+	d.mounter, err = mounter.NewSafeMounter(d.enableWindowsHostProcess)
 	if err != nil {
 		klog.Fatalf("Failed to get safe mounter. Error: %v", err)
 	}
+	enableWindowsHostProcess = d.enableWindowsHostProcess
 
 	// Initialize default library driver
 	d.AddControllerServiceCapabilities(

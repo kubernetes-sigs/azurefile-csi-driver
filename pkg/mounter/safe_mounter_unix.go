@@ -26,7 +26,7 @@ import (
 	utilexec "k8s.io/utils/exec"
 )
 
-func NewSafeMounter() (*mount.SafeFormatAndMount, error) {
+func NewSafeMounter(enableWindowsHostProcess bool) (*mount.SafeFormatAndMount, error) {
 	mounter := mount.New("")
 	if runtime.GOOS == "linux" {
 		// MounterForceUnmounter is only implemented on Linux now

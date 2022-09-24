@@ -42,6 +42,16 @@ kubectl apply -f $repo/csi-azurefile-node.yaml
 kubectl apply -f $repo/csi-azurefile-node-windows.yaml
 
 if [[ "$#" -gt 1 ]]; then
+  if [[ "$2" == *"hostprocess"* ]]; then
+    echo "install windows driver with hostprocess ..."
+    kubectl apply -f $repo/csi-azurefile-node-windows-hostprocess.yaml
+  else
+    echo "install windows driver without hostprocess ..."
+    kubectl apply -f $repo/csi-azurefile-node-windows.yaml
+  fi
+fi
+
+if [[ "$#" -gt 1 ]]; then
   if [[ "$2" == *"snapshot"* ]]; then
     echo "install snapshot driver ..."
     kubectl apply -f $repo/crd-csi-snapshot.yaml
