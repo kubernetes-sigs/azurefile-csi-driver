@@ -20,46 +20,25 @@ readonly PKG_ROOT="$(git rev-parse --show-toplevel)"
 
 INDEX=${PKG_ROOT}/charts/index.yaml
 
-check_url() {  
+function check_url() {  
     url=$1
     result=$(curl -I -m 5 -s -w "%{http_code}\n" -o /dev/null $1)
-    if [ $result -eq 200 ]
+    if [ $result -ne 200 ]
     then
-        echo "$1 is ok."
-    else
-        echo "$1 is fail."
-        echo "rm "${PKG_ROOT}${url#*master}
-        rm -rf ${PKG_ROOT}${url#*master}
-        echo "helm repo index"
-        helm repo index ${PKG_ROOT}/charts/ --url https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts/
+        echo "Error: $1 is fail."
+        echo "Error: wrong pkg in "${PKG_ROOT}${url#*master}
+        exit 1
     fi
 }
 
-check_yaml() {
-    flag=0
-    cat $INDEX | while read LINE
-    do 
-        if [ $flag = 0 ]
-        then
-            if [ "$(echo $LINE | grep "urls:")" != "" ]
-            then
-                flag=1
-                continue
-            fi
-        fi
-        if [ $flag = 1 ]
-        then
-            if [ "$(echo $LINE | grep -E "^- ")" != "" ];then
-                url=$(echo "$LINE" | awk -F " " '{print $2}')
-                check_url $url
-                continue
-            else
-                flag=0
-                continue
-            fi
-        fi
+function check_yaml() {
+    grep http $INDEX | while read LINE
+    do
+        url=$(echo "$LINE" | awk -F " " '{print $2}')
+        check_url $url
     done
 }
 
 echo "begin to verify helm chart index ..."
 check_yaml
+echo "all url in helm chart index have been checked"
