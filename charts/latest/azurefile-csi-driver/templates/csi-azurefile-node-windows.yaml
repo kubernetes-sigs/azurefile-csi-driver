@@ -140,6 +140,14 @@ spec:
                   optional: true
             - name: CSI_ENDPOINT
               value: unix://C:\\csi\\csi.sock
+            {{- if ne .Values.driver.httpsProxy "" }}
+            - name: HTTPS_PROXY
+              value: {{ .Values.driver.httpsProxy }}
+            {{- end }}
+            {{- if ne .Values.driver.httpProxy "" }}
+            - name: HTTP_PROXY
+              value: {{ .Values.driver.httpProxy }}
+            {{- end }}
             - name: KUBE_NODE_NAME
               valueFrom:
                 fieldRef:

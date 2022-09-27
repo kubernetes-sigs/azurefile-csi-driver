@@ -155,6 +155,8 @@ driver:
   customUserAgent: ""
   userAgentSuffix: "OSS-helm"
   azureGoSDKLogLevel: "" # available values: ""(no logs), DEBUG, INFO, WARNING, ERROR
+  httpsProxy: ""
+  httpProxy: ""
 
 linux:
   enabled: true
