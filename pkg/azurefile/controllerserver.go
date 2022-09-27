@@ -424,7 +424,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		secret = createStorageAccountSecret(accountName, accountKey)
 		// skip validating file share quota if useDataPlaneAPI
 	} else {
-		if quota, err := d.getFileShareQuota(subsID, resourceGroup, accountName, validFileShareName, secret); err != nil {
+		if quota, err := d.getFileShareQuota(ctx, subsID, resourceGroup, accountName, validFileShareName, secret); err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		} else if quota != -1 && quota < fileShareSize {
 			return nil, status.Errorf(codes.AlreadyExists, "request file share(%s) already exists, but its capacity %d is smaller than %d", validFileShareName, quota, fileShareSize)
@@ -447,7 +447,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}()
 
 	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) subID(%s) rg(%s) location(%s) size(%d) protocol(%s)", validFileShareName, accountName, sku, subsID, resourceGroup, location, fileShareSize, shareProtocol)
-	if err := d.CreateFileShare(accountOptions, shareOptions, secret); err != nil {
+	if err := d.CreateFileShare(ctx, accountOptions, shareOptions, secret); err != nil {
 		if strings.Contains(err.Error(), accountLimitExceedManagementAPI) || strings.Contains(err.Error(), accountLimitExceedDataPlaneAPI) {
 			klog.Warningf("create file share(%s) on account(%s) type(%s) subID(%s) rg(%s) location(%s) size(%d), error: %v, skip matching current account", validFileShareName, account, sku, subsID, resourceGroup, location, fileShareSize, err)
 			tags := map[string]*string{
@@ -639,7 +639,7 @@ func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.Valida
 		subsID = d.cloud.SubscriptionID
 	}
 
-	if quota, err := d.getFileShareQuota(subsID, resourceGroupName, accountName, fileShareName, req.GetSecrets()); err != nil {
+	if quota, err := d.getFileShareQuota(ctx, subsID, resourceGroupName, accountName, fileShareName, req.GetSecrets()); err != nil {
 		return nil, status.Errorf(codes.Internal, "error checking if volume(%s) exists: %v", volumeID, err)
 	} else if quota == -1 {
 		return nil, status.Errorf(codes.NotFound, "the requested volume(%s) does not exist.", volumeID)
@@ -990,7 +990,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 		secrets = createStorageAccountSecret(accountName, accountKey)
 	}
 
-	if err = d.ResizeFileShare(subsID, resourceGroupName, accountName, fileShareName, int(requestGiB), secrets); err != nil {
+	if err = d.ResizeFileShare(ctx, subsID, resourceGroupName, accountName, fileShareName, int(requestGiB), secrets); err != nil {
 		return nil, status.Errorf(codes.Internal, "expand volume error: %v", err)
 	}
 
