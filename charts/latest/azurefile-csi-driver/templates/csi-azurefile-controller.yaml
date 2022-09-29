@@ -6,6 +6,13 @@ metadata:
   labels:
     app: {{ .Values.controller.name }}
     {{- include "azurefile.labels" . | nindent 4 }}
+{{- with .Values.controller.labels }}
+{{ . | toYaml | indent 4 }}
+{{- end }}
+{{- with .Values.controller.annotations }}
+  annotations:
+{{ . | toYaml | indent 4 }}
+{{- end }}
 spec:
   replicas: {{ .Values.controller.replicas }}
   selector:
@@ -17,6 +24,13 @@ spec:
       labels:
         {{- include "azurefile.labels" . | nindent 8 }}
         app: {{ .Values.controller.name }}
+{{- with .Values.controller.podLabels }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- with .Values.controller.podAnnotations }}
+      annotations:
+{{ toYaml . | indent 8 }}
+{{- end }}
     spec:
       hostNetwork: {{ .Values.controller.hostNetwork }}
       serviceAccountName: {{ .Values.serviceAccount.controller }}

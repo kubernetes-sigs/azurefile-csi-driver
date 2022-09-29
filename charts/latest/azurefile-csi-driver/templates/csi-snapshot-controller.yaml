@@ -7,6 +7,13 @@ metadata:
   labels:
     app: {{ .Values.snapshot.snapshotController.name}}
     {{- include "azurefile.labels" . | nindent 4 }}
+{{- with .Values.snapshot.snapshotController.labels }}
+{{ . | toYaml | indent 4 }}
+{{- end }}
+{{- with .Values.snapshot.snapshotController.annotations }}
+  annotations:
+{{ . | toYaml | indent 4 }}
+{{- end }}
 spec:
   replicas: {{ .Values.snapshot.snapshotController.replicas }}
   selector:
@@ -18,6 +25,13 @@ spec:
       labels:
         app: {{ .Values.snapshot.snapshotController.name}}
         {{- include "azurefile.labels" . | nindent 8 }}
+{{- with .Values.snapshot.snapshotController.podLabels }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- with .Values.snapshot.snapshotController.podAnnotations }}
+      annotations:
+{{ toYaml . | indent 8 }}
+{{- end }}
     spec:
       serviceAccountName: {{ .Values.serviceAccount.snapshotController }}
       nodeSelector:
