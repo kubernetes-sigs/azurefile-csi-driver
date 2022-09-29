@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2018 The Kubernetes Authors.
+# Copyright 2020 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,11 +18,27 @@ set -euo pipefail
 
 readonly PKG_ROOT="$(git rev-parse --show-toplevel)"
 
-${PKG_ROOT}/hack/verify-gofmt.sh
-${PKG_ROOT}/hack/verify-govet.sh
-${PKG_ROOT}/hack/verify-gomod.sh
-${PKG_ROOT}/hack/verify-yamllint.sh
-${PKG_ROOT}/hack/verify-boilerplate.sh
-${PKG_ROOT}/hack/verify-helm-chart-files.sh
-${PKG_ROOT}/hack/verify-helm-chart.sh
-${PKG_ROOT}/hack/verify-helm-chart-index.sh
+INDEX=${PKG_ROOT}/charts/index.yaml
+
+function check_url() {  
+    url=$1
+    result=$(curl -I -m 5 -s -w "%{http_code}\n" -o /dev/null $1)
+    if [ $result -ne 200 ]
+    then
+        echo "Error: $1 is fail."
+        echo "Error: wrong pkg in "${PKG_ROOT}${url#*master}
+        exit 1
+    fi
+}
+
+function check_yaml() {
+    grep http $INDEX | while read LINE
+    do
+        url=$(echo "$LINE" | awk -F " " '{print $2}')
+        check_url $url
+    done
+}
+
+echo "begin to verify helm chart index ..."
+check_yaml
+echo "all url in helm chart index have been checked"
