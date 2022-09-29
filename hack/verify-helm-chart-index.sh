@@ -25,9 +25,16 @@ function check_url() {
     result=$(curl -I -m 5 -s -w "%{http_code}\n" -o /dev/null $1)
     if [ $result -ne 200 ]
     then
-        echo "Error: $1 is fail."
-        echo "Error: wrong pkg in "${PKG_ROOT}${url#*master}
-        exit 1
+	echo "warning: $1 is invalid"
+	local=${PKG_ROOT}${url#*master}
+	echo "check whether $local exists"
+	if [ -f "$local" ]
+	then
+		echo "$local exists"
+	else
+		echo "$local does not exist"
+		exit 1
+	fi
     fi
 }
 
@@ -39,6 +46,6 @@ function check_yaml() {
     done
 }
 
-echo "begin to verify helm chart index ..."
+echo "begin to verify all URLs in $INDEX ..."
 check_yaml
-echo "all url in helm chart index have been checked"
+echo "all URLs in $INDEX are valid"
