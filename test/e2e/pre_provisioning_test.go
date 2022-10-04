@@ -101,7 +101,8 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 						},
 					},
 				},
-				IsWindows: isWindowsCluster,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			},
 		}
 		test := testsuites.PreProvisionedReadOnlyVolumeTest{
@@ -139,7 +140,8 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 						},
 					},
 				},
-				IsWindows: isWindowsCluster,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			}
 			pods = append(pods, pod)
 		}
@@ -211,7 +213,8 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 						},
 					},
 				},
-				IsWindows: isWindowsCluster,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			},
 		}
 		test := testsuites.PreProvisionedExistingCredentialsTest{
@@ -255,7 +258,8 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 						NodeStageSecretRef: "azure-secret",
 					},
 				},
-				IsWindows: isWindowsCluster,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			},
 		}
 		test := testsuites.PreProvisionedProvidedCredentiasTest{

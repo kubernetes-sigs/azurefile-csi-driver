@@ -19,9 +19,7 @@ package consts
 import (
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-02-01/storage"
-
-	"k8s.io/component-base/featuregate"
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
 )
 
 const (
@@ -72,10 +70,6 @@ const (
 	DefaultDiskMBpsReadWrite = 100
 
 	DiskEncryptionSetIDFormat = "/subscriptions/{subs-id}/resourceGroups/{rg-name}/providers/Microsoft.Compute/diskEncryptionSets/{diskEncryptionSet-name}"
-
-	// IPv6DualStack is here to avoid having to import features pkg
-	// and violate import rules
-	IPv6DualStack featuregate.Feature = "IPv6DualStack"
 
 	// MachineIDTemplate is the template of the virtual machine
 	MachineIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines/%s"
@@ -143,6 +137,13 @@ const (
 	VMASKey = "k8svmasKey"
 	// AvailabilitySetNodesKey is the availability set nodes key
 	AvailabilitySetNodesKey = "k8sAvailabilitySetNodesKey"
+
+	// VmssFlexKey is the key when querying vmssFlexVM cache
+	VmssFlexKey = "k8sVmssFlexKey"
+
+	// GetNodeVmssFlexIDLockKey is the key for getting the lock for getNodeVmssFlexID function
+	GetNodeVmssFlexIDLockKey = "k8sGetNodeVmssFlexIDLockKey"
+
 	// AvailabilitySetNodesCacheTTLDefaultInSeconds is the TTL of the availabilitySet node cache
 	AvailabilitySetNodesCacheTTLDefaultInSeconds = 900
 	// VMSSCacheTTLDefaultInSeconds is the TTL of the vmss cache
@@ -151,6 +152,13 @@ const (
 	VMSSVirtualMachinesCacheTTLDefaultInSeconds = 600
 	// VMASCacheTTLDefaultInSeconds is the TTL of the vmas cache
 	VMASCacheTTLDefaultInSeconds = 600
+
+	// VmssFlexCacheTTLDefaultInSeconds is the TTL of the vmss flex cache
+	VmssFlexCacheTTLDefaultInSeconds = 600
+	// VmssFlexVMCacheTTLInSeconds is the TTL of the vmss flex vm cache
+	VmssFlexVMCacheTTLInSeconds = 600
+	// VmssFlexVMStatusCacheTTLInSeconds is the TTL of the vmss flex vm status cache
+	VmssFlexVMStatusCacheTTLInSeconds = 600
 
 	// ZoneFetchingInterval defines the interval of performing zoneClient.GetZones
 	ZoneFetchingInterval = 30 * time.Minute
@@ -236,6 +244,9 @@ const (
 	// ServiceAnnotationPIPName specifies the pip that will be applied to load balancer
 	ServiceAnnotationPIPName = "service.beta.kubernetes.io/azure-pip-name"
 
+	// ServiceAnnotationPIPPrefixID specifies the pip prefix that will be applied to the load balancer.
+	ServiceAnnotationPIPPrefixID = "service.beta.kubernetes.io/azure-pip-prefix-id"
+
 	// ServiceAnnotationIPTagsForPublicIP specifies the iptags used when dynamically creating a public ip
 	ServiceAnnotationIPTagsForPublicIP = "service.beta.kubernetes.io/azure-pip-ip-tags"
 
@@ -277,6 +288,10 @@ const (
 	// and service names tags (which is managed by controller manager itself) would keep unchanged. The supported format
 	// is `a=b,c=d,...`. After updated, the old user-assigned tags would not be replaced by the new ones.
 	ServiceAnnotationAzurePIPTags = "service.beta.kubernetes.io/azure-pip-tags"
+
+	// ServiceAnnotationDisableLoadBalancerFloatingIP is the annotation used on the service to disable floating IP in load balancer rule.
+	// If omitted, the default value is false
+	ServiceAnnotationDisableLoadBalancerFloatingIP = "service.beta.kubernetes.io/azure-disable-load-balancer-floating-ip"
 
 	// ServiceAnnotationAzurePIPTags sets the additional Public IPs (split by comma) besides the service's Public IP configured on LoadBalancer.
 	// These additional Public IPs would be consumed by kube-proxy to configure the iptables rules on each node. Note they would not be configured
@@ -326,6 +341,9 @@ const (
 	// LoadBalancerBackendPoolConfigurationTypePODIP is the lb backend pool config type pod ip
 	// TODO (nilo19): support pod IP in the future
 	LoadBalancerBackendPoolConfigurationTypePODIP = "podIP"
+
+	// To get pip, we need both resource group name and pip name, key in cache has format: pip_rg:pip_name
+	PIPCacheKeySeparator = ":"
 )
 
 // error messages
@@ -353,7 +371,7 @@ const (
 // metadata service
 const (
 	// ImdsInstanceAPIVersion is the imds instance api version
-	ImdsInstanceAPIVersion = "2019-03-11"
+	ImdsInstanceAPIVersion = "2021-10-01"
 	// ImdsLoadBalancerAPIVersion is the imds load balancer api version
 	ImdsLoadBalancerAPIVersion = "2020-10-01"
 	// ImdsServer is the imds server endpoint
@@ -405,3 +423,49 @@ const (
 )
 
 type HealthProbeParams string
+
+// private link service
+const (
+	// ServiceAnnotationPLSCreation determines whether a PLS needs to be created.
+	ServiceAnnotationPLSCreation = "service.beta.kubernetes.io/azure-pls-create"
+
+	// ServiceAnnotationPLSName determines name of the PLS resource to create.
+	ServiceAnnotationPLSName = "service.beta.kubernetes.io/azure-pls-name"
+
+	// ServiceAnnotationPLSIpConfigurationSubnet determines the subnet name to deploy the PLS resource.
+	ServiceAnnotationPLSIpConfigurationSubnet = "service.beta.kubernetes.io/azure-pls-ip-configuration-subnet"
+
+	// ServiceAnnotationPLSIpConfigurationIPAddressCount determines number of IPs to be associated with the PLS.
+	ServiceAnnotationPLSIpConfigurationIPAddressCount = "service.beta.kubernetes.io/azure-pls-ip-configuration-ip-address-count"
+
+	// ServiceAnnotationPLSIPConfigurationIPAddress determines a space separated list of static IPs for the PLS.
+	// Total number of IPs should not be greater than the IP count specified in ServiceAnnotationPLSIpConfigurationIPAddressCount.
+	// If there are fewer IPs specified, the rest are dynamically allocated. The first IP in the list is set as Primary.
+	ServiceAnnotationPLSIpConfigurationIPAddress = "service.beta.kubernetes.io/azure-pls-ip-configuration-ip-address"
+
+	// ServiceAnnotationPLSFqdns determines a space separated list of fqdns associated with the PLS.
+	ServiceAnnotationPLSFqdns = "service.beta.kubernetes.io/azure-pls-fqdns"
+
+	// ServiceAnnotationPLSProxyProtocol determines whether TCP Proxy protocol needs to be enabled on the PLS.
+	ServiceAnnotationPLSProxyProtocol = "service.beta.kubernetes.io/azure-pls-proxy-protocol"
+
+	// ServiceAnnotationPLSVisibility determines a space separated list of Azure subscription IDs for which the PLS is visible.
+	// Use "*" to expose the PLS to all subscriptions.
+	ServiceAnnotationPLSVisibility = "service.beta.kubernetes.io/azure-pls-visibility"
+
+	// ServiceAnnotationPLSAutoApproval determines a space separated list of Azure subscription IDs from which requests can be
+	// automatically approved, only works when visibility is set to "*".
+	ServiceAnnotationPLSAutoApproval = "service.beta.kubernetes.io/azure-pls-auto-approval"
+
+	// ID string used to create a not existing PLS placehold in plsCache to avoid redundant
+	PrivateLinkServiceNotExistID = "PrivateLinkServiceNotExistID"
+
+	// Key of tag indicating owner service of the PLS.
+	OwnerServiceTagKey = "k8s-azure-owner-service"
+
+	// Key of tag indicating cluster name of the service that owns PLS.
+	ClusterNameTagKey = "k8s-azure-cluster-name"
+
+	// Default number of IP configs for PLS
+	PLSDefaultNumOfIPConfig = 1
+)

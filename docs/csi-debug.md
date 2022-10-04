@@ -1,6 +1,8 @@
 ## CSI driver debug tips
-### Case#1: volume create/delete issue
- - locate csi driver pod
+### case#1: volume create/delete issue
+> This step is not applicable if you are using [managed CSI driver on AKS](https://docs.microsoft.com/en-us/azure/aks/csi-storage-drivers).
+ - find csi driver controller pod
+> There could be multiple controller pods (only one pod is the leader), if there are no helpful logs, try to get logs from the leader controller pod.
 ```console
 kubectl get po -o wide -n kube-system | grep csi-azurefile-controller
 ```
@@ -10,14 +12,14 @@ csi-azurefile-controller-56bfddd689-dh5tk       5/5     Running   0          35s
 csi-azurefile-controller-56bfddd689-sl4ll       5/5     Running   0          35s     10.240.0.23    k8s-agentpool-22533604-1
 </pre>
 
- - get csi driver logs
+ - get pod description and logs
 ```console
+kubectl describe pod csi-azurefile-controller-56bfddd689-dh5tk -n kube-system > csi-azurefile-controller-description.log
 kubectl logs csi-azurefile-controller-56bfddd689-dh5tk -c azurefile -n kube-system > csi-azurefile-controller.log
 ```
-> note: there could be multiple controller pods, if there are no helpful logs, try to get logs from other controller pods
 
-### Case#2: volume mount/unmount failed
- - locate csi driver pod that does the actual volume mount/unmount
+### case#2: volume mount/unmount failed
+ - find csi driver pod that does the actual volume mount/unmount
 ```console
 kubectl get po -o wide -n kube-system | grep csi-azurefile-node
 ```
@@ -27,8 +29,9 @@ csi-azurefile-node-cvgbs                        3/3     Running   0          7m4
 csi-azurefile-node-dr4s4                        3/3     Running   0          7m4s    10.240.0.4     k8s-agentpool-22533604-0
 </pre>
 
- - get csi driver logs
+ - get pod description and logs
 ```console
+kubectl describe pod csi-azurefile-node-cvgbs -n kube-system > csi-azurefile-node-description.log
 kubectl logs csi-azurefile-node-cvgbs -c azurefile -n kube-system > csi-azurefile-node.log
 ```
 
@@ -91,6 +94,21 @@ mkdir /tmp/test
 sudo mount -v -t cifs //accountname.blob.core.windows.net/filesharename /tmp/test -o  username=accountname,password=accountkey,dir_mode=0777,file_mode=0777,cache=strict,actimeo=30
 ```
 
+<details><summary>
+Get client-side logs on Linux node if there is still mount error 
+</summary>
+
+```console
+kubectl debug node/node-name --image=nginx
+kubectl cp node-debugger-node-name-xxxx:/host/var/log/messages /tmp/messages
+kubectl cp node-debugger-node-name-xxxx:/host/var/log/syslog /tmp/syslog
+kubectl cp node-debugger-node-name-xxxx:/host/var/log/kern.log /tmp/kern.log
+#after log collected, delete the debug pod by:
+kubectl delete po node-debugger-node-name-xxxx
+```
+ 
+</details>
+
  - On Windows node
 ```console
 $User = "AZURE\accountname"
@@ -109,12 +127,18 @@ mkdir /tmp/test
 mount -v -t nfs -o vers=4,minorversion=1,sec=sys accountname.blob.core.windows.net:/accountname/filesharename /tmp/test
 ```
 
+ - [Troubleshoot Azure File mount issues on AKS](https://docs.microsoft.com/en-us/troubleshoot/azure/azure-kubernetes/fail-to-mount-azure-file-share)
+
 ### Troubleshooting performance issues on Azure Files
 
-##### File shares are being throttled and overall performance is slow 
+#### AzFileDiagnostics script
+ - [AzFileDiagnostics script for Linux](https://github.com/Azure-Samples/azure-files-samples/tree/master/AzFileDiagnostics/Linux)
+ - [AzFileDiagnostics script for Windows](https://github.com/Azure-Samples/azure-files-samples/tree/master/AzFileDiagnostics/Windows)
+
+#### File shares are being throttled and overall performance is slow 
 Find out whether you have been throttled by looking at your Azure Monitor by following this documentation - [Link](https://docs.microsoft.com/en-us/azure/storage/files/storage-troubleshooting-files-performance#cause-1-share-was-throttled)
 
-###### Standard Files
+##### Standard Files
 
 Enable [large file shares](https://docs.microsoft.com/azure/storage/files/storage-files-how-to-create-large-file-share?tabs=azure-portal) on your storage account. Large file shares support up to 10,000 IOPS per share at no extra cost on standard tier. To use a storage account with large file shares enabled, the 'enableLargeFileShares' driver parameter should be set to true. If this flag is set to true and a storage account with large file shares enabled doesn't exist, a new storage account will be created. The quota needs to be set to 100 TiB to get 10K IOPS. We recommend that you enable large file shares when creating the Storage Account. However, if you do enable this manually for a storage account at a later time, you will not need to remount the file share. Same storage account can have multiple large file shares.
 
@@ -122,3 +146,4 @@ Enable [large file shares](https://docs.microsoft.com/azure/storage/files/storag
 Azure premium files follows provisioned model where IOPS and throughput are associated to the quota. See this article that explains the co-relation between share size and IOPS and throughput - [link](https://docs.microsoft.com/azure/storage/files/understanding-billing#provisioned-model). Increase the share quota by following this guide - [link](https://github.com/kubernetes-sigs/azurefile-csi-driver/tree/master/deploy/example/resize).
 
 ##### For more, refer to this doc for perforance troubleshooting tips - [Link to performance troubleshooting tips](https://docs.microsoft.com/en-us/azure/storage/files/storage-troubleshooting-files-performance)
+

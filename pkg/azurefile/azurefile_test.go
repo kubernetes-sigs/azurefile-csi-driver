@@ -28,7 +28,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-02-01/storage"
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
 	azure2 "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -170,6 +170,7 @@ func TestGetFileShareInfo(t *testing.T) {
 		accountName       string
 		fileShareName     string
 		diskName          string
+		namespace         string
 		expectedError     error
 	}{
 		{
@@ -178,6 +179,25 @@ func TestGetFileShareInfo(t *testing.T) {
 			accountName:       "f5713de20cde511e8ba4900",
 			fileShareName:     "pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41",
 			diskName:          "diskname1.vhd",
+			namespace:         "",
+			expectedError:     nil,
+		},
+		{
+			id:                "rg#f5713de20cde511e8ba4900#pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41#diskname1.vhd#1620118846#namespace",
+			resourceGroupName: "rg",
+			accountName:       "f5713de20cde511e8ba4900",
+			fileShareName:     "pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41",
+			diskName:          "diskname1.vhd",
+			namespace:         "namespace",
+			expectedError:     nil,
+		},
+		{
+			id:                "#f5713de20cde511e8ba4900#pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41#diskname1.vhd#namespace",
+			resourceGroupName: "",
+			accountName:       "f5713de20cde511e8ba4900",
+			fileShareName:     "pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41",
+			diskName:          "diskname1.vhd",
+			namespace:         "namespace",
 			expectedError:     nil,
 		},
 		{
@@ -231,7 +251,7 @@ func TestGetFileShareInfo(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		resourceGroupName, accountName, fileShareName, diskName, expectedError := GetFileShareInfo(test.id)
+		resourceGroupName, accountName, fileShareName, diskName, namespace, expectedError := GetFileShareInfo(test.id)
 		if resourceGroupName != test.resourceGroupName {
 			t.Errorf("GetFileShareInfo(%q) returned with: %q, expected: %q", test.id, resourceGroupName, test.resourceGroupName)
 		}
@@ -243,6 +263,9 @@ func TestGetFileShareInfo(t *testing.T) {
 		}
 		if diskName != test.diskName {
 			t.Errorf("GetFileShareInfo(%q) returned with: %q, expected: %q", test.id, diskName, test.diskName)
+		}
+		if namespace != test.namespace {
+			t.Errorf("GetFileShareInfo(%q) returned with: %q, expected: %q", test.id, namespace, test.namespace)
 		}
 		if !reflect.DeepEqual(expectedError, test.expectedError) {
 			t.Errorf("GetFileShareInfo(%q) returned with: %v, expected: %v", test.id, expectedError, test.expectedError)
@@ -438,6 +461,16 @@ func TestGetSnapshot(t *testing.T) {
 		{
 			options:   "rg#f123#csivolumename#diskname#2019-08-22T07:17:53.0000000Z",
 			expected1: "2019-08-22T07:17:53.0000000Z",
+			expected2: nil,
+		},
+		{
+			options:   "rg#f123#csivolumename#diskname#uuid#2020-08-22T07:17:53.0000000Z",
+			expected1: "2020-08-22T07:17:53.0000000Z",
+			expected2: nil,
+		},
+		{
+			options:   "rg#f123#csivolumename#diskname#uuid#default#2021-08-22T07:17:53.0000000Z",
+			expected1: "2021-08-22T07:17:53.0000000Z",
 			expected2: nil,
 		},
 		{
@@ -744,6 +777,7 @@ func TestCreateDisk(t *testing.T) {
 func TestGetFileShareQuota(t *testing.T) {
 	d := NewFakeDriver()
 	d.cloud = &azure.Cloud{}
+	d.fileClient = &azureFileClient{env: &azure2.Environment{}}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	shareQuota := int32(10)
@@ -753,6 +787,7 @@ func TestGetFileShareQuota(t *testing.T) {
 
 	tests := []struct {
 		desc                string
+		secrets             map[string]string
 		mockedFileShareResp storage.FileShare
 		mockedFileShareErr  error
 		expectedQuota       int
@@ -760,6 +795,7 @@ func TestGetFileShareQuota(t *testing.T) {
 	}{
 		{
 			desc:                "Get file share return error",
+			secrets:             map[string]string{},
 			mockedFileShareResp: storage.FileShare{},
 			mockedFileShareErr:  fmt.Errorf("test error"),
 			expectedQuota:       -1,
@@ -767,6 +803,7 @@ func TestGetFileShareQuota(t *testing.T) {
 		},
 		{
 			desc:                "Share not found",
+			secrets:             map[string]string{},
 			mockedFileShareResp: storage.FileShare{},
 			mockedFileShareErr:  fmt.Errorf("ShareNotFound"),
 			expectedQuota:       -1,
@@ -774,10 +811,32 @@ func TestGetFileShareQuota(t *testing.T) {
 		},
 		{
 			desc:                "Volume already exists",
+			secrets:             map[string]string{},
 			mockedFileShareResp: storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &shareQuota}},
 			mockedFileShareErr:  nil,
 			expectedQuota:       int(shareQuota),
 			expectedError:       nil,
+		},
+		{
+			desc: "Could not find accountname in secrets",
+			secrets: map[string]string{
+				"secrets": "secrets",
+			},
+			mockedFileShareResp: storage.FileShare{},
+			mockedFileShareErr:  nil,
+			expectedQuota:       -1,
+			expectedError:       fmt.Errorf("could not find accountname or azurestorageaccountname field secrets(map[secrets:secrets])"),
+		},
+		{
+			desc: "Error creating azure client",
+			secrets: map[string]string{
+				"accountname": "ut",
+				"accountkey":  "testkey",
+			},
+			mockedFileShareResp: storage.FileShare{},
+			mockedFileShareErr:  nil,
+			expectedQuota:       -1,
+			expectedError:       fmt.Errorf("error creating azure client: azure: account name is not valid: it must be between 3 and 24 characters, and only may contain numbers and lowercase letters: ut"),
 		},
 	}
 
@@ -785,7 +844,7 @@ func TestGetFileShareQuota(t *testing.T) {
 		mockFileClient := mockfileclient.NewMockInterface(ctrl)
 		d.cloud.FileClient = mockFileClient
 		mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
-		quota, err := d.getFileShareQuota(resourceGroupName, accountName, fileShareName, map[string]string{})
+		quota, err := d.getFileShareQuota(resourceGroupName, accountName, fileShareName, test.secrets)
 		if !reflect.DeepEqual(err, test.expectedError) {
 			t.Errorf("test name: %s, Unexpected error: %v, expected error: %v", test.desc, err, test.expectedError)
 		}

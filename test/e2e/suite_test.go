@@ -42,12 +42,13 @@ import (
 )
 
 const (
-	kubeconfigEnvVar    = "KUBECONFIG"
-	reportDirEnv        = "ARTIFACTS"
-	testMigrationEnvVar = "TEST_MIGRATION"
-	testWindowsEnvVar   = "TEST_WINDOWS"
-	defaultReportDir    = "/workspace/_artifacts"
-	inTreeStorageClass  = "kubernetes.io/azure-file"
+	kubeconfigEnvVar       = "KUBECONFIG"
+	reportDirEnv           = "ARTIFACTS"
+	testMigrationEnvVar    = "TEST_MIGRATION"
+	testWindowsEnvVar      = "TEST_WINDOWS"
+	testWinServerVerEnvVar = "WINDOWS_SERVER_VERSION"
+	defaultReportDir       = "/workspace/_artifacts"
+	inTreeStorageClass     = "kubernetes.io/azure-file"
 )
 
 var (
@@ -55,6 +56,8 @@ var (
 	isUsingInTreeVolumePlugin      = os.Getenv(driver.AzureDriverNameVar) == inTreeStorageClass
 	isTestingMigration             = os.Getenv(testMigrationEnvVar) != ""
 	isWindowsCluster               = os.Getenv(testWindowsEnvVar) != ""
+	isCapzTest                     = os.Getenv("NODE_MACHINE_TYPE") != ""
+	winServerVer                   = os.Getenv(testWinServerVerEnvVar)
 	bringKeyStorageClassParameters = map[string]string{
 		"csi.storage.k8s.io/provisioner-secret-namespace": "default",
 		"csi.storage.k8s.io/node-stage-secret-namespace":  "default",
@@ -73,6 +76,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	log.Println(driver.AzureDriverNameVar, os.Getenv(driver.AzureDriverNameVar), fmt.Sprintf("%v", isUsingInTreeVolumePlugin))
 	log.Println(testMigrationEnvVar, os.Getenv(testMigrationEnvVar), fmt.Sprintf("%v", isTestingMigration))
 	log.Println(testWindowsEnvVar, os.Getenv(testWindowsEnvVar), fmt.Sprintf("%v", isWindowsCluster))
+	log.Println(testWinServerVerEnvVar, os.Getenv(testWinServerVerEnvVar), fmt.Sprintf("%v", winServerVer))
 
 	// k8s.io/kubernetes/test/e2e/framework requires env KUBECONFIG to be set
 	// it does not fall back to defaults
@@ -164,6 +168,9 @@ var _ = ginkgo.AfterSuite(func() {
 			os := "linux"
 			if isWindowsCluster {
 				os = "windows"
+				if winServerVer == "windows-2022" {
+					os = winServerVer
+				}
 			}
 			createExampleDeployment := testCmd{
 				command:  "bash",
@@ -214,6 +221,8 @@ var _ = ginkgo.AfterSuite(func() {
 				execTestCmd([]testCmd{installDriver, uninstallDriver})
 			}
 
+			checkAccountCreationLeak()
+
 			err := credentials.DeleteAzureCredentialFile()
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		}
@@ -252,6 +261,20 @@ func execTestCmd(cmds []testCmd) {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		log.Println(cmd.endLog)
 	}
+}
+
+func checkAccountCreationLeak() {
+	creds, err := credentials.CreateAzureCredentialFile(false)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	accountNum, err := azureClient.GetAccountNumByResourceGroup(context.TODO(), creds.ResourceGroup)
+	framework.ExpectNoError(err, fmt.Sprintf("failed to GetAccountNumByResourceGroup(%s): %v", creds.ResourceGroup, err))
+	ginkgo.By(fmt.Sprintf("GetAccountNumByResourceGroup(%s) returns %d accounts", creds.ResourceGroup, accountNum))
+
+	accountLimitInTest := 10
+	framework.ExpectEqual(accountNum >= accountLimitInTest, false, fmt.Sprintf("current account num %d should not exceed %d", accountNum, accountLimitInTest))
 }
 
 func skipIfTestingInWindowsCluster() {

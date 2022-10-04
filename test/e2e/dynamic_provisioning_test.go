@@ -92,8 +92,9 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				"skuName": "Premium_LRS",
 				"tags":    tags,
 				// make sure this is the first test case due to storeAccountKey is set as false
-				"storeAccountKey": "false",
-				"accessTier":      "Premium",
+				"storeAccountKey":        "false",
+				"accessTier":             "Premium",
+				"requireInfraEncryption": "true",
 			},
 			Tags: tags,
 		}
@@ -124,7 +125,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 						},
 					},
 				},
-				IsWindows: isWindowsCluster,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			},
 		}
 
@@ -161,7 +163,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 						},
 					},
 				},
-				IsWindows: isWindowsCluster,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			},
 		}
 
@@ -194,7 +197,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 						},
 					},
 				},
-				IsWindows: isWindowsCluster,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			},
 			{
 				Cmd: convertToPowershellCommandIfNecessary("while true; do echo $(date -u) >> /mnt/test-1/data; sleep 100; done"),
@@ -208,7 +212,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 						},
 					},
 				},
-				IsWindows: isWindowsCluster,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			},
 		}
 		scParameters := map[string]string{
@@ -218,6 +223,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		if !isUsingInTreeVolumePlugin {
 			scParameters["allowBlobPublicAccess"] = "false"
 			scParameters["accessTier"] = "TransactionOptimized"
+			scParameters["matchTags"] = "true"
+			scParameters["shareName"] = "sharename-${pvc.metadata.name}"
 		}
 		test := testsuites.DynamicallyProvisionedCollocatedPodTest{
 			CSIDriver:              testDriver,
@@ -244,7 +251,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 						},
 					},
 				},
-				IsWindows: isWindowsCluster,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			},
 		}
 		scParameters := map[string]string{
@@ -278,7 +286,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 					},
 				},
 			},
-			IsWindows: isWindowsCluster,
+			IsWindows:    isWindowsCluster,
+			WinServerVer: winServerVer,
 		}
 
 		podCheckCmd := []string{"cat", "/mnt/test-1/data"}
@@ -359,7 +368,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 						},
 					},
 				},
-				IsWindows: isWindowsCluster,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			},
 		}
 		test := testsuites.DynamicallyProvisionedResizeVolumeTest{
@@ -490,7 +500,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 						},
 					},
 				},
-				IsWindows: isWindowsCluster,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			},
 		}
 		test := testsuites.DynamicallyProvisionedCollocatedPodTest{
@@ -622,9 +633,10 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 		pods := []testsuites.PodDetails{
 			{
-				Cmd:       convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
-				Volumes:   volumes,
-				IsWindows: isWindowsCluster,
+				Cmd:          convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
+				Volumes:      volumes,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			},
 		}
 		test := testsuites.DynamicallyProvisionedPodWithMultiplePVsTest{
@@ -707,7 +719,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 						},
 					},
 				},
-				IsWindows: isWindowsCluster,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			},
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
@@ -743,15 +756,17 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 						},
 					},
 				},
-				IsWindows: isWindowsCluster,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			},
 		}
 
 		scParameters := map[string]string{
-			"skuName":                      "Standard_LRS",
+			"skuName":                      "Premium_LRS",
 			"secretNamespace":              "kube-system",
+			"createAccount":                "true",
 			"useDataPlaneAPI":              "true",
-			"disableDeleteRetentionPolicy": "false",
+			"disableDeleteRetentionPolicy": "true",
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
 			CSIDriver:              testDriver,
@@ -776,8 +791,9 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 					},
 				},
 			},
-			IsWindows: isWindowsCluster,
-			UseCMD:    false,
+			IsWindows:    isWindowsCluster,
+			WinServerVer: winServerVer,
+			UseCMD:       false,
 		}
 		podCheckCmd := []string{"cat", "/mnt/test-1/data"}
 		expectedString := "hello world\n"
@@ -840,8 +856,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 					{
 						ClaimSize: "100Gi",
 						MountOptions: []string{
-							"dir_mode=0777",
-							"file_mode=0777",
 							"uid=0",
 							"gid=0",
 							"mfsymlinks",
@@ -854,7 +868,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 						},
 					},
 				},
-				IsWindows: isWindowsCluster,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			},
 		}
 
@@ -928,7 +943,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 						},
 					},
 				},
-				IsWindows: isWindowsCluster,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			},
 		}
 
@@ -944,6 +960,10 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 	ginkgo.It("should mount on-prem smb server [file.csi.azure.com]", func() {
 		skipIfUsingInTreeVolumePlugin()
+		if isWindowsCluster && isCapzTest {
+			log.Println("test case is not available for capz Windows test")
+			ginkgo.Skip("test case is not available for capz Windows test")
+		}
 
 		secretName := "smbcreds"
 		ginkgo.By(fmt.Sprintf("creating secret %s in namespace %s", secretName, ns.Name))
@@ -995,7 +1015,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 						},
 					},
 				},
-				IsWindows: isWindowsCluster,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			},
 		}
 
@@ -1032,7 +1053,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 						},
 					},
 				},
-				IsWindows: isWindowsCluster,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			},
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
@@ -1069,7 +1091,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 						},
 					},
 				},
-				IsWindows: isWindowsCluster,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			},
 		}
 		scParameters := map[string]string{
@@ -1077,7 +1100,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			"networkEndpointType": "privateEndpoint",
 			"skuName":             "Premium_LRS",
 			"rootSquashType":      "AllSquash",
-			"mountPermissions":    "0777",
+			"mountPermissions":    "0",
+			"fsGroupChangePolicy": "Always",
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
 			CSIDriver:              testDriver,
@@ -1105,9 +1129,10 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 		pods := []testsuites.PodDetails{
 			{
-				Cmd:       convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
-				Volumes:   volumes,
-				IsWindows: isWindowsCluster,
+				Cmd:          convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
+				Volumes:      volumes,
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
 			},
 		}
 		test := testsuites.DynamicallyProvisionedPodWithMultiplePVsTest{
@@ -1116,7 +1141,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			StorageClassParameters: map[string]string{
 				"protocol":         "nfs",
 				"rootSquashType":   "NoRootSquash",
-				"mountPermissions": "0700",
+				"mountPermissions": "0777",
 			},
 		}
 		if supportZRSwithNFS {
@@ -1140,7 +1165,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 					},
 				},
 			},
-			IsWindows: isWindowsCluster,
+			IsWindows:    isWindowsCluster,
+			WinServerVer: winServerVer,
 		}
 
 		podCheckCmd := []string{"cat", "/mnt/test-1/data"}

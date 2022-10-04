@@ -59,11 +59,11 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	context := req.GetVolumeContext()
 	if context != nil {
 		if strings.EqualFold(context[ephemeralField], trueValue) {
-			context[secretNamespaceField] = context[podNamespaceField]
+			setKeyValueInMap(context, secretNamespaceField, context[podNamespaceField])
 			if !d.allowInlineVolumeKeyAccessWithIdentity {
 				// only get storage account from secret
-				context[getAccountKeyFromSecretField] = trueValue
-				context[storageAccountField] = ""
+				setKeyValueInMap(context, getAccountKeyFromSecretField, trueValue)
+				setKeyValueInMap(context, storageAccountField, "")
 			}
 			klog.V(2).Infof("NodePublishVolume: ephemeral volume(%s) mount on %s, VolumeContext: %v", volumeID, target, context)
 			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
@@ -95,7 +95,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 
 	mnt, err := d.ensureMountPoint(target, os.FileMode(mountPermissions))
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Could not mount target %q: %v", target, err)
+		return nil, status.Errorf(codes.Internal, "Could not mount target %s: %v", target, err)
 	}
 	if mnt {
 		klog.V(2).Infof("NodePublishVolume: %s is already mounted", target)
@@ -103,15 +103,15 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	}
 
 	if err = preparePublishPath(target, d.mounter); err != nil {
-		return nil, fmt.Errorf("prepare publish failed for %s with error: %v", target, err)
+		return nil, status.Errorf(codes.Internal, "prepare publish failed for %s with error: %v", target, err)
 	}
 
 	klog.V(2).Infof("NodePublishVolume: mounting %s at %s with mountOptions: %v", source, target, mountOptions)
 	if err := d.mounter.Mount(source, target, "", mountOptions); err != nil {
 		if removeErr := os.Remove(target); removeErr != nil {
-			return nil, status.Errorf(codes.Internal, "Could not remove mount target %q: %v", target, removeErr)
+			return nil, status.Errorf(codes.Internal, "Could not remove mount target %s: %v", target, removeErr)
 		}
-		return nil, status.Errorf(codes.Internal, "Could not mount %q at %q: %v", source, target, err)
+		return nil, status.Errorf(codes.Internal, "Could not mount %s at %s: %v", source, target, err)
 	}
 	klog.V(2).Infof("NodePublishVolume: mount %s at %s successfully", source, target)
 
@@ -131,7 +131,7 @@ func (d *Driver) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublish
 
 	klog.V(2).Infof("NodeUnpublishVolume: unmounting volume %s on %s", volumeID, targetPath)
 	if err := CleanupSMBMountPoint(d.mounter, targetPath, true /*extensiveMountPointCheck*/); err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to unmount target %q: %v", targetPath, err)
+		return nil, status.Errorf(codes.Internal, "failed to unmount target %s: %v", targetPath, err)
 	}
 	klog.V(2).Infof("NodeUnpublishVolume: unmount volume %s on %s successfully", volumeID, targetPath)
 
@@ -169,7 +169,12 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	// since it's ext4 by default on Linux
 	var fsType, server, protocol, ephemeralVolMountOptions, storageEndpointSuffix, folderName string
 	var ephemeralVol bool
+	fileShareNameReplaceMap := map[string]string{}
+
 	mountPermissions := d.mountPermissions
+	performChmodOp := (mountPermissions > 0)
+	fsGroupChangePolicy := d.fsGroupChangePolicy
+
 	for k, v := range context {
 		switch strings.ToLower(k) {
 		case fsTypeField:
@@ -188,11 +193,25 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			ephemeralVolMountOptions = v
 		case storageEndpointSuffixField:
 			storageEndpointSuffix = v
+		case fsGroupChangePolicyField:
+			fsGroupChangePolicy = v
+		case pvcNamespaceKey:
+			fileShareNameReplaceMap[pvcNamespaceMetadata] = v
+		case pvcNameKey:
+			fileShareNameReplaceMap[pvcNameMetadata] = v
+		case pvNameKey:
+			fileShareNameReplaceMap[pvNameMetadata] = v
 		case mountPermissionsField:
 			if v != "" {
 				var err error
-				if mountPermissions, err = strconv.ParseUint(v, 8, 32); err != nil {
+				var perm uint64
+				if perm, err = strconv.ParseUint(v, 8, 32); err != nil {
 					return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid mountPermissions %s", v))
+				}
+				if perm == 0 {
+					performChmodOp = false
+				} else {
+					mountPermissions = perm
 				}
 			}
 		}
@@ -200,6 +219,18 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	if server == "" && accountName == "" {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("failed to get account name from %s", volumeID))
+	}
+
+	if !isSupportedFsType(fsType) {
+		return nil, status.Errorf(codes.InvalidArgument, "fsType(%s) is not supported, supported fsType list: %v", fsType, supportedFsTypeList)
+	}
+
+	if !isSupportedProtocol(protocol) {
+		return nil, status.Errorf(codes.InvalidArgument, "protocol(%s) is not supported, supported protocol list: %v", protocol, supportedProtocolList)
+	}
+
+	if !isSupportedFSGroupChangePolicy(fsGroupChangePolicy) {
+		return nil, status.Errorf(codes.InvalidArgument, "fsGroupChangePolicy(%s) is not supported, supported fsGroupChangePolicy list: %v", fsGroupChangePolicy, supportedFSGroupChangePolicyList)
 	}
 
 	if acquired := d.volumeLocks.TryAcquire(volumeID); !acquired {
@@ -214,6 +245,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			storageEndpointSuffix = defaultStorageEndPointSuffix
 		}
 	}
+
+	// replace pv/pvc name namespace metadata in fileShareName
+	fileShareName = replaceWithMap(fileShareName, fileShareNameReplaceMap)
 
 	osSeparator := string(os.PathSeparator)
 	if strings.TrimSpace(server) == "" {
@@ -235,7 +269,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 	isDiskMount := isDiskFsType(fsType)
 	if isDiskMount {
-		if diskName == "" {
+		if !strings.HasSuffix(diskName, vhdSuffix) {
 			return nil, status.Errorf(codes.Internal, "diskname could not be empty, targetPath: %s", targetPath)
 		}
 		cifsMountFlags = []string{"dir_mode=0777,file_mode=0777,cache=strict,actimeo=30", "nostrictsync"}
@@ -258,10 +292,10 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			}
 			// parameters suggested by https://azure.microsoft.com/en-us/documentation/articles/storage-how-to-use-files-linux/
 			sensitiveMountOptions = []string{fmt.Sprintf("username=%s,password=%s", accountName, accountKey)}
-			mountOptions = appendDefaultMountOptions(cifsMountFlags)
 			if ephemeralVol {
-				mountOptions = util.JoinMountOptions(mountOptions, strings.Split(ephemeralVolMountOptions, ","))
+				cifsMountFlags = util.JoinMountOptions(cifsMountFlags, strings.Split(ephemeralVolMountOptions, ","))
 			}
+			mountOptions = appendDefaultMountOptions(cifsMountFlags)
 		}
 	}
 
@@ -269,7 +303,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	isDirMounted, err := d.ensureMountPoint(cifsMountPath, os.FileMode(mountPermissions))
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Could not mount target %q: %v", cifsMountPath, err)
+		return nil, status.Errorf(codes.Internal, "Could not mount target %s: %v", cifsMountPath, err)
 	}
 	if isDirMounted {
 		klog.V(2).Infof("NodeStageVolume: volume %s is already mounted on %s", volumeID, targetPath)
@@ -279,26 +313,23 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			mountFsType = nfs
 		}
 		if err := prepareStagePath(cifsMountPath, d.mounter); err != nil {
-			return nil, fmt.Errorf("prepare stage path failed for %s with error: %v", cifsMountPath, err)
+			return nil, status.Errorf(codes.Internal, "prepare stage path failed for %s with error: %v", cifsMountPath, err)
 		}
 		if err := wait.PollImmediate(1*time.Second, 2*time.Minute, func() (bool, error) {
 			return true, SMBMount(d.mounter, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions)
 		}); err != nil {
-			return nil, status.Error(codes.Internal, fmt.Sprintf("volume(%s) mount %q on %q failed with %v", volumeID, source, cifsMountPath, err))
+			return nil, status.Error(codes.Internal, fmt.Sprintf("volume(%s) mount %s on %s failed with %v", volumeID, source, cifsMountPath, err))
 		}
 		if protocol == nfs {
-			klog.V(2).Infof("volumeID(%v): mount targetPath(%s) with permissions(0%o)", volumeID, targetPath, mountPermissions)
-			if err := os.Chmod(targetPath, os.FileMode(mountPermissions)); err != nil {
-				return nil, status.Error(codes.Internal, err.Error())
-			}
-			if volumeMountGroup != "" {
-				klog.V(2).Infof("set gid of volume(%s) as %s", volumeID, volumeMountGroup)
-				if err := SetVolumeOwnership(cifsMountPath, volumeMountGroup); err != nil {
-					return nil, status.Error(codes.Internal, fmt.Sprintf("SetVolumeOwnership with volume(%s) on %q failed with %v", volumeID, cifsMountPath, err))
+			if performChmodOp {
+				if err := chmodIfPermissionMismatch(targetPath, os.FileMode(mountPermissions)); err != nil {
+					return nil, status.Error(codes.Internal, err.Error())
 				}
+			} else {
+				klog.V(2).Infof("skip chmod on targetPath(%s) since mountPermissions is set as 0", targetPath)
 			}
 		}
-		klog.V(2).Infof("volume(%s) mount %q on %q succeeded", volumeID, source, cifsMountPath)
+		klog.V(2).Infof("volume(%s) mount %s on %s succeeded", volumeID, source, cifsMountPath)
 	}
 
 	if isDiskMount {
@@ -321,9 +352,18 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		klog.V(2).Infof("NodeStageVolume: volume %s formatting %s and mounting at %s with mount options(%s)", volumeID, targetPath, diskPath, options)
 		// FormatAndMount will format only if needed
 		if err := d.mounter.FormatAndMount(diskPath, targetPath, fsType, options); err != nil {
-			return nil, status.Error(codes.Internal, fmt.Sprintf("could not format %q and mount it at %q", targetPath, diskPath))
+			return nil, status.Error(codes.Internal, fmt.Sprintf("could not format %s and mount it at %s", targetPath, diskPath))
 		}
 		klog.V(2).Infof("NodeStageVolume: volume %s format %s and mounting at %s successfully", volumeID, targetPath, diskPath)
+	}
+
+	if protocol == nfs || isDiskMount {
+		if volumeMountGroup != "" && fsGroupChangePolicy != FSGroupChangeNone {
+			klog.V(2).Infof("set gid of volume(%s) as %s using fsGroupChangePolicy(%s)", volumeID, volumeMountGroup, fsGroupChangePolicy)
+			if err := SetVolumeOwnership(cifsMountPath, volumeMountGroup, fsGroupChangePolicy); err != nil {
+				return nil, status.Error(codes.Internal, fmt.Sprintf("SetVolumeOwnership with volume(%s) on %s failed with %v", volumeID, cifsMountPath, err))
+			}
+		}
 	}
 	return &csi.NodeStageVolumeResponse{}, nil
 }
@@ -346,13 +386,13 @@ func (d *Driver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolu
 
 	klog.V(2).Infof("NodeUnstageVolume: CleanupMountPoint volume %s on %s", volumeID, stagingTargetPath)
 	if err := CleanupSMBMountPoint(d.mounter, stagingTargetPath, true /*extensiveMountPointCheck*/); err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to unmount staging target %q: %v", stagingTargetPath, err)
+		return nil, status.Errorf(codes.Internal, "failed to unmount staging target %s: %v", stagingTargetPath, err)
 	}
 
 	targetPath := filepath.Join(filepath.Dir(stagingTargetPath), proxyMount)
 	klog.V(2).Infof("NodeUnstageVolume: CleanupMountPoint volume %s on %s", volumeID, targetPath)
 	if err := CleanupMountPoint(d.mounter, targetPath, false); err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to unmount staging target %q: %v", targetPath, err)
+		return nil, status.Errorf(codes.Internal, "failed to unmount staging target %s: %v", targetPath, err)
 	}
 	klog.V(2).Infof("NodeUnstageVolume: unmount volume %s on %s successfully", volumeID, stagingTargetPath)
 

@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-02-01/storage"
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
 	"github.com/Azure/azure-storage-file-go/azfile"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/pborman/uuid"
@@ -52,7 +52,7 @@ import (
 const (
 	DefaultDriverName  = "file.csi.azure.com"
 	separator          = "#"
-	volumeIDTemplate   = "%s#%s#%s#%s"
+	volumeIDTemplate   = "%s#%s#%s#%s#%s#%s"
 	secretNameTemplate = "azure-storage-account-%s-secret"
 	serviceURLTemplate = "https://%s.file.%s"
 	fileURLTemplate    = "https://%s.file.%s/%s/%s"
@@ -85,6 +85,7 @@ const (
 	serverNameField                   = "server"
 	fsTypeField                       = "fstype"
 	protocolField                     = "protocol"
+	matchTagsField                    = "matchtags"
 	tagsField                         = "tags"
 	storageAccountField               = "storageaccount"
 	storageAccountTypeField           = "storageaccounttype"
@@ -103,6 +104,7 @@ const (
 	disableDeleteRetentionPolicyField = "disabledeleteretentionpolicy"
 	allowBlobPublicAccessField        = "allowblobpublicaccess"
 	storageEndpointSuffixField        = "storageendpointsuffix"
+	fsGroupChangePolicyField          = "fsgroupchangepolicy"
 	ephemeralField                    = "csi.storage.k8s.io/ephemeral"
 	podNamespaceField                 = "csi.storage.k8s.io/pod.namespace"
 	mountOptionsField                 = "mountoptions"
@@ -126,6 +128,7 @@ const (
 	vnetNameField                     = "vnetname"
 	subnetNameField                   = "subnetname"
 	shareNamePrefixField              = "sharenameprefix"
+	requireInfraEncryptionField       = "requireinfraencryption"
 	premium                           = "premium"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
@@ -149,17 +152,28 @@ const (
 
 	defaultNamespace = "default"
 
-	pvcNameKey      = "csi.storage.k8s.io/pvc/name"
-	pvcNamespaceKey = "csi.storage.k8s.io/pvc/namespace"
-	pvNameKey       = "csi.storage.k8s.io/pv/name"
+	pvcNameKey           = "csi.storage.k8s.io/pvc/name"
+	pvcNamespaceKey      = "csi.storage.k8s.io/pvc/namespace"
+	pvNameKey            = "csi.storage.k8s.io/pv/name"
+	pvcNameMetadata      = "${pvc.metadata.name}"
+	pvcNamespaceMetadata = "${pvc.metadata.namespace}"
+	pvNameMetadata       = "${pv.metadata.name}"
 
 	defaultStorageEndPointSuffix = "core.windows.net"
+
+	VolumeID         = "volumeid"
+	SourceResourceID = "source_resource_id"
+	SnapshotName     = "snapshot_name"
+	SnapshotID       = "snapshot_id"
+
+	FSGroupChangeNone = "None"
 )
 
 var (
-	supportedFsTypeList     = []string{cifs, smb, nfs, ext4, ext3, ext2, xfs}
-	supportedProtocolList   = []string{smb, nfs}
-	supportedDiskFsTypeList = []string{ext4, ext3, ext2, xfs}
+	supportedFsTypeList              = []string{cifs, smb, nfs, ext4, ext3, ext2, xfs}
+	supportedProtocolList            = []string{smb, nfs}
+	supportedDiskFsTypeList          = []string{ext4, ext3, ext2, xfs}
+	supportedFSGroupChangePolicyList = []string{FSGroupChangeNone, string(v1.FSGroupChangeAlways), string(v1.FSGroupChangeOnRootMismatch)}
 
 	retriableErrors = []string{accountNotProvisioned, tooManyRequests, shareBeingDeleted, clientThrottled}
 )
@@ -177,6 +191,7 @@ type DriverOptions struct {
 	EnableVHDDiskFeature                   bool
 	EnableGetVolumeStats                   bool
 	MountPermissions                       uint64
+	FSGroupChangePolicy                    string
 }
 
 // Driver implements all interfaces of CSI drivers
@@ -187,6 +202,7 @@ type Driver struct {
 	cloudConfigSecretNamespace             string
 	customUserAgent                        string
 	userAgentSuffix                        string
+	fsGroupChangePolicy                    string
 	allowEmptyCloudConfig                  bool
 	allowInlineVolumeKeyAccessWithIdentity bool
 	enableVHDDiskFeature                   bool
@@ -231,6 +247,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.enableVHDDiskFeature = options.EnableVHDDiskFeature
 	driver.enableGetVolumeStats = options.EnableGetVolumeStats
 	driver.mountPermissions = options.MountPermissions
+	driver.fsGroupChangePolicy = options.FSGroupChangePolicy
 	driver.volLockMap = newLockMap()
 	driver.subnetLockMap = newLockMap()
 	driver.volumeLocks = newVolumeLocks()
@@ -271,6 +288,8 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 	if err != nil {
 		klog.Fatalf("failed to get Azure Cloud Provider, error: %v", err)
 	}
+	klog.V(2).Infof("cloud: %s, location: %s, rg: %s, VnetName: %s, VnetResourceGroup: %s, SubnetName: %s", d.cloud.Cloud, d.cloud.Location, d.cloud.ResourceGroup, d.cloud.VnetName, d.cloud.VnetResourceGroup, d.cloud.SubnetName)
+
 	// todo: set backoff from cloud provider config
 	d.fileClient = newAzureFileClient(&d.cloud.Environment, &retry.Backoff{Steps: 1})
 
@@ -352,18 +371,27 @@ func (d *Driver) getFileShareQuota(resourceGroupName, accountName, fileShareName
 }
 
 // get file share info according to volume id, e.g.
-// input: "rg#f5713de20cde511e8ba4900#pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41#diskname.vhd#uuid"
-// output: rg, f5713de20cde511e8ba4900, pvc-file-dynamic-17e43f84-f474-11e8-acd0-000d3a00df41, diskname.vhd
-func GetFileShareInfo(id string) (string, string, string, string, error) {
+// input: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace"
+// output: rg, f5713de20cde511e8ba4900, fileShareName, diskname.vhd, namespace
+func GetFileShareInfo(id string) (string, string, string, string, string, error) {
 	segments := strings.Split(id, separator)
 	if len(segments) < 3 {
-		return "", "", "", "", fmt.Errorf("error parsing volume id: %q, should at least contain two #", id)
+		return "", "", "", "", "", fmt.Errorf("error parsing volume id: %q, should at least contain two #", id)
 	}
-	var diskName string
+	rg := segments[0]
+	var diskName, namespace string
 	if len(segments) > 3 {
 		diskName = segments[3]
 	}
-	return segments[0], segments[1], segments[2], diskName, nil
+	if len(segments) > 4 && rg == "" {
+		// in csi migration, rg could be empty, then the 5th element is namespace
+		// https://github.com/kubernetes/kubernetes/blob/v1.23.5/staging/src/k8s.io/csi-translation-lib/plugins/azure_file.go#L137
+		namespace = segments[4]
+	}
+	if len(segments) > 5 {
+		namespace = segments[5]
+	}
+	return rg, segments[1], segments[2], diskName, namespace, nil
 }
 
 // check whether mountOptions contains file_mode, dir_mode, vers, if not, append default mode
@@ -473,13 +501,13 @@ func checkShareNameBeginAndEnd(fileShareName string) bool {
 
 // get snapshot name according to snapshot id, e.g.
 // input: "rg#f5713de20cde511e8ba4900#csivolumename#diskname#2019-08-22T07:17:53.0000000Z"
-// output: 2019-08-22T07:17:53.0000000Z
+// output: 2019-08-22T07:17:53.0000000Z (last element)
 func getSnapshot(id string) (string, error) {
 	segments := strings.Split(id, separator)
 	if len(segments) < 5 {
 		return "", fmt.Errorf("error parsing volume id: %q, should at least contain four #", id)
 	}
-	return segments[4], nil
+	return segments[len(segments)-1], nil
 }
 
 func getFileURL(accountName, accountKey, storageEndpointSuffix, fileShareName, diskName string) (*azfile.FileURL, error) {
@@ -540,16 +568,16 @@ func IsCorruptedDir(dir string) bool {
 }
 
 // GetAccountInfo get account info
-// return <rgName, accountName, accountKey, fileShareName, diskName, err>
+// return <rgName, accountName, accountKey, fileShareName, diskName, secretNamespace, err>
 func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, reqContext map[string]string) (string, string, string, string, string, error) {
-	rgName, accountName, fileShareName, diskName, err := GetFileShareInfo(volumeID)
+	rgName, accountName, fileShareName, diskName, secretNamespace, err := GetFileShareInfo(volumeID)
 	if err != nil {
 		// ignore volumeID parsing error
 		klog.Warningf("parsing volumeID(%s) return with error: %v", volumeID, err)
 		err = nil
 	}
 
-	var protocol, accountKey, secretName, secretNamespace, pvcNamespace, subsID string
+	var protocol, accountKey, secretName, pvcNamespace, subsID string
 	// indicates whether get account key only from k8s secret
 	getAccountKeyFromSecret := false
 
@@ -670,6 +698,18 @@ func isSupportedRootSquashType(rootSquashType string) bool {
 	return false
 }
 
+func isSupportedFSGroupChangePolicy(policy string) bool {
+	if policy == "" {
+		return true
+	}
+	for _, v := range supportedFSGroupChangePolicyList {
+		if policy == v {
+			return true
+		}
+	}
+	return false
+}
+
 // CreateFileShare creates a file share
 func (d *Driver) CreateFileShare(accountOptions *azure.AccountOptions, shareOptions *fileclient.ShareOptions, secrets map[string]string) error {
 	return wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
@@ -772,9 +812,9 @@ func (d *Driver) RemoveStorageAccountTag(ctx context.Context, resourceGroup, acc
 }
 
 // GetStorageAccesskey get Azure storage account key from
-// 	1. secrets (if not empty)
-// 	2. use k8s client identity to read from k8s secret
-// 	3. use cluster identity to get from storage account directly
+//  1. secrets (if not empty)
+//  2. use k8s client identity to read from k8s secret
+//  3. use cluster identity to get from storage account directly
 func (d *Driver) GetStorageAccesskey(ctx context.Context, accountOptions *azure.AccountOptions, secrets map[string]string, secretName, secretNamespace string) (string, error) {
 	if len(secrets) > 0 {
 		_, accountKey, err := getStorageAccount(secrets)

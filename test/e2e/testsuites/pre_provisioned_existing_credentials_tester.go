@@ -67,7 +67,7 @@ func (t *PreProvisionedExistingCredentialsTest) Run(client clientset.Interface, 
 			tpvc.WaitForBound()
 			tpvc.ValidateProvisionedPersistentVolume()
 
-			tpod := NewTestPod(client, namespace, pod.Cmd, pod.IsWindows)
+			tpod := NewTestPod(client, namespace, pod.Cmd, pod.IsWindows, pod.WinServerVer)
 			tpod.SetupVolume(tpvc.persistentVolumeClaim, fmt.Sprintf("%s%d", volume.VolumeMount.NameGenerate, n+1), fmt.Sprintf("%s%d", volume.VolumeMount.MountPathGenerate, n+1), volume.VolumeMount.ReadOnly)
 			ginkgo.By("deploying the pod")
 			tpod.Create()

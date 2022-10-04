@@ -22,9 +22,9 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-07-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-08-01/network"
 	"github.com/Azure/azure-sdk-for-go/services/privatedns/mgmt/2018-09-01/privatedns"
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-02-01/storage"
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
 	"github.com/Azure/go-autorest/autorest/to"
 
 	"k8s.io/klog/v2"
@@ -52,11 +52,17 @@ type AccountOptions struct {
 	IsHnsEnabled                            *bool
 	EnableNfsV3                             *bool
 	AllowBlobPublicAccess                   *bool
+	RequireInfrastructureEncryption         *bool
+	AllowSharedKeyAccess                    *bool
+	KeyName                                 *string
+	KeyVersion                              *string
+	KeyVaultURI                             *string
 	Tags                                    map[string]string
 	VirtualNetworkResourceIDs               []string
 	VNetResourceGroup                       string
 	VNetName                                string
 	SubnetName                              string
+	MatchTags                               bool
 }
 
 type accountWithLocation struct {
@@ -152,6 +158,12 @@ func (az *Cloud) EnsureStorageAccount(ctx context.Context, accountOptions *Accou
 		subsID = accountOptions.SubscriptionID
 	}
 
+	if len(accountOptions.Tags) == 0 {
+		accountOptions.Tags = make(map[string]string)
+	}
+	// set built-in tags
+	accountOptions.Tags[consts.CreatedByTag] = "azure"
+
 	var createNewAccount bool
 	if len(accountName) == 0 {
 		createNewAccount = true
@@ -195,6 +207,12 @@ func (az *Cloud) EnsureStorageAccount(ctx context.Context, accountOptions *Accou
 		if err := az.createPrivateDNSZone(ctx, vnetResourceGroup); err != nil {
 			return "", "", fmt.Errorf("Failed to create private DNS zone(%s) in resourceGroup(%s), error: %v", PrivateDNSZoneName, vnetResourceGroup, err)
 		}
+
+		// Create virtual link to the private DNS zone
+		vNetLinkName := accountName + "-vnetlink"
+		if err := az.createVNetLink(ctx, vNetLinkName, vnetResourceGroup, vnetName); err != nil {
+			return "", "", fmt.Errorf("Failed to create virtual link for vnet(%s) and DNS Zone(%s) in resourceGroup(%s), error: %v", vnetName, PrivateDNSZoneName, vnetResourceGroup, err)
+		}
 	}
 
 	if createNewAccount {
@@ -234,10 +252,6 @@ func (az *Cloud) EnsureStorageAccount(ctx context.Context, accountOptions *Accou
 		if accountKind != "" {
 			kind = storage.Kind(accountKind)
 		}
-		if len(accountOptions.Tags) == 0 {
-			accountOptions.Tags = make(map[string]string)
-		}
-		accountOptions.Tags[consts.CreatedByTag] = "azure"
 		tags := convertMapToMapPointer(accountOptions.Tags)
 
 		klog.V(2).Infof("azure - no matching account found, begin to create a new account %s in resource group %s, location: %s, accountType: %s, accountKind: %s, tags: %+v",
@@ -263,6 +277,36 @@ func (az *Cloud) EnsureStorageAccount(ctx context.Context, accountOptions *Accou
 		if accountOptions.AllowBlobPublicAccess != nil {
 			klog.V(2).Infof("set AllowBlobPublicAccess(%v) for storage account(%s)", *accountOptions.AllowBlobPublicAccess, accountName)
 			cp.AccountPropertiesCreateParameters.AllowBlobPublicAccess = accountOptions.AllowBlobPublicAccess
+		}
+		if accountOptions.RequireInfrastructureEncryption != nil {
+			klog.V(2).Infof("set RequireInfrastructureEncryption(%v) for storage account(%s)", *accountOptions.RequireInfrastructureEncryption, accountName)
+			cp.AccountPropertiesCreateParameters.Encryption = &storage.Encryption{
+				RequireInfrastructureEncryption: accountOptions.RequireInfrastructureEncryption,
+				KeySource:                       storage.KeySourceMicrosoftStorage,
+				Services: &storage.EncryptionServices{
+					File: &storage.EncryptionService{Enabled: to.BoolPtr(true)},
+					Blob: &storage.EncryptionService{Enabled: to.BoolPtr(true)},
+				},
+			}
+		}
+		if accountOptions.AllowSharedKeyAccess != nil {
+			klog.V(2).Infof("set Allow SharedKeyAccess (%v) for storage account (%s)", *accountOptions.AllowSharedKeyAccess, accountName)
+			cp.AccountPropertiesCreateParameters.AllowSharedKeyAccess = accountOptions.AllowSharedKeyAccess
+		}
+		if accountOptions.KeyVaultURI != nil {
+			klog.V(2).Infof("set KeyVault(%v) for storage account(%s)", accountOptions.KeyVaultURI, accountName)
+			cp.AccountPropertiesCreateParameters.Encryption = &storage.Encryption{
+				KeyVaultProperties: &storage.KeyVaultProperties{
+					KeyName:     accountOptions.KeyName,
+					KeyVersion:  accountOptions.KeyVersion,
+					KeyVaultURI: accountOptions.KeyVaultURI,
+				},
+				KeySource: storage.KeySourceMicrosoftKeyvault,
+				Services: &storage.EncryptionServices{
+					File: &storage.EncryptionService{Enabled: to.BoolPtr(true)},
+					Blob: &storage.EncryptionService{Enabled: to.BoolPtr(true)},
+				},
+			}
 		}
 		if az.StorageAccountClient == nil {
 			return "", "", fmt.Errorf("StorageAccountClient is nil")
@@ -300,12 +344,6 @@ func (az *Cloud) EnsureStorageAccount(ctx context.Context, accountOptions *Accou
 				return "", "", fmt.Errorf("Failed to create private endpoint for storage account(%s), resourceGroup(%s), error: %v", accountName, vnetResourceGroup, err)
 			}
 
-			// Create virtual link to the zone private DNS zone
-			vNetLinkName := accountName + "-vnetlink"
-			if err := az.createVNetLink(ctx, vNetLinkName, vnetResourceGroup, vnetName); err != nil {
-				return "", "", fmt.Errorf("Failed to create virtual link for vnet(%s) and DNS Zone(%s) in resourceGroup(%s), error: %v", vnetName, PrivateDNSZoneName, vnetResourceGroup, err)
-			}
-
 			// Create dns zone group
 			dnsZoneGroupName := accountName + "-dnszonegroup"
 			if err := az.createPrivateDNSZoneGroup(ctx, dnsZoneGroupName, privateEndpointName, vnetResourceGroup, vnetName); err != nil {
@@ -330,8 +368,12 @@ func (az *Cloud) createPrivateEndpoint(ctx context.Context, accountName string, 
 	if err != nil {
 		return err
 	}
-	// Disable the private endpoint network policies before creating private endpoint
-	subnet.SubnetPropertiesFormat.PrivateEndpointNetworkPolicies = network.VirtualNetworkPrivateEndpointNetworkPoliciesDisabled
+	if subnet.SubnetPropertiesFormat == nil {
+		klog.Errorf("SubnetPropertiesFormat of (%s, %s) is nil", vnetName, subnetName)
+	} else {
+		// Disable the private endpoint network policies before creating private endpoint
+		subnet.SubnetPropertiesFormat.PrivateEndpointNetworkPolicies = network.VirtualNetworkPrivateEndpointNetworkPoliciesDisabled
+	}
 	if rerr := az.SubnetsClient.CreateOrUpdate(ctx, vnetResourceGroup, vnetName, subnetName, subnet); rerr != nil {
 		return rerr.Error()
 	}
@@ -350,19 +392,20 @@ func (az *Cloud) createPrivateEndpoint(ctx context.Context, accountName string, 
 		Location:                  &location,
 		PrivateEndpointProperties: &network.PrivateEndpointProperties{Subnet: &subnet, PrivateLinkServiceConnections: &privateLinkServiceConnections},
 	}
-	return az.privateendpointclient.CreateOrUpdate(ctx, vnetResourceGroup, privateEndpointName, privateEndpoint, true)
+
+	return az.privateendpointclient.CreateOrUpdate(ctx, vnetResourceGroup, privateEndpointName, privateEndpoint, "", true).Error()
 }
 
 func (az *Cloud) createPrivateDNSZone(ctx context.Context, vnetResourceGroup string) error {
 	klog.V(2).Infof("Creating private dns zone(%s) in resourceGroup (%s)", PrivateDNSZoneName, vnetResourceGroup)
 	location := LocationGlobal
 	privateDNSZone := privatedns.PrivateZone{Location: &location}
-	if err := az.privatednsclient.CreateOrUpdate(ctx, vnetResourceGroup, PrivateDNSZoneName, privateDNSZone, true); err != nil {
-		if strings.Contains(err.Error(), "exists already") {
+	if err := az.privatednsclient.CreateOrUpdate(ctx, vnetResourceGroup, PrivateDNSZoneName, privateDNSZone, "", true); err != nil {
+		if strings.Contains(err.Error().Error(), "exists already") {
 			klog.V(2).Infof("private dns zone(%s) in resourceGroup (%s) already exists", PrivateDNSZoneName, vnetResourceGroup)
 			return nil
 		}
-		return err
+		return err.Error()
 	}
 	return nil
 }
@@ -377,7 +420,7 @@ func (az *Cloud) createVNetLink(ctx context.Context, vNetLinkName, vnetResourceG
 			VirtualNetwork:      &privatedns.SubResource{ID: &vnetID},
 			RegistrationEnabled: to.BoolPtr(true)},
 	}
-	return az.virtualNetworkLinksClient.CreateOrUpdate(ctx, vnetResourceGroup, PrivateDNSZoneName, vNetLinkName, parameters, false)
+	return az.virtualNetworkLinksClient.CreateOrUpdate(ctx, vnetResourceGroup, PrivateDNSZoneName, vNetLinkName, parameters, "", false).Error()
 }
 
 func (az *Cloud) createPrivateDNSZoneGroup(ctx context.Context, dnsZoneGroupName, privateEndpointName, vnetResourceGroup, vnetName string) error {
@@ -395,7 +438,7 @@ func (az *Cloud) createPrivateDNSZoneGroup(ctx context.Context, dnsZoneGroupName
 			PrivateDNSZoneConfigs: &privateDNSZoneConfigs,
 		},
 	}
-	return az.privatednszonegroupclient.CreateOrUpdate(ctx, vnetResourceGroup, privateEndpointName, dnsZoneGroupName, privateDNSZoneGroup, false)
+	return az.privatednszonegroupclient.CreateOrUpdate(ctx, vnetResourceGroup, privateEndpointName, dnsZoneGroupName, privateDNSZoneGroup, "", false).Error()
 }
 
 // AddStorageAccountTags add tags to storage account
@@ -508,6 +551,11 @@ func isTaggedWithSkip(account storage.Account) bool {
 }
 
 func isTagsEqual(account storage.Account, accountOptions *AccountOptions) bool {
+	if !accountOptions.MatchTags {
+		// always return true when tags matching is false (by default)
+		return true
+	}
+
 	// nil and empty map should be regarded as equal
 	if len(account.Tags) == 0 && len(accountOptions.Tags) == 0 {
 		return true

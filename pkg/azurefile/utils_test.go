@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -236,6 +237,45 @@ func TestIsSupportedFsType(t *testing.T) {
 	}
 }
 
+func TestIsSupportedFSGroupChangePolicy(t *testing.T) {
+	tests := []struct {
+		policy         string
+		expectedResult bool
+	}{
+		{
+			policy:         "",
+			expectedResult: true,
+		},
+		{
+			policy:         "None",
+			expectedResult: true,
+		},
+		{
+			policy:         "Always",
+			expectedResult: true,
+		},
+		{
+			policy:         "OnRootMismatch",
+			expectedResult: true,
+		},
+		{
+			policy:         "onRootMismatch",
+			expectedResult: false,
+		},
+		{
+			policy:         "invalid",
+			expectedResult: false,
+		},
+	}
+
+	for _, test := range tests {
+		result := isSupportedFSGroupChangePolicy(test.policy)
+		if result != test.expectedResult {
+			t.Errorf("isSupportedFSGroupChangePolicy(%s) returned with %v, not equal to %v", test.policy, result, test.expectedResult)
+		}
+	}
+}
+
 func TestIsRetriableError(t *testing.T) {
 	tests := []struct {
 		desc         string
@@ -309,17 +349,21 @@ func TestConvertTagsToMap(t *testing.T) {
 		tags          string
 		expectedError error
 	}{
-		{desc: "Invalid tag",
+		{
+			desc:          "Invalid tag",
 			tags:          "invalid=test=tag",
 			expectedError: errors.New("Tags 'invalid=test=tag' are invalid, the format should like: 'key1=value1,key2=value2'"),
 		},
-		{desc: "Invalid key",
+		{
+			desc:          "Invalid key",
 			tags:          "=test",
 			expectedError: errors.New("Tags '=test' are invalid, the format should like: 'key1=value1,key2=value2'"),
 		},
-		{desc: "Valid tags",
+		{
+			desc:          "Valid tags",
 			tags:          "testTag=testValue",
-			expectedError: nil},
+			expectedError: nil,
+		},
 	}
 
 	for _, test := range tests {
@@ -328,6 +372,60 @@ func TestConvertTagsToMap(t *testing.T) {
 			t.Errorf("test[%s]: unexpected error: %v, expected error: %v", test.desc, err, test.expectedError)
 		}
 	}
+}
+
+func TestChmodIfPermissionMismatch(t *testing.T) {
+	permissionMatchingPath, _ := getWorkDirPath("permissionMatchingPath")
+	_ = makeDir(permissionMatchingPath, 0755)
+	defer os.RemoveAll(permissionMatchingPath)
+
+	permissionMismatchPath, _ := getWorkDirPath("permissionMismatchPath")
+	_ = makeDir(permissionMismatchPath, 0721)
+	defer os.RemoveAll(permissionMismatchPath)
+
+	tests := []struct {
+		desc          string
+		path          string
+		mode          os.FileMode
+		expectedError error
+	}{
+		{
+			desc:          "Invalid path",
+			path:          "invalid-path",
+			mode:          0755,
+			expectedError: fmt.Errorf("CreateFile invalid-path: The system cannot find the file specified"),
+		},
+		{
+			desc:          "permission matching path",
+			path:          permissionMatchingPath,
+			mode:          0755,
+			expectedError: nil,
+		},
+		{
+			desc:          "permission mismatch path",
+			path:          permissionMismatchPath,
+			mode:          0755,
+			expectedError: nil,
+		},
+	}
+
+	for _, test := range tests {
+		err := chmodIfPermissionMismatch(test.path, test.mode)
+		if !reflect.DeepEqual(err, test.expectedError) {
+			if err == nil || test.expectedError == nil && !strings.Contains(err.Error(), test.expectedError.Error()) {
+				t.Errorf("test[%s]: unexpected error: %v, expected error: %v", test.desc, err, test.expectedError)
+			}
+		}
+	}
+}
+
+// getWorkDirPath returns the path to the current working directory
+func getWorkDirPath(dir string) (string, error) {
+	path, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s%c%s", path, os.PathSeparator, dir), nil
 }
 
 func TestSetVolumeOwnership(t *testing.T) {
@@ -339,9 +437,10 @@ func TestSetVolumeOwnership(t *testing.T) {
 	defer os.RemoveAll(tmpVDir)
 
 	tests := []struct {
-		path          string
-		gid           string
-		expectedError error
+		path                string
+		gid                 string
+		fsGroupChangePolicy string
+		expectedError       error
 	}{
 		{
 			path:          "path",
@@ -363,12 +462,130 @@ func TestSetVolumeOwnership(t *testing.T) {
 			gid:           "1000",
 			expectedError: nil,
 		},
+		{
+			path:                tmpVDir,
+			gid:                 "1000",
+			fsGroupChangePolicy: "Always",
+			expectedError:       nil,
+		},
+		{
+			path:                tmpVDir,
+			gid:                 "1000",
+			fsGroupChangePolicy: "OnRootMismatch",
+			expectedError:       nil,
+		},
 	}
 
 	for _, test := range tests {
-		err := SetVolumeOwnership(test.path, test.gid)
+		err := SetVolumeOwnership(test.path, test.gid, test.fsGroupChangePolicy)
 		if err != nil && (err.Error() != test.expectedError.Error()) {
 			t.Errorf("unexpected error: %v, expected error: %v", err, test.expectedError)
+		}
+	}
+}
+
+func TestSetKeyValueInMap(t *testing.T) {
+	tests := []struct {
+		desc     string
+		m        map[string]string
+		key      string
+		value    string
+		expected map[string]string
+	}{
+		{
+			desc:  "nil map",
+			key:   "key",
+			value: "value",
+		},
+		{
+			desc:     "empty map",
+			m:        map[string]string{},
+			key:      "key",
+			value:    "value",
+			expected: map[string]string{"key": "value"},
+		},
+		{
+			desc:  "non-empty map",
+			m:     map[string]string{"k": "v"},
+			key:   "key",
+			value: "value",
+			expected: map[string]string{
+				"k":   "v",
+				"key": "value",
+			},
+		},
+		{
+			desc:     "same key already exists",
+			m:        map[string]string{"subDir": "value2"},
+			key:      "subDir",
+			value:    "value",
+			expected: map[string]string{"subDir": "value"},
+		},
+		{
+			desc:     "case insensitive key already exists",
+			m:        map[string]string{"subDir": "value2"},
+			key:      "subdir",
+			value:    "value",
+			expected: map[string]string{"subDir": "value"},
+		},
+	}
+
+	for _, test := range tests {
+		setKeyValueInMap(test.m, test.key, test.value)
+		if !reflect.DeepEqual(test.m, test.expected) {
+			t.Errorf("test[%s]: unexpected output: %v, expected result: %v", test.desc, test.m, test.expected)
+		}
+	}
+}
+
+func TestReplaceWithMap(t *testing.T) {
+	tests := []struct {
+		desc     string
+		str      string
+		m        map[string]string
+		expected string
+	}{
+		{
+			desc:     "empty string",
+			str:      "",
+			expected: "",
+		},
+		{
+			desc:     "empty map",
+			str:      "",
+			m:        map[string]string{},
+			expected: "",
+		},
+		{
+			desc:     "empty key",
+			str:      "prefix-" + pvNameMetadata,
+			m:        map[string]string{"": "pv"},
+			expected: "prefix-" + pvNameMetadata,
+		},
+		{
+			desc:     "empty value",
+			str:      "prefix-" + pvNameMetadata,
+			m:        map[string]string{pvNameMetadata: ""},
+			expected: "prefix-",
+		},
+		{
+			desc:     "one replacement",
+			str:      "prefix-" + pvNameMetadata,
+			m:        map[string]string{pvNameMetadata: "pv"},
+			expected: "prefix-pv",
+		},
+		{
+			desc:     "multiple replacements",
+			str:      pvcNamespaceMetadata + pvcNameMetadata,
+			m:        map[string]string{pvcNamespaceMetadata: "namespace", pvcNameMetadata: "pvcname"},
+			expected: "namespacepvcname",
+		},
+	}
+
+	for _, test := range tests {
+		result := replaceWithMap(test.str, test.m)
+		if result != test.expected {
+			t.Errorf("test[%s]: unexpected output: %v, expected result: %v", test.desc, result, test.expected)
 		}
 	}
 }

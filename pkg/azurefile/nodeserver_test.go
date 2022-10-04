@@ -168,8 +168,8 @@ func TestNodePublishVolume(t *testing.T) {
 				StagingTargetPath: sourceTest,
 				Readonly:          true},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Errorf(codes.Internal, fmt.Sprintf("Could not mount target \"%s\": mkdir %s: not a directory", azureFile, azureFile)),
-				WindowsError: status.Errorf(codes.Internal, fmt.Sprintf("Could not mount target %#v: mkdir %s: The system cannot find the path specified.", azureFile, azureFile)),
+				DefaultError: status.Errorf(codes.Internal, fmt.Sprintf("Could not mount target %s: mkdir %s: not a directory", azureFile, azureFile)),
+				WindowsError: status.Errorf(codes.Internal, fmt.Sprintf("Could not mount target %v: mkdir %s: The system cannot find the path specified.", azureFile, azureFile)),
 			},
 		},
 		{
@@ -180,7 +180,7 @@ func TestNodePublishVolume(t *testing.T) {
 				StagingTargetPath: errorMountSource,
 				Readonly:          true},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Errorf(codes.Internal, fmt.Sprintf("Could not mount \"%s\" at \"%s\": fake Mount: source error", errorMountSource, targetTest)),
+				DefaultError: status.Errorf(codes.Internal, fmt.Sprintf("Could not mount %s at %s: fake Mount: source error", errorMountSource, targetTest)),
 			},
 		},
 		{
@@ -302,7 +302,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			skipOnDarwin: true,
 			req:          csi.NodeUnpublishVolumeRequest{TargetPath: errorTarget, VolumeId: "vol_1"},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount target \"%s\": fake IsLikelyNotMountPoint: fake error", errorTarget)),
+				DefaultError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount target %s: fake IsLikelyNotMountPoint: fake error", errorTarget)),
 			},
 		},
 		{
@@ -350,6 +350,13 @@ func TestNodeStageVolume(t *testing.T) {
 			Mount: &csi.VolumeCapability_MountVolume{},
 		},
 	}
+	groupVolCap := csi.VolumeCapability{
+		AccessType: &csi.VolumeCapability_Mount{
+			Mount: &csi.VolumeCapability_MountVolume{
+				VolumeMountGroup: "test_vmgroup",
+			},
+		},
+	}
 	d := NewFakeDriver()
 
 	var (
@@ -357,42 +364,45 @@ func TestNodeStageVolume(t *testing.T) {
 		sourceTest             = testutil.GetWorkDirPath("source_test", t)
 		azureStagingTargetPath = testutil.GetWorkDirPath("azure.go", t)
 		proxyMountPath         = testutil.GetWorkDirPath("proxy-mount", t)
-		testDiskPath           = fmt.Sprintf("%s/test_disk", proxyMountPath)
+		testDiskPath           = fmt.Sprintf("%s/test_disk.vhd", proxyMountPath)
 	)
 
 	volContextEmptyDiskName := map[string]string{
 		fsTypeField:     "ext4",
+		protocolField:   "nfs",
 		diskNameField:   "",
 		shareNameField:  "test_sharename",
 		serverNameField: "test_servername",
+		folderNameField: "test_folder",
 	}
 	volContextEmptyShareName := map[string]string{
-		fsTypeField:     "test_field",
-		diskNameField:   "test_disk",
+		fsTypeField:     "smb",
+		diskNameField:   "test_disk.vhd",
 		shareNameField:  "test_sharename",
 		serverNameField: "",
 	}
 	volContextNfs := map[string]string{
 		fsTypeField:           "nfs",
-		diskNameField:         "test_disk",
+		diskNameField:         "test_disk.vhd",
 		shareNameField:        "test_sharename",
 		serverNameField:       "test_servername",
 		mountPermissionsField: "0755",
 	}
 	volContext := map[string]string{
-		fsTypeField:           "test_field",
-		diskNameField:         "test_disk",
+		fsTypeField:           "smb",
+		diskNameField:         "test_disk.vhd",
 		shareNameField:        "test_sharename",
 		serverNameField:       "test_servername",
 		mountPermissionsField: "0755",
 	}
 	volContextFsType := map[string]string{
 		fsTypeField:     "ext4",
-		diskNameField:   "test_disk",
+		diskNameField:   "test_disk.vhd",
 		shareNameField:  "test_sharename",
 		serverNameField: "test_servername",
 	}
-	errorSource := `\\\\test_servername\\test_sharename`
+	errorSource := `\\test_servername\test_sharename`
+	errorSourceNFS := `test_servername://test_sharename`
 
 	secrets := map[string]string{
 		"accountname": "k8s",
@@ -438,11 +448,78 @@ func TestNodeStageVolume(t *testing.T) {
 			},
 		},
 		{
+			desc: "[Error] GetAccountInfo failed",
+			req: csi.NodeStageVolumeRequest{VolumeId: "vol_1", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					subscriptionIDField: "0",
+					secretNameField:     "secret",
+				}},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "GetAccountInfo(vol_1) failed with error: could not get account key from secret(secret): KubeClient is nil"),
+			},
+		},
+		{
 			desc: "[Error] GetAccountInfo error parsing volume id",
 			req: csi.NodeStageVolumeRequest{VolumeId: "vol_1", StagingTargetPath: sourceTest,
 				VolumeCapability: &stdVolCap},
 			expectedErr: testutil.TestError{
 				DefaultError: status.Error(codes.InvalidArgument, "failed to get file share name from vol_1"),
+			},
+		},
+		{
+			desc: "[Error] Invalid fsType",
+			req: csi.NodeStageVolumeRequest{VolumeId: "vol_1", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					fsTypeField:                "test_fs",
+					shareNameField:             "test_sharename",
+					serverNameField:            "test_servername",
+					storageEndpointSuffixField: ".core",
+					pvcNamespaceKey:            "pvcname",
+					pvcNameKey:                 "pvc",
+					pvNameKey:                  "pv",
+				}},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "fsType(test_fs) is not supported, supported fsType list: [cifs smb nfs ext4 ext3 ext2 xfs]"),
+			},
+		},
+		{
+			desc: "[Error] Invalid protocol",
+			req: csi.NodeStageVolumeRequest{VolumeId: "vol_1", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					protocolField:   "test_protocol",
+					shareNameField:  "test_sharename",
+					serverNameField: "test_servername",
+				}},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "protocol(test_protocol) is not supported, supported protocol list: [smb nfs]"),
+			},
+		},
+		{
+			desc: "[Error] Invalid fsGroupChangePolicy",
+			req: csi.NodeStageVolumeRequest{VolumeId: "vol_1", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					fsGroupChangePolicyField: "test_fsGroupChangePolicy",
+					shareNameField:           "test_sharename",
+					serverNameField:          "test_servername",
+				}},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "fsGroupChangePolicy(test_fsGroupChangePolicy) is not supported, supported fsGroupChangePolicy list: [None Always OnRootMismatch]"),
+			},
+		},
+		{
+			desc: "[Error] Empty accountname",
+			req: csi.NodeStageVolumeRequest{VolumeId: "vol_1", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					shareNameField:  "test_sharename",
+					serverNameField: "test_servername",
+				}},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Errorf(codes.Internal, "accountName() or accountKey is empty"),
 			},
 		},
 		{
@@ -469,7 +546,7 @@ func TestNodeStageVolume(t *testing.T) {
 				Secrets:          secrets},
 			expectedErr: testutil.TestError{
 				DefaultError: status.Error(codes.Internal, fmt.Sprintf("MkdirAll %s failed with error: mkdir %s: not a directory", azureStagingTargetPath, azureStagingTargetPath)),
-				WindowsError: status.Error(codes.Internal, fmt.Sprintf("Could not mount target %#v: mkdir %s: The system cannot find the path specified.", azureStagingTargetPath, azureStagingTargetPath)),
+				WindowsError: status.Error(codes.Internal, fmt.Sprintf("Could not mount target %v: mkdir %s: The system cannot find the path specified.", azureStagingTargetPath, azureStagingTargetPath)),
 			},
 		},
 		{
@@ -483,17 +560,43 @@ func TestNodeStageVolume(t *testing.T) {
 			},
 		},
 		{
+			desc: "[Error] FormatAndMount mocked by exec commands with protocol as nfs",
+			req: csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					fsTypeField:       "ext4",
+					protocolField:     "nfs",
+					diskNameField:     "test_disk.vhd",
+					shareNameField:    "test_sharename",
+					serverNameField:   "test_servername",
+					ephemeralField:    "true",
+					mountOptionsField: "test_ephemeral",
+				},
+				Secrets: secrets},
+			execScripts: []ExecArgs{
+				{"blkid", []string{"-p", "-s", "TYPE", "-s", "PTTYPE", "-o", "export", testDiskPath}, "", &testingexec.FakeExitError{Status: 2}},
+				{"mkfs.ext4", []string{"-F", "-m0", testDiskPath}, "", fmt.Errorf("formatting failed")},
+			},
+			skipOnDarwin: true,
+			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount %s on %v failed with "+
+				"empty mountOptions(len: 1) or sensitiveMountOptions(len: 0) is not allowed",
+				errorSourceNFS, proxyMountPath),
+			expectedErr: testutil.TestError{
+				DefaultError: status.Errorf(codes.Internal, "could not format %v and mount it at %v", sourceTest, testDiskPath),
+			},
+		},
+		{
 			desc: "[Error] Failed SMB mount mocked by MountSensitive",
 			req: csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: errorMountSensSource,
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContext,
 				Secrets:          secrets},
 			skipOnDarwin: true,
-			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount \"%s\" on %#v failed "+
+			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount %s on %v failed "+
 				"with smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
 				errorSource, errorMountSensSource),
 			expectedErr: testutil.TestError{
-				DefaultError: status.Errorf(codes.Internal, fmt.Sprintf("volume(vol_1##) mount \"//test_servername/test_sharename\" on %#v failed with fake MountSensitive: target error", errorMountSensSource)),
+				DefaultError: status.Errorf(codes.Internal, fmt.Sprintf("volume(vol_1##) mount //test_servername/test_sharename on %v failed with fake MountSensitive: target error", errorMountSensSource)),
 			},
 		},
 		{
@@ -507,11 +610,11 @@ func TestNodeStageVolume(t *testing.T) {
 				{"mkfs.ext4", []string{"-F", "-m0", testDiskPath}, "", fmt.Errorf("formatting failed")},
 			},
 			skipOnDarwin: true,
-			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount \"%s\" on %#v failed with "+
+			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount %s on %v failed with "+
 				"smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
 				errorSource, proxyMountPath),
 			expectedErr: testutil.TestError{
-				DefaultError: status.Errorf(codes.Internal, "could not format %#v and mount it at %#v", sourceTest, testDiskPath),
+				DefaultError: status.Errorf(codes.Internal, "could not format %v and mount it at %v", sourceTest, testDiskPath),
 			},
 		},
 		{
@@ -520,7 +623,7 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContext,
 				Secrets:          secrets},
-			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount \"%s\" on %#v failed with "+
+			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount %s on %v failed with "+
 				"smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
 				errorSource, sourceTest),
 			expectedErr: testutil.TestError{},
@@ -531,7 +634,7 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContextEmptyShareName,
 				Secrets:          secrets},
-			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount \"\\\\\\\\k8s.file.test_suffix\\\\test_sharename\" on %#v failed with "+
+			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount \\\\k8s.file.test_suffix\\test_sharename on %v failed with "+
 				"smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
 				sourceTest),
 			expectedErr: testutil.TestError{},
@@ -542,7 +645,7 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContextNfs,
 				Secrets:          secrets},
-			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount \"%s\" on %#v failed with "+
+			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount %s on %v failed with "+
 				"smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
 				errorSource, sourceTest),
 			expectedErr: testutil.TestError{},
@@ -557,10 +660,27 @@ func TestNodeStageVolume(t *testing.T) {
 				{"blkid", []string{"-p", "-s", "TYPE", "-s", "PTTYPE", "-o", "export", testDiskPath}, "", nil},
 				{"mkfs.ext4", []string{"-F", "-m0", testDiskPath}, "", nil},
 			},
-			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount \"%s\" on %#v failed with "+
+			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount %s on %v failed with "+
 				"smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
 				errorSource, proxyMountPath),
 			expectedErr: testutil.TestError{},
+		},
+		{
+			desc: "[Error] ",
+			req: csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &groupVolCap,
+				VolumeContext:    volContextFsType,
+				Secrets:          secrets},
+			execScripts: []ExecArgs{
+				{"blkid", []string{"-p", "-s", "TYPE", "-s", "PTTYPE", "-o", "export", testDiskPath}, "", nil},
+				{"mkfs.ext4", []string{"-F", "-m0", testDiskPath}, "", nil},
+			},
+			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount %s on %v failed with "+
+				"smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
+				errorSource, proxyMountPath),
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.Internal, fmt.Sprintf("SetVolumeOwnership with volume(vol_1##) on %s failed with %v", proxyMountPath, fmt.Errorf("convert test_vmgroup to int failed with strconv.Atoi: parsing \"test_vmgroup\": invalid syntax"))),
+			},
 		},
 		{
 			desc: "[Error] invalid mountPermissions",
@@ -679,7 +799,7 @@ func TestNodeUnstageVolume(t *testing.T) {
 			req:          csi.NodeUnstageVolumeRequest{StagingTargetPath: errorTarget, VolumeId: "vol_1"},
 			skipOnDarwin: true,
 			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount staging target %#v: fake IsLikelyNotMountPoint: fake error", errorTarget)),
+				DefaultError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount staging target %v: fake IsLikelyNotMountPoint: fake error", errorTarget)),
 			},
 		},
 		{

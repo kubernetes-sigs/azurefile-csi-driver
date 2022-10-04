@@ -1,6 +1,6 @@
 ## NFS support
 [NFS 4.1 support for Azure Files](https://docs.microsoft.com/en-us/azure/storage/files/files-nfs-protocol) is optimized for random access workloads with in-place data updates and provides full POSIX file system support. This page shows how to use NFS feature by Azure File CSI driver on Azure Kubernetes cluster.
-
+- [Compare access to Azure Files, Blob Storage, and Azure NetApp Files with NFS](https://docs.microsoft.com/en-us/azure/storage/common/nfs-comparison)
 - supported OS: Linux
 
 #### Prerequisite
@@ -8,7 +8,7 @@
  - [Optional] Create a `Premium_LRS` or `Premium_ZRS` Azure storage account with following configurations to support NFS share
    > `Premium_ZRS` account type is only supported in [limited region support](https://docs.microsoft.com/en-us/azure/storage/common/storage-redundancy#zone-redundant-storage)
    - account kind: `FileStorage`
-   - secure transfer required(enable HTTPS traffic only): `false`
+   - Require secure transfer for REST API operations(enable HTTPS traffic only): `false`
    - select virtual network of agent nodes in `Firewalls and virtual networks`
    - specify `storageAccount` in below storage class `parameters`
 
@@ -25,8 +25,6 @@ provisioner: file.csi.azure.com
 parameters:
   protocol: nfs
   skuName: Premium_LRS  # available values: Premium_LRS, Premium_ZRS
-mountOptions:
-  - nconnect=8  # only supported on linux kernel version >= 5.3
 ```
 
 run following commands to create a storage class:

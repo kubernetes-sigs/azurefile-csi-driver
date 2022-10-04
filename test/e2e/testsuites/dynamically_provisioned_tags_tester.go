@@ -55,7 +55,7 @@ func (t *DynamicallyProvisionedAccountWithTags) Run(client clientset.Interface, 
 		framework.ExpectNoError(err, fmt.Sprintf("failed to get pv(%s): %v", pvName, err))
 
 		volumeID := pv.Spec.PersistentVolumeSource.CSI.VolumeHandle
-		resourceGroupName, accountName, _, _, err := azurefile.GetFileShareInfo(volumeID)
+		resourceGroupName, accountName, _, _, _, err := azurefile.GetFileShareInfo(volumeID)
 		framework.ExpectNoError(err, fmt.Sprintf("failed to get fileShare(%s) info: %v", volumeID, err))
 
 		creds, err := credentials.CreateAzureCredentialFile(false)
@@ -63,7 +63,6 @@ func (t *DynamicallyProvisionedAccountWithTags) Run(client clientset.Interface, 
 		azureClient, err := azureUtils.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		//get disk information
 		account, err := azureClient.GetStorageAccount(context.TODO(), resourceGroupName, accountName)
 		framework.ExpectNoError(err, fmt.Sprintf("failed to get storage account(%s): %v", accountName, err))
 

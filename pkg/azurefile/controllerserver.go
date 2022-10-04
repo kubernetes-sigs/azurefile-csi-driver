@@ -25,7 +25,7 @@ import (
 
 	volumehelper "sigs.k8s.io/azurefile-csi-driver/pkg/util"
 
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-02-01/storage"
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
 	"github.com/Azure/azure-storage-file-go/azfile"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -109,11 +109,13 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 	var sku, subsID, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
 	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, accessTier, rootSquashType string
-	var createAccount, useDataPlaneAPI, useSeretCache, disableDeleteRetentionPolicy, enableLFS bool
-	var vnetResourceGroup, vnetName, subnetName, shareNamePrefix string
+	var createAccount, useDataPlaneAPI, useSeretCache, disableDeleteRetentionPolicy, enableLFS, matchTags bool
+	var vnetResourceGroup, vnetName, subnetName, shareNamePrefix, fsGroupChangePolicy string
+	var requireInfraEncryption *bool
 	// set allowBlobPublicAccess as false by default
 	allowBlobPublicAccess := to.BoolPtr(false)
 
+	fileShareNameReplaceMap := map[string]string{}
 	// store account key to k8s secret by default
 	storeAccountKey := true
 
@@ -149,6 +151,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			secretNamespace = v
 		case protocolField:
 			protocol = v
+		case matchTagsField:
+			matchTags = strings.EqualFold(v, trueValue)
 		case tagsField:
 			customTags = v
 		case createAccountField:
@@ -163,6 +167,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			disableDeleteRetentionPolicy = strings.EqualFold(v, trueValue)
 		case pvcNamespaceKey:
 			pvcNamespace = v
+			fileShareNameReplaceMap[pvcNamespaceMetadata] = v
 		case storageEndpointSuffixField:
 			storageEndpointSuffix = v
 		case networkEndpointTypeField:
@@ -176,13 +181,15 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				allowBlobPublicAccess = to.BoolPtr(true)
 			}
 		case pvcNameKey:
-			// no op
+			fileShareNameReplaceMap[pvcNameMetadata] = v
 		case pvNameKey:
-			// no op
+			fileShareNameReplaceMap[pvNameMetadata] = v
 		case serverNameField:
 			// no op, only used in NodeStageVolume
 		case folderNameField:
 			// no op, only used in NodeStageVolume
+		case fsGroupChangePolicyField:
+			fsGroupChangePolicy = v
 		case mountPermissionsField:
 			// only do validations here, used in NodeStageVolume, NodePublishVolume
 			if v != "" {
@@ -198,9 +205,17 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			subnetName = v
 		case shareNamePrefixField:
 			shareNamePrefix = v
+		case requireInfraEncryptionField:
+			if strings.EqualFold(v, trueValue) {
+				requireInfraEncryption = to.BoolPtr(true)
+			}
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid parameter %q in storage class", k))
 		}
+	}
+
+	if matchTags && account != "" {
+		return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("matchTags must set as false when storageAccount(%s) is provided", account))
 	}
 
 	if subsID != "" && subsID != d.cloud.SubscriptionID {
@@ -240,12 +255,20 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Errorf(codes.InvalidArgument, "rootSquashType(%s) is not supported, supported RootSquashType list: %v", rootSquashType, storage.PossibleRootSquashTypeValues())
 	}
 
+	if !isSupportedFSGroupChangePolicy(fsGroupChangePolicy) {
+		return nil, status.Errorf(codes.InvalidArgument, "fsGroupChangePolicy(%s) is not supported, supported fsGroupChangePolicy list: %v", fsGroupChangePolicy, supportedFSGroupChangePolicyList)
+	}
+
 	if !isSupportedShareNamePrefix(shareNamePrefix) {
 		return nil, status.Errorf(codes.InvalidArgument, "shareNamePrefix(%s) can only contain lowercase letters, numbers, hyphens, and length should be less than 21", shareNamePrefix)
 	}
 
 	if protocol == nfs && fsType != "" && fsType != nfs {
 		return nil, status.Errorf(codes.InvalidArgument, "fsType(%s) is not supported with protocol(%s)", fsType, protocol)
+	}
+
+	if disableDeleteRetentionPolicy && !strings.HasPrefix(strings.ToLower(sku), premium) {
+		return nil, status.Errorf(codes.InvalidArgument, "disableDeleteRetentionPolicy is not supported with Standard account type(%s)", sku)
 	}
 
 	enableHTTPSTrafficOnly := true
@@ -266,7 +289,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		// NFS protocol does not need account key
 		storeAccountKey = false
 		// reset protocol field (compatble with "fsType: nfs")
-		parameters[protocolField] = protocol
+		setKeyValueInMap(parameters, protocolField, protocol)
 
 		if !createPrivateEndpoint {
 			// set VirtualNetworkResourceIDs for storage account firewall setting
@@ -291,7 +314,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
-	validFileShareName := fileShareName
+	// replace pv/pvc name namespace metadata in fileShareName
+	validFileShareName := replaceWithMap(fileShareName, fileShareNameReplaceMap)
 	if validFileShareName == "" {
 		name := volName
 		if shareNamePrefix != "" {
@@ -314,7 +338,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	tags, err := ConvertTagsToMap(customTags)
 	if err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	accountOptions := &azure.AccountOptions{
@@ -325,6 +349,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		ResourceGroup:                           resourceGroup,
 		Location:                                location,
 		EnableHTTPSTrafficOnly:                  enableHTTPSTrafficOnly,
+		MatchTags:                               matchTags,
 		Tags:                                    tags,
 		VirtualNetworkResourceIDs:               vnetResourceIDs,
 		CreateAccount:                           createAccount,
@@ -335,6 +360,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		VNetResourceGroup:                       vnetResourceGroup,
 		VNetName:                                vnetName,
 		SubnetName:                              subnetName,
+		RequireInfrastructureEncryption:         requireInfraEncryption,
 	}
 
 	var accountKey, lockKey string
@@ -347,7 +373,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			// search in cache first
 			cache, err := d.accountSearchCache.Get(lockKey, azcache.CacheReadTypeDefault)
 			if err != nil {
-				return nil, err
+				return nil, status.Errorf(codes.Internal, err.Error())
 			}
 			if cache != nil {
 				accountName = cache.(string)
@@ -387,7 +413,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		d.fileClient.StorageEndpointSuffix = storageEndpointSuffix
 	}
 	if createPrivateEndpoint {
-		parameters[serverNameField] = fmt.Sprintf("%s.privatelink.file.%s", accountName, storageEndpointSuffix)
+		setKeyValueInMap(parameters, serverNameField, fmt.Sprintf("%s.privatelink.file.%s", accountName, storageEndpointSuffix))
 	}
 
 	accountOptions.Name = accountName
@@ -395,7 +421,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if len(secret) == 0 && useDataPlaneAPI {
 		if accountKey == "" {
 			if accountKey, err = d.GetStorageAccesskey(ctx, accountOptions, secret, secretName, secretNamespace); err != nil {
-				return nil, fmt.Errorf("failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
+				return nil, status.Errorf(codes.Internal, "failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
 			}
 		}
 		secret = createStorageAccountSecret(accountName, accountKey)
@@ -403,8 +429,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	} else {
 		if quota, err := d.getFileShareQuota(resourceGroup, accountName, validFileShareName, secret); err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
-		} else if quota != -1 && quota != fileShareSize {
-			return nil, status.Errorf(codes.AlreadyExists, "request file share(%s) already exists, but its capacity(%v) is different from (%v)", validFileShareName, quota, fileShareSize)
+		} else if quota != -1 && quota < fileShareSize {
+			return nil, status.Errorf(codes.AlreadyExists, "request file share(%s) already exists, but its capacity %d is smaller than %d", validFileShareName, quota, fileShareSize)
 		}
 	}
 
@@ -420,7 +446,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_create_volume", d.cloud.ResourceGroup, d.cloud.SubscriptionID, d.Name)
 	isOperationSucceeded := false
 	defer func() {
-		mc.ObserveOperationWithResult(isOperationSucceeded, volumeID, "")
+		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
 	}()
 
 	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d) protocol(%s)", validFileShareName, accountName, sku, resourceGroup, location, fileShareSize, shareProtocol)
@@ -437,20 +463,20 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			d.volumeLocks.Release(volName)
 			// clean search cache
 			if err := d.accountSearchCache.Delete(lockKey); err != nil {
-				return nil, err
+				return nil, status.Errorf(codes.Internal, err.Error())
 			}
 			// remove the volName from the volMap to stop it matching the same storage account
 			d.volMap.Delete(volName)
 			return d.CreateVolume(ctx, req)
 		}
-		return nil, fmt.Errorf("failed to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d), error: %v", validFileShareName, account, sku, resourceGroup, location, fileShareSize, err)
+		return nil, status.Errorf(codes.Internal, "failed to create file share(%s) on account(%s) type(%s) rg(%s) location(%s) size(%d), error: %v", validFileShareName, account, sku, resourceGroup, location, fileShareSize, err)
 	}
 	klog.V(2).Infof("create file share %s on storage account %s successfully", validFileShareName, accountName)
 
-	if isDiskFsType(fsType) && diskName == "" {
+	if isDiskFsType(fsType) && !strings.HasSuffix(diskName, vhdSuffix) {
 		if accountKey == "" {
 			if accountKey, err = d.GetStorageAccesskey(ctx, accountOptions, req.GetSecrets(), secretName, secretNamespace); err != nil {
-				return nil, fmt.Errorf("failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
+				return nil, status.Errorf(codes.Internal, "failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
 			}
 		}
 		if fileShareName == "" {
@@ -468,7 +494,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 		klog.V(2).Infof("create vhd file(%s) size(%d) on share(%s) on account(%s) type(%s) rg(%s) location(%s) successfully",
 			diskName, diskSizeBytes, validFileShareName, account, sku, resourceGroup, location)
-		parameters[diskNameField] = diskName
+		setKeyValueInMap(parameters, diskNameField, diskName)
 	}
 
 	if storeAccountKey && len(req.GetSecrets()) == 0 {
@@ -483,7 +509,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		if !useSeretCache {
 			if accountKey == "" {
 				if accountKey, err = d.GetStorageAccesskey(ctx, accountOptions, req.GetSecrets(), secretName, secretNamespace); err != nil {
-					return nil, fmt.Errorf("failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
+					return nil, status.Errorf(codes.Internal, "failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
 				}
 			}
 			storeSecretName, err := d.SetAzureCredentials(ctx, accountName, accountKey, secretName, secretNamespace)
@@ -497,12 +523,13 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
-	volumeID = fmt.Sprintf(volumeIDTemplate, resourceGroup, accountName, validFileShareName, diskName)
+	var uuid string
 	if fileShareName != "" {
 		// add volume name as suffix to differentiate volumeID since "shareName" is specified
 		// not necessary for dynamic file share name creation since volumeID already contains volume name
-		volumeID = volumeID + "#" + volName
+		uuid = volName
 	}
+	volumeID = fmt.Sprintf(volumeIDTemplate, resourceGroup, accountName, validFileShareName, diskName, uuid, secretNamespace)
 
 	if useDataPlaneAPI {
 		d.dataPlaneAPIVolMap.Store(volumeID, "")
@@ -512,7 +539,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	isOperationSucceeded = true
 
 	// reset secretNamespace field in VolumeContext
-	parameters[secretNamespaceField] = secretNamespace
+	setKeyValueInMap(parameters, secretNamespaceField, secretNamespace)
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
 			VolumeId:      volumeID,
@@ -538,7 +565,7 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 	}
 	defer d.volumeLocks.Release(volumeID)
 
-	resourceGroupName, accountName, fileShareName, _, err := GetFileShareInfo(volumeID)
+	resourceGroupName, accountName, fileShareName, _, secretNamespace, err := GetFileShareInfo(volumeID)
 	if err != nil {
 		// According to CSI Driver Sanity Tester, should succeed when an invalid volume id is used
 		klog.Errorf("GetFileShareInfo(%s) in DeleteVolume failed with error: %v", volumeID, err)
@@ -550,21 +577,24 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 	}
 
 	secret := req.GetSecrets()
-	if len(secret) == 0 {
-		// use data plane api, get account key first
-		if d.useDataPlaneAPI(volumeID, accountName) {
-			_, _, accountKey, _, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), map[string]string{})
-			if err != nil {
-				return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
-			}
-			secret = createStorageAccountSecret(accountName, accountKey)
+	if len(secret) == 0 && d.useDataPlaneAPI(volumeID, accountName) {
+		reqContext := map[string]string{}
+		if secretNamespace != "" {
+			setKeyValueInMap(reqContext, secretNamespaceField, secretNamespace)
 		}
+
+		// use data plane api, get account key first
+		_, _, accountKey, _, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), reqContext)
+		if err != nil {
+			return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
+		}
+		secret = createStorageAccountSecret(accountName, accountKey)
 	}
 
 	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_delete_volume", d.cloud.ResourceGroup, d.cloud.SubscriptionID, d.Name)
 	isOperationSucceeded := false
 	defer func() {
-		mc.ObserveOperationWithResult(isOperationSucceeded, volumeID, "")
+		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
 	}()
 
 	if err := d.DeleteFileShare(resourceGroupName, accountName, fileShareName, secret); err != nil {
@@ -610,7 +640,7 @@ func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.Valida
 	}
 
 	confirmed := &csi.ValidateVolumeCapabilitiesResponse_Confirmed{VolumeCapabilities: volCaps}
-	if diskName == "" {
+	if !strings.HasSuffix(diskName, vhdSuffix) {
 		return &csi.ValidateVolumeCapabilitiesResponse{Confirmed: confirmed}, nil
 	}
 	for _, c := range volCaps {
@@ -658,7 +688,7 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 	volContext := req.GetVolumeContext()
 	_, accountName, accountKey, fileShareName, diskName, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), volContext)
 	// always check diskName first since if it's not vhd disk attach, ControllerPublishVolume is not necessary
-	if diskName == "" {
+	if !strings.HasSuffix(diskName, vhdSuffix) {
 		klog.V(2).Infof("skip ControllerPublishVolume(%s) since it's not vhd disk attach", volumeID)
 		if useDataPlaneAPI(volContext) {
 			d.dataPlaneAPIVolMap.Store(volumeID, "")
@@ -727,7 +757,7 @@ func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.Control
 
 	_, accountName, accountKey, fileShareName, diskName, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), map[string]string{})
 	// always check diskName first since if it's not vhd disk detach, ControllerUnpublishVolume is not necessary
-	if diskName == "" {
+	if !strings.HasSuffix(diskName, vhdSuffix) {
 		klog.V(2).Infof("skip ControllerUnpublishVolume(%s) since it's not vhd disk detach", volumeID)
 		return &csi.ControllerUnpublishVolumeResponse{}, nil
 	}
@@ -770,7 +800,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_create_snapshot", d.cloud.ResourceGroup, d.cloud.SubscriptionID, d.Name)
 	isOperationSucceeded := false
 	defer func() {
-		mc.ObserveOperationWithResult(isOperationSucceeded, sourceVolumeID, snapshotName)
+		mc.ObserveOperationWithResult(isOperationSucceeded, SourceResourceID, sourceVolumeID, SnapshotName, snapshotName)
 	}()
 
 	exists, item, err := d.snapshotExists(ctx, sourceVolumeID, snapshotName, req.GetSecrets())
@@ -785,6 +815,9 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		tp := timestamppb.New(item.Properties.LastModified)
 		if tp == nil {
 			return nil, status.Errorf(codes.Internal, "Failed to convert timestamp(%v)", item.Properties.LastModified)
+		}
+		if item.Snapshot == nil {
+			return nil, status.Errorf(codes.Internal, "Snapshot property of %s is nil", item.Name)
 		}
 		return &csi.CreateSnapshotResponse{
 			Snapshot: &csi.Snapshot{
@@ -855,7 +888,7 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_delete_snapshot", d.cloud.ResourceGroup, d.cloud.SubscriptionID, d.Name)
 	isOperationSucceeded := false
 	defer func() {
-		mc.ObserveOperationWithResult(isOperationSucceeded, req.SnapshotId, "")
+		mc.ObserveOperationWithResult(isOperationSucceeded, SnapshotID, req.SnapshotId)
 	}()
 
 	if _, err := shareURL.WithSnapshot(snapshot).Delete(ctx, azfile.DeleteSnapshotsOptionNone); err != nil {
@@ -891,25 +924,32 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 		return nil, status.Errorf(codes.InvalidArgument, "invalid expand volume request: %v", req)
 	}
 
-	resourceGroupName, accountName, fileShareName, diskName, err := GetFileShareInfo(volumeID)
+	resourceGroupName, accountName, fileShareName, diskName, secretNamespace, err := GetFileShareInfo(volumeID)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("GetAccountInfo(%s) failed with error: %v", volumeID, err))
 	}
-	if diskName != "" {
+	if strings.HasSuffix(diskName, vhdSuffix) {
 		// todo: figure out how to support vhd disk resize
-		return nil, status.Error(codes.Unimplemented, fmt.Sprintf("vhd disk volume(%s) is not supported on ControllerExpandVolume", volumeID))
+		return nil, status.Error(codes.Unimplemented, fmt.Sprintf("vhd disk volume(%s, diskName:%s) is not supported on ControllerExpandVolume", volumeID, diskName))
+	}
+	if resourceGroupName == "" {
+		resourceGroupName = d.cloud.ResourceGroup
 	}
 
 	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_expand_volume", d.cloud.ResourceGroup, d.cloud.SubscriptionID, d.Name)
 	isOperationSucceeded := false
 	defer func() {
-		mc.ObserveOperationWithResult(isOperationSucceeded, volumeID, "")
+		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
 	}()
 
 	secrets := req.GetSecrets()
 	if len(secrets) == 0 && d.useDataPlaneAPI(volumeID, accountName) {
+		reqContext := map[string]string{}
+		if secretNamespace != "" {
+			setKeyValueInMap(reqContext, secretNamespaceField, secretNamespace)
+		}
 		// use data plane api, get account key first
-		_, _, accountKey, _, _, err := d.GetAccountInfo(ctx, volumeID, secrets, map[string]string{})
+		_, _, accountKey, _, _, err := d.GetAccountInfo(ctx, volumeID, secrets, reqContext)
 		if err != nil {
 			return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
 		}
@@ -970,7 +1010,7 @@ func (d *Driver) getServiceURL(ctx context.Context, sourceVolumeID string, secre
 // Since `ListSharesSegment` lists all file shares and snapshots, the process of checking existence is divided into two steps.
 // 1. Judge if the specify snapshot name already exists.
 // 2. If it exists, we should judge if its source file share name equals that we specify.
-//    As long as the snapshot already exists, returns true. But when the source is different, an error will be returned.
+// As long as the snapshot already exists, returns true. But when the source is different, an error will be returned.
 func (d *Driver) snapshotExists(ctx context.Context, sourceVolumeID, snapshotName string, secrets map[string]string) (bool, azfile.ShareItem, error) {
 	serviceURL, fileShareName, err := d.getServiceURL(ctx, sourceVolumeID, secrets)
 	if err != nil {

@@ -19,7 +19,7 @@ package provider
 import (
 	reflect "reflect"
 
-	network "github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
+	network "github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-08-01/network"
 	gomock "github.com/golang/mock/gomock"
 
 	v1 "k8s.io/api/core/v1"
@@ -91,4 +91,18 @@ func (m *MockBackendPool) ReconcileBackendPools(clusterName string, service *v1.
 func (mr *MockBackendPoolMockRecorder) ReconcileBackendPools(clusterName, service, lb interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReconcileBackendPools", reflect.TypeOf((*MockBackendPool)(nil).ReconcileBackendPools), clusterName, service, lb)
+}
+
+// GetBackendPrivateIPs mocks base method
+func (m *MockBackendPool) GetBackendPrivateIPs(clusterName string, service *v1.Service, lb *network.LoadBalancer) []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBackendPrivateIPs", clusterName, service, lb)
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// GetBackendPrivateIPs indicates an expected call of GetBackendPrivateIPs
+func (mr *MockBackendPoolMockRecorder) GetBackendPrivateIPs(clusterName, service, lb interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBackendPrivateIPs", reflect.TypeOf((*MockBackendPool)(nil).GetBackendPrivateIPs), clusterName, service, lb)
 }

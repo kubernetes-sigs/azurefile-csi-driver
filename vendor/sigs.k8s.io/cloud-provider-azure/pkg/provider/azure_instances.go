@@ -231,6 +231,10 @@ func (az *Cloud) InstanceExists(ctx context.Context, node *v1.Node) (bool, error
 		var err error
 		providerID, err = cloudprovider.GetInstanceProviderID(ctx, az, types.NodeName(node.Name))
 		if err != nil {
+			if strings.Contains(err.Error(), cloudprovider.InstanceNotFound.Error()) {
+				return false, nil
+			}
+
 			klog.Errorf("InstanceExists: failed to get the provider ID by node name %s: %v", node.Name, err)
 			return false, err
 		}
@@ -429,7 +433,7 @@ func (az *Cloud) InstanceTypeByProviderID(ctx context.Context, providerID string
 // InstanceType returns the type of the specified instance.
 // Note that if the instance does not exist or is no longer running, we must return ("", cloudprovider.InstanceNotFound)
 // (Implementer Note): This is used by kubelet. Kubelet will label the node. Real log from kubelet:
-//       Adding node label from cloud provider: beta.kubernetes.io/instance-type=[value]
+// Adding node label from cloud provider: beta.kubernetes.io/instance-type=[value]
 func (az *Cloud) InstanceType(ctx context.Context, name types.NodeName) (string, error) {
 	// Returns "" for unmanaged nodes because azure cloud provider couldn't fetch information for them.
 	unmanaged, err := az.IsNodeUnmanaged(string(name))

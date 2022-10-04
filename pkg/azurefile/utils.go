@@ -18,6 +18,7 @@ package azurefile
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -208,13 +209,59 @@ func (l *VolumeMounter) GetMetrics() (*volume.Metrics, error) {
 	return nil, nil
 }
 
+// chmodIfPermissionMismatch only perform chmod when permission mismatches
+func chmodIfPermissionMismatch(targetPath string, mode os.FileMode) error {
+	info, err := os.Lstat(targetPath)
+	if err != nil {
+		return err
+	}
+	perm := info.Mode() & os.ModePerm
+	if perm != mode {
+		klog.V(2).Infof("chmod targetPath(%s, mode:0%o) with permissions(0%o)", targetPath, info.Mode(), mode)
+		if err := os.Chmod(targetPath, mode); err != nil {
+			return err
+		}
+	} else {
+		klog.V(2).Infof("skip chmod on targetPath(%s) since mode is already 0%o)", targetPath, info.Mode())
+	}
+	return nil
+}
+
 // SetVolumeOwnership would set gid for path recursively
-func SetVolumeOwnership(path, gid string) error {
+func SetVolumeOwnership(path, gid, policy string) error {
 	id, err := strconv.Atoi(gid)
 	if err != nil {
 		return fmt.Errorf("convert %s to int failed with %v", gid, err)
 	}
 	gidInt64 := int64(id)
-	fsGroupChangePolicy := v1.FSGroupChangeAlways
+	fsGroupChangePolicy := v1.FSGroupChangeOnRootMismatch
+	if policy != "" {
+		fsGroupChangePolicy = v1.PodFSGroupChangePolicy(policy)
+	}
 	return volume.SetVolumeOwnership(&VolumeMounter{path: path}, &gidInt64, &fsGroupChangePolicy, nil)
+}
+
+// setKeyValueInMap set key/value pair in map
+// key in the map is case insensitive, if key already exists, overwrite existing value
+func setKeyValueInMap(m map[string]string, key, value string) {
+	if m == nil {
+		return
+	}
+	for k := range m {
+		if strings.EqualFold(k, key) {
+			m[k] = value
+			return
+		}
+	}
+	m[key] = value
+}
+
+// replaceWithMap replace key with value for str
+func replaceWithMap(str string, m map[string]string) string {
+	for k, v := range m {
+		if k != "" {
+			str = strings.ReplaceAll(str, k, v)
+		}
+	}
+	return str
 }

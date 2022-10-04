@@ -66,7 +66,6 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret stri
 }
 
 func (az *Client) GetAzureFilesClient() (storage.FileSharesClient, error) {
-
 	return az.filesharesClient, nil
 }
 
@@ -280,6 +279,14 @@ func (az *Client) GetVirtualNetworkSubnet(ctx context.Context, groupName, vnetNa
 
 func (az *Client) GetStorageAccount(ctx context.Context, groupName, accountName string) (storage.Account, error) {
 	return az.accountsClient.GetProperties(ctx, groupName, accountName, "")
+}
+
+func (az *Client) GetAccountNumByResourceGroup(ctx context.Context, groupName string) (count int, err error) {
+	result, err := az.accountsClient.ListByResourceGroup(ctx, groupName)
+	if err != nil {
+		return -1, err
+	}
+	return len(*result.Value), nil
 }
 
 func getOAuthConfig(env azure.Environment, subscriptionID, tenantID string) (*adal.OAuthConfig, error) {

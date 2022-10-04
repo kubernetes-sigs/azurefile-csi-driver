@@ -37,7 +37,7 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/consts"
 )
 
-//ManagedDiskController : managed disk controller struct
+// ManagedDiskController : managed disk controller struct
 type ManagedDiskController struct {
 	common *controllerCommon
 }
@@ -66,6 +66,8 @@ type ManagedDiskOptions struct {
 	SourceType string
 	// ResourceId of the disk encryption set to use for enabling encryption at rest.
 	DiskEncryptionSetID string
+	// DiskEncryption type, available values: EncryptionAtRestWithCustomerKey, EncryptionAtRestWithPlatformAndCustomerKeys
+	DiskEncryptionType string
 	// The size in GB.
 	SizeGB int
 	// The maximum number of VMs that can attach to the disk at the same time. Value greater than one indicates a disk that can be mounted on multiple VMs at the same time.
@@ -84,7 +86,7 @@ type ManagedDiskOptions struct {
 	SubscriptionID string
 }
 
-//CreateManagedDisk : create managed disk
+// CreateManagedDisk: create managed disk
 func (c *ManagedDiskController) CreateManagedDisk(ctx context.Context, options *ManagedDiskOptions) (string, error) {
 	var err error
 	klog.V(4).Infof("azureDisk - creating new managed Name:%s StorageAccountType:%s Size:%v", options.DiskName, options.StorageAccountType, options.SizeGB)
@@ -190,9 +192,18 @@ func (c *ManagedDiskController) CreateManagedDisk(ctx context.Context, options *
 		if strings.Index(strings.ToLower(options.DiskEncryptionSetID), "/subscriptions/") != 0 {
 			return "", fmt.Errorf("AzureDisk - format of DiskEncryptionSetID(%s) is incorrect, correct format: %s", options.DiskEncryptionSetID, consts.DiskEncryptionSetIDFormat)
 		}
+		encryptionType := compute.EncryptionTypeEncryptionAtRestWithCustomerKey
+		if options.DiskEncryptionType != "" {
+			encryptionType = compute.EncryptionType(options.DiskEncryptionType)
+			klog.V(4).Infof("azureDisk - DiskEncryptionType: %s, DiskEncryptionSetID: %s", options.DiskEncryptionType, options.DiskEncryptionSetID)
+		}
 		diskProperties.Encryption = &compute.Encryption{
 			DiskEncryptionSetID: &options.DiskEncryptionSetID,
-			Type:                compute.EncryptionTypeEncryptionAtRestWithCustomerKey,
+			Type:                encryptionType,
+		}
+	} else {
+		if options.DiskEncryptionType != "" {
+			return "", fmt.Errorf("AzureDisk - DiskEncryptionType(%s) should be empty when DiskEncryptionSetID is not set", options.DiskEncryptionType)
 		}
 	}
 
@@ -256,7 +267,7 @@ func (c *ManagedDiskController) CreateManagedDisk(ctx context.Context, options *
 	return diskID, nil
 }
 
-//DeleteManagedDisk : delete managed disk
+// DeleteManagedDisk : delete managed disk
 func (c *ManagedDiskController) DeleteManagedDisk(ctx context.Context, diskURI string) error {
 	resourceGroup, subsID, err := getInfoFromDiskURI(diskURI)
 	if err != nil {
