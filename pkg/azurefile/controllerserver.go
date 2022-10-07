@@ -277,7 +277,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	var vnetResourceIDs []string
 	if fsType == nfs || protocol == nfs {
 		protocol = nfs
-		enableHTTPSTrafficOnly = false
 		if !strings.HasPrefix(strings.ToLower(sku), premium) {
 			// NFS protocol only supports Premium storage
 			sku = string(storage.SkuNamePremiumLRS)
