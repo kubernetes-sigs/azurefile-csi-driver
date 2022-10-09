@@ -1151,8 +1151,17 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 	})
 
 	ginkgo.It("should create a volume after driver restart [kubernetes.io/azure-file] [file.csi.azure.com]", func() {
-		ginkgo.Skip("test case is disabled since node logs would be lost after driver restart")
 		skipIfUsingInTreeVolumePlugin()
+
+		// print azure file driver logs before driver restart
+		azurefileLog := testCmd{
+			command:  "bash",
+			args:     []string{"test/utils/azurefile_log.sh"},
+			startLog: "===================azurefile log===================",
+			endLog:   "===================================================",
+		}
+		execTestCmd([]testCmd{azurefileLog})
+
 		pod := testsuites.PodDetails{
 			Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' >> /mnt/test-1/data && while true; do sleep 3600; done"),
 			Volumes: []testsuites.VolumeDetails{
