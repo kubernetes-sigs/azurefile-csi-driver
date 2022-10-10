@@ -1157,8 +1157,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		azurefileLog := testCmd{
 			command:  "bash",
 			args:     []string{"test/utils/azurefile_log.sh"},
-			startLog: "===================azurefile log===================",
-			endLog:   "===================================================",
+			startLog: "===================azurefile log (before restart)===================",
+			endLog:   "====================================================================",
 		}
 		execTestCmd([]testCmd{azurefileLog})
 

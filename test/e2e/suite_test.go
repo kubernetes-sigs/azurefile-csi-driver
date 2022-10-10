@@ -180,13 +180,19 @@ var _ = ginkgo.AfterSuite(func() {
 			}
 			execTestCmd([]testCmd{createExampleDeployment})
 
+			azurefileLog := testCmd{
+				command:  "bash",
+				args:     []string{"test/utils/azurefile_log.sh"},
+				startLog: "===================azurefile log===================",
+				endLog:   "===================================================",
+			}
 			e2eTeardown := testCmd{
 				command:  "make",
 				args:     []string{"e2e-teardown"},
 				startLog: "Uninstalling Azure File CSI Driver...",
 				endLog:   "Azure File CSI Driver uninstalled",
 			}
-			execTestCmd([]testCmd{e2eTeardown})
+			execTestCmd([]testCmd{azurefileLog, e2eTeardown})
 
 			if !isTestingMigration {
 				// install CSI Driver deployment scripts test
