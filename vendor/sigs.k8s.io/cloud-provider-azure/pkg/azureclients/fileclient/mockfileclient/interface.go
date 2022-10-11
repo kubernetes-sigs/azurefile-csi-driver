@@ -22,6 +22,7 @@
 package mockfileclient
 
 import (
+	context "context"
 	reflect "reflect"
 
 	storage "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
@@ -66,6 +67,21 @@ func (mr *MockInterfaceMockRecorder) CreateFileShare(resourceGroupName, accountN
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFileShare", reflect.TypeOf((*MockInterface)(nil).CreateFileShare), resourceGroupName, accountName, shareOptions)
 }
 
+// CreateSnapshot mocks base method.
+func (m *MockInterface) CreateSnapshot(ctx context.Context, resourceGroupName, accountName string, shareOptions *fileclient.ShareOptions) (storage.FileShare, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateSnapshot", ctx, resourceGroupName, accountName, shareOptions)
+	ret0, _ := ret[0].(storage.FileShare)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateSnapshot indicates an expected call of CreateSnapshot.
+func (mr *MockInterfaceMockRecorder) CreateSnapshot(ctx, resourceGroupName, accountName, shareOptions interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSnapshot", reflect.TypeOf((*MockInterface)(nil).CreateSnapshot), ctx, resourceGroupName, accountName, shareOptions)
+}
+
 // DeleteFileShare mocks base method.
 func (m *MockInterface) DeleteFileShare(resourceGroupName, accountName, name string) error {
 	m.ctrl.T.Helper()
@@ -78,6 +94,20 @@ func (m *MockInterface) DeleteFileShare(resourceGroupName, accountName, name str
 func (mr *MockInterfaceMockRecorder) DeleteFileShare(resourceGroupName, accountName, name interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteFileShare", reflect.TypeOf((*MockInterface)(nil).DeleteFileShare), resourceGroupName, accountName, name)
+}
+
+// DeleteSnapshot mocks base method.
+func (m *MockInterface) DeleteSnapshot(ctx context.Context, resourceGroupName, accountName, name, xMsSnapshot string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteSnapshot", ctx, resourceGroupName, accountName, name, xMsSnapshot)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteSnapshot indicates an expected call of DeleteSnapshot.
+func (mr *MockInterfaceMockRecorder) DeleteSnapshot(ctx, resourceGroupName, accountName, name, xMsSnapshot interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSnapshot", reflect.TypeOf((*MockInterface)(nil).DeleteSnapshot), ctx, resourceGroupName, accountName, name, xMsSnapshot)
 }
 
 // GetFileShare mocks base method.
@@ -116,6 +146,21 @@ func (m *MockInterface) ResizeFileShare(resourceGroupName, accountName, name str
 	ret := m.ctrl.Call(m, "ResizeFileShare", resourceGroupName, accountName, name, sizeGiB)
 	ret0, _ := ret[0].(error)
 	return ret0
+}
+
+// GetSnapshot mocks base method.
+func (m *MockInterface) GetSnapshot(ctx context.Context, resourceGroupName, accountName, name, xMsSnapshot string) (storage.FileShare, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSnapshot", ctx, resourceGroupName, accountName, name, xMsSnapshot)
+	ret0, _ := ret[0].(storage.FileShare)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSnapshot indicates an expected call of GetSnapshot.
+func (mr *MockInterfaceMockRecorder) GetSnapshot(ctx, resourceGroupName, accountName, name, xMsSnapshot interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSnapshot", reflect.TypeOf((*MockInterface)(nil).GetSnapshot), ctx, resourceGroupName, accountName, name, xMsSnapshot)
 }
 
 // ResizeFileShare indicates an expected call of ResizeFileShare.

@@ -17,6 +17,8 @@ limitations under the License.
 package fileclient
 
 import (
+	"context"
+
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
 )
 
@@ -30,4 +32,7 @@ type Interface interface {
 	GetServiceProperties(resourceGroupName, accountName string) (storage.FileServiceProperties, error)
 	SetServiceProperties(resourceGroupName, accountName string, parameters storage.FileServiceProperties) (storage.FileServiceProperties, error)
 	WithSubscriptionID(subscriptionID string) Interface
+	CreateSnapshot(ctx context.Context, resourceGroupName, accountName string, shareOptions *ShareOptions) (storage.FileShare, error)
+	DeleteSnapshot(ctx context.Context, resourceGroupName, accountName, name, xMsSnapshot string) error
+	GetSnapshot(ctx context.Context, resourceGroupName, accountName, name, xMsSnapshot string) (storage.FileShare, error)
 }

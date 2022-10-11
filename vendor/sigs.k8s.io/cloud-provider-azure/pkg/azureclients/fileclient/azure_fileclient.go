@@ -200,3 +200,74 @@ func (c *Client) GetServiceProperties(resourceGroupName, accountName string) (st
 func (c *Client) SetServiceProperties(resourceGroupName, accountName string, parameters storage.FileServiceProperties) (storage.FileServiceProperties, error) {
 	return c.fileServicesClient.SetServiceProperties(context.Background(), resourceGroupName, accountName, parameters)
 }
+
+// CreateSnapshot creates a snapshot
+func (c *Client) CreateSnapshot(ctx context.Context, resourceGroupName, accountName string, shareOptions *ShareOptions) (storage.FileShare, error) {
+	mc := metrics.NewMetricContext("snapshot", "create", resourceGroupName, c.subscriptionID, "")
+
+	if shareOptions == nil {
+		return storage.FileShare{}, fmt.Errorf("share options is nil")
+	}
+	quota := int32(shareOptions.RequestGiB)
+	fileShareProperties := &storage.FileShareProperties{
+		ShareQuota: &quota,
+	}
+	if shareOptions.Protocol == storage.EnabledProtocolsNFS {
+		fileShareProperties.EnabledProtocols = shareOptions.Protocol
+	}
+	if shareOptions.AccessTier != "" {
+		fileShareProperties.AccessTier = storage.ShareAccessTier(shareOptions.AccessTier)
+	}
+	if shareOptions.RootSquash != "" {
+		fileShareProperties.RootSquash = storage.RootSquashType(shareOptions.RootSquash)
+	}
+	if shareOptions.Metadata != nil {
+		fileShareProperties.Metadata = shareOptions.Metadata
+	}
+	fileShare := storage.FileShare{
+		Name:                &shareOptions.Name,
+		FileShareProperties: fileShareProperties,
+	}
+	snapshotResult, err := c.fileSharesClient.Create(ctx, resourceGroupName, accountName, shareOptions.Name, fileShare, "snapshot")
+	var rerr *retry.Error
+	if err != nil {
+		rerr = &retry.Error{
+			RawError: err,
+		}
+	}
+	mc.Observe(rerr)
+
+	return snapshotResult, err
+}
+
+// DeleteSnapshot deletes a snapshot
+func (c *Client) DeleteSnapshot(ctx context.Context, resourceGroupName, accountName, name, xMsSnapshot string) error {
+	mc := metrics.NewMetricContext("snapshot", "delete", resourceGroupName, c.subscriptionID, "")
+
+	_, err := c.fileSharesClient.Delete(ctx, resourceGroupName, accountName, name, xMsSnapshot, "")
+	var rerr *retry.Error
+	if err != nil {
+		rerr = &retry.Error{
+			RawError: err,
+		}
+	}
+	mc.Observe(rerr)
+
+	return err
+}
+
+// GetSnapshot gets a snapshot
+func (c *Client) GetSnapshot(ctx context.Context, resourceGroupName, accountName, name, xMsSnapshot string) (storage.FileShare, error) {
+	mc := metrics.NewMetricContext("snapshot", "get", resourceGroupName, c.subscriptionID, "")
+
+	result, err := c.fileSharesClient.Get(ctx, resourceGroupName, accountName, name, "stats", xMsSnapshot)
+	var rerr *retry.Error
+	if err != nil {
+		rerr = &retry.Error{
+			RawError: err,
+		}
+	}
+	mc.Observe(rerr)
+
+	return result, err
+}

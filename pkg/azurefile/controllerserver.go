@@ -803,7 +803,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		return nil, status.Error(codes.InvalidArgument, "CreateSnapshot Source Volume ID must be provided")
 	}
 
-	rgName, _, _, _, _, subsID, err := GetFileShareInfo(sourceVolumeID) //nolint:dogsled
+	rgName, accountName, _, _, _, subsID, err := GetFileShareInfo(sourceVolumeID) //nolint:dogsled
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("GetFileShareInfo(%s) failed with error: %v", sourceVolumeID, err))
 	}
@@ -848,32 +848,39 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		}, nil
 	}
 
-	shareURL, err := d.getShareURL(ctx, sourceVolumeID, req.GetSecrets())
+	// shareURL, err := d.getShareURL(ctx, sourceVolumeID, req.GetSecrets())
+	// if err != nil {
+	// 	return nil, status.Errorf(codes.Internal, "failed to get share url with (%s): %v", sourceVolumeID, err)
+	// }
+
+	// snapshotShare, err := shareURL.CreateSnapshot(ctx, azfile.Metadata{snapshotNameKey: snapshotName})
+	// if err != nil {
+	// 	return nil, status.Errorf(codes.Internal, "create snapshot from(%s) failed with %v, shareURL: %q", sourceVolumeID, err, shareURL)
+	// }
+
+	shareFileClient := d.cloud.FileClient.WithSubscriptionID(subsID)
+
+	snapshotShare, err := shareFileClient.CreateSnapshot(ctx, rgName, accountName, &fileclient.ShareOptions{})
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get share url with (%s): %v", sourceVolumeID, err)
+		return nil, status.Errorf(codes.Internal, "create snapshot from(%s) failed with %v, accountName: %q", sourceVolumeID, err, accountName)
 	}
 
-	snapshotShare, err := shareURL.CreateSnapshot(ctx, azfile.Metadata{snapshotNameKey: snapshotName})
+	klog.V(2).Infof("Created share snapshot: %s", *snapshotShare.Name)
+
+	// properties, err := shareFileClient.GetServiceProperties(ctx, rgName, accountName)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "create snapshot from(%s) failed with %v, shareURL: %q", sourceVolumeID, err, shareURL)
+		return nil, status.Errorf(codes.Internal, "failed to get snapshot properties from (%s): %v", *snapshotShare.Name, err)
 	}
 
-	klog.V(2).Infof("Created share snapshot: %s", snapshotShare.Snapshot())
-
-	properties, err := shareURL.GetProperties(ctx)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get snapshot properties from (%s): %v", snapshotShare.Snapshot(), err)
-	}
-
-	tp := timestamppb.New(properties.LastModified())
+	tp := timestamppb.New(snapshotShare.LastModifiedTime.Time)
 	if tp == nil {
-		return nil, status.Errorf(codes.Internal, "Failed to convert timestamp(%v)", properties.LastModified())
+		return nil, status.Errorf(codes.Internal, "Failed to convert timestamp(%v)", snapshotShare.LastModifiedTime.Time)
 	}
 
 	createResp := &csi.CreateSnapshotResponse{
 		Snapshot: &csi.Snapshot{
-			SizeBytes:      volumehelper.GiBToBytes(int64(properties.Quota())),
-			SnapshotId:     sourceVolumeID + "#" + snapshotShare.Snapshot(),
+			SizeBytes:      volumehelper.GiBToBytes(int64(*snapshotShare.ShareQuota)),
+			SnapshotId:     sourceVolumeID + "#" + *snapshotShare.Name,
 			SourceVolumeId: sourceVolumeID,
 			CreationTime:   tp,
 			// Since the snapshot of azurefile has no field of ReadyToUse, here ReadyToUse is always set to true.
