@@ -96,7 +96,7 @@ ifdef TEST_WINDOWS
 	helm install azurefile-csi-driver charts/latest/azurefile-csi-driver --namespace kube-system --wait --timeout=15m -v=5 --debug \
 		${E2E_HELM_OPTIONS} \
 		--set windows.enabled=true \
-		--set linux.enabled=false \
+		--set linux.enabled=true \
 		--set driver.azureGoSDKLogLevel=INFO \
 		--set controller.replicas=1 \
 		--set controller.logLevel=6 \
