@@ -16,12 +16,7 @@
 
 set -euo pipefail
 
-echo "Deleting the Driver node daemonset ..."
-kubectl delete -f ./deploy/csi-azurefile-node.yaml --ignore-not-found
-kubectl delete -f ./deploy/csi-azurefile-node-windows.yaml --ignore-not-found
-
-sleep 15
-
-echo "Installing the Driver node daemonset ..."
-kubectl apply -f ./deploy/csi-azurefile-node.yaml
-kubectl apply -f ./deploy/csi-azurefile-node-windows.yaml
+echo "restart driver node daemonset ..."
+kubectl rollout restart ds csi-azurefile-node -n kube-system
+kubectl rollout restart ds csi-azurefile-node-win -n kube-system
+sleep 10
