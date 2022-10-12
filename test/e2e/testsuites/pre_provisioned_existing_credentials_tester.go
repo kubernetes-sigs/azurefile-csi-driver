@@ -53,7 +53,7 @@ func (t *PreProvisionedExistingCredentialsTest) Run(client clientset.Interface, 
 			}
 
 			ginkgo.By("creating the storageclass with existing credentials")
-			sc := t.CSIDriver.GetPreProvisionStorageClass(parameters, volume.MountOptions, volume.ReclaimPolicy, volume.VolumeBindingMode, volume.AllowedTopologyValues, namespace.Name)
+			sc := t.CSIDriver.GetProvisionStorageClass(parameters, volume.MountOptions, volume.ReclaimPolicy, volume.VolumeBindingMode, volume.AllowedTopologyValues, namespace.Name)
 			tsc := NewTestStorageClass(client, namespace, sc)
 			createdStorageClass := tsc.Create()
 			defer tsc.Cleanup()
