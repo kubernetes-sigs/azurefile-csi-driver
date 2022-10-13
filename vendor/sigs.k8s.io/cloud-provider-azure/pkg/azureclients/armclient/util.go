@@ -103,8 +103,8 @@ func WithMetricsSendDecoratorWrapper(prefix, request, resourceGroup, subscriptio
 	return nil
 }
 
-// DoHackRegionalRetryDecorator returns an autorest.SendDecorator which performs retry with customizable backoff policy.
-func DoHackRegionalRetryDecorator(c *Client) autorest.SendDecorator {
+// DoHackRegionalRetryForGET checks if GET request returns empty response and retries regional server or returns error.
+func DoHackRegionalRetryForGET(c *Client) autorest.SendDecorator {
 	return func(s autorest.Sender) autorest.Sender {
 		return autorest.SenderFunc(func(request *http.Request) (*http.Response, error) {
 			response, rerr := s.Do(request)
@@ -120,6 +120,8 @@ func DoHackRegionalRetryDecorator(c *Client) autorest.SendDecorator {
 
 			bodyString := string(bodyBytes)
 			trimmed := strings.TrimSpace(bodyString)
+			klog.V(5).Infof("Send.sendRequest got response with ContentLength %d, StatusCode %d and responseBody length %d", response.ContentLength, response.StatusCode, len(trimmed))
+
 			// Hack: retry the regional ARM endpoint in case of ARM traffic split and arm resource group replication is too slow
 			// Empty content and 2xx http status code are returned in this case.
 			// Issue: https://github.com/kubernetes-sigs/cloud-provider-azure/issues/1296
@@ -135,7 +137,6 @@ func DoHackRegionalRetryDecorator(c *Client) autorest.SendDecorator {
 					klog.Errorf("Send.sendRequest: error in parsing response body string %q: %s, Skip retrying regional host", bodyBytes, e.Error())
 					return response, rerr
 				}
-				klog.V(5).Infof("Send.sendRequest original response: %s", bodyString)
 
 				err, ok := body["error"].(map[string]interface{})
 				if !ok || err["code"] == nil || !strings.EqualFold(err["code"].(string), "ResourceGroupNotFound") {

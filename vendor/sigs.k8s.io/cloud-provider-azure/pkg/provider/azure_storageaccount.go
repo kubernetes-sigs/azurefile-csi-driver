@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-07-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-12-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-08-01/network"
 	"github.com/Azure/azure-sdk-for-go/services/privatedns/mgmt/2018-09-01/privatedns"
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
@@ -54,6 +54,7 @@ type AccountOptions struct {
 	AllowBlobPublicAccess                   *bool
 	RequireInfrastructureEncryption         *bool
 	AllowSharedKeyAccess                    *bool
+	IsMultichannelEnabled                   *bool
 	KeyName                                 *string
 	KeyVersion                              *string
 	KeyVaultURI                             *string
@@ -62,6 +63,7 @@ type AccountOptions struct {
 	VNetResourceGroup                       string
 	VNetName                                string
 	SubnetName                              string
+	AccessTier                              string
 	MatchTags                               bool
 }
 
@@ -316,19 +318,32 @@ func (az *Cloud) EnsureStorageAccount(ctx context.Context, accountOptions *Accou
 			return "", "", fmt.Errorf("failed to create storage account %s, error: %v", accountName, rerr)
 		}
 
-		if accountOptions.DisableFileServiceDeleteRetentionPolicy {
-			klog.V(2).Infof("disable DisableFileServiceDeleteRetentionPolicy on account(%s), subscroption(%s), resource group(%s)", accountName, subsID, resourceGroup)
+		if accountOptions.DisableFileServiceDeleteRetentionPolicy || to.Bool(accountOptions.IsMultichannelEnabled) {
 			prop, err := az.FileClient.WithSubscriptionID(subsID).GetServiceProperties(ctx, resourceGroup, accountName)
 			if err != nil {
 				return "", "", err
 			}
 			if prop.FileServicePropertiesProperties == nil {
-				return "", "", fmt.Errorf("FileServicePropertiesProperties of account(%s), subscroption(%s), resource group(%s) is nil", accountName, subsID, resourceGroup)
+				return "", "", fmt.Errorf("FileServicePropertiesProperties of account(%s), subscription(%s), resource group(%s) is nil", accountName, subsID, resourceGroup)
 			}
-			prop.FileServicePropertiesProperties.ShareDeleteRetentionPolicy = &storage.DeleteRetentionPolicy{Enabled: to.BoolPtr(false)}
+			prop.FileServicePropertiesProperties.ProtocolSettings = nil
+			prop.FileServicePropertiesProperties.Cors = nil
+			if accountOptions.DisableFileServiceDeleteRetentionPolicy {
+				klog.V(2).Infof("disable FileServiceDeleteRetentionPolicy on account(%s), subscription(%s), resource group(%s)", accountName, subsID, resourceGroup)
+				prop.FileServicePropertiesProperties.ShareDeleteRetentionPolicy = &storage.DeleteRetentionPolicy{Enabled: to.BoolPtr(false)}
+			}
+			if to.Bool(accountOptions.IsMultichannelEnabled) {
+				klog.V(2).Infof("enable SMB Multichannel setting on account(%s), subscription(%s), resource group(%s)", accountName, subsID, resourceGroup)
+				prop.FileServicePropertiesProperties.ProtocolSettings = &storage.ProtocolSettings{Smb: &storage.SmbSetting{Multichannel: &storage.Multichannel{Enabled: to.BoolPtr(true)}}}
+			}
 			if _, err := az.FileClient.WithSubscriptionID(subsID).SetServiceProperties(ctx, resourceGroup, accountName, prop); err != nil {
 				return "", "", err
 			}
+		}
+
+		if accountOptions.AccessTier != "" {
+			klog.V(2).Infof("set AccessTier(%s) on account(%s), subscription(%s), resource group(%s)", accountOptions.AccessTier, accountName, subsID, resourceGroup)
+			cp.AccountPropertiesCreateParameters.AccessTier = storage.AccessTier(accountOptions.AccessTier)
 		}
 
 		if accountOptions.CreatePrivateEndpoint {

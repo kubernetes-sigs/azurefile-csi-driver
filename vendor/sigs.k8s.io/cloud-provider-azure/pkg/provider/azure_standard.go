@@ -30,7 +30,7 @@ import (
 
 	"sigs.k8s.io/cloud-provider-azure/pkg/consts"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-07-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-12-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-08-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 
@@ -352,7 +352,7 @@ func (az *Cloud) serviceOwnsFrontendIP(fip network.FrontendIPConfiguration, serv
 		return true, isPrimaryService, nil
 	}
 
-	loadBalancerIP := service.Spec.LoadBalancerIP
+	loadBalancerIP := getServiceLoadBalancerIP(service)
 	if loadBalancerIP == "" {
 		// it is a must that the secondary services set the loadBalancer IP
 		return false, isPrimaryService, nil

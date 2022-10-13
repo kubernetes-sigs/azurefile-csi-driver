@@ -19,6 +19,7 @@ package consts
 import (
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-12-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
 )
 
@@ -125,6 +126,8 @@ const (
 	TagKeyValueDelimiter = "="
 	// VMSetNamesSharingPrimarySLBDelimiter is the delimiter of vmSet names sharing the primary SLB
 	VMSetNamesSharingPrimarySLBDelimiter = ","
+	// PremiumV2_LRS type for Azure Disk
+	PremiumV2LRS = compute.DiskStorageAccountTypes("PremiumV2_LRS")
 )
 
 // cache
@@ -135,6 +138,8 @@ const (
 	VMSSKey = "k8svmssKey"
 	// VMASKey is the key when querying vmss cache
 	VMASKey = "k8svmasKey"
+	// NonVmssUniformNodesKey is the key when querying nonVmssUniformNodes cache
+	NonVmssUniformNodesKey = "k8sNonVmssUniformNodesKey"
 	// AvailabilitySetNodesKey is the availability set nodes key
 	AvailabilitySetNodesKey = "k8sAvailabilitySetNodesKey"
 
@@ -143,7 +148,11 @@ const (
 
 	// GetNodeVmssFlexIDLockKey is the key for getting the lock for getNodeVmssFlexID function
 	GetNodeVmssFlexIDLockKey = "k8sGetNodeVmssFlexIDLockKey"
+	// VMManagementTypeLockKey is the key for getting the lock for getVMManagementType function
+	VMManagementTypeLockKey = "VMManagementType"
 
+	// NonVmssUniformNodesCacheTTLDefaultInSeconds is the TTL of the non vmss uniform node cache
+	NonVmssUniformNodesCacheTTLDefaultInSeconds = 900
 	// AvailabilitySetNodesCacheTTLDefaultInSeconds is the TTL of the availabilitySet node cache
 	AvailabilitySetNodesCacheTTLDefaultInSeconds = 900
 	// VMSSCacheTTLDefaultInSeconds is the TTL of the vmss cache
@@ -155,10 +164,8 @@ const (
 
 	// VmssFlexCacheTTLDefaultInSeconds is the TTL of the vmss flex cache
 	VmssFlexCacheTTLDefaultInSeconds = 600
-	// VmssFlexVMCacheTTLInSeconds is the TTL of the vmss flex vm cache
-	VmssFlexVMCacheTTLInSeconds = 600
-	// VmssFlexVMStatusCacheTTLInSeconds is the TTL of the vmss flex vm status cache
-	VmssFlexVMStatusCacheTTLInSeconds = 600
+	// VmssFlexVMCacheTTLDefaultInSeconds is the TTL of the vmss flex vm cache
+	VmssFlexVMCacheTTLDefaultInSeconds = 600
 
 	// ZoneFetchingInterval defines the interval of performing zoneClient.GetZones
 	ZoneFetchingInterval = 30 * time.Minute
@@ -182,6 +189,16 @@ const (
 	BackoffDurationDefault = 5 // in seconds
 	// BackoffJitterDefault is the default value of the backoff jitter
 	BackoffJitterDefault = 1.0
+)
+
+// LB variables for dual-stack
+var (
+	// Service.Spec.LoadBalancerIP has been deprecated and may be removed in a future release. Those two annotations are introduced as alternatives to set IPv4/IPv6 LoadBalancer IPs.
+	// Refer https://github.com/kubernetes/api/blob/3638040e4063e0f889c129220cd386497f328276/core/v1/types.go#L4459-L4468 for more details.
+	ServiceAnnotationLoadBalancerIPDualStack = map[bool]string{
+		false: "service.beta.kubernetes.io/azure-load-balancer-ipv4",
+		true:  "service.beta.kubernetes.io/azure-load-balancer-ipv6",
+	}
 )
 
 // load balancer
@@ -356,6 +373,14 @@ const (
 	CannotDeletePublicIPErrorMessageCode = "PublicIPAddressCannotBeDeleted"
 	// ReferencedResourceNotProvisionedMessageCode means the referenced resource has not been provisioned
 	ReferencedResourceNotProvisionedMessageCode = "ReferencedResourceNotProvisioned"
+	// ParentResourceNotFoundMessageCode is the error code that the parent VMSS of the VM is not found.
+	ParentResourceNotFoundMessageCode = "ParentResourceNotFound"
+	// ConcurrentRequestConflictMessage is the error message that the request failed due to the conflict with another concurrent operation.
+	ConcurrentRequestConflictMessage = "The request failed due to conflict with a concurrent request."
+	// CannotUpdateVMBeingDeletedMessagePrefix is the prefix of the error message that the request failed due to delete a VM that is being deleted
+	CannotUpdateVMBeingDeletedMessagePrefix = "'Put on Virtual Machine Scale Set VM Instance' is not allowed on Virtual Machine Scale Set"
+	// CannotUpdateVMBeingDeletedMessageSuffix is the suffix of the error message that the request failed due to delete a VM that is being deleted
+	CannotUpdateVMBeingDeletedMessageSuffix = "since it is marked for deletion"
 )
 
 // node ipam controller
