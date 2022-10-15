@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/subnetclient/mocksubnetclient"
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-07-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-12-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
 	azure2 "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -596,38 +596,6 @@ func TestCreateVolume(t *testing.T) {
 					})
 
 				expectedErr := status.Errorf(codes.InvalidArgument, "matchTags must set as false when storageAccount(abc) is provided")
-				_, err := d.CreateVolume(context.Background(), req)
-				if !reflect.DeepEqual(err, expectedErr) {
-					t.Errorf("Unexpected error: %v", err)
-				}
-			},
-		},
-		{
-			name: "disableDeleteRetentionPolicy is not supported with Standard account type",
-			testFunc: func(t *testing.T) {
-				allParam := map[string]string{
-					storageAccountTypeField:           "standard",
-					disableDeleteRetentionPolicyField: "true",
-				}
-
-				req := &csi.CreateVolumeRequest{
-					Name:               "random-vol-name",
-					CapacityRange:      stdCapRange,
-					VolumeCapabilities: stdVolCap,
-					Parameters:         allParam,
-				}
-
-				d := NewFakeDriver()
-				d.cloud = &azure.Cloud{
-					Config: azure.Config{},
-				}
-
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
-
-				expectedErr := status.Errorf(codes.InvalidArgument, "disableDeleteRetentionPolicy is not supported with Standard account type(standard)")
 				_, err := d.CreateVolume(context.Background(), req)
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
