@@ -93,7 +93,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				"tags":    tags,
 				// make sure this is the first test case due to storeAccountKey is set as false
 				"storeAccountKey":        "false",
-				"accessTier":             "Premium",
+				"shareAccessTier":             "Premium",
 				"requireInfraEncryption": "true",
 			},
 			Tags: tags,
@@ -260,7 +260,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		}
 		if !isUsingInTreeVolumePlugin {
 			scParameters["allowBlobPublicAccess"] = "true"
-			scParameters["accessTier"] = "Cool"
+			scParameters["shareAccessTier"] = "Cool"
 		}
 		test := testsuites.DynamicallyProvisionedReadOnlyVolumeTest{
 			CSIDriver:              testDriver,

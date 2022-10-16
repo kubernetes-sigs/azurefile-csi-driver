@@ -78,6 +78,7 @@ const (
 
 	shareNameField                    = "sharename"
 	accessTierField                   = "accesstier"
+	shareAccessTierField              = "shareaccesstier"
 	rootSquashTypeField               = "rootsquashtype"
 	diskNameField                     = "diskname"
 	folderNameField                   = "foldername"
@@ -695,7 +696,7 @@ func isSupportedProtocol(protocol string) bool {
 	return false
 }
 
-func isSupportedAccessTier(accessTier string) bool {
+func isSupportedShareAccessTier(accessTier string) bool {
 	if accessTier == "" {
 		return true
 	}

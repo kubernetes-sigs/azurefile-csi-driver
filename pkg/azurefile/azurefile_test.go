@@ -999,7 +999,7 @@ func TestIsSupportedProtocol(t *testing.T) {
 	}
 }
 
-func TestIsSupportedAccessTier(t *testing.T) {
+func TestIsSupportedShareAccessTier(t *testing.T) {
 	tests := []struct {
 		accessTier     string
 		expectedResult bool
@@ -1039,7 +1039,7 @@ func TestIsSupportedAccessTier(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		result := isSupportedAccessTier(test.accessTier)
+		result := isSupportedShareAccessTier(test.accessTier)
 		if result != test.expectedResult {
 			t.Errorf("isSupportedTier(%s) returned with %v, not equal to %v", test.accessTier, result, test.expectedResult)
 		}
