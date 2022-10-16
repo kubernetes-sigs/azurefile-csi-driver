@@ -79,6 +79,7 @@ const (
 	shareNameField                    = "sharename"
 	accessTierField                   = "accesstier"
 	shareAccessTierField              = "shareaccesstier"
+	accountAccessTierField            = "accountaccesstier"
 	rootSquashTypeField               = "rootsquashtype"
 	diskNameField                     = "diskname"
 	folderNameField                   = "foldername"
@@ -701,6 +702,18 @@ func isSupportedShareAccessTier(accessTier string) bool {
 		return true
 	}
 	for _, tier := range storage.PossibleShareAccessTierValues() {
+		if accessTier == string(tier) {
+			return true
+		}
+	}
+	return false
+}
+
+func isSupportedAccountAccessTier(accessTier string) bool {
+	if accessTier == "" {
+		return true
+	}
+	for _, tier := range storage.PossibleAccessTierValues() {
 		if accessTier == string(tier) {
 			return true
 		}
