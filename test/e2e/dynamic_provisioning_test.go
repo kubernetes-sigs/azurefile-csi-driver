@@ -731,7 +731,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(cs, ns)
 	})
 
-	ginkgo.It("should create a volume on demand with useDataPlaneAPI [file.csi.azure.com] [Windows]", func() {
+	ginkgo.It("should create a Premium_LRS volume on demand with useDataPlaneAPI [file.csi.azure.com] [Windows]", func() {
 		skipIfUsingInTreeVolumePlugin()
 
 		pods := []testsuites.PodDetails{
@@ -763,6 +763,51 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 		scParameters := map[string]string{
 			"skuName":                      "Premium_LRS",
+			"secretNamespace":              "kube-system",
+			"createAccount":                "true",
+			"useDataPlaneAPI":              "true",
+			"disableDeleteRetentionPolicy": "true",
+		}
+		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
+			CSIDriver:              testDriver,
+			Pods:                   pods,
+			StorageClassParameters: scParameters,
+		}
+		test.Run(cs, ns)
+	})
+
+	ginkgo.It("should create a Standard_LRS volume on demand with disableDeleteRetentionPolicy [file.csi.azure.com] [Windows]", func() {
+		skipIfUsingInTreeVolumePlugin()
+
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize: "10Gi",
+						MountOptions: []string{
+							"dir_mode=0777",
+							"file_mode=0777",
+							"uid=0",
+							"gid=0",
+							"mfsymlinks",
+							"cache=strict",
+							"nosharesock",
+							"vers=3.1.1",
+						},
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+					},
+				},
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
+			},
+		}
+
+		scParameters := map[string]string{
+			"skuName":                      "Standard_LRS",
 			"secretNamespace":              "kube-system",
 			"createAccount":                "true",
 			"useDataPlaneAPI":              "true",

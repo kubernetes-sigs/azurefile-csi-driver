@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-07-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-12-01/compute"
 
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog/v2"
@@ -123,7 +123,7 @@ func (fs *FlexScaleSet) newVmssFlexVMCache() (*azcache.TimedCache, error) {
 	}
 
 	if fs.Config.VmssFlexVMCacheTTLInSeconds == 0 {
-		fs.Config.VmssFlexVMCacheTTLInSeconds = consts.VmssFlexVMCacheTTLInSeconds
+		fs.Config.VmssFlexVMCacheTTLInSeconds = consts.VmssFlexVMCacheTTLDefaultInSeconds
 	}
 	return azcache.NewTimedcache(time.Duration(fs.Config.VmssFlexVMCacheTTLInSeconds)*time.Second, getter)
 }
@@ -321,7 +321,7 @@ func (fs *FlexScaleSet) getVmssFlexByName(vmssFlexName string) (*compute.Virtual
 	return nil, cloudprovider.InstanceNotFound
 }
 
-func (fs *FlexScaleSet) deleteCacheForNode(nodeName string) error {
+func (fs *FlexScaleSet) DeleteCacheForNode(nodeName string) error {
 	vmssFlexID, err := fs.getNodeVmssFlexID(nodeName)
 	if err != nil {
 		return err

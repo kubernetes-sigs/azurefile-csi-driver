@@ -264,10 +264,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Errorf(codes.InvalidArgument, "fsType(%s) is not supported with protocol(%s)", fsType, protocol)
 	}
 
-	if disableDeleteRetentionPolicy && !strings.HasPrefix(strings.ToLower(sku), premium) {
-		return nil, status.Errorf(codes.InvalidArgument, "disableDeleteRetentionPolicy is not supported with Standard account type(%s)", sku)
-	}
-
 	enableHTTPSTrafficOnly := true
 	shareProtocol := storage.EnabledProtocolsSMB
 	createPrivateEndpoint := false
