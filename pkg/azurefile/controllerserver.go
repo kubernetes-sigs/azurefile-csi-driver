@@ -897,12 +897,12 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 		return nil, status.Error(codes.InvalidArgument, "Snapshot ID must be provided")
 	}
 
-	shareURL, err := d.getShareURL(ctx, req.SnapshotId, req.GetSecrets())
-	if err != nil {
-		// According to CSI Driver Sanity Tester, should succeed when an invalid snapshot id is used
-		klog.V(4).Infof("failed to get share url with (%s): %v, returning with success", req.SnapshotId, err)
-		return &csi.DeleteSnapshotResponse{}, nil
-	}
+	// shareURL, err := d.getShareURL(ctx, req.SnapshotId, req.GetSecrets())
+	// if err != nil {
+	// 	// According to CSI Driver Sanity Tester, should succeed when an invalid snapshot id is used
+	// 	klog.V(4).Infof("failed to get share url with (%s): %v, returning with success", req.SnapshotId, err)
+	// 	return &csi.DeleteSnapshotResponse{}, nil
+	// }
 
 	snapshot, err := getSnapshot(req.SnapshotId)
 	if err != nil {
@@ -912,7 +912,7 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 	// trim snapshotId from beginning to last #
 	volumeID := strings.TrimSuffix(req.SnapshotId, "#"+snapshot)
 	klog.Infof("voumeID: %s, snapshot: %s", volumeID, snapshot)
-	rgName, _, _, _, _, subsID, err := GetFileShareInfo(volumeID) //nolint:dogsled
+	rgName, accountName, _, _, _, subsID, err := GetFileShareInfo(volumeID) //nolint:dogsled
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("GetFileShareInfo(%s) failed with error: %v", volumeID, err))
 	}
@@ -929,7 +929,14 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 		mc.ObserveOperationWithResult(isOperationSucceeded, SnapshotID, req.SnapshotId)
 	}()
 
-	if _, err := shareURL.WithSnapshot(snapshot).Delete(ctx, azfile.DeleteSnapshotsOptionNone); err != nil {
+	// if _, err := shareURL.WithSnapshot(snapshot).Delete(ctx, azfile.DeleteSnapshotsOptionNone); err != nil {
+	// 	if strings.Contains(err.Error(), "ShareSnapshotNotFound") {
+	// 		klog.Warningf("the specify snapshot(%s) was not found", snapshot)
+	// 		return &csi.DeleteSnapshotResponse{}, nil
+	// 	}
+	// 	return nil, status.Errorf(codes.Internal, "failed to delete snapshot(%s): %v", snapshot, err)
+	// }
+	if err := d.cloud.FileClient.WithSubscriptionID(subsID).DeleteSnapshot(ctx, rgName, accountName, snapshot, req.SnapshotId); err != nil {
 		if strings.Contains(err.Error(), "ShareSnapshotNotFound") {
 			klog.Warningf("the specify snapshot(%s) was not found", snapshot)
 			return &csi.DeleteSnapshotResponse{}, nil
