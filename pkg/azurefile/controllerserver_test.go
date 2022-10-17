@@ -326,7 +326,7 @@ func TestCreateVolume(t *testing.T) {
 						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 					})
 
-				expectedErr := status.Errorf(codes.InvalidArgument, "accessTier(test_accessTier) is not supported, supported AccessTier list: [Cool Hot Premium TransactionOptimized]")
+				expectedErr := status.Errorf(codes.InvalidArgument, "shareAccessTier(test_accessTier) is not supported, supported ShareAccessTier list: [Cool Hot Premium TransactionOptimized]")
 				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)

@@ -108,7 +108,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		parameters = make(map[string]string)
 	}
 	var sku, subsID, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
-	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, accessTier, rootSquashType string
+	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, shareAccessTier, accountAccessTier, rootSquashType string
 	var createAccount, useDataPlaneAPI, useSeretCache, disableDeleteRetentionPolicy, enableLFS, matchTags bool
 	var vnetResourceGroup, vnetName, subnetName, shareNamePrefix, fsGroupChangePolicy string
 	var requireInfraEncryption *bool
@@ -173,7 +173,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case networkEndpointTypeField:
 			networkEndpointType = v
 		case accessTierField:
-			accessTier = v
+			shareAccessTier = v
+		case shareAccessTierField:
+			shareAccessTier = v
+		case accountAccessTierField:
+			accountAccessTier = v
 		case rootSquashTypeField:
 			rootSquashType = v
 		case allowBlobPublicAccessField:
@@ -244,8 +248,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Errorf(codes.InvalidArgument, "protocol(%s) is not supported, supported protocol list: %v", protocol, supportedProtocolList)
 	}
 
-	if !isSupportedAccessTier(accessTier) {
-		return nil, status.Errorf(codes.InvalidArgument, "accessTier(%s) is not supported, supported AccessTier list: %v", accessTier, storage.PossibleShareAccessTierValues())
+	if !isSupportedShareAccessTier(shareAccessTier) {
+		return nil, status.Errorf(codes.InvalidArgument, "shareAccessTier(%s) is not supported, supported ShareAccessTier list: %v", shareAccessTier, storage.PossibleShareAccessTierValues())
+	}
+
+	if !isSupportedAccountAccessTier(accountAccessTier) {
+		return nil, status.Errorf(codes.InvalidArgument, "accountAccessTier(%s) is not supported, supported AccountAccessTier list: %v", accountAccessTier, storage.PossibleAccessTierValues())
 	}
 
 	if !isSupportedRootSquashType(rootSquashType) {
@@ -354,6 +362,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		VNetName:                                vnetName,
 		SubnetName:                              subnetName,
 		RequireInfrastructureEncryption:         requireInfraEncryption,
+		AccessTier:                              accountAccessTier,
 	}
 
 	var accountKey, lockKey string
@@ -431,7 +440,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		Name:       validFileShareName,
 		Protocol:   shareProtocol,
 		RequestGiB: fileShareSize,
-		AccessTier: accessTier,
+		AccessTier: shareAccessTier,
 		RootSquash: rootSquashType,
 	}
 

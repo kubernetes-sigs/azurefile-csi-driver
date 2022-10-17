@@ -93,7 +93,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				"tags":    tags,
 				// make sure this is the first test case due to storeAccountKey is set as false
 				"storeAccountKey":        "false",
-				"accessTier":             "Premium",
+				"shareAccessTier":        "Premium",
 				"requireInfraEncryption": "true",
 			},
 			Tags: tags,
@@ -260,7 +260,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		}
 		if !isUsingInTreeVolumePlugin {
 			scParameters["allowBlobPublicAccess"] = "true"
-			scParameters["accessTier"] = "Cool"
+			scParameters["shareAccessTier"] = "Cool"
 		}
 		test := testsuites.DynamicallyProvisionedReadOnlyVolumeTest{
 			CSIDriver:              testDriver,
@@ -321,6 +321,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		}
 		if !isUsingInTreeVolumePlugin {
 			scParameters["accessTier"] = ""
+			scParameters["accountAccessTier"] = "Hot"
 		}
 		test := testsuites.DynamicallyProvisionedReclaimPolicyTest{
 			CSIDriver:              testDriver,
@@ -372,12 +373,17 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				WinServerVer: winServerVer,
 			},
 		}
+
+		scParameters := map[string]string{
+			"skuName": "Standard_LRS",
+		}
+		if !isUsingInTreeVolumePlugin {
+			scParameters["accountAccessTier"] = "Cool"
+		}
 		test := testsuites.DynamicallyProvisionedResizeVolumeTest{
-			CSIDriver: testDriver,
-			Pods:      pods,
-			StorageClassParameters: map[string]string{
-				"skuName": "Standard_LRS",
-			},
+			CSIDriver:              testDriver,
+			Pods:                   pods,
+			StorageClassParameters: scParameters,
 		}
 		test.Run(cs, ns)
 	})
@@ -767,6 +773,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			"createAccount":                "true",
 			"useDataPlaneAPI":              "true",
 			"disableDeleteRetentionPolicy": "true",
+			"accountAccessTier":            "Premium",
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
 			CSIDriver:              testDriver,
