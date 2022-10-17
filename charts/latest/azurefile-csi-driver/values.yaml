@@ -58,6 +58,10 @@ controller:
   runOnControlPlane: false
   attachRequired: false
   logLevel: 5
+  labels: {}
+  annotations: {}
+  podLabels: {}
+  podAnnotations: {}
   resources:
     csiProvisioner:
       limits:
@@ -139,6 +143,10 @@ snapshot:
   snapshotController:
     name: csi-snapshot-controller
     replicas: 2
+    labels: {}
+    annotations: {}
+    podLabels: {}
+    podAnnotations: {}
     resources:
       limits:
         cpu: 1
@@ -155,6 +163,8 @@ driver:
   customUserAgent: ""
   userAgentSuffix: "OSS-helm"
   azureGoSDKLogLevel: "" # available values: ""(no logs), DEBUG, INFO, WARNING, ERROR
+  httpsProxy: ""
+  httpProxy: ""
 
 linux:
   enabled: true
@@ -164,6 +174,10 @@ linux:
   kubeconfig: ""
   distro: debian # available values: debian, fedora
   mountPermissions: 0777
+  labels: {}
+  annotations: {}
+  podLabels: {}
+  podAnnotations: {}
   resources:
     livenessProbe:
       limits:
@@ -201,6 +215,10 @@ windows:
   dsName: csi-azurefile-node-win # daemonset name
   kubelet: 'C:\var\lib\kubelet'
   kubeconfig: ""
+  labels: {}
+  annotations: {}
+  podLabels: {}
+  podAnnotations: {}
   resources:
     livenessProbe:
       limits:

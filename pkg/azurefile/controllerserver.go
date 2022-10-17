@@ -108,7 +108,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		parameters = make(map[string]string)
 	}
 	var sku, subsID, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
-	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, accessTier, rootSquashType string
+	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, shareAccessTier, accountAccessTier, rootSquashType string
 	var createAccount, useDataPlaneAPI, useSeretCache, disableDeleteRetentionPolicy, enableLFS, matchTags bool
 	var vnetResourceGroup, vnetName, subnetName, shareNamePrefix, fsGroupChangePolicy string
 	var requireInfraEncryption *bool
@@ -173,7 +173,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case networkEndpointTypeField:
 			networkEndpointType = v
 		case accessTierField:
-			accessTier = v
+			shareAccessTier = v
+		case shareAccessTierField:
+			shareAccessTier = v
+		case accountAccessTierField:
+			accountAccessTier = v
 		case rootSquashTypeField:
 			rootSquashType = v
 		case allowBlobPublicAccessField:
@@ -244,8 +248,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Errorf(codes.InvalidArgument, "protocol(%s) is not supported, supported protocol list: %v", protocol, supportedProtocolList)
 	}
 
-	if !isSupportedAccessTier(accessTier) {
-		return nil, status.Errorf(codes.InvalidArgument, "accessTier(%s) is not supported, supported AccessTier list: %v", accessTier, storage.PossibleShareAccessTierValues())
+	if !isSupportedShareAccessTier(shareAccessTier) {
+		return nil, status.Errorf(codes.InvalidArgument, "shareAccessTier(%s) is not supported, supported ShareAccessTier list: %v", shareAccessTier, storage.PossibleShareAccessTierValues())
+	}
+
+	if !isSupportedAccountAccessTier(accountAccessTier) {
+		return nil, status.Errorf(codes.InvalidArgument, "accountAccessTier(%s) is not supported, supported AccountAccessTier list: %v", accountAccessTier, storage.PossibleAccessTierValues())
 	}
 
 	if !isSupportedRootSquashType(rootSquashType) {
@@ -262,10 +270,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	if protocol == nfs && fsType != "" && fsType != nfs {
 		return nil, status.Errorf(codes.InvalidArgument, "fsType(%s) is not supported with protocol(%s)", fsType, protocol)
-	}
-
-	if disableDeleteRetentionPolicy && !strings.HasPrefix(strings.ToLower(sku), premium) {
-		return nil, status.Errorf(codes.InvalidArgument, "disableDeleteRetentionPolicy is not supported with Standard account type(%s)", sku)
 	}
 
 	enableHTTPSTrafficOnly := true
@@ -358,6 +362,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		VNetName:                                vnetName,
 		SubnetName:                              subnetName,
 		RequireInfrastructureEncryption:         requireInfraEncryption,
+		AccessTier:                              accountAccessTier,
 	}
 
 	var accountKey, lockKey string
@@ -424,7 +429,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		secret = createStorageAccountSecret(accountName, accountKey)
 		// skip validating file share quota if useDataPlaneAPI
 	} else {
-		if quota, err := d.getFileShareQuota(subsID, resourceGroup, accountName, validFileShareName, secret); err != nil {
+		if quota, err := d.getFileShareQuota(ctx, subsID, resourceGroup, accountName, validFileShareName, secret); err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		} else if quota != -1 && quota < fileShareSize {
 			return nil, status.Errorf(codes.AlreadyExists, "request file share(%s) already exists, but its capacity %d is smaller than %d", validFileShareName, quota, fileShareSize)
@@ -435,7 +440,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		Name:       validFileShareName,
 		Protocol:   shareProtocol,
 		RequestGiB: fileShareSize,
-		AccessTier: accessTier,
+		AccessTier: shareAccessTier,
 		RootSquash: rootSquashType,
 	}
 
@@ -447,7 +452,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}()
 
 	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) subID(%s) rg(%s) location(%s) size(%d) protocol(%s)", validFileShareName, accountName, sku, subsID, resourceGroup, location, fileShareSize, shareProtocol)
-	if err := d.CreateFileShare(accountOptions, shareOptions, secret); err != nil {
+	if err := d.CreateFileShare(ctx, accountOptions, shareOptions, secret); err != nil {
 		if strings.Contains(err.Error(), accountLimitExceedManagementAPI) || strings.Contains(err.Error(), accountLimitExceedDataPlaneAPI) {
 			klog.Warningf("create file share(%s) on account(%s) type(%s) subID(%s) rg(%s) location(%s) size(%d), error: %v, skip matching current account", validFileShareName, account, sku, subsID, resourceGroup, location, fileShareSize, err)
 			tags := map[string]*string{
@@ -639,7 +644,7 @@ func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.Valida
 		subsID = d.cloud.SubscriptionID
 	}
 
-	if quota, err := d.getFileShareQuota(subsID, resourceGroupName, accountName, fileShareName, req.GetSecrets()); err != nil {
+	if quota, err := d.getFileShareQuota(ctx, subsID, resourceGroupName, accountName, fileShareName, req.GetSecrets()); err != nil {
 		return nil, status.Errorf(codes.Internal, "error checking if volume(%s) exists: %v", volumeID, err)
 	} else if quota == -1 {
 		return nil, status.Errorf(codes.NotFound, "the requested volume(%s) does not exist.", volumeID)
@@ -1004,7 +1009,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 		secrets = createStorageAccountSecret(accountName, accountKey)
 	}
 
-	if err = d.ResizeFileShare(subsID, resourceGroupName, accountName, fileShareName, int(requestGiB), secrets); err != nil {
+	if err = d.ResizeFileShare(ctx, subsID, resourceGroupName, accountName, fileShareName, int(requestGiB), secrets); err != nil {
 		return nil, status.Errorf(codes.Internal, "expand volume error: %v", err)
 	}
 

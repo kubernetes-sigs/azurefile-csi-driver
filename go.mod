@@ -3,7 +3,7 @@ module sigs.k8s.io/azurefile-csi-driver
 go 1.18
 
 require (
-	github.com/Azure/azure-sdk-for-go v66.0.0+incompatible
+	github.com/Azure/azure-sdk-for-go v67.0.0+incompatible
 	github.com/Azure/azure-storage-file-go v0.8.0
 	github.com/Azure/go-autorest/autorest v0.11.28
 	github.com/Azure/go-autorest/autorest/adal v0.9.21
@@ -16,7 +16,7 @@ require (
 	github.com/kubernetes-csi/csi-proxy/client v1.0.1
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.20.1
+	github.com/onsi/gomega v1.22.1
 	github.com/pborman/uuid v1.2.0
 	github.com/pelletier/go-toml v1.9.4
 	github.com/rubiojr/go-vhd v0.0.0-20200706105327-02e210299021
@@ -24,16 +24,16 @@ require (
 	golang.org/x/net v0.0.0-20220906165146-f3363e06e74c
 	google.golang.org/grpc v1.47.0
 	google.golang.org/protobuf v1.28.0
-	k8s.io/api v0.25.0
-	k8s.io/apimachinery v0.25.0
-	k8s.io/client-go v0.25.0
-	k8s.io/cloud-provider v0.25.0
-	k8s.io/component-base v0.25.0
-	k8s.io/klog/v2 v2.70.1
+	k8s.io/api v0.25.2
+	k8s.io/apimachinery v0.25.2
+	k8s.io/client-go v0.25.2
+	k8s.io/cloud-provider v0.25.2
+	k8s.io/component-base v0.25.2
+	k8s.io/klog/v2 v2.80.1
 	k8s.io/kubernetes v1.24.0-alpha.4
 	k8s.io/mount-utils v0.24.0-alpha.4
 	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed
-	sigs.k8s.io/cloud-provider-azure v1.24.1-0.20220901065104-dcdfb69c1793
+	sigs.k8s.io/cloud-provider-azure v0.0.0-20220920180921-7ea14ebef199
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -66,7 +66,7 @@ require (
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
 	github.com/imdario/mergo v0.3.9 // indirect
-	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/mattn/go-ieproxy v0.0.0-20190610004146-91bb50d98149 // indirect
@@ -83,7 +83,7 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
-	github.com/spf13/cobra v1.5.0 // indirect
+	github.com/spf13/cobra v1.6.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.opentelemetry.io/contrib v0.20.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.20.0 // indirect
@@ -99,7 +99,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/text v0.3.8 // indirect
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220502173005-c8bf987b8c21 // indirect
@@ -107,11 +107,11 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiserver v0.25.0 // indirect
-	k8s.io/component-helpers v0.25.0 // indirect
+	k8s.io/apiserver v0.25.2 // indirect
+	k8s.io/component-helpers v0.25.2 // indirect
 	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
 	k8s.io/kubectl v0.0.0 // indirect
-	k8s.io/kubelet v0.25.0 // indirect
+	k8s.io/kubelet v0.25.2 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.32 // indirect
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
@@ -122,7 +122,7 @@ replace (
 	github.com/niemeyer/pretty => github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.11.1
 	go.etcd.io/etcd => go.etcd.io/etcd v0.0.0-20200410171415-59f5fb25a533
-	golang.org/x/text => golang.org/x/text v0.3.7
+	golang.org/x/text => golang.org/x/text v0.3.8
 	k8s.io/api => k8s.io/api v0.24.0-alpha.4
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.24.0-alpha.4
 	k8s.io/apimachinery => k8s.io/apimachinery v0.24.0-alpha.4
@@ -150,5 +150,5 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.24.0-alpha.4
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.24.0-alpha.4
 	k8s.io/sample-controller => k8s.io/sample-controller v0.24.0-alpha.4
-	sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v1.24.1-0.20220901065104-dcdfb69c1793
+	sigs.k8s.io/cloud-provider-azure => sigs.k8s.io/cloud-provider-azure v0.0.0-20221014163646-905f6f02aadc
 )

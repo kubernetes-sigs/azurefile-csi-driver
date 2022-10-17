@@ -38,6 +38,7 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
+	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/flowcontrol"
@@ -143,8 +144,8 @@ type Config struct {
 	// The name of the scale set that should be used as the load balancer backend.
 	// If this is set, the Azure cloudprovider will only add nodes from that scale set to the load
 	// balancer backend pool. If this is not set, and multiple agent pools (scale sets) are used, then
-	// the cloudprovider will try to add all nodes to a single backend pool which is forbidden.
-	// In other words, if you use multiple agent pools (scale sets), you MUST set this field.
+	// the cloudprovider will try to add all nodes to a single backend pool which is forbidden in the basic sku.
+	// In other words, if you use multiple agent pools (scale sets), and loadBalancerSku is set to basic, you MUST set this field.
 	PrimaryScaleSetName string `json:"primaryScaleSetName,omitempty" yaml:"primaryScaleSetName,omitempty"`
 	// Tags determines what tags shall be applied to the shared resources managed by controller manager, which
 	// includes load balancer, security group and route table. The supported format is `a=b,c=d,...`. After updated
@@ -177,6 +178,8 @@ type Config struct {
 
 	// DisableAvailabilitySetNodes disables VMAS nodes support when "VMType" is set to "vmss".
 	DisableAvailabilitySetNodes bool `json:"disableAvailabilitySetNodes,omitempty" yaml:"disableAvailabilitySetNodes,omitempty"`
+	// EnableVmssFlexNodes enables vmss flex nodes support when "VMType" is set to "vmss".
+	EnableVmssFlexNodes bool `json:"enableVmssFlexNodes,omitempty" yaml:"enableVmssFlexNodes,omitempty"`
 	// DisableAzureStackCloud disables AzureStackCloud support. It should be used
 	// when setting AzureAuthConfig.Cloud with "AZURESTACKCLOUD" to customize ARM endpoints
 	// while the cluster is not running on AzureStack.
@@ -214,6 +217,9 @@ type Config struct {
 	CloudProviderBackoffRetries int `json:"cloudProviderBackoffRetries,omitempty" yaml:"cloudProviderBackoffRetries,omitempty"`
 	// Backoff duration
 	CloudProviderBackoffDuration int `json:"cloudProviderBackoffDuration,omitempty" yaml:"cloudProviderBackoffDuration,omitempty"`
+	// NonVmssUniformNodesCacheTTLInSeconds sets the Cache TTL for NonVmssUniformNodesCacheTTLInSeconds
+	// if not set, will use default value
+	NonVmssUniformNodesCacheTTLInSeconds int `json:"nonVmssUniformNodesCacheTTLInSeconds,omitempty" yaml:"nonVmssUniformNodesCacheTTLInSeconds,omitempty"`
 	// AvailabilitySetNodesCacheTTLInSeconds sets the Cache TTL for availabilitySetNodesCache
 	// if not set, will use default value
 	AvailabilitySetNodesCacheTTLInSeconds int `json:"availabilitySetNodesCacheTTLInSeconds,omitempty" yaml:"availabilitySetNodesCacheTTLInSeconds,omitempty"`
@@ -358,6 +364,11 @@ type Cloud struct {
 	pipCache *azcache.TimedCache
 	// use LB frontEndIpConfiguration ID as the key and search for PLS attached to the frontEnd
 	plsCache *azcache.TimedCache
+
+	// Add service lister to always get latest service
+	serviceLister corelisters.ServiceLister
+	// node-sync-loop routine and service-reconcile routine should not update LoadBalancer at the same time
+	serviceReconcileLock sync.Mutex
 
 	*ManagedDiskController
 	*controllerCommon
@@ -729,7 +740,7 @@ func (az *Cloud) configureMultiTenantClients(servicePrincipalToken *adal.Service
 	var err error
 	var multiTenantServicePrincipalToken *adal.MultiTenantServicePrincipalToken
 	var networkResourceServicePrincipalToken *adal.ServicePrincipalToken
-	if az.Config.UsesNetworkResourceInDifferentTenantOrSubscription() {
+	if az.Config.UsesNetworkResourceInDifferentTenant() {
 		multiTenantServicePrincipalToken, err = auth.GetMultiTenantServicePrincipalToken(&az.Config.AzureAuthConfig, &az.Environment)
 		if err != nil {
 			return err
@@ -839,7 +850,9 @@ func (az *Cloud) configAzureClients(
 		loadBalancerClientConfig.Authorizer = networkResourceServicePrincipalTokenAuthorizer
 		securityGroupClientConfig.Authorizer = networkResourceServicePrincipalTokenAuthorizer
 		publicIPClientConfig.Authorizer = networkResourceServicePrincipalTokenAuthorizer
+	}
 
+	if az.UsesNetworkResourceInDifferentSubscription() {
 		routeClientConfig.SubscriptionID = az.Config.NetworkResourceSubscriptionID
 		subnetClientConfig.SubscriptionID = az.Config.NetworkResourceSubscriptionID
 		routeTableClientConfig.SubscriptionID = az.Config.NetworkResourceSubscriptionID
@@ -1056,9 +1069,14 @@ func (az *Cloud) SetInformers(informerFactory informers.SharedInformerFactory) {
 				}
 			}
 			az.updateNodeCaches(node, nil)
+
+			klog.V(4).Infof("Removing node %s from VMSet cache.", node.Name)
+			_ = az.VMSet.DeleteCacheForNode(node.Name)
 		},
 	})
 	az.nodeInformerSynced = nodeInformer.HasSynced
+
+	az.serviceLister = informerFactory.Core().V1().Services().Lister()
 }
 
 // updateNodeCaches updates local cache for node's zones and external resource groups.

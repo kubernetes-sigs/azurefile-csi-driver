@@ -882,9 +882,9 @@ func TestGetFileShareQuota(t *testing.T) {
 	for _, test := range tests {
 		mockFileClient := mockfileclient.NewMockInterface(ctrl)
 		d.cloud.FileClient = mockFileClient
-		mockFileClient.EXPECT().GetFileShare(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
+		mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
 		mockFileClient.EXPECT().WithSubscriptionID(gomock.Any()).Return(mockFileClient).AnyTimes()
-		quota, err := d.getFileShareQuota("", resourceGroupName, accountName, fileShareName, test.secrets)
+		quota, err := d.getFileShareQuota(context.TODO(), "", resourceGroupName, accountName, fileShareName, test.secrets)
 		if !reflect.DeepEqual(err, test.expectedError) {
 			t.Errorf("test name: %s, Unexpected error: %v, expected error: %v", test.desc, err, test.expectedError)
 		}
@@ -999,7 +999,7 @@ func TestIsSupportedProtocol(t *testing.T) {
 	}
 }
 
-func TestIsSupportedAccessTier(t *testing.T) {
+func TestIsSupportedShareAccessTier(t *testing.T) {
 	tests := []struct {
 		accessTier     string
 		expectedResult bool
@@ -1039,7 +1039,54 @@ func TestIsSupportedAccessTier(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		result := isSupportedAccessTier(test.accessTier)
+		result := isSupportedShareAccessTier(test.accessTier)
+		if result != test.expectedResult {
+			t.Errorf("isSupportedTier(%s) returned with %v, not equal to %v", test.accessTier, result, test.expectedResult)
+		}
+	}
+}
+
+func TestIsSupportedAccountAccessTier(t *testing.T) {
+	tests := []struct {
+		accessTier     string
+		expectedResult bool
+	}{
+		{
+			accessTier:     "",
+			expectedResult: true,
+		},
+		{
+			accessTier:     "TransactionOptimized",
+			expectedResult: false,
+		},
+		{
+			accessTier:     "Hot",
+			expectedResult: true,
+		},
+		{
+			accessTier:     "Cool",
+			expectedResult: true,
+		},
+		{
+			accessTier:     "Premium",
+			expectedResult: true,
+		},
+		{
+			accessTier:     "transactionOptimized",
+			expectedResult: false,
+		},
+		{
+			accessTier:     "premium",
+			expectedResult: false,
+		},
+		{
+			accessTier:     "unknown",
+			expectedResult: false,
+		},
+	}
+
+	for _, test := range tests {
+		result := isSupportedAccountAccessTier(test.accessTier)
 		if result != test.expectedResult {
 			t.Errorf("isSupportedTier(%s) returned with %v, not equal to %v", test.accessTier, result, test.expectedResult)
 		}

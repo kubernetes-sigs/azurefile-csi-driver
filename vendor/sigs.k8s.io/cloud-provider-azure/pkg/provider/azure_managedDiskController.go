@@ -24,7 +24,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-07-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-12-01/compute"
 	"github.com/Azure/go-autorest/autorest/to"
 
 	v1 "k8s.io/api/core/v1"
@@ -84,6 +84,8 @@ type ManagedDiskOptions struct {
 	BurstingEnabled *bool
 	// SubscriptionID - specify a different SubscriptionID
 	SubscriptionID string
+	// Location - specify a different location
+	Location string
 }
 
 // CreateManagedDisk: create managed disk
@@ -151,26 +153,34 @@ func (c *ManagedDiskController) CreateManagedDisk(ctx context.Context, options *
 		}
 	}
 
-	if diskSku == compute.DiskStorageAccountTypesUltraSSDLRS {
-		diskIOPSReadWrite := int64(consts.DefaultDiskIOPSReadWrite)
-		if options.DiskIOPSReadWrite != "" {
+	if diskSku == compute.DiskStorageAccountTypesUltraSSDLRS || diskSku == consts.PremiumV2LRS {
+		if options.DiskIOPSReadWrite == "" {
+			if diskSku == compute.DiskStorageAccountTypesUltraSSDLRS {
+				diskIOPSReadWrite := int64(consts.DefaultDiskIOPSReadWrite)
+				diskProperties.DiskIOPSReadWrite = to.Int64Ptr(diskIOPSReadWrite)
+			}
+		} else {
 			v, err := strconv.Atoi(options.DiskIOPSReadWrite)
 			if err != nil {
 				return "", fmt.Errorf("AzureDisk - failed to parse DiskIOPSReadWrite: %w", err)
 			}
-			diskIOPSReadWrite = int64(v)
+			diskIOPSReadWrite := int64(v)
+			diskProperties.DiskIOPSReadWrite = to.Int64Ptr(diskIOPSReadWrite)
 		}
-		diskProperties.DiskIOPSReadWrite = to.Int64Ptr(diskIOPSReadWrite)
 
-		diskMBpsReadWrite := int64(consts.DefaultDiskMBpsReadWrite)
-		if options.DiskMBpsReadWrite != "" {
+		if options.DiskMBpsReadWrite == "" {
+			if diskSku == compute.DiskStorageAccountTypesUltraSSDLRS {
+				diskMBpsReadWrite := int64(consts.DefaultDiskMBpsReadWrite)
+				diskProperties.DiskMBpsReadWrite = to.Int64Ptr(diskMBpsReadWrite)
+			}
+		} else {
 			v, err := strconv.Atoi(options.DiskMBpsReadWrite)
 			if err != nil {
 				return "", fmt.Errorf("AzureDisk - failed to parse DiskMBpsReadWrite: %w", err)
 			}
-			diskMBpsReadWrite = int64(v)
+			diskMBpsReadWrite := int64(v)
+			diskProperties.DiskMBpsReadWrite = to.Int64Ptr(diskMBpsReadWrite)
 		}
-		diskProperties.DiskMBpsReadWrite = to.Int64Ptr(diskMBpsReadWrite)
 
 		if options.LogicalSectorSize != 0 {
 			klog.V(2).Infof("AzureDisk - requested LogicalSectorSize: %v", options.LogicalSectorSize)
@@ -211,8 +221,12 @@ func (c *ManagedDiskController) CreateManagedDisk(ctx context.Context, options *
 		diskProperties.MaxShares = &options.MaxShares
 	}
 
+	location := c.common.location
+	if options.Location != "" {
+		location = options.Location
+	}
 	model := compute.Disk{
-		Location: &c.common.location,
+		Location: &location,
 		Tags:     newTags,
 		Sku: &compute.DiskSku{
 			Name: diskSku,
