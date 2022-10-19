@@ -900,18 +900,27 @@ func (d *Driver) GetStorageAccountFromSecret(ctx context.Context, secretName, se
 }
 
 // getSubnetResourceID get default subnet resource ID from cloud provider config
-func (d *Driver) getSubnetResourceID() string {
+func (d *Driver) getSubnetResourceID(vnetResourceGroup, vnetName, subnetName string) string {
 	subsID := d.cloud.SubscriptionID
 	if len(d.cloud.NetworkResourceSubscriptionID) > 0 {
 		subsID = d.cloud.NetworkResourceSubscriptionID
 	}
 
-	rg := d.cloud.ResourceGroup
-	if len(d.cloud.VnetResourceGroup) > 0 {
-		rg = d.cloud.VnetResourceGroup
+	if len(vnetResourceGroup) == 0 {
+		vnetResourceGroup = d.cloud.ResourceGroup
+		if len(d.cloud.VnetResourceGroup) > 0 {
+			vnetResourceGroup = d.cloud.VnetResourceGroup
+		}
 	}
 
-	return fmt.Sprintf(subnetTemplate, subsID, rg, d.cloud.VnetName, d.cloud.SubnetName)
+	if len(vnetName) == 0 {
+		vnetName = d.cloud.VnetName
+	}
+
+	if len(subnetName) == 0 {
+		subnetName = d.cloud.SubnetName
+	}
+	return fmt.Sprintf(subnetTemplate, subsID, vnetResourceGroup, vnetName, subnetName)
 }
 
 func (d *Driver) useDataPlaneAPI(volumeID, accountName string) bool {
