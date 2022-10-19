@@ -48,7 +48,6 @@ This option does not depend on cloud provider config file, supports cross subscr
  - [NFS](./deploy/example/nfs)
  - [Snapshot](./deploy/example/snapshot)
  - [Resize](./deploy/example/resize)
- - [On-premise SMB Server mount](./deploy/example/smb-provisioner)
  
 ### Troubleshooting
  - [CSI driver troubleshooting guide](./docs/csi-debug.md) 
