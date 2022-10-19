@@ -214,6 +214,8 @@ func (d *Driver) updateSubnetServiceEndpoints(ctx context.Context, vnetResourceG
 	if !storageServiceExists {
 		serviceEndpoints = append(serviceEndpoints, storageServiceEndpoint)
 		subnet.SubnetPropertiesFormat.ServiceEndpoints = &serviceEndpoints
+		// skip updating RouteTable property
+		subnet.SubnetPropertiesFormat.RouteTable = nil
 
 		if err := d.cloud.SubnetsClient.CreateOrUpdate(ctx, vnetResourceGroup, vnetName, subnetName, subnet); err != nil {
 			return fmt.Errorf("failed to update the subnet %s under vnet %s: %v", subnetName, vnetName, err)
