@@ -1444,8 +1444,8 @@ func TestDeleteVolume(t *testing.T) {
 						},
 					},
 				}
-				d.dataPlaneAPIVolCache, _ = azcache.NewTimedcache(10*time.Minute, func(key string) (interface{}, error) { return nil, nil })
-				d.dataPlaneAPIVolCache.Set("vol_1#f5713de20cde511e8ba4900#fileshare#diskname.vhd##secret", "1")
+				d.dataPlaneAPIAccountCache, _ = azcache.NewTimedcache(10*time.Minute, func(key string) (interface{}, error) { return nil, nil })
+				d.dataPlaneAPIAccountCache.Set("f5713de20cde511e8ba4900", "1")
 				d.cloud = &azure.Cloud{}
 
 				expectedErr := status.Errorf(codes.NotFound, "get account info from(vol_1#f5713de20cde511e8ba4900#fileshare#diskname.vhd##secret) failed with error: could not get account key from secret(azure-storage-account-f5713de20cde511e8ba4900-secret): KubeClient is nil")
@@ -1699,7 +1699,7 @@ func TestControllerPublishVolume(t *testing.T) {
 	d.cloud = azure.GetTestCloud(ctrl)
 	d.cloud.Location = "centralus"
 	d.cloud.ResourceGroup = "rg"
-	d.dataPlaneAPIVolCache, _ = azcache.NewTimedcache(10*time.Minute, func(key string) (interface{}, error) { return nil, nil })
+	d.dataPlaneAPIAccountCache, _ = azcache.NewTimedcache(10*time.Minute, func(key string) (interface{}, error) { return nil, nil })
 	nodeName := "vm1"
 	instanceID := fmt.Sprintf("/subscriptions/subscription/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/%s", nodeName)
 	vm := compute.VirtualMachine{
@@ -2186,9 +2186,8 @@ func TestControllerExpandVolume(t *testing.T) {
 						ResourceGroup: "vol_2",
 					},
 				}
-				d.dataPlaneAPIVolCache, _ = azcache.NewTimedcache(10*time.Minute, func(key string) (interface{}, error) { return nil, nil })
-				d.dataPlaneAPIVolCache.Set("#f5713de20cde511e8ba4900#filename##secret", "1")
-
+				d.dataPlaneAPIAccountCache, _ = azcache.NewTimedcache(10*time.Minute, func(key string) (interface{}, error) { return nil, nil })
+				d.dataPlaneAPIAccountCache.Set("f5713de20cde511e8ba4900", "1")
 				ctrl := gomock.NewController(t)
 				defer ctrl.Finish()
 				value := base64.StdEncoding.EncodeToString([]byte("acc_key"))
