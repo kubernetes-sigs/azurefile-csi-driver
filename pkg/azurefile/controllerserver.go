@@ -294,7 +294,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 		if !createPrivateEndpoint {
 			// set VirtualNetworkResourceIDs for storage account firewall setting
-			vnetResourceID := d.getSubnetResourceID()
+			vnetResourceID := d.getSubnetResourceID(vnetResourceGroup, vnetName, subnetName)
 			klog.V(2).Infof("set vnetResourceID(%s) for NFS protocol", vnetResourceID)
 			vnetResourceIDs = []string{vnetResourceID}
 			if account == "" {
