@@ -224,8 +224,10 @@ type Driver struct {
 	accountCacheMap *azcache.TimedCache
 	// a map storing all secret names created by this driver <secretCacheKey, "">
 	secretCacheMap *azcache.TimedCache
-	// a timed cache storing all volumeIDs and storage accounts that are using data plane API
-	dataPlaneAPIVolCache *azcache.TimedCache
+	// a map storing all volumes using data plane API <volumeID, "">
+	dataPlaneAPIVolMap sync.Map
+	// a timed cache storing all storage accounts that are using data plane API temporarily
+	dataPlaneAPIAccountCache *azcache.TimedCache
 	// a timed cache storing account search history (solve account list throttling issue)
 	accountSearchCache *azcache.TimedCache
 	// a timed cache storing tag removing history (solve account update throttling issue)
@@ -272,7 +274,7 @@ func NewDriver(options *DriverOptions) *Driver {
 		klog.Fatalf("%v", err)
 	}
 
-	if driver.dataPlaneAPIVolCache, err = azcache.NewTimedcache(10*time.Minute, getter); err != nil {
+	if driver.dataPlaneAPIAccountCache, err = azcache.NewTimedcache(10*time.Minute, getter); err != nil {
 		klog.Fatalf("%v", err)
 	}
 
@@ -756,7 +758,7 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *azure.Acco
 			}
 			err = d.fileClient.CreateFileShare(accountName, accountKey, shareOptions)
 		} else {
-			err = d.cloud.FileClient.WithSubscriptionID(accountOptions.SubscriptionID).CreateFileShare(ctx, accountOptions.ResourceGroup, accountOptions.Name, shareOptions)
+			_, err = d.cloud.FileClient.WithSubscriptionID(accountOptions.SubscriptionID).CreateFileShare(ctx, accountOptions.ResourceGroup, accountOptions.Name, shareOptions, "")
 		}
 		if isRetriableError(err) {
 			klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", shareOptions.Name, accountOptions.Name, err)
@@ -794,7 +796,7 @@ func (d *Driver) DeleteFileShare(ctx context.Context, subsID, resourceGroup, acc
 			klog.Warningf("DeleteFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", shareName, accountName, err)
 			if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tooManyRequests)) {
 				klog.Warningf("switch to use data plane API instead for account %s since it's throttled", accountName)
-				d.dataPlaneAPIVolCache.Set(accountName, "")
+				d.dataPlaneAPIAccountCache.Set(accountName, "")
 				return true, err
 			}
 			return false, nil
@@ -900,31 +902,38 @@ func (d *Driver) GetStorageAccountFromSecret(ctx context.Context, secretName, se
 }
 
 // getSubnetResourceID get default subnet resource ID from cloud provider config
-func (d *Driver) getSubnetResourceID() string {
+func (d *Driver) getSubnetResourceID(vnetResourceGroup, vnetName, subnetName string) string {
 	subsID := d.cloud.SubscriptionID
 	if len(d.cloud.NetworkResourceSubscriptionID) > 0 {
 		subsID = d.cloud.NetworkResourceSubscriptionID
 	}
 
-	rg := d.cloud.ResourceGroup
-	if len(d.cloud.VnetResourceGroup) > 0 {
-		rg = d.cloud.VnetResourceGroup
+	if len(vnetResourceGroup) == 0 {
+		vnetResourceGroup = d.cloud.ResourceGroup
+		if len(d.cloud.VnetResourceGroup) > 0 {
+			vnetResourceGroup = d.cloud.VnetResourceGroup
+		}
 	}
 
-	return fmt.Sprintf(subnetTemplate, subsID, rg, d.cloud.VnetName, d.cloud.SubnetName)
+	if len(vnetName) == 0 {
+		vnetName = d.cloud.VnetName
+	}
+
+	if len(subnetName) == 0 {
+		subnetName = d.cloud.SubnetName
+	}
+	return fmt.Sprintf(subnetTemplate, subsID, vnetResourceGroup, vnetName, subnetName)
 }
 
 func (d *Driver) useDataPlaneAPI(volumeID, accountName string) bool {
-	cache, err := d.dataPlaneAPIVolCache.Get(volumeID, azcache.CacheReadTypeDefault)
-	if err != nil {
-		klog.Errorf("get(%s) from dataPlaneAPIVolCache failed with error: %v", volumeID, err)
-	}
-	if cache != nil {
+	_, useDataPlaneAPI := d.dataPlaneAPIVolMap.Load(volumeID)
+	if useDataPlaneAPI {
 		return true
 	}
-	cache, err = d.dataPlaneAPIVolCache.Get(accountName, azcache.CacheReadTypeDefault)
+
+	cache, err := d.dataPlaneAPIAccountCache.Get(accountName, azcache.CacheReadTypeDefault)
 	if err != nil {
-		klog.Errorf("get(%s) from dataPlaneAPIVolCache failed with error: %v", accountName, err)
+		klog.Errorf("get(%s) from dataPlaneAPIAccountCache failed with error: %v", accountName, err)
 	}
 	if cache != nil {
 		return true

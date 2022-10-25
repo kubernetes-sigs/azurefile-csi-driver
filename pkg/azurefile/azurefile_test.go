@@ -882,7 +882,7 @@ func TestGetFileShareQuota(t *testing.T) {
 	for _, test := range tests {
 		mockFileClient := mockfileclient.NewMockInterface(ctrl)
 		d.cloud.FileClient = mockFileClient
-		mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
+		mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
 		mockFileClient.EXPECT().WithSubscriptionID(gomock.Any()).Return(mockFileClient).AnyTimes()
 		quota, err := d.getFileShareQuota(context.TODO(), "", resourceGroupName, accountName, fileShareName, test.secrets)
 		if !reflect.DeepEqual(err, test.expectedError) {
@@ -1125,5 +1125,86 @@ func TestIsSupportedRootSquashType(t *testing.T) {
 		if result != test.expectedResult {
 			t.Errorf("isSupportedRootSquashType(%s) returned with %v, not equal to %v", test.rootSquashType, result, test.expectedResult)
 		}
+	}
+}
+
+func TestGetSubnetResourceID(t *testing.T) {
+	testCases := []struct {
+		name     string
+		testFunc func(t *testing.T)
+	}{
+		{
+			name: "NetworkResourceSubscriptionID is Empty",
+			testFunc: func(t *testing.T) {
+				d := NewFakeDriver()
+				d.cloud = &azure.Cloud{}
+				d.cloud.SubscriptionID = "fakeSubID"
+				d.cloud.NetworkResourceSubscriptionID = ""
+				d.cloud.ResourceGroup = "foo"
+				d.cloud.VnetResourceGroup = "foo"
+				actualOutput := d.getSubnetResourceID("", "", "")
+				expectedOutput := fmt.Sprintf(subnetTemplate, d.cloud.SubscriptionID, "foo", d.cloud.VnetName, d.cloud.SubnetName)
+				assert.Equal(t, actualOutput, expectedOutput, "cloud.SubscriptionID should be used as the SubID")
+			},
+		},
+		{
+			name: "NetworkResourceSubscriptionID is not Empty",
+			testFunc: func(t *testing.T) {
+				d := NewFakeDriver()
+				d.cloud = &azure.Cloud{}
+				d.cloud.SubscriptionID = "fakeSubID"
+				d.cloud.NetworkResourceSubscriptionID = "fakeNetSubID"
+				d.cloud.ResourceGroup = "foo"
+				d.cloud.VnetResourceGroup = "foo"
+				actualOutput := d.getSubnetResourceID("", "", "")
+				expectedOutput := fmt.Sprintf(subnetTemplate, d.cloud.NetworkResourceSubscriptionID, "foo", d.cloud.VnetName, d.cloud.SubnetName)
+				assert.Equal(t, actualOutput, expectedOutput, "cloud.NetworkResourceSubscriptionID should be used as the SubID")
+			},
+		},
+		{
+			name: "VnetResourceGroup is Empty",
+			testFunc: func(t *testing.T) {
+				d := NewFakeDriver()
+				d.cloud = &azure.Cloud{}
+				d.cloud.SubscriptionID = "bar"
+				d.cloud.NetworkResourceSubscriptionID = "bar"
+				d.cloud.ResourceGroup = "fakeResourceGroup"
+				d.cloud.VnetResourceGroup = ""
+				actualOutput := d.getSubnetResourceID("", "", "")
+				expectedOutput := fmt.Sprintf(subnetTemplate, "bar", d.cloud.ResourceGroup, d.cloud.VnetName, d.cloud.SubnetName)
+				assert.Equal(t, actualOutput, expectedOutput, "cloud.Resourcegroup should be used as the rg")
+			},
+		},
+		{
+			name: "VnetResourceGroup is not Empty",
+			testFunc: func(t *testing.T) {
+				d := NewFakeDriver()
+				d.cloud = &azure.Cloud{}
+				d.cloud.SubscriptionID = "bar"
+				d.cloud.NetworkResourceSubscriptionID = "bar"
+				d.cloud.ResourceGroup = "fakeResourceGroup"
+				d.cloud.VnetResourceGroup = "fakeVnetResourceGroup"
+				actualOutput := d.getSubnetResourceID("", "", "")
+				expectedOutput := fmt.Sprintf(subnetTemplate, "bar", d.cloud.VnetResourceGroup, d.cloud.VnetName, d.cloud.SubnetName)
+				assert.Equal(t, actualOutput, expectedOutput, "cloud.VnetResourceGroup should be used as the rg")
+			},
+		},
+		{
+			name: "VnetResourceGroup, vnetName, subnetName is specified",
+			testFunc: func(t *testing.T) {
+				d := NewFakeDriver()
+				d.cloud = &azure.Cloud{}
+				d.cloud.SubscriptionID = "bar"
+				d.cloud.NetworkResourceSubscriptionID = "bar"
+				d.cloud.ResourceGroup = "fakeResourceGroup"
+				d.cloud.VnetResourceGroup = "fakeVnetResourceGroup"
+				actualOutput := d.getSubnetResourceID("vnetrg", "vnetName", "subnetName")
+				expectedOutput := fmt.Sprintf(subnetTemplate, "bar", "vnetrg", "vnetName", "subnetName")
+				assert.Equal(t, actualOutput, expectedOutput, "VnetResourceGroup, vnetName, subnetName is specified")
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, tc.testFunc)
 	}
 }
