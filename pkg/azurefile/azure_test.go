@@ -173,7 +173,7 @@ users:
 			}
 			os.Setenv(DefaultAzureCredentialFileEnv, fakeCredFile)
 		}
-		cloud, err := getCloudProvider(test.kubeconfig, "", "", "", test.userAgent, test.allowEmptyCloudConfig)
+		cloud, err := getCloudProvider(test.kubeconfig, "", "", "", test.userAgent, test.allowEmptyCloudConfig, 5, 10)
 		if !testutil.AssertError(err, &test.expectedErr) && !strings.Contains(err.Error(), test.expectedErr.DefaultError.Error()) {
 			t.Errorf("desc: %s,\n input: %q, getCloudProvider err: %v, expectedErr: %v", test.desc, test.kubeconfig, err, test.expectedErr)
 		}
