@@ -832,10 +832,6 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 	}
 	if exists {
 		klog.V(2).Infof("snapshot(%s) already exists", snapshotName)
-		tp := timestamppb.New(item.Properties.LastModified)
-		if tp == nil {
-			return nil, status.Errorf(codes.Internal, "Failed to convert timestamp(%v)", item.Properties.LastModified)
-		}
 		if item.Snapshot == nil {
 			return nil, status.Errorf(codes.Internal, "Snapshot property of %s is nil", item.Name)
 		}
@@ -844,7 +840,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 				SizeBytes:      volumehelper.GiBToBytes(int64(item.Properties.Quota)),
 				SnapshotId:     sourceVolumeID + "#" + *item.Snapshot,
 				SourceVolumeId: sourceVolumeID,
-				CreationTime:   tp,
+				CreationTime:   timestamppb.New(item.Properties.LastModified),
 				// Since the snapshot of azurefile has no field of ReadyToUse, here ReadyToUse is always set to true.
 				ReadyToUse: true,
 			},
@@ -868,17 +864,12 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		return nil, status.Errorf(codes.Internal, "failed to get snapshot properties from (%s): %v", snapshotShare.Snapshot(), err)
 	}
 
-	tp := timestamppb.New(properties.LastModified())
-	if tp == nil {
-		return nil, status.Errorf(codes.Internal, "Failed to convert timestamp(%v)", properties.LastModified())
-	}
-
 	createResp := &csi.CreateSnapshotResponse{
 		Snapshot: &csi.Snapshot{
 			SizeBytes:      volumehelper.GiBToBytes(int64(properties.Quota())),
 			SnapshotId:     sourceVolumeID + "#" + snapshotShare.Snapshot(),
 			SourceVolumeId: sourceVolumeID,
-			CreationTime:   tp,
+			CreationTime:   timestamppb.New(properties.LastModified()),
 			// Since the snapshot of azurefile has no field of ReadyToUse, here ReadyToUse is always set to true.
 			ReadyToUse: true,
 		},
