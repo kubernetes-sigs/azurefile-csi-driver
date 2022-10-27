@@ -26,7 +26,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-08-01/network"
 
-	"k8s.io/client-go/kubernetes"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
@@ -45,7 +45,13 @@ var (
 )
 
 // getCloudProvider get Azure Cloud Provider
-func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace, userAgent string, allowEmptyCloudConfig bool) (*azure.Cloud, error) {
+func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace, userAgent string, allowEmptyCloudConfig bool, kubeAPIQPS float64, kubeAPIBurst int) (*azure.Cloud, error) {
+	var (
+		config     *azure.Config
+		kubeClient *clientset.Clientset
+		fromSecret bool
+	)
+
 	az := &azure.Cloud{
 		InitSecretConfig: azure.InitSecretConfig{
 			SecretName:      secretName,
@@ -54,18 +60,21 @@ func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace, userAgent
 		},
 	}
 
-	kubeClient, err := getKubeClient(kubeconfig)
-	if err != nil {
+	kubeCfg, err := getKubeConfig(kubeconfig)
+	if err == nil && kubeCfg != nil {
+		klog.V(2).Infof("set QPS(%f) and QPS Burst(%d) for driver kubeClient", float32(kubeAPIQPS), kubeAPIBurst)
+		kubeCfg.QPS = float32(kubeAPIQPS)
+		kubeCfg.Burst = kubeAPIBurst
+		kubeClient, err = clientset.NewForConfig(kubeCfg)
+		if err != nil {
+			klog.Warningf("NewForConfig failed with error: %v", err)
+		}
+	} else {
 		klog.Warningf("get kubeconfig(%s) failed with error: %v", kubeconfig, err)
 		if !os.IsNotExist(err) && !errors.Is(err, rest.ErrNotInCluster) {
 			return az, fmt.Errorf("failed to get KubeClient: %v", err)
 		}
 	}
-
-	var (
-		config     *azure.Config
-		fromSecret bool
-	)
 
 	if kubeClient != nil {
 		klog.V(2).Infof("reading cloud config from secret %s/%s", az.SecretNamespace, az.SecretName)
@@ -139,11 +148,7 @@ func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace, userAgent
 	return az, nil
 }
 
-func getKubeClient(kubeconfig string) (*kubernetes.Clientset, error) {
-	var (
-		config *rest.Config
-		err    error
-	)
+func getKubeConfig(kubeconfig string) (config *rest.Config, err error) {
 	if kubeconfig != "" {
 		if config, err = clientcmd.BuildConfigFromFlags("", kubeconfig); err != nil {
 			return nil, err
@@ -153,8 +158,7 @@ func getKubeClient(kubeconfig string) (*kubernetes.Clientset, error) {
 			return nil, err
 		}
 	}
-
-	return kubernetes.NewForConfig(config)
+	return config, err
 }
 
 func (d *Driver) updateSubnetServiceEndpoints(ctx context.Context, vnetResourceGroup, vnetName, subnetName string) error {

@@ -52,6 +52,8 @@ var (
 	allowInlineVolumeKeyAccessWithIdentity = flag.Bool("allow-inline-volume-key-access-with-identity", false, "allow accessing storage account key using cluster identity for inline volume")
 	fsGroupChangePolicy                    = flag.String("fsgroup-change-policy", "", "indicates how the volume's ownership will be changed by the driver, OnRootMismatch is the default value")
 	enableVHDDiskFeature                   = flag.Bool("enable-vhd", true, "enable VHD disk feature (experimental)")
+	kubeAPIQPS                             = flag.Float64("kube-api-qps", 25.0, "QPS to use while communicating with the kubernetes apiserver.")
+	kubeAPIBurst                           = flag.Int("kube-api-burst", 50, "Burst to use while communicating with the kubernetes apiserver.")
 )
 
 func main() {
@@ -89,6 +91,8 @@ func handle() {
 		AllowInlineVolumeKeyAccessWithIdentity: *allowInlineVolumeKeyAccessWithIdentity,
 		FSGroupChangePolicy:                    *fsGroupChangePolicy,
 		EnableVHDDiskFeature:                   *enableVHDDiskFeature,
+		KubeAPIQPS:                             *kubeAPIQPS,
+		KubeAPIBurst:                           *kubeAPIBurst,
 	}
 	driver := azurefile.NewDriver(&driverOptions)
 	if driver == nil {

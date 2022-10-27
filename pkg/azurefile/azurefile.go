@@ -193,6 +193,8 @@ type DriverOptions struct {
 	EnableGetVolumeStats                   bool
 	MountPermissions                       uint64
 	FSGroupChangePolicy                    string
+	KubeAPIQPS                             float64
+	KubeAPIBurst                           int
 }
 
 // Driver implements all interfaces of CSI drivers
@@ -209,6 +211,8 @@ type Driver struct {
 	enableVHDDiskFeature                   bool
 	enableGetVolumeStats                   bool
 	mountPermissions                       uint64
+	kubeAPIQPS                             float64
+	kubeAPIBurst                           int
 	fileClient                             *azureFileClient
 	mounter                                *mount.SafeFormatAndMount
 	// lock per volume attach (only for vhd disk feature)
@@ -251,6 +255,8 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.enableGetVolumeStats = options.EnableGetVolumeStats
 	driver.mountPermissions = options.MountPermissions
 	driver.fsGroupChangePolicy = options.FSGroupChangePolicy
+	driver.kubeAPIQPS = options.KubeAPIQPS
+	driver.kubeAPIBurst = options.KubeAPIBurst
 	driver.volLockMap = newLockMap()
 	driver.subnetLockMap = newLockMap()
 	driver.volumeLocks = newVolumeLocks()
@@ -291,7 +297,7 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 
 	userAgent := GetUserAgent(d.Name, d.customUserAgent, d.userAgentSuffix)
 	klog.V(2).Infof("driver userAgent: %s", userAgent)
-	d.cloud, err = getCloudProvider(kubeconfig, d.NodeID, d.cloudConfigSecretName, d.cloudConfigSecretNamespace, userAgent, d.allowEmptyCloudConfig)
+	d.cloud, err = getCloudProvider(kubeconfig, d.NodeID, d.cloudConfigSecretName, d.cloudConfigSecretNamespace, userAgent, d.allowEmptyCloudConfig, d.kubeAPIQPS, d.kubeAPIBurst)
 	if err != nil {
 		klog.Fatalf("failed to get Azure Cloud Provider, error: %v", err)
 	}
