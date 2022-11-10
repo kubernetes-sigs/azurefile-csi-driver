@@ -903,7 +903,12 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 	if len(req.SnapshotId) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Snapshot ID must be provided")
 	}
-
+	_, _, fileShare, _, _, _, err := GetFileShareInfo(req.SnapshotId) //nolint:dogsled
+	if fileShare == "" || err != nil {
+		// According to CSI Driver Sanity Tester, should succeed when an invalid snapshot id is used
+		klog.V(4).Infof("failed to get share url with (%s): %v, returning with success", req.SnapshotId, err)
+		return &csi.DeleteSnapshotResponse{}, nil
+	}
 	snapshot, err := getSnapshot(req.SnapshotId)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get snapshot name with (%s): %v", req.SnapshotId, err)
@@ -913,11 +918,6 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 	volumeID := strings.TrimSuffix(req.SnapshotId, "#"+snapshot)
 	klog.Infof("voumeID: %s, snapshot: %s", volumeID, snapshot)
 	rgName, accountName, fileShareName, _, _, subsID, err := GetFileShareInfo(volumeID) //nolint:dogsled
-	if fileShareName == "" {
-		// According to CSI Driver Sanity Tester, should succeed when an invalid snapshot id is used
-		klog.V(4).Infof("failed to get share url with (%s): %v, returning with success", req.SnapshotId, err)
-		return &csi.DeleteSnapshotResponse{}, nil
-	}
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("GetFileShareInfo(%s) failed with error: %v", volumeID, err))
 	}
