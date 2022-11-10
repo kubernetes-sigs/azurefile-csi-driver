@@ -19,7 +19,7 @@ package provider
 import (
 	"context"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-12-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2022-03-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-08-01/network"
 	"github.com/Azure/go-autorest/autorest/azure"
 
@@ -80,7 +80,7 @@ type VMSet interface {
 	// DetachDisk detaches a disk from vm
 	DetachDisk(ctx context.Context, nodeName types.NodeName, diskMap map[string]string) error
 	// WaitForUpdateResult waits for the response of the update request
-	WaitForUpdateResult(ctx context.Context, future *azure.Future, resourceGroupName, source string) error
+	WaitForUpdateResult(ctx context.Context, future *azure.Future, nodeName types.NodeName, resourceGroupName, source string) error
 
 	// GetDataDisks gets a list of data disks attached to the node.
 	GetDataDisks(nodeName types.NodeName, crt azcache.AzureCacheReadType) ([]compute.DataDisk, *string, error)

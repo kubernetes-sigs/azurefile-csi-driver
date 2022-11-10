@@ -27,7 +27,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-12-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2022-03-01/compute"
 
 	"k8s.io/apimachinery/pkg/types"
 	kwait "k8s.io/apimachinery/pkg/util/wait"
@@ -113,12 +113,16 @@ type ExtendedLocation struct {
 
 // getNodeVMSet gets the VMSet interface based on config.VMType and the real virtual machine type.
 func (c *controllerCommon) getNodeVMSet(nodeName types.NodeName, crt azcache.AzureCacheReadType) (VMSet, error) {
-	// 1. vmType is standard, return cloud.VMSet directly.
-	if c.cloud.VMType == consts.VMTypeStandard {
+	// 1. vmType is standard or vmssflex, return cloud.VMSet directly.
+	// 1.1 all the nodes in the cluster are avset nodes.
+	// 1.2 all the nodes in the cluster are vmssflex nodes.
+	if c.cloud.VMType == consts.VMTypeStandard || c.cloud.VMType == consts.VMTypeVmssFlex {
 		return c.cloud.VMSet, nil
 	}
 
 	// 2. vmType is Virtual Machine Scale Set (vmss), convert vmSet to ScaleSet.
+	// 2.1 all the nodes in the cluster are vmss uniform nodes.
+	// 2.2 mix node: the nodes in the cluster can be any of avset nodes, vmss uniform nodes and vmssflex nodes.
 	ss, ok := c.cloud.VMSet.(*ScaleSet)
 	if !ok {
 		return nil, fmt.Errorf("error of converting vmSet (%q) to ScaleSet with vmType %q", c.cloud.VMSet, c.cloud.VMType)
@@ -195,8 +199,8 @@ func (c *controllerCommon) AttachDisk(ctx context.Context, async bool, diskName,
 				diskEncryptionSetID = *disk.DiskProperties.Encryption.DiskEncryptionSetID
 			}
 
-			if disk.DiskProperties.DiskState != compute.DiskStateUnattached && (disk.MaxShares == nil || *disk.MaxShares <= 1) {
-				return -1, fmt.Errorf("state of disk(%s) is %s, not in expected %s state", diskURI, disk.DiskProperties.DiskState, compute.DiskStateUnattached)
+			if disk.DiskProperties.DiskState != compute.Unattached && (disk.MaxShares == nil || *disk.MaxShares <= 1) {
+				return -1, fmt.Errorf("state of disk(%s) is %s, not in expected %s state", diskURI, disk.DiskProperties.DiskState, compute.Unattached)
 			}
 		}
 
@@ -267,7 +271,7 @@ func (c *controllerCommon) AttachDisk(ctx context.Context, async bool, diskName,
 	if err != nil {
 		return -1, err
 	}
-	return lun, vmset.WaitForUpdateResult(ctx, future, resourceGroup, "attach_disk")
+	return lun, vmset.WaitForUpdateResult(ctx, future, nodeName, resourceGroup, "attach_disk")
 }
 
 func (c *controllerCommon) insertAttachDiskRequest(diskURI, nodeName string, options *AttachDiskOptions) error {
@@ -359,7 +363,7 @@ func (c *controllerCommon) DetachDisk(ctx context.Context, diskName, diskURI str
 	} else {
 		lun, _, errGetLun := c.GetDiskLun(diskName, diskURI, nodeName)
 		if errGetLun == nil || !strings.Contains(errGetLun.Error(), consts.CannotFindDiskLUN) {
-			return fmt.Errorf("disk(%s) is still attatched to node(%s) on lun(%d), error: %v", diskURI, nodeName, lun, errGetLun)
+			return fmt.Errorf("disk(%s) is still attached to node(%s) on lun(%d), error: %v", diskURI, nodeName, lun, errGetLun)
 		}
 	}
 
@@ -623,7 +627,7 @@ func (c *controllerCommon) checkDiskExists(ctx context.Context, diskURI string) 
 func getValidCreationData(subscriptionID, resourceGroup, sourceResourceID, sourceType string) (compute.CreationData, error) {
 	if sourceResourceID == "" {
 		return compute.CreationData{
-			CreateOption: compute.DiskCreateOptionEmpty,
+			CreateOption: compute.Empty,
 		}, nil
 	}
 
@@ -639,7 +643,7 @@ func getValidCreationData(subscriptionID, resourceGroup, sourceResourceID, sourc
 		}
 	default:
 		return compute.CreationData{
-			CreateOption: compute.DiskCreateOptionEmpty,
+			CreateOption: compute.Empty,
 		}, nil
 	}
 
@@ -651,7 +655,7 @@ func getValidCreationData(subscriptionID, resourceGroup, sourceResourceID, sourc
 		return compute.CreationData{}, fmt.Errorf("sourceResourceID(%s) is invalid, correct format: %s", sourceResourceID, managedDiskPathRE)
 	}
 	return compute.CreationData{
-		CreateOption:     compute.DiskCreateOptionCopy,
+		CreateOption:     compute.Copy,
 		SourceResourceID: &sourceResourceID,
 	}, nil
 }
