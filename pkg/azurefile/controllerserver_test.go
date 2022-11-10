@@ -2086,7 +2086,7 @@ func TestControllerExpandVolume(t *testing.T) {
 						csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
 					})
 
-				expectedErr := status.Errorf(codes.InvalidArgument, "GetAccountInfo(vol_1) failed with error: error parsing volume id: \"vol_1\", should at least contain two #")
+				expectedErr := status.Errorf(codes.InvalidArgument, "GetFileShareInfo(vol_1) failed with error: error parsing volume id: \"vol_1\", should at least contain two #")
 				_, err := d.ControllerExpandVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
