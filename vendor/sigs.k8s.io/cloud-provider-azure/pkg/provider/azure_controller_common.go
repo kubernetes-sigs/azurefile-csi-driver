@@ -113,12 +113,16 @@ type ExtendedLocation struct {
 
 // getNodeVMSet gets the VMSet interface based on config.VMType and the real virtual machine type.
 func (c *controllerCommon) getNodeVMSet(nodeName types.NodeName, crt azcache.AzureCacheReadType) (VMSet, error) {
-	// 1. vmType is standard, return cloud.VMSet directly.
-	if c.cloud.VMType == consts.VMTypeStandard {
+	// 1. vmType is standard or vmssflex, return cloud.VMSet directly.
+	// 1.1 all the nodes in the cluster are avset nodes.
+	// 1.2 all the nodes in the cluster are vmssflex nodes.
+	if c.cloud.VMType == consts.VMTypeStandard || c.cloud.VMType == consts.VMTypeVmssFlex {
 		return c.cloud.VMSet, nil
 	}
 
 	// 2. vmType is Virtual Machine Scale Set (vmss), convert vmSet to ScaleSet.
+	// 2.1 all the nodes in the cluster are vmss uniform nodes.
+	// 2.2 mix node: the nodes in the cluster can be any of avset nodes, vmss uniform nodes and vmssflex nodes.
 	ss, ok := c.cloud.VMSet.(*ScaleSet)
 	if !ok {
 		return nil, fmt.Errorf("error of converting vmSet (%q) to ScaleSet with vmType %q", c.cloud.VMSet, c.cloud.VMType)
@@ -359,7 +363,7 @@ func (c *controllerCommon) DetachDisk(ctx context.Context, diskName, diskURI str
 	} else {
 		lun, _, errGetLun := c.GetDiskLun(diskName, diskURI, nodeName)
 		if errGetLun == nil || !strings.Contains(errGetLun.Error(), consts.CannotFindDiskLUN) {
-			return fmt.Errorf("disk(%s) is still attatched to node(%s) on lun(%d), error: %v", diskURI, nodeName, lun, errGetLun)
+			return fmt.Errorf("disk(%s) is still attached to node(%s) on lun(%d), error: %v", diskURI, nodeName, lun, errGetLun)
 		}
 	}
 

@@ -764,7 +764,7 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *azure.Acco
 			}
 			err = d.fileClient.CreateFileShare(accountName, accountKey, shareOptions)
 		} else {
-			err = d.cloud.FileClient.WithSubscriptionID(accountOptions.SubscriptionID).CreateFileShare(ctx, accountOptions.ResourceGroup, accountOptions.Name, shareOptions)
+			_, err = d.cloud.FileClient.WithSubscriptionID(accountOptions.SubscriptionID).CreateFileShare(ctx, accountOptions.ResourceGroup, accountOptions.Name, shareOptions, "")
 		}
 		if isRetriableError(err) {
 			klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", shareOptions.Name, accountOptions.Name, err)
