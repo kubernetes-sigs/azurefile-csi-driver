@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-12-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2022-03-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-08-01/network"
 	"github.com/Azure/azure-sdk-for-go/services/privatedns/mgmt/2018-09-01/privatedns"
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
@@ -205,15 +205,21 @@ func (az *Cloud) EnsureStorageAccount(ctx context.Context, accountOptions *Accou
 	}
 
 	if accountOptions.CreatePrivateEndpoint {
-		// Create DNS zone first, this could make sure driver has write permission on vnetResourceGroup
-		if err := az.createPrivateDNSZone(ctx, vnetResourceGroup); err != nil {
-			return "", "", fmt.Errorf("Failed to create private DNS zone(%s) in resourceGroup(%s), error: %v", PrivateDNSZoneName, vnetResourceGroup, err)
+		if _, err := az.privatednsclient.Get(ctx, vnetResourceGroup, PrivateDNSZoneName); err != nil {
+			klog.V(2).Infof("get private dns zone %s returned with %v", PrivateDNSZoneName, err.Error())
+			// Create DNS zone first, this could make sure driver has write permission on vnetResourceGroup
+			if err := az.createPrivateDNSZone(ctx, vnetResourceGroup); err != nil {
+				return "", "", fmt.Errorf("Failed to create private DNS zone(%s) in resourceGroup(%s), error: %v", PrivateDNSZoneName, vnetResourceGroup, err)
+			}
 		}
 
 		// Create virtual link to the private DNS zone
 		vNetLinkName := accountName + "-vnetlink"
-		if err := az.createVNetLink(ctx, vNetLinkName, vnetResourceGroup, vnetName); err != nil {
-			return "", "", fmt.Errorf("Failed to create virtual link for vnet(%s) and DNS Zone(%s) in resourceGroup(%s), error: %v", vnetName, PrivateDNSZoneName, vnetResourceGroup, err)
+		if _, err := az.virtualNetworkLinksClient.Get(ctx, vnetResourceGroup, PrivateDNSZoneName, vNetLinkName); err != nil {
+			klog.V(2).Infof("get virtual link for vnet(%s) and DNS Zone(%s) returned with %v", vnetName, PrivateDNSZoneName, err.Error())
+			if err := az.createVNetLink(ctx, vNetLinkName, vnetResourceGroup, vnetName); err != nil {
+				return "", "", fmt.Errorf("Failed to create virtual link for vnet(%s) and DNS Zone(%s) in resourceGroup(%s), error: %v", vnetName, PrivateDNSZoneName, vnetResourceGroup, err)
+			}
 		}
 	}
 
