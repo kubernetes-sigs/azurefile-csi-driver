@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-12-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2022-03-01/compute"
 
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog/v2"
@@ -33,7 +33,6 @@ import (
 )
 
 func (fs *FlexScaleSet) newVmssFlexCache() (*azcache.TimedCache, error) {
-
 	getter := func(key string) (interface{}, error) {
 		localCache := &sync.Map{}
 
@@ -60,7 +59,7 @@ func (fs *FlexScaleSet) newVmssFlexCache() (*azcache.TimedCache, error) {
 					continue
 				}
 
-				if scaleSet.OrchestrationMode == compute.OrchestrationModeFlexible {
+				if scaleSet.OrchestrationMode == compute.Flexible {
 					localCache.Store(*scaleSet.ID, &scaleSet)
 				}
 			}
@@ -221,13 +220,13 @@ func (fs *FlexScaleSet) getVmssFlexVM(nodeName string, crt azcache.AzureCacheRea
 	}
 
 	vmMap := cached.(*sync.Map)
-	cachvmedVM, ok := vmMap.Load(nodeName)
+	cachedVM, ok := vmMap.Load(nodeName)
 	if !ok {
 		klog.V(2).Infof("did not find node (%s) in the existing cache, which means it is deleted...", nodeName)
 		return vm, cloudprovider.InstanceNotFound
 	}
 
-	return *(cachvmedVM.(*compute.VirtualMachine)), nil
+	return *(cachedVM.(*compute.VirtualMachine)), nil
 }
 
 func (fs *FlexScaleSet) getVmssFlexByVmssFlexID(vmssFlexID string, crt azcache.AzureCacheReadType) (*compute.VirtualMachineScaleSet, error) {
