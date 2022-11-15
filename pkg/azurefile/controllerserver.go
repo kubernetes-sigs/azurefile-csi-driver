@@ -820,13 +820,23 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		subsID = d.cloud.SubscriptionID
 	}
 
+	var useDataPlaneAPI bool
+	for k, v := range req.GetParameters() {
+		switch strings.ToLower(k) {
+		case useDataPlaneAPIField:
+			useDataPlaneAPI = strings.EqualFold(v, trueValue)
+		default:
+			return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid parameter %q in storage class", k))
+		}
+	}
+
 	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_create_snapshot", rgName, subsID, d.Name)
 	isOperationSucceeded := false
 	defer func() {
 		mc.ObserveOperationWithResult(isOperationSucceeded, SourceResourceID, sourceVolumeID, SnapshotName, snapshotName)
 	}()
 
-	exists, itemSnapshot, itemSnapshotTime, itemSnapshotQuota, err := d.snapshotExists(ctx, sourceVolumeID, snapshotName, req.GetSecrets())
+	exists, itemSnapshot, itemSnapshotTime, itemSnapshotQuota, err := d.snapshotExists(ctx, sourceVolumeID, snapshotName, req.GetSecrets(), useDataPlaneAPI)
 	if err != nil {
 		if exists {
 			return nil, status.Errorf(codes.AlreadyExists, "%v", err)
@@ -847,7 +857,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		}, nil
 	}
 
-	if len(req.GetSecrets()) > 0 {
+	if len(req.GetSecrets()) > 0 || useDataPlaneAPI {
 		shareURL, err := d.getShareURL(ctx, sourceVolumeID, req.GetSecrets())
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to get share url with (%s): %v", sourceVolumeID, err)
@@ -1061,8 +1071,8 @@ func (d *Driver) getServiceURL(ctx context.Context, sourceVolumeID string, secre
 // 2. If it exists, we should judge if its source file share name equals that we specify.
 // As long as the snapshot already exists, returns true. But when the source is different, an error will be returned.
 // If its source file share name equals that we specify, also returns its x-ms-snapshot string, last modeified time and share quota.
-func (d *Driver) snapshotExists(ctx context.Context, sourceVolumeID, snapshotName string, secrets map[string]string) (bool, string, time.Time, int32, error) {
-	if len(secrets) > 0 {
+func (d *Driver) snapshotExists(ctx context.Context, sourceVolumeID, snapshotName string, secrets map[string]string, useDataPlaneAPI bool) (bool, string, time.Time, int32, error) {
+	if len(secrets) > 0 || useDataPlaneAPI {
 		serviceURL, fileShareName, err := d.getServiceURL(ctx, sourceVolumeID, secrets)
 		if err != nil {
 			return false, "", time.Time{}, 0, err
