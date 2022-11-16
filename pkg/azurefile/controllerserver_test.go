@@ -2428,7 +2428,7 @@ func TestSnapshotExists(t *testing.T) {
 		d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
 		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), "", gomock.Any()).Return(test.key, nil).AnyTimes()
 
-		_, _, _, _, err := d.snapshotExists(context.Background(), test.sourceVolumeID, "sname", test.secret)
+		_, _, _, _, err := d.snapshotExists(context.Background(), test.sourceVolumeID, "sname", test.secret, false)
 		if !reflect.DeepEqual(err, test.expectedErr) {
 			t.Errorf("test[%s]: unexpected error: %v, expected error: %v", test.desc, err, test.expectedErr)
 		}
