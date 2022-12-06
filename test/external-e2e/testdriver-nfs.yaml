@@ -17,3 +17,8 @@ DriverInfo:
     volumeLimits: false
     snapshotDataSource: true
     volumeMountGroup: false
+  SupportedSizeRange:
+    Min: 1Gi
+  StressTestOptions:
+    NumPods: 50
+    NumRestarts: 10
