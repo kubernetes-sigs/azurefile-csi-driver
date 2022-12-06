@@ -95,7 +95,7 @@ sudo mount -v -t cifs //accountname.file.core.windows.net/filesharename /tmp/tes
 ```
 
 <details><summary>
-Get client-side logs on Linux node if there is still mount error 
+Get client-side logs on Linux node if there is mount error 
 </summary>
 
 ```console
@@ -118,6 +118,15 @@ New-SmbGlobalMapping -LocalPath x: -RemotePath \\accountname.file.core.windows.n
 Get-SmbGlobalMapping
 cd x:
 dir
+```
+
+<details><summary>
+Get client-side logs on Windows node if there is mount error 
+</summary>
+
+```console
+Get SMBClient events from Event Viewer under following path:
+Application and Services Logs -> Microsoft -> Windows -> SMBClient
 ```
 
  - NFSv4
