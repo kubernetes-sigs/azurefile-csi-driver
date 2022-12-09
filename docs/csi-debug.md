@@ -126,8 +126,10 @@ Get client-side logs on Windows node if there is mount error
 
 ```console
 Get SMBClient events from Event Viewer under following path:
-Application and Services Logs -> Microsoft -> Windows -> SMBClient
+  Application and Services Logs -> Microsoft -> Windows -> SMBClient
 ```
+ 
+</details>
 
  - NFSv4
  
