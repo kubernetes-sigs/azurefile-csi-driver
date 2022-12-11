@@ -48,8 +48,8 @@ if [[ -z "$(command -v jq)" ]]; then
   apt install jq -y
 fi
 
-# jq-equivalent for yaml
-pip install yq --ignore-installed PyYAML
+# install yq
+pip install --ignore-installed --require-hashes -r ${PKG_ROOT}/hack/requirements.txt
 
 # Extract images from csi-azurefile-controller.yaml
 expected_csi_provisioner_image="$(cat ${PKG_ROOT}/deploy/csi-azurefile-controller.yaml | yq -r .spec.template.spec.containers[0].image | head -n 1)"
