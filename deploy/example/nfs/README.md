@@ -61,3 +61,4 @@ helm install --set persistence.storageClass="azurefile-csi-nfs" --set persistenc
 
 #### Links
  - [Troubleshoot Azure NFS file shares](https://docs.microsoft.com/en-us/azure/storage/files/storage-troubleshooting-files-nfs)
+ - [Mount NFS Azure file share on Linux limitations](https://learn.microsoft.com/en-us/azure/storage/files/storage-files-how-to-mount-nfs-shares#limitations)
