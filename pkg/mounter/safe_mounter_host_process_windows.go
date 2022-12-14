@@ -33,15 +33,15 @@ import (
 	ossmb "sigs.k8s.io/azurefile-csi-driver/pkg/os/smb"
 )
 
-var _ CSIProxyMounter = &winMounter{}
+var _ CSIProxyMounter = &winNativeCallMounter{}
 
-type winMounter struct{}
+type winNativeCallMounter struct{}
 
-func NewWinMounter() *winMounter {
-	return &winMounter{}
+func NewWinNativeCallMounter() *winNativeCallMounter {
+	return &winNativeCallMounter{}
 }
 
-func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions, sensitiveMountOptions []string) error {
+func (mounter *winNativeCallMounter) SMBMount(source, target, fsType string, mountOptions, sensitiveMountOptions []string) error {
 	klog.V(2).Infof("SMBMount: remote path: %s local path: %s", source, target)
 
 	if len(mountOptions) == 0 || len(sensitiveMountOptions) == 0 {
@@ -66,7 +66,6 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 
 	klog.V(2).Infof("begin to mount %s on %s", source, normalizedTarget)
 
-	klog.V(2).Infof("calling NewSmbGlobalMapping with remote path %q", source)
 	remotePath := source
 	localPath := normalizedTarget
 
@@ -126,15 +125,13 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 	return nil
 }
 
-func (mounter *winMounter) SMBUnmount(target string) error {
+func (mounter *winNativeCallMounter) SMBUnmount(target string) error {
 	klog.V(4).Infof("SMBUnmount: local path: %s", target)
-	// TODO: We need to remove the SMB mapping. The change to remove the
-	// directory brings the CSI code in parity with the in-tree.
 	return mounter.Rmdir(target)
 }
 
 // Mount just creates a soft link at target pointing to source.
-func (mounter *winMounter) Mount(source string, target string, fstype string, options []string) error {
+func (mounter *winNativeCallMounter) Mount(source string, target string, fstype string, options []string) error {
 	klog.V(4).Infof("Mount: old name: %s. new name: %s", source, target)
 	// Mount is called after the format is done.
 	// TODO: Confirm that fstype is empty.
@@ -149,10 +146,7 @@ func (mounter *winMounter) Mount(source string, target string, fstype string, op
 }
 
 // Rmdir - delete the given directory
-// TODO: Call separate rmdir for pod context and plugin context. v1alpha1 for CSI
-// proxy does a relaxed check for prefix as c:\var\lib\kubelet, so we can do
-// rmdir with either pod or plugin context.
-func (mounter *winMounter) Rmdir(path string) error {
+func (mounter *winNativeCallMounter) Rmdir(path string) error {
 	klog.V(4).Infof("Remove directory: %s", path)
 	rmdirRequest := &filesystem.RmdirRequest{
 		Path:  normalizeWindowsPath(path),
@@ -165,23 +159,30 @@ func (mounter *winMounter) Rmdir(path string) error {
 }
 
 // Unmount - Removes the directory - equivalent to unmount on Linux.
-func (mounter *winMounter) Unmount(target string) error {
+func (mounter *winNativeCallMounter) Unmount(target string) error {
 	klog.V(4).Infof("Unmount: %s", target)
 	return mounter.Rmdir(target)
 }
 
-func (mounter *winMounter) List() ([]mount.MountPoint, error) {
+func (mounter *winNativeCallMounter) List() ([]mount.MountPoint, error) {
 	return []mount.MountPoint{}, fmt.Errorf("List not implemented for CSIProxyMounter")
 }
 
-func (mounter *winMounter) IsMountPointMatch(mp mount.MountPoint, dir string) bool {
+func (mounter *winNativeCallMounter) IsMountPoint(file string) (bool, error) {
+	isNotMnt, err := mounter.IsLikelyNotMountPoint(file)
+	if err != nil {
+		return false, err
+	}
+	return !isNotMnt, nil
+}
+
+func (mounter *winNativeCallMounter) IsMountPointMatch(mp mount.MountPoint, dir string) bool {
 	return mp.Path == dir
 }
 
 // IsLikelyMountPoint - If the directory does not exists, the function will return os.ErrNotExist error.
-// If the path exists, call to CSI proxy will check if its a link, if its a link then existence of target
-// path is checked.
-func (mounter *winMounter) IsLikelyNotMountPoint(path string) (bool, error) {
+// If the path exists, will check if its a link, if its a link then existence of target path is checked.
+func (mounter *winNativeCallMounter) IsLikelyNotMountPoint(path string) (bool, error) {
 	klog.V(4).Infof("IsLikelyNotMountPoint: %s", path)
 	isExists, err := mounter.ExistsPath(path)
 	if err != nil {
@@ -201,10 +202,10 @@ func (mounter *winMounter) IsLikelyNotMountPoint(path string) (bool, error) {
 	return !response, nil
 }
 
-// MakeDir - Creates a directory. The CSI proxy takes in context information.
+// MakeDir - Creates a directory.
 // Currently the make dir is only used from the staging code path, hence we call it
 // with Plugin context..
-func (mounter *winMounter) MakeDir(path string) error {
+func (mounter *winNativeCallMounter) MakeDir(path string) error {
 	klog.V(4).Infof("Make directory: %s", path)
 	mkdirReq := &filesystem.MkdirRequest{
 		Path: normalizeWindowsPath(path),
@@ -217,7 +218,7 @@ func (mounter *winMounter) MakeDir(path string) error {
 }
 
 // ExistsPath - Checks if a path exists. Unlike util ExistsPath, this call does not perform follow link.
-func (mounter *winMounter) ExistsPath(path string) (bool, error) {
+func (mounter *winNativeCallMounter) ExistsPath(path string) (bool, error) {
 	klog.V(4).Infof("Exists path: %s", path)
 	return filesystem.PathExists(context.Background(),
 		&filesystem.PathExistsRequest{
@@ -225,41 +226,43 @@ func (mounter *winMounter) ExistsPath(path string) (bool, error) {
 		})
 }
 
-func (mounter *winMounter) MountSensitive(source string, target string, fstype string, options []string, sensitiveOptions []string) error {
-	return fmt.Errorf("MountSensitive not implemented for CSIProxyMounter")
+func (mounter *winNativeCallMounter) MountSensitive(source string, target string, fstype string, options []string, sensitiveOptions []string) error {
+	return fmt.Errorf("MountSensitive not implemented for winNativeCallMounter")
 }
 
-func (mounter *winMounter) MountSensitiveWithoutSystemd(source string, target string, fstype string, options []string, sensitiveOptions []string) error {
-	return fmt.Errorf("MountSensitiveWithoutSystemd not implemented for CSIProxyMounter")
+func (mounter *winNativeCallMounter) MountSensitiveWithoutSystemd(source string, target string, fstype string, options []string, sensitiveOptions []string) error {
+	return fmt.Errorf("MountSensitiveWithoutSystemd not implemented for winNativeCallMounter")
 }
 
-func (mounter *winMounter) MountSensitiveWithoutSystemdWithMountFlags(source string, target string, fstype string, options []string, sensitiveOptions []string, mountFlags []string) error {
+func (mounter *winNativeCallMounter) MountSensitiveWithoutSystemdWithMountFlags(source string, target string, fstype string, options []string, sensitiveOptions []string, mountFlags []string) error {
 	return mounter.MountSensitive(source, target, fstype, options, sensitiveOptions /* sensitiveOptions */)
 }
 
-func (mounter *winMounter) GetMountRefs(pathname string) ([]string, error) {
-	return []string{}, fmt.Errorf("GetMountRefs not implemented for CSIProxyMounter")
+func (mounter *winNativeCallMounter) GetMountRefs(pathname string) ([]string, error) {
+	return []string{}, fmt.Errorf("GetMountRefs not implemented for winNativeCallMounter")
 }
 
-func (mounter *winMounter) EvalHostSymlinks(pathname string) (string, error) {
-	return "", fmt.Errorf("EvalHostSymlinks not implemented for CSIProxyMounterV1Beta")
+func (mounter *winNativeCallMounter) EvalHostSymlinks(pathname string) (string, error) {
+	return "", fmt.Errorf("EvalHostSymlinks not implemented for winNativeCallMounter")
 }
 
-func (mounter *winMounter) GetFSGroup(pathname string) (int64, error) {
-	return -1, fmt.Errorf("GetFSGroup not implemented for CSIProxyMounterV1Beta")
+func (mounter *winNativeCallMounter) GetFSGroup(pathname string) (int64, error) {
+	return -1, fmt.Errorf("GetFSGroup not implemented for winNativeCallMounter")
 }
 
-func (mounter *winMounter) GetSELinuxSupport(pathname string) (bool, error) {
-	return false, fmt.Errorf("GetSELinuxSupport not implemented for CSIProxyMounterV1Beta")
+func (mounter *winNativeCallMounter) GetSELinuxSupport(pathname string) (bool, error) {
+	return false, fmt.Errorf("GetSELinuxSupport not implemented for winNativeCallMounter")
 }
 
-func (mounter *winMounter) GetMode(pathname string) (os.FileMode, error) {
-	return 0, fmt.Errorf("GetMode not implemented for CSIProxyMounterV1Beta")
+func (mounter *winNativeCallMounter) GetMode(pathname string) (os.FileMode, error) {
+	return 0, fmt.Errorf("GetMode not implemented for winNativeCallMounter")
 }
 
 // GetAPIVersions returns the versions of the client APIs this mounter is using.
-func (mounter *winMounter) GetAPIVersions() string {
-	return fmt.Sprintf(
-		"test",
-	)
+func (mounter *winNativeCallMounter) GetAPIVersions() string {
+	return ""
+}
+
+func (mounter *winNativeCallMounter) CanSafelySkipMountPointCheck() bool {
+	return false
 }

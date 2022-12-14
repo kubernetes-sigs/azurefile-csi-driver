@@ -39,7 +39,6 @@ kubectl apply -f $repo/rbac-csi-azurefile-node.yaml
 kubectl apply -f $repo/csi-azurefile-controller.yaml
 kubectl apply -f $repo/csi-azurefile-driver.yaml
 kubectl apply -f $repo/csi-azurefile-node.yaml
-kubectl apply -f $repo/csi-azurefile-node-windows.yaml
 
 if [[ "$#" -gt 1 ]]; then
   if [[ "$2" == *"hostprocess"* ]]; then

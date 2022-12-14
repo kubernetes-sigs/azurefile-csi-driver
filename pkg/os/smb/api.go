@@ -25,7 +25,7 @@ import (
 
 func IsSmbMapped(remotePath string) (bool, error) {
 	cmdLine := fmt.Sprintf(`$(Get-SmbGlobalMapping -RemotePath $Env:smbremotepath -ErrorAction Stop).Status `)
-	cmd := exec.Command(".\\WindowsPowerShell\\powershell.exe", "/c", cmdLine)
+	cmd := exec.Command("powershell", "/c", cmdLine)
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("smbremotepath=%s", remotePath))
 
@@ -56,7 +56,7 @@ func NewSmbLink(remotePath, localPath string) error {
 	}
 
 	cmdLine := fmt.Sprintf(`New-Item -ItemType SymbolicLink $Env:smblocalPath -Target $Env:smbremotepath`)
-	cmd := exec.Command(".\\WindowsPowerShell\\powershell.exe", "/c", cmdLine)
+	cmd := exec.Command("powershell", "/c", cmdLine)
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("smbremotepath=%s", remotePath),
 		fmt.Sprintf("smblocalpath=%s", localPath),
@@ -77,7 +77,7 @@ func NewSmbGlobalMapping(remotePath, username, password string) error {
 		`;$Credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $Env:smbuser, $PWord` +
 		`;New-SmbGlobalMapping -RemotePath $Env:smbremotepath -Credential $Credential`)
 
-	cmd := exec.Command(".\\WindowsPowerShell\\powershell.exe", "/c", cmdLine)
+	cmd := exec.Command("powershell", "/c", cmdLine)
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("smbuser=%s", username),
 		fmt.Sprintf("smbpassword=%s", password),
@@ -91,7 +91,7 @@ func NewSmbGlobalMapping(remotePath, username, password string) error {
 }
 
 func RemoveSmbGlobalMapping(remotePath string) error {
-	cmd := exec.Command(".\\WindowsPowerShell\\powershell.exe", "/c", `Remove-SmbGlobalMapping -RemotePath $Env:smbremotepath -Force`)
+	cmd := exec.Command("powershell", "/c", `Remove-SmbGlobalMapping -RemotePath $Env:smbremotepath -Force`)
 	cmd.Env = append(os.Environ(), fmt.Sprintf("smbremotepath=%s", remotePath))
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("UnmountSmbShare failed. output: %q, err: %v", string(output), err)

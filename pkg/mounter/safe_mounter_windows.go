@@ -295,7 +295,7 @@ func NewSafeMounter(enableWindowsHostProcess bool) (*mount.SafeFormatAndMount, e
 	if enableWindowsHostProcess {
 		klog.V(2).Infof("using windows host process mounter")
 		return &mount.SafeFormatAndMount{
-			Interface: NewWinMounter(),
+			Interface: NewWinNativeCallMounter(),
 			Exec:      utilexec.New(),
 		}, nil
 	}

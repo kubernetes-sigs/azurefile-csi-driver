@@ -91,17 +91,31 @@ e2e-test:
 
 .PHONY: e2e-bootstrap
 e2e-bootstrap: install-helm
-	docker pull $(IMAGE_TAG) || make container-all push-manifest
+	docker pull $(IMAGE_TAG) || make container-all push-manifest push-hostprocess
 ifdef TEST_WINDOWS
+ifdef WINDOWS_USE_HOST_PROCESS_CONTAINERS
+	helm install azurefile-csi-driver charts/latest/azurefile-csi-driver --namespace kube-system --wait --timeout=15m -v=5 --debug \
+	${E2E_HELM_OPTIONS} \
+	--set windows.enabled=true \
+	--set windows.hostprocess=true \
+	--set linux.enabled=false \
+	--set driver.azureGoSDKLogLevel=INFO \
+	--set controller.replicas=1 \
+	--set controller.logLevel=6 \
+	--set node.logLevel=6 \
+	--disable-openapi-validation
+else 
 	helm install azurefile-csi-driver charts/latest/azurefile-csi-driver --namespace kube-system --wait --timeout=15m -v=5 --debug \
 		${E2E_HELM_OPTIONS} \
 		--set windows.enabled=true \
+		--set windows.hostprocess=false \
 		--set linux.enabled=false \
 		--set driver.azureGoSDKLogLevel=INFO \
 		--set controller.replicas=1 \
 		--set controller.logLevel=6 \
 		--set node.logLevel=6 \
 		--disable-openapi-validation
+endif
 else
 	helm install azurefile-csi-driver charts/latest/azurefile-csi-driver --namespace kube-system --wait --timeout=15m -v=5 --debug \
 		${E2E_HELM_OPTIONS} \
@@ -146,6 +160,11 @@ container-windows:
 		--provenance=false --sbom=false \
 		--build-arg ARCH=${ARCH} -f ./pkg/azurefileplugin/Windows.Dockerfile .
 
+.PHONY: container-windows-hostprocess
+container-windows-hostprocess:
+	docker buildx build --pull --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" \
+		-t $(IMAGE_TAG)-windows-hp -f ./pkg/azurefileplugin/WindowsHostProcess.Dockerfile .
+
 .PHONY: container-all
 container-all: azurefile-windows
 	docker buildx rm container-builder || true
@@ -161,6 +180,7 @@ container-all: azurefile-windows
 	for osversion in $(ALL_OSVERSIONS.windows); do \
 		OSVERSION=$${osversion} $(MAKE) container-windows; \
 	done
+	$(MAKE) container-windows-hostprocess
 
 .PHONY: push-manifest
 push-manifest:
@@ -187,6 +207,10 @@ ifdef PUBLISH
 	done
 	docker manifest inspect $(IMAGE_TAG_LATEST)
 endif
+
+.PHONY: push-hostprocess
+push-hostprocess:
+	docker push $(IMAGE_TAG)-windows-hp
 
 .PHONY: push-latest
 push-latest:

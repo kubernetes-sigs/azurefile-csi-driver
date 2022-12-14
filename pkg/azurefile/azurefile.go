@@ -178,8 +178,6 @@ var (
 	supportedFSGroupChangePolicyList = []string{FSGroupChangeNone, string(v1.FSGroupChangeAlways), string(v1.FSGroupChangeOnRootMismatch)}
 
 	retriableErrors = []string{accountNotProvisioned, tooManyRequests, shareBeingDeleted, clientThrottled}
-
-	enableWindowsHostProcess = false
 )
 
 // DriverOptions defines driver parameters specified in driver deployment
@@ -316,7 +314,6 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 	if err != nil {
 		klog.Fatalf("Failed to get safe mounter. Error: %v", err)
 	}
-	enableWindowsHostProcess = d.enableWindowsHostProcess
 
 	// Initialize default library driver
 	d.AddControllerServiceCapabilities(

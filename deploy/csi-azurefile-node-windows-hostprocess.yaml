@@ -39,19 +39,6 @@ spec:
           hostProcess: true
           runAsUserName: "NT AUTHORITY\\SYSTEM"
       hostNetwork: true
-      initContainers:
-        - name: init
-          image: mcr.microsoft.com/k8s/csi/azurefile-csi:latest
-          imagePullPolicy: Always
-          command:
-            - "powershell.exe"
-            - "-c"
-            - "New-Item"
-            - "-ItemType"
-            - "Directory"
-            - "-Path"
-            - "C:\\var\\lib\\kubelet\\plugins\\file.csi.azure.com\\"
-            - "-Force"
       containers:
         - name: liveness-probe
           image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.7.0
@@ -94,7 +81,7 @@ spec:
                 fieldRef:
                   fieldPath: spec.nodeName
         - name: azurefile
-          image: mcr.microsoft.com/k8s/csi/azurefile-csi:latest
+          image: mcr.microsoft.com/k8s/csi/azurefile-csi:latest-windows-hp
           imagePullPolicy: Always
           command:
             - "azurefileplugin.exe"
@@ -104,7 +91,7 @@ spec:
             - --nodeid=$(KUBE_NODE_NAME)
             - --kubeconfig=C:\\k\\config
             - --metrics-address=0.0.0.0:29615
-            - --enableWindowsHostProcess=true
+            - --enable-windows-host-process=true
           ports:
             - containerPort: 29613
               name: healthz
@@ -125,17 +112,17 @@ spec:
                   key: path-windows
                   optional: true
             - name: CSI_ENDPOINT
-              value: unix://C:\\var\\lib\\kubelet\\plugins\\file.csi.azure.com\\csi.sock
+              value: unix://C:\\csi.sock
             - name: KUBE_NODE_NAME
               valueFrom:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
           volumeMounts:
-            - name: pwsh
-              mountPath: "C:\\WindowsPowerShell"
+            - name: plugin-dir
+              mountPath: C:\csi
       volumes:
-        - name: pwsh
+        - name: plugin-dir
           hostPath:
-            path: C:\Windows\System32\WindowsPowerShell\v1.0
+            path: C:\var\lib\kubelet\plugins\file.csi.azure.com\
             type: DirectoryOrCreate

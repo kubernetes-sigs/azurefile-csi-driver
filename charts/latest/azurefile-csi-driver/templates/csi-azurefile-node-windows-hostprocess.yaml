@@ -62,23 +62,6 @@ spec:
           hostProcess: true
           runAsUserName: "NT AUTHORITY\\SYSTEM"
       hostNetwork: true
-      initContainers:
-        - name: init
-{{- if hasPrefix "/" .Values.image.livenessProbe.repository }}
-          image: "{{ .Values.image.baseRepo }}{{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}"
-{{- else }}
-          image: "{{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}"
-{{- end }}
-          imagePullPolicy: {{ .Values.image.livenessProbe.pullPolicy }}
-          command:
-            - "powershell.exe"
-            - "-c"
-            - "New-Item"
-            - "-ItemType"
-            - "Directory"
-            - "-Path"
-            - "C:\\var\\lib\\kubelet\\plugins\\{{ .Values.driver.name }}\\"
-            - "-Force"
       containers:
         - name: liveness-probe
 {{- if hasPrefix "/" .Values.image.livenessProbe.repository }}
@@ -86,6 +69,8 @@ spec:
 {{- else }}
           image: "{{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}"
 {{- end }}
+          command:
+            - "livenessprobe.exe"
           args:
             - "--csi-address=$(CSI_ENDPOINT)"
             - "--probe-timeout=3s"
@@ -93,7 +78,7 @@ spec:
             - "--v=2"
           env:
             - name: CSI_ENDPOINT
-              value: unix://C:\\csi\\csi.sock
+              value: unix://{{ .Values.windows.kubelet }}\plugins\{{ .Values.driver.name }}\csi.sock
           imagePullPolicy: {{ .Values.image.livenessProbe.pullPolicy }}
           resources: {{- toYaml .Values.windows.resources.livenessProbe | nindent 12 }}
         - name: node-driver-registrar
@@ -119,7 +104,7 @@ spec:
             timeoutSeconds: 30
           env:
             - name: CSI_ENDPOINT
-              value: unix://C:\\csi\\csi.sock
+              value: unix://{{ .Values.windows.kubelet }}\plugins\{{ .Values.driver.name }}\csi.sock
             - name: DRIVER_REG_SOCK_PATH
               value: C:\\var\\lib\\kubelet\\plugins\\{{ .Values.driver.name }}\\csi.sock
             - name: PLUGIN_REG_DIR
@@ -132,9 +117,9 @@ spec:
           resources: {{- toYaml .Values.windows.resources.nodeDriverRegistrar | nindent 12 }}
         - name: azurefile
 {{- if hasPrefix "/" .Values.image.azurefile.repository }}
-          image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}-windows-hp"
 {{- else }}
-          image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
+          image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}-windows-hp"
 {{- end }}
           command:
             - "azurefileplugin.exe"
@@ -151,7 +136,7 @@ spec:
             - "--user-agent-suffix={{ .Values.driver.userAgentSuffix }}"
             - "--allow-empty-cloud-config={{ .Values.node.allowEmptyCloudConfig }}"
             - "--enable-get-volume-stats={{ .Values.feature.enableGetVolumeStats }}"
-            - "--enableWindowsHostProcess=true"
+            - "--enable-windows-host-process=true"
           ports:
             - containerPort: {{ .Values.node.livenessProbe.healthPort }}
               name: healthz
@@ -172,7 +157,7 @@ spec:
                   key: path-windows
                   optional: true
             - name: CSI_ENDPOINT
-              value: unix://C:\\csi\\csi.sock
+              value: unix://{{ .Values.windows.kubelet }}\plugins\{{ .Values.driver.name }}\csi.sock
             {{- if ne .Values.driver.httpsProxy "" }}
             - name: HTTPS_PROXY
               value: {{ .Values.driver.httpsProxy }}
@@ -187,12 +172,9 @@ spec:
                   apiVersion: v1
                   fieldPath: spec.nodeName
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          volumeMounts:
-            - name: pwsh
-              mountPath: "C:\\WindowsPowerShell"
       volumes:
-      - name: pwsh
-        hostPath:
-          path: C:\Windows\System32\WindowsPowerShell\v1.0
-          type: DirectoryOrCreate
+        - name: plugin-dir
+          hostPath:
+            path: {{ .Values.windows.kubelet }}\plugins\{{ .Values.driver.name }}\
+            type: DirectoryOrCreate
 {{- end -}}

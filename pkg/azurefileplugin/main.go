@@ -54,7 +54,7 @@ var (
 	enableVHDDiskFeature                   = flag.Bool("enable-vhd", true, "enable VHD disk feature (experimental)")
 	kubeAPIQPS                             = flag.Float64("kube-api-qps", 25.0, "QPS to use while communicating with the kubernetes apiserver.")
 	kubeAPIBurst                           = flag.Int("kube-api-burst", 50, "Burst to use while communicating with the kubernetes apiserver.")
-	enableWindowsHostProcess               = flag.Bool("enableWindowsHostProcess", false, "enable windows host process")
+	enableWindowsHostProcess               = flag.Bool("enable-windows-host-process", false, "enable windows host process")
 )
 
 func main() {
