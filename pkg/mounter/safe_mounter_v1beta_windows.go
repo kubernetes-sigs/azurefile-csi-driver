@@ -43,6 +43,18 @@ type csiProxyMounterV1Beta struct {
 	SMBClient *smbclient.Client
 }
 
+func (mounter *csiProxyMounterV1Beta) IsMountPoint(file string) (bool, error) {
+	isNotMnt, err := mounter.IsLikelyNotMountPoint(file)
+	if err != nil {
+		return false, err
+	}
+	return !isNotMnt, nil
+}
+
+func (mounter *csiProxyMounterV1Beta) CanSafelySkipMountPointCheck() bool {
+	return false
+}
+
 func (mounter *csiProxyMounterV1Beta) SMBMount(source, target, fsType string, mountOptions, sensitiveMountOptions []string) error {
 	klog.V(2).Infof("SMBMount: remote path: %s local path: %s", source, target)
 
