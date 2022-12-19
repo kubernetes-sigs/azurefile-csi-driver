@@ -86,7 +86,7 @@ change below deployment config, e.g.
 ```
 
 ### troubleshooting connection failure on agent node
-> server address of sovereign cloud: accountname.blob.core.chinacloudapi.cn
+> server address of sovereign cloud: accountname.file.core.chinacloudapi.cn
 ##### SMB
  - On Linux node
 ```console
@@ -135,7 +135,7 @@ Get SMBClient events from Event Viewer under following path:
  
 ```console
 mkdir /tmp/test
-mount -v -t nfs -o vers=4,minorversion=1,sec=sys accountname.blob.core.windows.net:/accountname/filesharename /tmp/test
+mount -v -t nfs -o vers=4,minorversion=1,sec=sys accountname.file.core.windows.net:/accountname/filesharename /tmp/test
 ```
 
  - [Troubleshoot Azure File mount issues on AKS](https://docs.microsoft.com/en-us/troubleshoot/azure/azure-kubernetes/fail-to-mount-azure-file-share)
