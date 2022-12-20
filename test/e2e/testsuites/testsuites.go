@@ -26,7 +26,6 @@ import (
 
 	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
 
-	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	snapshotclientset "github.com/kubernetes-csi/external-snapshotter/client/v4/clientset/versioned"
@@ -54,6 +53,7 @@ import (
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	e2epv "k8s.io/kubernetes/test/e2e/framework/pv"
 	imageutils "k8s.io/kubernetes/test/utils/image"
+	"k8s.io/utils/pointer"
 )
 
 const (
@@ -662,7 +662,7 @@ func NewTestPod(c clientset.Interface, ns *v1.Namespace, command string, isWindo
 				},
 				RestartPolicy:                v1.RestartPolicyNever,
 				Volumes:                      make([]v1.Volume, 0),
-				AutomountServiceAccountToken: to.BoolPtr(false),
+				AutomountServiceAccountToken: pointer.Bool(false),
 			},
 		},
 	}
@@ -823,7 +823,7 @@ func (t *TestPod) SetupCSIInlineVolume(name, mountPath, secretName, shareName, s
 					"server":       server,
 					"mountOptions": "dir_mode=0755,file_mode=0721,cache=singleclient",
 				},
-				ReadOnly: to.BoolPtr(readOnly),
+				ReadOnly: pointer.Bool(readOnly),
 			},
 		},
 	}

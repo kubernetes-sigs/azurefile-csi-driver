@@ -28,7 +28,6 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
 	"github.com/Azure/azure-storage-file-go/azfile"
-	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/pborman/uuid"
 
@@ -37,6 +36,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/pointer"
 
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
@@ -116,7 +116,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	var vnetResourceGroup, vnetName, subnetName, shareNamePrefix, fsGroupChangePolicy string
 	var requireInfraEncryption *bool
 	// set allowBlobPublicAccess as false by default
-	allowBlobPublicAccess := to.BoolPtr(false)
+	allowBlobPublicAccess := pointer.Bool(false)
 
 	fileShareNameReplaceMap := map[string]string{}
 	// store account key to k8s secret by default
@@ -185,7 +185,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			rootSquashType = v
 		case allowBlobPublicAccessField:
 			if strings.EqualFold(v, trueValue) {
-				allowBlobPublicAccess = to.BoolPtr(true)
+				allowBlobPublicAccess = pointer.Bool(true)
 			}
 		case pvcNameKey:
 			fileShareNameReplaceMap[pvcNameMetadata] = v
@@ -214,7 +214,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			shareNamePrefix = v
 		case requireInfraEncryptionField:
 			if strings.EqualFold(v, trueValue) {
-				requireInfraEncryption = to.BoolPtr(true)
+				requireInfraEncryption = pointer.Bool(true)
 			}
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid parameter %q in storage class", k))
@@ -459,7 +459,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		if strings.Contains(err.Error(), accountLimitExceedManagementAPI) || strings.Contains(err.Error(), accountLimitExceedDataPlaneAPI) {
 			klog.Warningf("create file share(%s) on account(%s) type(%s) subID(%s) rg(%s) location(%s) size(%d), error: %v, skip matching current account", validFileShareName, account, sku, subsID, resourceGroup, location, fileShareSize, err)
 			tags := map[string]*string{
-				azure.SkipMatchingTag: to.StringPtr(""),
+				azure.SkipMatchingTag: pointer.String(""),
 			}
 			if rerr := d.cloud.AddStorageAccountTags(ctx, subsID, resourceGroup, accountName, tags); rerr != nil {
 				klog.Warningf("AddStorageAccountTags(%v) on account(%s) subsID(%s) rg(%s) failed with error: %v", tags, accountName, subsID, resourceGroup, rerr.Error())
@@ -888,7 +888,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 
 		itemSnapshot = snapshotShare.SnapshotTime.Format(snapshotTimeFormat)
 		itemSnapshotTime = snapshotShare.SnapshotTime.Time
-		itemSnapshotQuota = to.Int32(snapshotShare.ShareQuota)
+		itemSnapshotQuota = pointer.Int32Deref(snapshotShare.ShareQuota, 0)
 	}
 
 	klog.V(2).Infof("Created share snapshot: %s", itemSnapshot)
@@ -1120,17 +1120,17 @@ func (d *Driver) snapshotExists(ctx context.Context, sourceVolumeID, snapshotNam
 				continue
 			}
 			shareSnapshotTime := share.SnapshotTime.Format(snapshotTimeFormat)
-			fileshare, err := d.cloud.FileClient.WithSubscriptionID(subsID).GetFileShare(ctx, rgName, accountName, to.String(share.Name), shareSnapshotTime)
+			fileshare, err := d.cloud.FileClient.WithSubscriptionID(subsID).GetFileShare(ctx, rgName, accountName, pointer.StringDeref(share.Name, ""), shareSnapshotTime)
 			if err != nil {
-				klog.V(2).Infof("get share(%s) snapshot(%s) error(%s)", to.String(share.Name), shareSnapshotTime, err)
+				klog.V(2).Infof("get share(%s) snapshot(%s) error(%s)", pointer.StringDeref(share.Name, ""), shareSnapshotTime, err)
 				return false, "", time.Time{}, 0, nil
 			}
-			if fileshare.Metadata != nil && to.String(fileshare.Metadata[snapshotNameKey]) == snapshotName {
-				if to.String(fileshare.Name) == fileShareName {
-					klog.V(2).Infof("found share(%s) snapshot(%s) Metadata(%v)", to.String(fileshare.Name), shareSnapshotTime, fileshare.Metadata)
-					return true, shareSnapshotTime, share.SnapshotTime.Time, to.Int32(share.ShareQuota), nil
+			if fileshare.Metadata != nil && pointer.StringDeref(fileshare.Metadata[snapshotNameKey], "") == snapshotName {
+				if pointer.StringDeref(fileshare.Name, "") == fileShareName {
+					klog.V(2).Infof("found share(%s) snapshot(%s) Metadata(%v)", pointer.StringDeref(fileshare.Name, ""), shareSnapshotTime, fileshare.Metadata)
+					return true, shareSnapshotTime, share.SnapshotTime.Time, pointer.Int32Deref(share.ShareQuota, 0), nil
 				}
-				return true, "", time.Time{}, 0, fmt.Errorf("snapshot(%s) already exists, while the current file share name(%s) does not equal to %s, SourceVolumeId(%s)", snapshotName, to.String(share.Name), fileShareName, sourceVolumeID)
+				return true, "", time.Time{}, 0, fmt.Errorf("snapshot(%s) already exists, while the current file share name(%s) does not equal to %s, SourceVolumeId(%s)", snapshotName, pointer.StringDeref(share.Name, ""), fileShareName, sourceVolumeID)
 			}
 		}
 	}
