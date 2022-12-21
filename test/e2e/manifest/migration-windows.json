@@ -19,6 +19,9 @@
                 },
                 "schedulerConfig": {
                     "--feature-gates": "CSIMigration=true,CSIMigrationAzureFile=true"
+                },
+                "apiServerConfig": {
+                    "--disable-admission-plugins": "PodSecurity"
                 }
             }
         },
