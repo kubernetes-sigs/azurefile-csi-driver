@@ -32,8 +32,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2019-06-01/storage"
 	"github.com/Azure/go-autorest/autorest/azure"
-	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/jongio/azidext/go/azidext"
+	"k8s.io/utils/pointer"
 )
 
 type Client struct {
@@ -145,29 +145,29 @@ func (az *Client) EnsureVirtualMachine(ctx context.Context, groupName, location,
 		groupName,
 		vmName,
 		compute.VirtualMachine{
-			Location: to.StringPtr(location),
+			Location: pointer.String(location),
 			VirtualMachineProperties: &compute.VirtualMachineProperties{
 				HardwareProfile: &compute.HardwareProfile{
 					VMSize: "Standard_DS2_v2",
 				},
 				StorageProfile: &compute.StorageProfile{
 					ImageReference: &compute.ImageReference{
-						Publisher: to.StringPtr("Canonical"),
-						Offer:     to.StringPtr("UbuntuServer"),
-						Sku:       to.StringPtr("16.04.0-LTS"),
-						Version:   to.StringPtr("latest"),
+						Publisher: pointer.String("Canonical"),
+						Offer:     pointer.String("UbuntuServer"),
+						Sku:       pointer.String("16.04.0-LTS"),
+						Version:   pointer.String("latest"),
 					},
 				},
 				OsProfile: &compute.OSProfile{
-					ComputerName:  to.StringPtr(vmName),
-					AdminUsername: to.StringPtr("azureuser"),
-					AdminPassword: to.StringPtr("Azureuser1234"),
+					ComputerName:  pointer.String(vmName),
+					AdminUsername: pointer.String("azureuser"),
+					AdminPassword: pointer.String("Azureuser1234"),
 					LinuxConfiguration: &compute.LinuxConfiguration{
-						DisablePasswordAuthentication: to.BoolPtr(true),
+						DisablePasswordAuthentication: pointer.Bool(true),
 						SSH: &compute.SSHConfiguration{
 							PublicKeys: &[]compute.SSHPublicKey{
 								{
-									Path:    to.StringPtr("/home/azureuser/.ssh/authorized_keys"),
+									Path:    pointer.String("/home/azureuser/.ssh/authorized_keys"),
 									KeyData: &publicKey,
 								},
 							},
@@ -179,7 +179,7 @@ func (az *Client) EnsureVirtualMachine(ctx context.Context, groupName, location,
 						{
 							ID: nic.ID,
 							NetworkInterfaceReferenceProperties: &compute.NetworkInterfaceReferenceProperties{
-								Primary: to.BoolPtr(true),
+								Primary: pointer.Bool(true),
 							},
 						},
 					},
@@ -215,12 +215,12 @@ func (az *Client) EnsureNIC(ctx context.Context, groupName, location, nicName, v
 		groupName,
 		nicName,
 		network.Interface{
-			Name:     to.StringPtr(nicName),
-			Location: to.StringPtr(location),
+			Name:     pointer.String(nicName),
+			Location: pointer.String(location),
 			InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
 				IPConfigurations: &[]network.InterfaceIPConfiguration{
 					{
-						Name: to.StringPtr("ipConfig1"),
+						Name: pointer.String("ipConfig1"),
 						InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
 							Subnet:                    &subnet,
 							PrivateIPAllocationMethod: network.Dynamic,
@@ -248,16 +248,16 @@ func (az *Client) EnsureVirtualNetworkAndSubnet(ctx context.Context, groupName, 
 		groupName,
 		vnetName,
 		network.VirtualNetwork{
-			Location: to.StringPtr(location),
+			Location: pointer.String(location),
 			VirtualNetworkPropertiesFormat: &network.VirtualNetworkPropertiesFormat{
 				AddressSpace: &network.AddressSpace{
 					AddressPrefixes: &[]string{"10.0.0.0/8"},
 				},
 				Subnets: &[]network.Subnet{
 					{
-						Name: to.StringPtr(subnetName),
+						Name: pointer.String(subnetName),
 						SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
-							AddressPrefix: to.StringPtr("10.0.0.0/16"),
+							AddressPrefix: pointer.String("10.0.0.0/16"),
 						},
 					},
 				},
