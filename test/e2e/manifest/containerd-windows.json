@@ -10,6 +10,9 @@
             "kubernetesConfig": {
                 "useManagedIdentity": false,
                 "containerRuntime": "containerd",
+                "apiServerConfig": {
+                    "--disable-admission-plugins": "PodSecurity"
+                },
                 "windowsContainerdURL": "https://acs-mirror.azureedge.net/containerd/windows/v0.0.41/binaries/containerd-v0.0.41-windows-amd64.tar.gz"
             }
         },
