@@ -17,6 +17,7 @@ limitations under the License.
 package provider
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -374,25 +375,9 @@ type Cloud struct {
 	*controllerCommon
 }
 
-func init() {
-	// In go-autorest SDK https://github.com/Azure/go-autorest/blob/master/autorest/sender.go#L258-L287,
-	// if ARM returns http.StatusTooManyRequests, the sender doesn't increase the retry attempt count,
-	// hence the Azure clients will keep retrying forever until it get a status code other than 429.
-	// So we explicitly removes http.StatusTooManyRequests from autorest.StatusCodesForRetry.
-	// Refer https://github.com/Azure/go-autorest/issues/398.
-	// TODO(feiskyer): Use autorest.SendDecorator to customize the retry policy when new Azure SDK is available.
-	statusCodesForRetry := make([]int, 0)
-	for _, code := range autorest.StatusCodesForRetry {
-		if code != http.StatusTooManyRequests {
-			statusCodesForRetry = append(statusCodesForRetry, code)
-		}
-	}
-	autorest.StatusCodesForRetry = statusCodesForRetry
-}
-
 // NewCloud returns a Cloud with initialized clients
-func NewCloud(configReader io.Reader, callFromCCM bool) (cloudprovider.Interface, error) {
-	az, err := NewCloudWithoutFeatureGates(configReader, callFromCCM)
+func NewCloud(ctx context.Context, configReader io.Reader, callFromCCM bool) (cloudprovider.Interface, error) {
+	az, err := NewCloudWithoutFeatureGates(ctx, configReader, callFromCCM)
 	if err != nil {
 		return nil, err
 	}
@@ -401,7 +386,7 @@ func NewCloud(configReader io.Reader, callFromCCM bool) (cloudprovider.Interface
 	return az, nil
 }
 
-func NewCloudFromConfigFile(configFilePath string, calFromCCM bool) (cloudprovider.Interface, error) {
+func NewCloudFromConfigFile(ctx context.Context, configFilePath string, calFromCCM bool) (cloudprovider.Interface, error) {
 	var (
 		cloud cloudprovider.Interface
 		err   error
@@ -416,15 +401,15 @@ func NewCloudFromConfigFile(configFilePath string, calFromCCM bool) (cloudprovid
 		}
 
 		defer config.Close()
-		cloud, err = NewCloud(config, calFromCCM)
+		cloud, err = NewCloud(ctx, config, calFromCCM)
 	} else {
 		// Pass explicit nil so plugins can actually check for nil. See
 		// "Why is my nil error value not equal to nil?" in golang.org/doc/faq.
-		cloud, err = NewCloud(nil, false)
+		cloud, err = NewCloud(ctx, nil, false)
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("could not init cloud provider azure: %v", err)
+		return nil, fmt.Errorf("could not init cloud provider azure: %w", err)
 	}
 	if cloud == nil {
 		return nil, fmt.Errorf("nil cloud")
@@ -451,7 +436,7 @@ func (az *Cloud) configSecretMetadata(secretName, secretNamespace, cloudConfigKe
 	}
 }
 
-func NewCloudFromSecret(clientBuilder cloudprovider.ControllerClientBuilder, secretName, secretNamespace, cloudConfigKey string) (cloudprovider.Interface, error) {
+func NewCloudFromSecret(ctx context.Context, clientBuilder cloudprovider.ControllerClientBuilder, secretName, secretNamespace, cloudConfigKey string) (cloudprovider.Interface, error) {
 	az := &Cloud{
 		nodeNames:                sets.NewString(),
 		nodeZones:                map[string]sets.String{},
@@ -466,9 +451,9 @@ func NewCloudFromSecret(clientBuilder cloudprovider.ControllerClientBuilder, sec
 
 	az.Initialize(clientBuilder, wait.NeverStop)
 
-	err := az.InitializeCloudFromSecret()
+	err := az.InitializeCloudFromSecret(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("NewCloudFromSecret: failed to initialize cloud from secret %s/%s: %v", az.SecretNamespace, az.SecretName, err)
+		return nil, fmt.Errorf("NewCloudFromSecret: failed to initialize cloud from secret %s/%s: %w", az.SecretNamespace, az.SecretName, err)
 	}
 
 	az.ipv6DualStackEnabled = true
@@ -478,7 +463,7 @@ func NewCloudFromSecret(clientBuilder cloudprovider.ControllerClientBuilder, sec
 
 // NewCloudWithoutFeatureGates returns a Cloud without trying to wire the feature gates.  This is used by the unit tests
 // that don't load the actual features being used in the cluster.
-func NewCloudWithoutFeatureGates(configReader io.Reader, callFromCCM bool) (*Cloud, error) {
+func NewCloudWithoutFeatureGates(ctx context.Context, configReader io.Reader, callFromCCM bool) (*Cloud, error) {
 	config, err := ParseConfig(configReader)
 	if err != nil {
 		return nil, err
@@ -494,7 +479,7 @@ func NewCloudWithoutFeatureGates(configReader io.Reader, callFromCCM bool) (*Clo
 		nodePrivateIPs:           map[string]sets.String{},
 	}
 
-	err = az.InitializeCloudFromConfig(config, false, callFromCCM)
+	err = az.InitializeCloudFromConfig(ctx, config, false, callFromCCM)
 	if err != nil {
 		return nil, err
 	}
@@ -503,7 +488,7 @@ func NewCloudWithoutFeatureGates(configReader io.Reader, callFromCCM bool) (*Clo
 }
 
 // InitializeCloudFromConfig initializes the Cloud from config.
-func (az *Cloud) InitializeCloudFromConfig(config *Config, fromSecret, callFromCCM bool) error {
+func (az *Cloud) InitializeCloudFromConfig(ctx context.Context, config *Config, fromSecret, callFromCCM bool) error {
 	if config == nil {
 		// should not reach here
 		return fmt.Errorf("InitializeCloudFromConfig: cannot initialize from nil config")
@@ -622,12 +607,12 @@ func (az *Cloud) InitializeCloudFromConfig(config *Config, fromSecret, callFromC
 	}
 
 	if strings.EqualFold(consts.VMTypeVMSS, az.Config.VMType) {
-		az.VMSet, err = newScaleSet(az)
+		az.VMSet, err = newScaleSet(ctx, az)
 		if err != nil {
 			return err
 		}
 	} else if strings.EqualFold(consts.VMTypeVmssFlex, az.Config.VMType) {
-		az.VMSet, err = newFlexScaleSet(az)
+		az.VMSet, err = newFlexScaleSet(ctx, az)
 		if err != nil {
 			return err
 		}
@@ -1021,20 +1006,9 @@ func initDiskControllers(az *Cloud) error {
 	klog.V(2).Infof("attach/detach disk operation rate limit QPS: %f, Bucket: %d", qps, bucket)
 
 	common := &controllerCommon{
-		location:              az.Location,
-		storageEndpointSuffix: az.Environment.StorageEndpointSuffix,
-		resourceGroup:         az.ResourceGroup,
-		subscriptionID:        az.SubscriptionID,
-		cloud:                 az,
-		lockMap:               newLockMap(),
-		diskOpRateLimiter:     flowcontrol.NewTokenBucketRateLimiter(qps, bucket),
-	}
-
-	if az.HasExtendedLocation() {
-		common.extendedLocation = &ExtendedLocation{
-			Name: az.ExtendedLocationName,
-			Type: az.ExtendedLocationType,
-		}
+		cloud:             az,
+		lockMap:           newLockMap(),
+		diskOpRateLimiter: flowcontrol.NewTokenBucketRateLimiter(qps, bucket),
 	}
 
 	az.ManagedDiskController = &ManagedDiskController{common: common}
@@ -1047,7 +1021,7 @@ func initDiskControllers(az *Cloud) error {
 func (az *Cloud) SetInformers(informerFactory informers.SharedInformerFactory) {
 	klog.Infof("Setting up informers for Azure cloud provider")
 	nodeInformer := informerFactory.Core().V1().Nodes().Informer()
-	nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			node := obj.(*v1.Node)
 			az.updateNodeCaches(nil, node)

@@ -352,7 +352,7 @@ func GetVMSSMetadataByRawError(err *Error) (string, string, error) {
 	reg := regexp.MustCompile(`.*/subscriptions/(?:.*)/resourceGroups/(.*)/providers/Microsoft.Compute/virtualMachineScaleSets/(.+).`)
 	matches := reg.FindStringSubmatch(err.ServiceErrorMessage())
 	if len(matches) != 3 {
-		return "", "", fmt.Errorf("GetVMSSMetadataByRawError: couldn't find a VMSS resource Id from error message %s", err.RawError)
+		return "", "", fmt.Errorf("GetVMSSMetadataByRawError: couldn't find a VMSS resource Id from error message %w", err.RawError)
 	}
 
 	return matches[1], matches[2], nil
@@ -424,4 +424,17 @@ func getOperationNotAllowedReason(msg string) string {
 		return QuotaExceeded
 	}
 	return OperationNotAllowed
+}
+
+// PartialUpdateError implements error interface. It is meant to be returned for errors with http status code of 2xx
+type PartialUpdateError struct {
+	message string
+}
+
+func NewPartialUpdateError(msg string) *PartialUpdateError {
+	return &PartialUpdateError{message: msg}
+}
+
+func (e *PartialUpdateError) Error() string {
+	return e.message
 }

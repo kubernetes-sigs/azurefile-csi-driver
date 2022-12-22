@@ -30,13 +30,12 @@ import (
 	"time"
 	"unicode"
 
-	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients"
-
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/tracing"
-
 	"k8s.io/klog/v2"
+
+	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients"
 	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
 	"sigs.k8s.io/cloud-provider-azure/pkg/version"
 )
@@ -93,6 +92,20 @@ func sender() autorest.Sender {
 		}
 		j, _ := cookiejar.New(nil)
 		defaultSenders.sender = &http.Client{Jar: j, Transport: roundTripper}
+
+		// In go-autorest SDK https://github.com/Azure/go-autorest/blob/master/autorest/sender.go#L258-L287,
+		// if ARM returns http.StatusTooManyRequests, the sender doesn't increase the retry attempt count,
+		// hence the Azure clients will keep retrying forever until it get a status code other than 429.
+		// So we explicitly removes http.StatusTooManyRequests from autorest.StatusCodesForRetry.
+		// Refer https://github.com/Azure/go-autorest/issues/398.
+		// TODO(feiskyer): Use autorest.SendDecorator to customize the retry policy when new Azure SDK is available.
+		statusCodesForRetry := make([]int, 0)
+		for _, code := range autorest.StatusCodesForRetry {
+			if code != http.StatusTooManyRequests {
+				statusCodesForRetry = append(statusCodesForRetry, code)
+			}
+		}
+		autorest.StatusCodesForRetry = statusCodesForRetry
 	})
 	return defaultSenders.sender
 }

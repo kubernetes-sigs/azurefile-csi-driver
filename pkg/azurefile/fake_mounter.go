@@ -62,6 +62,15 @@ func (f *fakeMounter) IsLikelyNotMountPoint(file string) (bool, error) {
 	return true, nil
 }
 
+// IsMountPoint overrides mount.FakeMounter.IsMountPoint.
+func (f *fakeMounter) IsMountPoint(file string) (bool, error) {
+	notMnt, err := f.IsLikelyNotMountPoint(file)
+	if err != nil {
+		return false, err
+	}
+	return !notMnt, nil
+}
+
 // NewFakeMounter fake mounter
 func NewFakeMounter() (*mount.SafeFormatAndMount, error) {
 	if runtime.GOOS == "windows" {

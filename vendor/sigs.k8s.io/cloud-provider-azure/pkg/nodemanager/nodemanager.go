@@ -130,7 +130,7 @@ func NewCloudNodeController(
 
 	// Use shared informer to listen to add/update of nodes. Note that any nodes
 	// that exist before node controller starts will show up in the update method
-	cnc.nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = cnc.nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { cnc.AddCloudNode(context.TODO(), obj) },
 		UpdateFunc: func(oldObj, newObj interface{}) { cnc.UpdateCloudNode(context.TODO(), oldObj, newObj) },
 	})
@@ -237,7 +237,7 @@ func (cnc *CloudNodeController) updateNodeAddress(ctx context.Context, node *v1.
 
 	nodeAddresses, err := cnc.getNodeAddressesByName(ctx, node)
 	if err != nil {
-		return fmt.Errorf("Error getting node addresses for node %q: %v", node.Name, err)
+		return fmt.Errorf("getting node addresses for node %q: %w", node.Name, err)
 	}
 
 	if len(nodeAddresses) == 0 {
@@ -277,7 +277,7 @@ func (cnc *CloudNodeController) updateNodeAddress(ctx context.Context, node *v1.
 	newNode.Status.Addresses = nodeAddresses
 	_, _, err = PatchNodeStatus(cnc.kubeClient.CoreV1(), types.NodeName(node.Name), node, newNode)
 	if err != nil {
-		return fmt.Errorf("Error patching node with cloud ip addresses = [%v]", err)
+		return fmt.Errorf("patching node with cloud ip addresses: %w", err)
 	}
 
 	return nil

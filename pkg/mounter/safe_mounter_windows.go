@@ -241,6 +241,18 @@ func (mounter *csiProxyMounter) EvalHostSymlinks(pathname string) (string, error
 	return "", fmt.Errorf("EvalHostSymlinks not implemented for CSIProxyMounter")
 }
 
+func (mounter *csiProxyMounter) IsMountPoint(file string) (bool, error) {
+	isNotMnt, err := mounter.IsLikelyNotMountPoint(file)
+	if err != nil {
+		return false, err
+	}
+	return !isNotMnt, nil
+}
+
+func (mounter *csiProxyMounter) CanSafelySkipMountPointCheck() bool {
+	return false
+}
+
 func (mounter *csiProxyMounter) GetMountRefs(pathname string) ([]string, error) {
 	return []string{}, fmt.Errorf("GetMountRefs not implemented for CSIProxyMounter")
 }
