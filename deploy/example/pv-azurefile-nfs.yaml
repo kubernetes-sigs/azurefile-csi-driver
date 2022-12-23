@@ -12,7 +12,7 @@ spec:
   csi:
     driver: file.csi.azure.com
     readOnly: false
-    # make sure this volumeid is unique in the cluster
+    # make sure volumeid is unique for every identical share in the cluster
     # `#` is not allowed in self defined volumeHandle
     volumeHandle: unique-volumeid
     volumeAttributes:

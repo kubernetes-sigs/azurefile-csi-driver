@@ -147,6 +147,7 @@ spec:
   - gid=1000
   - mfsymlinks
   - nobrl
+  - nosharesock
 ```
 
 To update your mount options, create a *azurefile-mount-options-pv.yaml* file with a *PersistentVolume*. For example:
@@ -172,6 +173,7 @@ spec:
   - gid=1000
   - mfsymlinks
   - nobrl
+  - nosharesock
 ```
 
 Create a *azurefile-mount-options-pvc.yaml* file with a *PersistentVolumeClaim* that uses the *PersistentVolume*. For example:
