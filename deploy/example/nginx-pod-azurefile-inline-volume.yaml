@@ -23,4 +23,4 @@ spec:
         volumeAttributes:
           shareName: EXISTING_SHARE_NAME  # required
           secretName: azure-secret  # required
-          mountOptions: "dir_mode=0777,file_mode=0777,cache=strict,actimeo=30"  # optional
+          mountOptions: "dir_mode=0777,file_mode=0777,cache=strict,actimeo=30,nosharesock"  # optional
