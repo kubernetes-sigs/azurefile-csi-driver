@@ -678,7 +678,6 @@ func NewTestPod(c clientset.Interface, ns *v1.Namespace, command string, isWindo
 
 func (t *TestPod) Create() {
 	var err error
-
 	t.pod, err = t.client.CoreV1().Pods(t.namespace.Name).Create(context.TODO(), t.pod, metav1.CreateOptions{})
 	framework.ExpectNoError(err)
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Kubernetes Authors.
+Copyright 2022 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,32 +17,32 @@ limitations under the License.
 package testsuites
 
 import (
+	"context"
 	"time"
 
+	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 )
 
-// DynamicallyProvisionedDeletePodTest will provision required StorageClass and Deployment
+// DynamicallyProvisionedVolumeUnmountTest will provision required StorageClass and Deployment
 // Testing if the Pod can write and read to mounted volumes
-// Deleting a pod, and again testing if the Pod can write and read to mounted volumes
-type DynamicallyProvisionedDeletePodTest struct {
+// Delete the volume and check whether pod could be terminated successfully
+type DynamicallyProvisionedVolumeUnmountTest struct {
 	CSIDriver              driver.DynamicPVTestDriver
+	Azurefile              *azurefile.Driver
 	Pod                    PodDetails
 	PodCheck               *PodExecCheck
 	StorageClassParameters map[string]string
 }
 
-type PodExecCheck struct {
-	Cmd            []string
-	ExpectedString string
-}
-
-func (t *DynamicallyProvisionedDeletePodTest) Run(client clientset.Interface, namespace *v1.Namespace) {
-	tDeployment, cleanup, _ := t.Pod.SetupDeployment(client, namespace, t.CSIDriver, t.StorageClassParameters)
+func (t *DynamicallyProvisionedVolumeUnmountTest) Run(client clientset.Interface, namespace *v1.Namespace) {
+	tDeployment, cleanup, volumeID := t.Pod.SetupDeployment(client, namespace, t.CSIDriver, t.StorageClassParameters)
 	// defer must be called here for resources not get removed before using them
 	for i := range cleanup {
 		defer cleanup[i]()
@@ -60,16 +60,10 @@ func (t *DynamicallyProvisionedDeletePodTest) Run(client clientset.Interface, na
 		tDeployment.PollForStringInPodsExec(t.PodCheck.Cmd, t.PodCheck.ExpectedString)
 	}
 
+	ginkgo.By("delete volume " + volumeID + " first, make sure pod could still be terminated")
+	_, err := t.Azurefile.DeleteVolume(context.TODO(), &csi.DeleteVolumeRequest{VolumeId: volumeID})
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
 	ginkgo.By("deleting the pod for deployment")
 	tDeployment.DeletePodAndWait()
-
-	ginkgo.By("checking again that the pod is running")
-	tDeployment.WaitForPodReady()
-
-	if t.PodCheck != nil {
-		time.Sleep(time.Second)
-		ginkgo.By("sleep 1s and then check pod exec")
-		// pod will be restarted so expect to see 2 instances of string
-		tDeployment.PollForStringInPodsExec(t.PodCheck.Cmd, t.PodCheck.ExpectedString)
-	}
 }
