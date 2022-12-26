@@ -32,7 +32,7 @@ require (
 	k8s.io/kubernetes v1.26.0
 	k8s.io/mount-utils v0.0.0
 	k8s.io/utils v0.0.0-20221128185143-99ec85e7a448
-	sigs.k8s.io/cloud-provider-azure v1.26.1-0.20221221045724-c33f413c0ef5
+	sigs.k8s.io/cloud-provider-azure v1.26.1-0.20221226030127-09debc3744cf
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -166,5 +166,4 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.26.0
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.26.0
 	k8s.io/sample-controller => k8s.io/sample-controller v0.26.0
-	sigs.k8s.io/cloud-provider-azure => ../cloud-provider-azure
 )
