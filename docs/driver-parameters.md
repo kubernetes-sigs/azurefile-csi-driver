@@ -72,6 +72,7 @@ volumeAttributes.shareName | Azure file share name | existing Azure file share n
 volumeAttributes.folderName | specify folder name in Azure file share | existing folder name in Azure file share | No | if folder name does not exist in file share, mount would fail
 volumeAttributes.protocol | specify file share protocol | `smb`, `nfs` | No | `smb`
 volumeAttributes.server | specify Azure storage account server address | existing server address, e.g. `accountname.privatelink.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
+volumeHandle | a value the driver can use to uniquely identify the share in the cluster. | A recommended way to produce a unique value is to combine the globally unique name storage account name and the name of the share: `{account-name}_{file-share-name}`  e.g. `mystorageaccount_some-azure-files-share`. Be aware the character `#` is reserved for internal use and cannot be used in a volume handle. | Yes |
 --- | **Following parameters are only for SMB protocol** | --- | --- |
 volumeAttributes.secretName | secret name that stores storage account name and key | | No |
 volumeAttributes.secretNamespace | secret namespace | `default`,`kube-system`, etc | No | pvc namespace (`csi.storage.k8s.io/pvc/namespace`)
