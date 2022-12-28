@@ -64,6 +64,24 @@ func (t *DynamicallyProvisionedVolumeUnmountTest) Run(client clientset.Interface
 	_, err := t.Azurefile.DeleteVolume(context.TODO(), &csi.DeleteVolumeRequest{VolumeId: volumeID})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
+	ginkgo.By("check whether " + volumeID + " exists")
+	multiNodeVolCap := []*csi.VolumeCapability{
+		{
+			AccessMode: &csi.VolumeCapability_AccessMode{
+				Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_SINGLE_WRITER,
+			},
+		},
+	}
+	req := &csi.ValidateVolumeCapabilitiesRequest{
+		VolumeId:           volumeID,
+		VolumeCapabilities: multiNodeVolCap,
+	}
+
+	if _, err = t.Azurefile.ValidateVolumeCapabilities(context.TODO(), req); err != nil {
+		ginkgo.By("ValidateVolumeCapabilities " + volumeID + " returned with error: " + err.Error())
+	}
+	gomega.Expect(err).To(gomega.HaveOccurred())
+
 	ginkgo.By("deleting the pod for deployment")
 	tDeployment.DeletePodAndWait()
 }
