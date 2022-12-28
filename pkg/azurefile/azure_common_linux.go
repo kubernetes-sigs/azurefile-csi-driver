@@ -22,7 +22,6 @@ package azurefile
 import (
 	"os"
 
-	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
 )
 
@@ -39,10 +38,6 @@ func RemoveStageTarget(m *mount.SafeFormatAndMount, target string) error {
 }
 
 func CleanupSMBMountPoint(m *mount.SafeFormatAndMount, target string, extensiveMountCheck bool) error {
-	// unmount first since if remote SMB directory is not found, linked path cannot be deleted if not mounted
-	if err := m.Unmount(target); err != nil {
-		klog.Errorf("Unmount(%s) failed with %v", target, err)
-	}
 	return CleanupMountPoint(m, target, extensiveMountCheck)
 }
 
