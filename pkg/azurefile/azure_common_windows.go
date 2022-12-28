@@ -34,16 +34,6 @@ func SMBMount(m *mount.SafeFormatAndMount, source, target, fsType string, mountO
 	return fmt.Errorf("could not cast to csi proxy class")
 }
 
-// CleanupSMBMountPoint - In windows CSI proxy call to umount is used to unmount the SMB.
-// The clean up mount point point calls is supposed for fix the corrupted directories as well.
-// For alpha CSI proxy integration, we only do an unmount.
-func CleanupSMBMountPoint(m *mount.SafeFormatAndMount, target string, extensiveMountCheck bool) error {
-	if proxy, ok := m.Interface.(mounter.CSIProxyMounter); ok {
-		return proxy.SMBUnmount(target)
-	}
-	return fmt.Errorf("could not cast to csi proxy class")
-}
-
 func CleanupMountPoint(m *mount.SafeFormatAndMount, target string, extensiveMountCheck bool) error {
 	if proxy, ok := m.Interface.(mounter.CSIProxyMounter); ok {
 		return proxy.Rmdir(target)

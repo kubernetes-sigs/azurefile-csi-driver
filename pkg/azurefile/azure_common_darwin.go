@@ -27,10 +27,6 @@ func SMBMount(m *mount.SafeFormatAndMount, source, target, fsType string, option
 	return nil
 }
 
-func CleanupSMBMountPoint(m *mount.SafeFormatAndMount, target string, extensiveMountCheck bool) error {
-	return nil
-}
-
 func CleanupMountPoint(m *mount.SafeFormatAndMount, target string, extensiveMountCheck bool) error {
 	return nil
 }

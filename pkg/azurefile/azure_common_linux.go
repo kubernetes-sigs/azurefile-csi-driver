@@ -27,10 +27,6 @@ func SMBMount(m *mount.SafeFormatAndMount, source, target, fsType string, option
 	return m.MountSensitive(source, target, fsType, options, sensitiveMountOptions)
 }
 
-func CleanupSMBMountPoint(m *mount.SafeFormatAndMount, target string, extensiveMountCheck bool) error {
-	return CleanupMountPoint(m, target, extensiveMountCheck)
-}
-
 func CleanupMountPoint(m *mount.SafeFormatAndMount, target string, extensiveMountCheck bool) error {
 	return mount.CleanupMountPoint(target, m, extensiveMountCheck)
 }
