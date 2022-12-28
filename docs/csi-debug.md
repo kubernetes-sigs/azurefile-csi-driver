@@ -95,6 +95,20 @@ sudo mount -v -t cifs //accountname.file.core.windows.net/filesharename /tmp/tes
 ```
 
 <details><summary>
+Get client-side logs on AKS Linux node if there is mount error 
+</summary>
+
+```console
+# get ama-logs pod which is running on the AKS Linux node
+kubectl get po -n kube-system -o wide | grep ama-logs
+kubectl -n kube-system cp ama-logs-xxxx:/var/log/messages /tmp/messages
+kubectl -n kube-system cp ama-logs-xxxx:/var/log/syslog /tmp/syslog
+kubectl -n kube-system cp ama-logs-xxxx:/var/log/kern.log /tmp/kern.log
+```
+
+</details>
+
+<details><summary>
 Get client-side logs on Linux node if there is mount error 
 </summary>
 
