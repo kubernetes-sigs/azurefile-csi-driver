@@ -42,7 +42,6 @@ type CSIProxyMounter interface {
 	mount.Interface
 
 	SMBMount(source, target, fsType string, mountOptions, sensitiveMountOptions []string) error
-	SMBUnmount(target string) error
 	MakeDir(path string) error
 	Rmdir(path string) error
 	IsMountPointMatch(mp mount.MountPoint, dir string) bool
@@ -100,13 +99,6 @@ func (mounter *csiProxyMounter) SMBMount(source, target, fsType string, mountOpt
 	}
 	klog.V(2).Infof("mount %s on %s successfully", source, normalizedTarget)
 	return nil
-}
-
-func (mounter *csiProxyMounter) SMBUnmount(target string) error {
-	klog.V(4).Infof("SMBUnmount: local path: %s", target)
-	// TODO: We need to remove the SMB mapping. The change to remove the
-	// directory brings the CSI code in parity with the in-tree.
-	return mounter.Rmdir(target)
 }
 
 // Mount just creates a soft link at target pointing to source.

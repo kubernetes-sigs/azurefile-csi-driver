@@ -20,24 +20,10 @@ limitations under the License.
 package azurefile
 
 import (
-	"os"
-
 	mount "k8s.io/mount-utils"
 )
 
 func SMBMount(m *mount.SafeFormatAndMount, source, target, fsType string, options, sensitiveMountOptions []string) error {
-	return nil
-}
-
-func SMBUnmount(m *mount.SafeFormatAndMount, target string) error {
-	return nil
-}
-
-func RemoveStageTarget(m *mount.SafeFormatAndMount, target string) error {
-	return os.Remove(target)
-}
-
-func CleanupSMBMountPoint(m *mount.SafeFormatAndMount, target string, extensiveMountCheck bool) error {
 	return nil
 }
 
