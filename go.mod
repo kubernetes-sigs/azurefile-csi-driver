@@ -32,7 +32,7 @@ require (
 	k8s.io/kubernetes v1.26.0
 	k8s.io/mount-utils v0.0.0
 	k8s.io/utils v0.0.0-20221128185143-99ec85e7a448
-	sigs.k8s.io/cloud-provider-azure v1.26.1-0.20221226030127-09debc3744cf
+	sigs.k8s.io/cloud-provider-azure v1.26.1-0.20221229055728-9863f3ea9b18
 	sigs.k8s.io/yaml v1.3.0
 )
 
