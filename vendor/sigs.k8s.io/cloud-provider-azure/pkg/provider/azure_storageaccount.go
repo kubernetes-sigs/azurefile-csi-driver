@@ -36,8 +36,14 @@ import (
 // SkipMatchingTag skip account matching tag
 const SkipMatchingTag = "skip-matching"
 const LocationGlobal = "global"
-const GroupIDFile = "file"
-const privateDNSZonePrefix = "privatelink.file."
+const privateDNSZoneNameFmt = "privatelink.%s.%s"
+
+type StorageType string
+
+const (
+	StorageTypeBlob StorageType = "blob"
+	StorageTypeFile StorageType = "file"
+)
 
 // AccountOptions contains the fields which are used to create storage account.
 type AccountOptions struct {
@@ -48,6 +54,8 @@ type AccountOptions struct {
 	CreateAccount                           bool
 	EnableLargeFileShare                    bool
 	CreatePrivateEndpoint                   bool
+	StorageType                             StorageType
+	StorageEndpointSuffix                   string
 	DisableFileServiceDeleteRetentionPolicy bool
 	IsHnsEnabled                            *bool
 	EnableNfsV3                             *bool
@@ -160,6 +168,23 @@ func (az *Cloud) EnsureStorageAccount(ctx context.Context, accountOptions *Accou
 		subsID = accountOptions.SubscriptionID
 	}
 
+	if location == "" {
+		location = az.Location
+	}
+
+	var privateDNSZoneName string
+	if accountOptions.CreatePrivateEndpoint {
+		if accountOptions.StorageType == "" {
+			klog.V(2).Info("set StorageType as file when not specified")
+			accountOptions.StorageType = StorageTypeFile
+		}
+
+		if len(accountOptions.StorageEndpointSuffix) == 0 {
+			accountOptions.StorageEndpointSuffix = az.cloud.Environment.StorageEndpointSuffix
+		}
+		privateDNSZoneName = fmt.Sprintf(privateDNSZoneNameFmt, accountOptions.StorageType, accountOptions.StorageEndpointSuffix)
+	}
+
 	if len(accountOptions.Tags) == 0 {
 		accountOptions.Tags = make(map[string]string)
 	}
@@ -205,20 +230,19 @@ func (az *Cloud) EnsureStorageAccount(ctx context.Context, accountOptions *Accou
 	}
 
 	if accountOptions.CreatePrivateEndpoint {
-		privateDNSZoneName := privateDNSZonePrefix + az.cloud.Environment.StorageEndpointSuffix
 		if _, err := az.privatednsclient.Get(ctx, vnetResourceGroup, privateDNSZoneName); err != nil {
 			klog.V(2).Infof("get private dns zone %s returned with %v", privateDNSZoneName, err.Error())
 			// Create DNS zone first, this could make sure driver has write permission on vnetResourceGroup
-			if err := az.createPrivateDNSZone(ctx, vnetResourceGroup); err != nil {
+			if err := az.createPrivateDNSZone(ctx, vnetResourceGroup, privateDNSZoneName); err != nil {
 				return "", "", fmt.Errorf("create private DNS zone(%s) in resourceGroup(%s): %w", privateDNSZoneName, vnetResourceGroup, err)
 			}
 		}
 
 		// Create virtual link to the private DNS zone
-		vNetLinkName := accountName + "-vnetlink"
+		vNetLinkName := vnetName + "-vnetlink"
 		if _, err := az.virtualNetworkLinksClient.Get(ctx, vnetResourceGroup, privateDNSZoneName, vNetLinkName); err != nil {
 			klog.V(2).Infof("get virtual link for vnet(%s) and DNS Zone(%s) returned with %v", vnetName, privateDNSZoneName, err.Error())
-			if err := az.createVNetLink(ctx, vNetLinkName, vnetResourceGroup, vnetName); err != nil {
+			if err := az.createVNetLink(ctx, vNetLinkName, vnetResourceGroup, vnetName, privateDNSZoneName); err != nil {
 				return "", "", fmt.Errorf("create virtual link for vnet(%s) and DNS Zone(%s) in resourceGroup(%s): %w", vnetName, privateDNSZoneName, vnetResourceGroup, err)
 			}
 		}
@@ -249,9 +273,6 @@ func (az *Cloud) EnsureStorageAccount(ctx context.Context, accountOptions *Accou
 			}
 		}
 
-		if location == "" {
-			location = az.Location
-		}
 		if accountType == "" {
 			accountType = consts.DefaultStorageAccountType
 		}
@@ -352,25 +373,31 @@ func (az *Cloud) EnsureStorageAccount(ctx context.Context, accountOptions *Accou
 			klog.V(2).Infof("set AccessTier(%s) on account(%s), subscription(%s), resource group(%s)", accountOptions.AccessTier, accountName, subsID, resourceGroup)
 			cp.AccountPropertiesCreateParameters.AccessTier = storage.AccessTier(accountOptions.AccessTier)
 		}
+	}
 
-		if accountOptions.CreatePrivateEndpoint {
-			// Get properties of the storageAccount
-			storageAccount, err := az.StorageAccountClient.GetProperties(ctx, subsID, resourceGroup, accountName)
-			if err != nil {
-				return "", "", fmt.Errorf("Failed to get the properties of storage account(%s), resourceGroup(%s), error: %v", accountName, resourceGroup, err)
-			}
+	if accountOptions.CreatePrivateEndpoint {
+		// Get properties of the storageAccount
+		storageAccount, err := az.StorageAccountClient.GetProperties(ctx, subsID, resourceGroup, accountName)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get the properties of storage account(%s), resourceGroup(%s), error: %v", accountName, resourceGroup, err)
+		}
 
-			// Create private endpoint
-			privateEndpointName := accountName + "-pvtendpoint"
-			if err := az.createPrivateEndpoint(ctx, accountName, storageAccount.ID, privateEndpointName, vnetResourceGroup, vnetName, subnetName, location); err != nil {
-				return "", "", fmt.Errorf("create private endpoint for storage account(%s), resourceGroup(%s): %w", accountName, vnetResourceGroup, err)
-			}
+		// Create private endpoint
+		privateEndpointName := accountName + "-pvtendpoint"
+		if accountOptions.StorageType == StorageTypeBlob {
+			privateEndpointName = privateEndpointName + "-blob"
+		}
+		if err := az.createPrivateEndpoint(ctx, accountName, storageAccount.ID, privateEndpointName, vnetResourceGroup, vnetName, subnetName, location, accountOptions.StorageType); err != nil {
+			return "", "", fmt.Errorf("create private endpoint for storage account(%s), resourceGroup(%s): %w", accountName, vnetResourceGroup, err)
+		}
 
-			// Create dns zone group
-			dnsZoneGroupName := accountName + "-dnszonegroup"
-			if err := az.createPrivateDNSZoneGroup(ctx, dnsZoneGroupName, privateEndpointName, vnetResourceGroup, vnetName); err != nil {
-				return "", "", fmt.Errorf("create private DNS zone group - privateEndpoint(%s), vNetName(%s), resourceGroup(%s): %w", privateEndpointName, vnetName, vnetResourceGroup, err)
-			}
+		// Create dns zone group
+		dnsZoneGroupName := accountName + "-dnszonegroup"
+		if accountOptions.StorageType == StorageTypeBlob {
+			dnsZoneGroupName = dnsZoneGroupName + "-blob"
+		}
+		if err := az.createPrivateDNSZoneGroup(ctx, dnsZoneGroupName, privateEndpointName, vnetResourceGroup, vnetName, privateDNSZoneName); err != nil {
+			return "", "", fmt.Errorf("create private DNS zone group - privateEndpoint(%s), vNetName(%s), resourceGroup(%s): %w", privateEndpointName, vnetName, vnetResourceGroup, err)
 		}
 	}
 
@@ -383,7 +410,7 @@ func (az *Cloud) EnsureStorageAccount(ctx context.Context, accountOptions *Accou
 	return accountName, accountKey, nil
 }
 
-func (az *Cloud) createPrivateEndpoint(ctx context.Context, accountName string, accountID *string, privateEndpointName, vnetResourceGroup, vnetName, subnetName, location string) error {
+func (az *Cloud) createPrivateEndpoint(ctx context.Context, accountName string, accountID *string, privateEndpointName, vnetResourceGroup, vnetName, subnetName, location string, storageType StorageType) error {
 	klog.V(2).Infof("Creating private endpoint(%s) for account (%s)", privateEndpointName, accountName)
 
 	subnet, _, err := az.getSubnet(vnetName, subnetName)
@@ -402,10 +429,13 @@ func (az *Cloud) createPrivateEndpoint(ctx context.Context, accountName string, 
 
 	//Create private endpoint
 	privateLinkServiceConnectionName := accountName + "-pvtsvcconn"
+	if storageType == StorageTypeBlob {
+		privateLinkServiceConnectionName = privateLinkServiceConnectionName + "-blob"
+	}
 	privateLinkServiceConnection := network.PrivateLinkServiceConnection{
 		Name: &privateLinkServiceConnectionName,
 		PrivateLinkServiceConnectionProperties: &network.PrivateLinkServiceConnectionProperties{
-			GroupIds:             &[]string{GroupIDFile},
+			GroupIds:             &[]string{string(storageType)},
 			PrivateLinkServiceID: accountID,
 		},
 	}
@@ -418,8 +448,7 @@ func (az *Cloud) createPrivateEndpoint(ctx context.Context, accountName string, 
 	return az.privateendpointclient.CreateOrUpdate(ctx, vnetResourceGroup, privateEndpointName, privateEndpoint, "", true).Error()
 }
 
-func (az *Cloud) createPrivateDNSZone(ctx context.Context, vnetResourceGroup string) error {
-	privateDNSZoneName := privateDNSZonePrefix + az.cloud.Environment.StorageEndpointSuffix
+func (az *Cloud) createPrivateDNSZone(ctx context.Context, vnetResourceGroup, privateDNSZoneName string) error {
 	klog.V(2).Infof("Creating private dns zone(%s) in resourceGroup (%s)", privateDNSZoneName, vnetResourceGroup)
 	location := LocationGlobal
 	privateDNSZone := privatedns.PrivateZone{Location: &location}
@@ -433,8 +462,7 @@ func (az *Cloud) createPrivateDNSZone(ctx context.Context, vnetResourceGroup str
 	return nil
 }
 
-func (az *Cloud) createVNetLink(ctx context.Context, vNetLinkName, vnetResourceGroup, vnetName string) error {
-	privateDNSZoneName := privateDNSZonePrefix + az.cloud.Environment.StorageEndpointSuffix
+func (az *Cloud) createVNetLink(ctx context.Context, vNetLinkName, vnetResourceGroup, vnetName, privateDNSZoneName string) error {
 	klog.V(2).Infof("Creating virtual link for vnet(%s) and DNS Zone(%s) in resourceGroup(%s)", vNetLinkName, privateDNSZoneName, vnetResourceGroup)
 	location := LocationGlobal
 	vnetID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s", az.SubscriptionID, vnetResourceGroup, vnetName)
@@ -442,18 +470,16 @@ func (az *Cloud) createVNetLink(ctx context.Context, vNetLinkName, vnetResourceG
 		Location: &location,
 		VirtualNetworkLinkProperties: &privatedns.VirtualNetworkLinkProperties{
 			VirtualNetwork:      &privatedns.SubResource{ID: &vnetID},
-			RegistrationEnabled: to.BoolPtr(true)},
+			RegistrationEnabled: to.BoolPtr(false)},
 	}
 	return az.virtualNetworkLinksClient.CreateOrUpdate(ctx, vnetResourceGroup, privateDNSZoneName, vNetLinkName, parameters, "", false).Error()
 }
 
-func (az *Cloud) createPrivateDNSZoneGroup(ctx context.Context, dnsZoneGroupName, privateEndpointName, vnetResourceGroup, vnetName string) error {
+func (az *Cloud) createPrivateDNSZoneGroup(ctx context.Context, dnsZoneGroupName, privateEndpointName, vnetResourceGroup, vnetName, privateDNSZoneName string) error {
 	klog.V(2).Infof("Creating private DNS zone group(%s) with privateEndpoint(%s), vNetName(%s), resourceGroup(%s)", dnsZoneGroupName, privateEndpointName, vnetName, vnetResourceGroup)
-	privateDNSZoneName := privateDNSZonePrefix + az.cloud.Environment.StorageEndpointSuffix
 	privateDNSZoneID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/privateDnsZones/%s", az.SubscriptionID, vnetResourceGroup, privateDNSZoneName)
-	dnsZoneName := privateDNSZoneName
 	privateDNSZoneConfig := network.PrivateDNSZoneConfig{
-		Name: &dnsZoneName,
+		Name: &privateDNSZoneName,
 		PrivateDNSZonePropertiesFormat: &network.PrivateDNSZonePropertiesFormat{
 			PrivateDNSZoneID: &privateDNSZoneID},
 	}

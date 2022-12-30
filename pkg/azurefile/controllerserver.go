@@ -42,6 +42,7 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	"sigs.k8s.io/cloud-provider-azure/pkg/metrics"
+	"sigs.k8s.io/cloud-provider-azure/pkg/provider"
 	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
 )
 
@@ -300,10 +301,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			vnetResourceID := d.getSubnetResourceID(vnetResourceGroup, vnetName, subnetName)
 			klog.V(2).Infof("set vnetResourceID(%s) for NFS protocol", vnetResourceID)
 			vnetResourceIDs = []string{vnetResourceID}
-			if account == "" {
-				if err := d.updateSubnetServiceEndpoints(ctx, vnetResourceGroup, vnetName, subnetName); err != nil {
-					return nil, status.Errorf(codes.Internal, "update service endpoints failed with error: %v", err)
-				}
+			if err := d.updateSubnetServiceEndpoints(ctx, vnetResourceGroup, vnetName, subnetName); err != nil {
+				return nil, status.Errorf(codes.Internal, "update service endpoints failed with error: %v", err)
 			}
 		}
 	}
@@ -345,6 +344,17 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
+	if strings.TrimSpace(storageEndpointSuffix) == "" {
+		if d.cloud.Environment.StorageEndpointSuffix != "" {
+			storageEndpointSuffix = d.cloud.Environment.StorageEndpointSuffix
+		} else {
+			storageEndpointSuffix = defaultStorageEndPointSuffix
+		}
+	}
+	if d.fileClient != nil {
+		d.fileClient.StorageEndpointSuffix = storageEndpointSuffix
+	}
+
 	accountOptions := &azure.AccountOptions{
 		Name:                                    account,
 		Type:                                    sku,
@@ -366,6 +376,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		SubnetName:                              subnetName,
 		RequireInfrastructureEncryption:         requireInfraEncryption,
 		AccessTier:                              accountAccessTier,
+		StorageType:                             provider.StorageTypeFile,
+		StorageEndpointSuffix:                   storageEndpointSuffix,
 	}
 
 	var accountKey, lockKey string
@@ -407,16 +419,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
-	if strings.TrimSpace(storageEndpointSuffix) == "" {
-		if d.cloud.Environment.StorageEndpointSuffix != "" {
-			storageEndpointSuffix = d.cloud.Environment.StorageEndpointSuffix
-		} else {
-			storageEndpointSuffix = defaultStorageEndPointSuffix
-		}
-	}
-	if d.fileClient != nil {
-		d.fileClient.StorageEndpointSuffix = storageEndpointSuffix
-	}
 	if createPrivateEndpoint {
 		setKeyValueInMap(parameters, serverNameField, fmt.Sprintf("%s.privatelink.file.%s", accountName, storageEndpointSuffix))
 	}
