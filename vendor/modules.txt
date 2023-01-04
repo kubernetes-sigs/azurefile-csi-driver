@@ -1227,7 +1227,7 @@ k8s.io/utils/trace
 ## explicit; go 1.17
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client
-# sigs.k8s.io/cloud-provider-azure v1.26.1-0.20221229055728-9863f3ea9b18
+# sigs.k8s.io/cloud-provider-azure v1.26.1-0.20230104031958-dcec04fff54c
 ## explicit; go 1.19
 sigs.k8s.io/cloud-provider-azure/pkg/auth
 sigs.k8s.io/cloud-provider-azure/pkg/azureclients
@@ -1277,6 +1277,7 @@ sigs.k8s.io/cloud-provider-azure/pkg/consts
 sigs.k8s.io/cloud-provider-azure/pkg/metrics
 sigs.k8s.io/cloud-provider-azure/pkg/nodemanager
 sigs.k8s.io/cloud-provider-azure/pkg/provider
+sigs.k8s.io/cloud-provider-azure/pkg/provider/config
 sigs.k8s.io/cloud-provider-azure/pkg/provider/virtualmachine
 sigs.k8s.io/cloud-provider-azure/pkg/retry
 sigs.k8s.io/cloud-provider-azure/pkg/util/deepcopy
