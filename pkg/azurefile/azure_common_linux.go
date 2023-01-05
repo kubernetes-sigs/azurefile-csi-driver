@@ -20,6 +20,9 @@ limitations under the License.
 package azurefile
 
 import (
+	"time"
+
+	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
 )
 
@@ -28,7 +31,16 @@ func SMBMount(m *mount.SafeFormatAndMount, source, target, fsType string, option
 }
 
 func CleanupMountPoint(m *mount.SafeFormatAndMount, target string, extensiveMountCheck bool) error {
-	return mount.CleanupMountPoint(target, m, extensiveMountCheck)
+	var err error
+	extensiveMountPointCheck := true
+	forceUnmounter, ok := m.Interface.(mount.MounterForceUnmounter)
+	if ok {
+		klog.V(2).Infof("force unmount on %s", target)
+		err = mount.CleanupMountWithForce(target, forceUnmounter, extensiveMountPointCheck, 30*time.Second)
+	} else {
+		err = mount.CleanupMountPoint(target, m.Interface, extensiveMountPointCheck)
+	}
+	return err
 }
 
 func preparePublishPath(path string, m *mount.SafeFormatAndMount) error {
