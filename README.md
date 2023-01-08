@@ -22,25 +22,25 @@ Disclaimer: Deploying this driver manually is not an officially supported Micros
 ### Driver parameters
 Please refer to [driver parameters](./docs/driver-parameters.md)
 
-### Set up CSI driver on AKS cluster (only for AKS users)
-
-follow guide [here](./docs/install-driver-on-aks.md)
-
 ### Prerequisite
 #### Option#1: Provide cloud provider config with Azure credentials
- - This option depends on [cloud provider config file](https://github.com/kubernetes/cloud-provider-azure/blob/master/docs/cloud-provider-config.md), usually it's `/etc/kubernetes/azure.json` on agent nodes deployed by [AKS](https://docs.microsoft.com/en-us/azure/aks/) or [aks-engine](https://github.com/Azure/aks-engine), here is [azure.json example](./deploy/example/azure.json). <details> <summary>specify a different cloud provider config file</summary></br>create `azure-cred-file` configmap before driver installation, e.g. for OpenShift, it's `/etc/kubernetes/cloud.conf` (make sure config file path is in the `volumeMounts.mountPath`)
-</br><pre>```kubectl create configmap azure-cred-file --from-literal=path="/etc/kubernetes/cloud.conf" --from-literal=path-windows="C:\\k\\cloud.conf" -n kube-system```</pre></details>
-
- - This driver also supports [read cloud config from kubernetes secret](./docs/read-from-secret.md) as first priority
- - Make sure identity used by driver has `Contributor` role on node resource group and vnet resource group
- - [How to set up CSI driver on Azure RedHat OpenShift(ARO)](https://github.com/ezYakaEagle442/aro-pub-storage/blob/master/setup-store-CSI-driver-azure-file.md)
+ - This option depends on [cloud provider config file](https://github.com/kubernetes/cloud-provider-azure/blob/master/docs/cloud-provider-config.md) (here is [config example](./deploy/example/azure.json)), config file path on different clusters:
+   - [AKS](https://docs.microsoft.com/en-us/azure/aks/), [capz](https://github.com/kubernetes-sigs/cluster-api-provider-azure), [aks-engine](https://github.com/Azure/aks-engine): `/etc/kubernetes/azure.json`
+   - [Azure RedHat OpenShift](https://docs.openshift.com/container-platform/4.11/storage/container_storage_interface/persistent-storage-csi-azure-file.html): `/etc/kubernetes/cloud.conf`
+ - <details> <summary>specify a different config file path via configmap</summary></br>create configmap "azure-cred-file" before driver starts up</br><pre>kubectl create configmap azure-cred-file --from-literal=path="/etc/kubernetes/cloud.conf" --from-literal=path-windows="C:\\k\\cloud.conf" -n kube-system</pre></details>
+ - Cloud provider config can also be specified via kubernetes secret, check details [here](./docs/read-from-secret.md)
+ - Make sure identity used by driver has `Contributor` role on node resource group and virtual network resource group
 
 #### Option#2: Bring your own storage account (only for SMB protocol)
 This option does not depend on cloud provider config file, supports cross subscription and on-premise cluster scenario. Refer to [detailed steps](./deploy/example/e2e_usage.md#option2-bring-your-own-storage-account-only-for-smb-protocol).
 
 ### Install driver on a Kubernetes cluster
- - install by [kubectl](./docs/install-azurefile-csi-driver.md) (please use helm for RedHat/CentOS)
- - install by [helm charts](./charts) (supports RedHat/CentOS)
+ - install by [helm charts](./charts)
+ - install by [kubectl](./docs/install-azurefile-csi-driver.md)
+ - install open source csi driver on AKS, follow guide [here](./docs/install-driver-on-aks.md)
+ - install managed csi driver on following platforms:
+   - [AKS](https://learn.microsoft.com/en-us/azure/aks/csi-storage-drivers)
+   - [Azure RedHat OpenShift](https://docs.openshift.com/container-platform/4.11/storage/container_storage_interface/persistent-storage-csi-azure-file.html)
 
 ### Examples
  - [Basic usage](./deploy/example/e2e_usage.md)
