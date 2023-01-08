@@ -45,7 +45,7 @@ func CleanupMountPoint(m *mount.SafeFormatAndMount, target string, extensiveMoun
 	}
 
 	if err != nil && strings.Contains(err.Error(), "target is busy") {
-		klog.V(2).Infof("unmount on %s failed with %v, try lazy unmount", target, err)
+		klog.Warningf("unmount on %s failed with %v, try lazy unmount", target, err)
 		err = forceUmount(target)
 	}
 	return err
