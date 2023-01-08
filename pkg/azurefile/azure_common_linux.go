@@ -20,6 +20,9 @@ limitations under the License.
 package azurefile
 
 import (
+	"fmt"
+	"os/exec"
+	"strings"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -40,6 +43,11 @@ func CleanupMountPoint(m *mount.SafeFormatAndMount, target string, extensiveMoun
 	} else {
 		err = mount.CleanupMountPoint(target, m.Interface, extensiveMountPointCheck)
 	}
+
+	if err != nil && strings.Contains(err.Error(), "target is busy") {
+		klog.V(2).Infof("unmount on %s failed with %v, try lazy unmount", target, err)
+		err = forceUmount(target)
+	}
 	return err
 }
 
@@ -48,5 +56,14 @@ func preparePublishPath(path string, m *mount.SafeFormatAndMount) error {
 }
 
 func prepareStagePath(path string, m *mount.SafeFormatAndMount) error {
+	return nil
+}
+
+func forceUmount(path string) error {
+	cmd := exec.Command("umount", "-lf", path)
+	out, cmderr := cmd.CombinedOutput()
+	if cmderr != nil {
+		return fmt.Errorf("lazy unmount on %s failed with %v, output: %s", path, cmderr, string(out))
+	}
 	return nil
 }
