@@ -386,7 +386,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		if v, ok := d.volMap.Load(volName); ok {
 			accountName = v.(string)
 		} else {
-			lockKey = fmt.Sprintf("%s%s%s%s%s%v", sku, accountKind, resourceGroup, location, protocol, createPrivateEndpoint)
+			lockKey = fmt.Sprintf("%s%s%s%s%s%v%v%v", sku, accountKind, resourceGroup, location, protocol,
+				createPrivateEndpoint, pointer.BoolDeref(allowBlobPublicAccess, false), pointer.BoolDeref(requireInfraEncryption, false))
 			// search in cache first
 			cache, err := d.accountSearchCache.Get(lockKey, azcache.CacheReadTypeDefault)
 			if err != nil {
