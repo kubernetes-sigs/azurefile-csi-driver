@@ -113,9 +113,9 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 	var sku, subsID, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
 	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, shareAccessTier, accountAccessTier, rootSquashType string
-	var createAccount, useDataPlaneAPI, useSeretCache, disableDeleteRetentionPolicy, enableLFS, matchTags bool
+	var createAccount, useDataPlaneAPI, useSeretCache, matchTags bool
 	var vnetResourceGroup, vnetName, subnetName, shareNamePrefix, fsGroupChangePolicy string
-	var requireInfraEncryption *bool
+	var requireInfraEncryption, disableDeleteRetentionPolicy, enableLFS *bool
 	// set allowBlobPublicAccess as false by default
 	allowBlobPublicAccess := pointer.Bool(false)
 
@@ -164,11 +164,19 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case useSecretCacheField:
 			useSeretCache = strings.EqualFold(v, trueValue)
 		case enableLargeFileSharesField:
-			enableLFS = strings.EqualFold(v, trueValue)
+			value, err := strconv.ParseBool(v)
+			if err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s: %s in storage class", enableLargeFileSharesField, v))
+			}
+			enableLFS = &value
 		case useDataPlaneAPIField:
 			useDataPlaneAPI = strings.EqualFold(v, trueValue)
 		case disableDeleteRetentionPolicyField:
-			disableDeleteRetentionPolicy = strings.EqualFold(v, trueValue)
+			value, err := strconv.ParseBool(v)
+			if err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s: %s in storage class", disableDeleteRetentionPolicyField, v))
+			}
+			disableDeleteRetentionPolicy = &value
 		case pvcNamespaceKey:
 			pvcNamespace = v
 			fileShareNameReplaceMap[pvcNamespaceMetadata] = v
@@ -185,9 +193,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case rootSquashTypeField:
 			rootSquashType = v
 		case allowBlobPublicAccessField:
-			if strings.EqualFold(v, trueValue) {
-				allowBlobPublicAccess = pointer.Bool(true)
+			value, err := strconv.ParseBool(v)
+			if err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s: %s in storage class", allowBlobPublicAccessField, v))
 			}
+			allowBlobPublicAccess = &value
 		case pvcNameKey:
 			fileShareNameReplaceMap[pvcNameMetadata] = v
 		case pvNameKey:
@@ -214,9 +224,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case shareNamePrefixField:
 			shareNamePrefix = v
 		case requireInfraEncryptionField:
-			if strings.EqualFold(v, trueValue) {
-				requireInfraEncryption = pointer.Bool(true)
+			value, err := strconv.ParseBool(v)
+			if err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s: %s in storage class", requireInfraEncryptionField, v))
 			}
+			requireInfraEncryption = &value
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid parameter %q in storage class", k))
 		}
@@ -386,8 +398,9 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		if v, ok := d.volMap.Load(volName); ok {
 			accountName = v.(string)
 		} else {
-			lockKey = fmt.Sprintf("%s%s%s%s%s%v%v%v", sku, accountKind, resourceGroup, location, protocol,
-				createPrivateEndpoint, pointer.BoolDeref(allowBlobPublicAccess, false), pointer.BoolDeref(requireInfraEncryption, false))
+			lockKey = fmt.Sprintf("%s%s%s%s%s%s%s%v%v%v%v%v", sku, accountKind, resourceGroup, location, protocol, subsID, accountAccessTier,
+				createPrivateEndpoint, pointer.BoolDeref(allowBlobPublicAccess, false), pointer.BoolDeref(requireInfraEncryption, false),
+				pointer.BoolDeref(enableLFS, false), pointer.BoolDeref(disableDeleteRetentionPolicy, false))
 			// search in cache first
 			cache, err := d.accountSearchCache.Get(lockKey, azcache.CacheReadTypeDefault)
 			if err != nil {
