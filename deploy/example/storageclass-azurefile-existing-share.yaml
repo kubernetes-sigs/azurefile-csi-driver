@@ -5,6 +5,7 @@ metadata:
   name: azurefile-csi
 provisioner: file.csi.azure.com
 parameters:
+  subscriptionID: STORAGE_ACCOUNT_SUBSCRIPTION_ID  # optional, only set this when storage account is not in the same subscription as agent node
   resourceGroup: EXISTING_RESOURCE_GROUP_NAME  # optional, only set this when storage account is not in the same resource group as agent node
   storageAccount: EXISTING_STORAGE_ACCOUNT_NAME
   shareName: SHARE_NAME
