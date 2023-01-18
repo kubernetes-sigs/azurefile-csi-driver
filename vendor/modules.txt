@@ -1227,7 +1227,7 @@ k8s.io/utils/trace
 ## explicit; go 1.17
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client
-# sigs.k8s.io/cloud-provider-azure v1.26.1-0.20230112064854-e451894aa471
+# sigs.k8s.io/cloud-provider-azure v1.26.1-0.20230117121033-188ebdf2a417
 ## explicit; go 1.19
 sigs.k8s.io/cloud-provider-azure/pkg/azureclients
 sigs.k8s.io/cloud-provider-azure/pkg/azureclients/armclient
