@@ -18,7 +18,7 @@ ARG ARCH=amd64
 ARG binary=./_output/${ARCH}/azurefileplugin
 COPY ${binary} /azurefileplugin
 
-RUN apt update && apt upgrade -y && apt-mark unhold libcap2 && clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase
+RUN apt update && apt upgrade -y && apt-mark unhold libcap2 && clean-install python3.10 ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase
 RUN apt remove python3.9 -y
 
 LABEL maintainers="andyzhangx"
