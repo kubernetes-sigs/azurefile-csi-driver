@@ -19,7 +19,7 @@ ARG binary=./_output/${ARCH}/azurefileplugin
 COPY ${binary} /azurefileplugin
 
 RUN apt update && apt upgrade -y && apt-mark unhold libcap2 && clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase
-RUN apt remove python3.9 python3.9-minimal libpython3.9-minimal libpython3.9-stdlib -y
+RUN apt remove python3.9 -y
 
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"
