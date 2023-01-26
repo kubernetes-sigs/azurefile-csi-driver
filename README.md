@@ -7,7 +7,7 @@
 ### About
 This driver allows Kubernetes to access [Azure File](https://docs.microsoft.com/en-us/azure/storage/files/storage-files-introduction) volume using smb and nfs protocols, csi plugin name: `file.csi.azure.com`
 
-Disclaimer: Deploying this driver manually is not an officially supported Microsoft product. For a fully managed and supported experience on Kubernetes, use [AKS with the managed Azure file csi driver](https://learn.microsoft.com/en-us/azure/aks/azure-file-csi).
+Disclaimer: Deploying this driver manually is not an officially supported Microsoft product. For a fully managed and supported experience on Kubernetes, use [AKS with the managed Azure file csi driver](https://learn.microsoft.com/azure/aks/azure-files-csi).
 
 ### Project status: GA
 
