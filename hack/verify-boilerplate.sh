@@ -26,6 +26,10 @@ boiler="${boilerDir}/boilerplate.py"
 
 files_need_boilerplate=($(${boiler} --rootdir=${REPO_ROOT}))
 
+if [[ -z "$(command -v python)" ]]; then
+  apt update && apt install python3 -y
+fi
+
 # Run boilerplate.py unit tests
 unitTestOut="$(mktemp)"
 trap cleanup EXIT
