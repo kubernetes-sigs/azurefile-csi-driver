@@ -130,6 +130,7 @@ const (
 	subnetNameField                   = "subnetname"
 	shareNamePrefixField              = "sharenameprefix"
 	requireInfraEncryptionField       = "requireinfraencryption"
+	enableMultichannelField           = "enablemultichannel"
 	premium                           = "premium"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
