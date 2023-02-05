@@ -341,8 +341,11 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		reclaimPolicy := v1.PersistentVolumeReclaimRetain
 		volumes := []testsuites.VolumeDetails{
 			{
-				FSType:        "ext4",
-				ClaimSize:     "10Gi",
+				FSType:    "ext4",
+				ClaimSize: "10Gi",
+				MountOptions: []string{
+					"max_channels=2",
+				},
 				ReclaimPolicy: &reclaimPolicy,
 			},
 		}
