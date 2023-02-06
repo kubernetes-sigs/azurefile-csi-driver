@@ -151,6 +151,9 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 	ginkgo.It("should create a smb multi-channel volume with max_channels options [file.csi.azure.com] [Windows]", func() {
 		skipIfUsingInTreeVolumePlugin()
+		if !isCapzTest {
+			ginkgo.Skip("test case is only available for capz test")
+		}
 		pods := []testsuites.PodDetails{
 			{
 				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
@@ -1124,7 +1127,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 	ginkgo.It("should mount on-prem smb server [file.csi.azure.com]", func() {
 		skipIfUsingInTreeVolumePlugin()
 		if isWindowsCluster && isCapzTest {
-			log.Println("test case is not available for capz Windows test")
 			ginkgo.Skip("test case is not available for capz Windows test")
 		}
 
