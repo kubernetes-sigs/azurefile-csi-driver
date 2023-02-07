@@ -115,7 +115,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, shareAccessTier, accountAccessTier, rootSquashType string
 	var createAccount, useDataPlaneAPI, useSeretCache, matchTags bool
 	var vnetResourceGroup, vnetName, subnetName, shareNamePrefix, fsGroupChangePolicy string
-	var requireInfraEncryption, disableDeleteRetentionPolicy, enableLFS *bool
+	var requireInfraEncryption, disableDeleteRetentionPolicy, enableLFS, isMultichannelEnabled *bool
 	// set allowBlobPublicAccess as false by default
 	allowBlobPublicAccess := pointer.Bool(false)
 
@@ -210,10 +210,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			fsGroupChangePolicy = v
 		case mountPermissionsField:
 			// only do validations here, used in NodeStageVolume, NodePublishVolume
-			if v != "" {
-				if _, err := strconv.ParseUint(v, 8, 32); err != nil {
-					return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid mountPermissions %s in storage class", v))
-				}
+			if _, err := strconv.ParseUint(v, 8, 32); err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid mountPermissions %s in storage class", v))
 			}
 		case vnetResourceGroupField:
 			vnetResourceGroup = v
@@ -229,6 +227,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s: %s in storage class", requireInfraEncryptionField, v))
 			}
 			requireInfraEncryption = &value
+		case enableMultichannelField:
+			value, err := strconv.ParseBool(v)
+			if err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s: %s in storage class", enableMultichannelField, v))
+			}
+			isMultichannelEnabled = &value
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid parameter %q in storage class", k))
 		}
@@ -319,6 +323,15 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
+	if pointer.BoolDeref(isMultichannelEnabled, false) {
+		if sku != "" && !strings.HasPrefix(strings.ToLower(sku), premium) {
+			return nil, status.Errorf(codes.InvalidArgument, "smb multichannel is only supported with premium account, current account type: %s", sku)
+		}
+		if fsType == nfs || protocol == nfs {
+			return nil, status.Errorf(codes.InvalidArgument, "smb multichannel is only supported with smb protocol, current protocol: %s", protocol)
+		}
+	}
+
 	fileShareSize := int(requestGiB)
 	// account kind should be FileStorage for Premium File
 	accountKind := string(storage.KindStorageV2)
@@ -390,6 +403,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		AccessTier:                              accountAccessTier,
 		StorageType:                             provider.StorageTypeFile,
 		StorageEndpointSuffix:                   storageEndpointSuffix,
+		IsMultichannelEnabled:                   isMultichannelEnabled,
 	}
 
 	var accountKey, lockKey string
