@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM registry.k8s.io/build-image/debian-base:bullseye-v1.4.2
+FROM alpine:3.15.1
 
 ARG ARCH=amd64
 ARG binary=./_output/${ARCH}/azurefileplugin
 COPY ${binary} /azurefileplugin
 
-RUN apt update && apt upgrade -y && apt-mark unhold libcap2 && clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase
+RUN apk upgrade --available --no-cache && \
+    apk add --no-cache ca-certificates cifs-utils util-linux e2fsprogs-extra udev xfsprogs-extra nfs-utils
 
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"
