@@ -81,7 +81,7 @@ kubectl edit ds csi-azurefile-node -n kube-system
 ```
 change below deployment config, e.g.
 ```console
-        image: mcr.microsoft.com/k8s/csi/azurefile-csi:v1.5.0
+        image: mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0
         imagePullPolicy: Always
 ```
 
@@ -152,7 +152,7 @@ mkdir /tmp/test
 mount -v -t nfs -o vers=4,minorversion=1,sec=sys accountname.file.core.windows.net:/accountname/filesharename /tmp/test
 ```
 
- - [Troubleshoot Azure File mount issues on AKS](https://docs.microsoft.com/en-us/troubleshoot/azure/azure-kubernetes/fail-to-mount-azure-file-share)
+ - [Troubleshoot Azure File mount issues on AKS](http://aka.ms/filemounterror)
 
 ### Troubleshooting performance issues on Azure Files
 
