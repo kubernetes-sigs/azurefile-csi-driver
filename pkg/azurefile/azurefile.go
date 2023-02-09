@@ -192,6 +192,7 @@ type DriverOptions struct {
 	AllowInlineVolumeKeyAccessWithIdentity bool
 	EnableVHDDiskFeature                   bool
 	EnableGetVolumeStats                   bool
+	AppendMountErrorHelpLink               bool
 	MountPermissions                       uint64
 	FSGroupChangePolicy                    string
 	KubeAPIQPS                             float64
@@ -211,6 +212,7 @@ type Driver struct {
 	allowInlineVolumeKeyAccessWithIdentity bool
 	enableVHDDiskFeature                   bool
 	enableGetVolumeStats                   bool
+	appendMountErrorHelpLink               bool
 	mountPermissions                       uint64
 	kubeAPIQPS                             float64
 	kubeAPIBurst                           int
@@ -254,6 +256,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.allowInlineVolumeKeyAccessWithIdentity = options.AllowInlineVolumeKeyAccessWithIdentity
 	driver.enableVHDDiskFeature = options.EnableVHDDiskFeature
 	driver.enableGetVolumeStats = options.EnableGetVolumeStats
+	driver.appendMountErrorHelpLink = options.AppendMountErrorHelpLink
 	driver.mountPermissions = options.MountPermissions
 	driver.fsGroupChangePolicy = options.FSGroupChangePolicy
 	driver.kubeAPIQPS = options.KubeAPIQPS
