@@ -134,12 +134,14 @@ container: azurefile
 .PHONY: container-linux
 container-linux:
 	docker buildx build --pull --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" \
+		--provenance=false --sbom=false \
 		-t $(IMAGE_TAG)-linux-$(ARCH) --build-arg ARCH=${ARCH} -f ./pkg/azurefileplugin/Dockerfile .
 
 .PHONY: container-windows
 container-windows:
 	docker buildx build --pull --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" \
 		-t $(IMAGE_TAG)-windows-$(OSVERSION)-$(ARCH) --build-arg OSVERSION=$(OSVERSION) \
+		--provenance=false --sbom=false \
 		--build-arg ARCH=${ARCH} -f ./pkg/azurefileplugin/Windows.Dockerfile .
 
 .PHONY: container-all
