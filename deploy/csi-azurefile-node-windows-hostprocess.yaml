@@ -39,9 +39,23 @@ spec:
           hostProcess: true
           runAsUserName: "NT AUTHORITY\\SYSTEM"
       hostNetwork: true
+      initContainers:
+        - name: init
+          image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.7.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - "powershell.exe"
+            - "-c"
+            - "New-Item"
+            - "-ItemType"
+            - "Directory"
+            - "-Path"
+            - "C:\\var\\lib\\kubelet\\plugins\\{{ .Values.driver.name }}\\"
+            - "-Force"
       containers:
         - name: liveness-probe
           image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.7.0
+          imagePullPolicy: IfNotPresent
           command:
             - "livenessprobe.exe"
           args:
@@ -54,6 +68,7 @@ spec:
               value: unix://C:\\var\\lib\\kubelet\\plugins\\file.csi.azure.com\\csi.sock
         - name: node-driver-registrar
           image: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.1
+          imagePullPolicy: IfNotPresent
           command:
             - "csi-node-driver-registrar.exe"
           args:
@@ -61,14 +76,6 @@ spec:
             - "--csi-address=$(CSI_ENDPOINT)"
             - "--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)"
             - "--plugin-registration-path=$(PLUGIN_REG_DIR)"
-          livenessProbe:
-            exec:
-              command:
-                - /csi-node-driver-registrar.exe
-                - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
-                - --mode=kubelet-registration-probe
-            initialDelaySeconds: 60
-            timeoutSeconds: 30
           env:
             - name: CSI_ENDPOINT
               value: unix://C:\\var\\lib\\kubelet\\plugins\\file.csi.azure.com\\csi.sock
@@ -82,7 +89,7 @@ spec:
                   fieldPath: spec.nodeName
         - name: azurefile
           image: mcr.microsoft.com/k8s/csi/azurefile-csi:latest-windows-hp
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           command:
             - "azurefileplugin.exe"
           args:
@@ -90,7 +97,6 @@ spec:
             - --endpoint=$(CSI_ENDPOINT)
             - --nodeid=$(KUBE_NODE_NAME)
             - --kubeconfig=C:\\k\\config
-            - --metrics-address=0.0.0.0:29615
             - --enable-windows-host-process=true
           ports:
             - containerPort: 29613
@@ -118,8 +124,3 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
-      volumes:
-        - name: plugin-dir
-          hostPath:
-            path: C:\var\lib\kubelet\plugins\file.csi.azure.com\
-            type: DirectoryOrCreate

@@ -62,6 +62,23 @@ spec:
           hostProcess: true
           runAsUserName: "NT AUTHORITY\\SYSTEM"
       hostNetwork: true
+      initContainers:
+        - name: init
+{{- if hasPrefix "/" .Values.image.livenessProbe.repository }}
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}"
+{{- else }}
+          image: "{{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.image.livenessProbe.pullPolicy }}
+          command:
+            - "powershell.exe"
+            - "-c"
+            - "New-Item"
+            - "-ItemType"
+            - "Directory"
+            - "-Path"
+            - "C:\\var\\lib\\kubelet\\plugins\\{{ .Values.driver.name }}\\"
+            - "-Force"
       containers:
         - name: liveness-probe
 {{- if hasPrefix "/" .Values.image.livenessProbe.repository }}
@@ -94,14 +111,6 @@ spec:
             - "--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)"
             - "--plugin-registration-path=$(PLUGIN_REG_DIR)"
             - "--v=2"
-          livenessProbe:
-            exec:
-              command:
-                - csi-node-driver-registrar.exe
-                - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
-                - --mode=kubelet-registration-probe
-            initialDelaySeconds: 60
-            timeoutSeconds: 30
           env:
             - name: CSI_ENDPOINT
               value: unix://{{ .Values.windows.kubelet }}\plugins\{{ .Values.driver.name }}\csi.sock
@@ -127,7 +136,6 @@ spec:
             - "--v={{ .Values.node.logLevel }}"
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
-            - "--metrics-address=0.0.0.0:{{ .Values.node.metricsPort }}"
             - "--kubeconfig={{ .Values.windows.kubeconfig }}"
             - "--drivername={{ .Values.driver.name }}"
             - "--cloud-config-secret-name={{ .Values.node.cloudConfigSecretName }}"
@@ -172,9 +180,4 @@ spec:
                   apiVersion: v1
                   fieldPath: spec.nodeName
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-      volumes:
-        - name: plugin-dir
-          hostPath:
-            path: {{ .Values.windows.kubelet }}\plugins\{{ .Values.driver.name }}\
-            type: DirectoryOrCreate
 {{- end -}}
