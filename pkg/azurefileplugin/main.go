@@ -54,6 +54,7 @@ var (
 	enableVHDDiskFeature                   = flag.Bool("enable-vhd", true, "enable VHD disk feature (experimental)")
 	kubeAPIQPS                             = flag.Float64("kube-api-qps", 25.0, "QPS to use while communicating with the kubernetes apiserver.")
 	kubeAPIBurst                           = flag.Int("kube-api-burst", 50, "Burst to use while communicating with the kubernetes apiserver.")
+	appendMountErrorHelpLink               = flag.Bool("append-mount-error-help-link", true, "Whether to include a link for help with mount errors when a mount error occurs.")
 )
 
 func main() {
@@ -91,6 +92,7 @@ func handle() {
 		AllowInlineVolumeKeyAccessWithIdentity: *allowInlineVolumeKeyAccessWithIdentity,
 		FSGroupChangePolicy:                    *fsGroupChangePolicy,
 		EnableVHDDiskFeature:                   *enableVHDDiskFeature,
+		AppendMountErrorHelpLink:               *appendMountErrorHelpLink,
 		KubeAPIQPS:                             *kubeAPIQPS,
 		KubeAPIBurst:                           *kubeAPIBurst,
 	}
