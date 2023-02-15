@@ -153,6 +153,7 @@ mount -v -t nfs -o vers=4,minorversion=1,sec=sys accountname.file.core.windows.n
 ```
 
  - [Troubleshoot Azure File mount issues on AKS](http://aka.ms/filemounterror)
+ - [Troubleshoot Azure Files problems in Linux (SMB)](https://learn.microsoft.com/en-us/azure/storage/files/storage-troubleshoot-linux-file-connection-problems)
 
 ### Troubleshooting performance issues on Azure Files
 
