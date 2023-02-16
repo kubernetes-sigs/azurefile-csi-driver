@@ -23,7 +23,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-08-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2022-07-01/network"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -36,7 +36,7 @@ import (
 )
 
 var strToExtendedLocationType = map[string]network.ExtendedLocationTypes{
-	"edgezone": network.ExtendedLocationTypesEdgeZone,
+	"edgezone": network.EdgeZone,
 }
 
 // lockMap used to lock on entries
@@ -182,7 +182,7 @@ func (az *Cloud) reconcileTags(currentTagsOnResource, newTags map[string]*string
 	return currentTagsOnResource, changed
 }
 
-func (az *Cloud) getVMSetNamesSharingPrimarySLB() sets.String {
+func (az *Cloud) getVMSetNamesSharingPrimarySLB() sets.Set[string] {
 	vmSetNames := make([]string, 0)
 	if az.NodePoolsWithoutDedicatedSLB != "" {
 		vmSetNames = strings.Split(az.Config.NodePoolsWithoutDedicatedSLB, consts.VMSetNamesSharingPrimarySLBDelimiter)
@@ -191,7 +191,7 @@ func (az *Cloud) getVMSetNamesSharingPrimarySLB() sets.String {
 		}
 	}
 
-	return sets.NewString(vmSetNames...)
+	return sets.New(vmSetNames...)
 }
 
 func getExtendedLocationTypeFromString(extendedLocationType string) network.ExtendedLocationTypes {
@@ -199,7 +199,7 @@ func getExtendedLocationTypeFromString(extendedLocationType string) network.Exte
 	if val, ok := strToExtendedLocationType[extendedLocationType]; ok {
 		return val
 	}
-	return network.ExtendedLocationTypesEdgeZone
+	return network.EdgeZone
 }
 
 func getServiceAdditionalPublicIPs(service *v1.Service) ([]string, error) {

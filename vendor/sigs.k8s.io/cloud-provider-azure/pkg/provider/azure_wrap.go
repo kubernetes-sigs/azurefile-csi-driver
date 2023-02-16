@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2022-03-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-08-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2022-07-01/network"
 
 	"k8s.io/apimachinery/pkg/types"
 	cloudprovider "k8s.io/cloud-provider"
@@ -85,7 +85,7 @@ func (az *Cloud) getVirtualMachine(nodeName types.NodeName, crt azcache.AzureCac
 
 func (az *Cloud) getRouteTable(crt azcache.AzureCacheReadType) (routeTable network.RouteTable, exists bool, err error) {
 	if len(az.RouteTableName) == 0 {
-		return routeTable, false, fmt.Errorf("Route table name is not configured")
+		return routeTable, false, fmt.Errorf("route table name is not configured")
 	}
 
 	cachedRt, err := az.rtCache.GetWithDeepCopy(az.RouteTableName, crt)
