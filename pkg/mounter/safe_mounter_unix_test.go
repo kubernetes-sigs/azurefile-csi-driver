@@ -17,12 +17,13 @@ limitations under the License.
 package mounter
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewSafeMounter(t *testing.T) {
-	resp, err := NewSafeMounter()
+	resp, err := NewSafeMounter(false)
 	assert.NotNil(t, resp)
 	assert.Nil(t, err)
 }

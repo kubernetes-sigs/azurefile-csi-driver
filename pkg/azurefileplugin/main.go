@@ -55,6 +55,7 @@ var (
 	kubeAPIQPS                             = flag.Float64("kube-api-qps", 25.0, "QPS to use while communicating with the kubernetes apiserver.")
 	kubeAPIBurst                           = flag.Int("kube-api-burst", 50, "Burst to use while communicating with the kubernetes apiserver.")
 	appendMountErrorHelpLink               = flag.Bool("append-mount-error-help-link", true, "Whether to include a link for help with mount errors when a mount error occurs.")
+	enableWindowsHostProcess               = flag.Bool("enable-windows-host-process", false, "enable windows host process")
 )
 
 func main() {
@@ -95,6 +96,7 @@ func handle() {
 		AppendMountErrorHelpLink:               *appendMountErrorHelpLink,
 		KubeAPIQPS:                             *kubeAPIQPS,
 		KubeAPIBurst:                           *kubeAPIBurst,
+		EnableWindowsHostProcess:               *enableWindowsHostProcess,
 	}
 	driver := azurefile.NewDriver(&driverOptions)
 	if driver == nil {

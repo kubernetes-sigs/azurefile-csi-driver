@@ -74,7 +74,7 @@ func (f *fakeMounter) IsMountPoint(file string) (bool, error) {
 // NewFakeMounter fake mounter
 func NewFakeMounter() (*mount.SafeFormatAndMount, error) {
 	if runtime.GOOS == "windows" {
-		return mounter.NewSafeMounter()
+		return mounter.NewSafeMounter(false)
 	}
 	return &mount.SafeFormatAndMount{
 		Interface: &fakeMounter{},

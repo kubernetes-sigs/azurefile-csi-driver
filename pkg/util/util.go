@@ -17,7 +17,8 @@ limitations under the License.
 package util
 
 const (
-	GiB = 1024 * 1024 * 1024
+	GiB                  = 1024 * 1024 * 1024
+	MaxPathLengthWindows = 260
 )
 
 // RoundUpBytes rounds up the volume size in bytes up to multiplications of GiB
