@@ -15,7 +15,7 @@ require (
 	github.com/kubernetes-csi/csi-lib-utils v0.7.0
 	github.com/kubernetes-csi/csi-proxy/client v1.0.1
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
-	github.com/onsi/gomega v1.26.0
+	github.com/onsi/gomega v1.27.1
 	github.com/pborman/uuid v1.2.0
 	github.com/pelletier/go-toml v1.9.4
 	github.com/rubiojr/go-vhd v0.0.0-20200706105327-02e210299021
@@ -32,7 +32,7 @@ require (
 	k8s.io/kubernetes v1.26.0
 	k8s.io/mount-utils v0.0.0
 	k8s.io/utils v0.0.0-20221128185143-99ec85e7a448
-	sigs.k8s.io/cloud-provider-azure v1.26.1-0.20230215105432-915c704f695f
+	sigs.k8s.io/cloud-provider-azure v1.26.1-0.20230219211137-7a494eba9870
 	sigs.k8s.io/yaml v1.3.0
 )
 
