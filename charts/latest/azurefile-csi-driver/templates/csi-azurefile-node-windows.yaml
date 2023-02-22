@@ -123,7 +123,6 @@ spec:
             - "--v={{ .Values.node.logLevel }}"
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
-            - "--metrics-address=0.0.0.0:{{ .Values.node.metricsPort }}"
             - "--kubeconfig={{ .Values.windows.kubeconfig }}"
             - "--drivername={{ .Values.driver.name }}"
             - "--cloud-config-secret-name={{ .Values.node.cloudConfigSecretName }}"
