@@ -122,7 +122,6 @@ The following table lists the configurable parameters of the latest Azure File C
 | `node.allowEmptyCloudConfig`                      | Whether allow running node driver without cloud config          | `true`
 | `node.allowInlineVolumeKeyAccessWithIdentity`     | Whether allow accessing storage account key using cluster identity for inline volume          | `false`
 | `node.maxUnavailable`                             | `maxUnavailable` value of driver node daemonset                            | `1`
-| `node.metricsPort`                                | metrics port of csi-azurefile-node                         |`29615`                                                       |
 | `node.livenessProbe.healthPort `                  | health check port for liveness probe                   | `29613` |
 | `node.logLevel`                                   | node driver log level                                                          |`5`                                                           |
 | `snapshot.enabled`                                | whether enable snapshot feature                            | `false`                                                        |

@@ -98,7 +98,6 @@ spec:
             - --endpoint=$(CSI_ENDPOINT)
             - --nodeid=$(KUBE_NODE_NAME)
             - --kubeconfig=C:\\k\\config
-            - --metrics-address=0.0.0.0:29615
           ports:
             - containerPort: 29613
               name: healthz

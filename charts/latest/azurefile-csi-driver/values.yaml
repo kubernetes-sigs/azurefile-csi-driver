@@ -124,7 +124,6 @@ node:
   cloudConfigSecretNamespace: kube-system
   allowEmptyCloudConfig: true
   allowInlineVolumeKeyAccessWithIdentity: false
-  metricsPort: 29615
   livenessProbe:
     healthPort: 29613
   logLevel: 5
