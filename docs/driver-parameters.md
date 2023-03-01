@@ -39,9 +39,6 @@ vnetResourceGroup | specify vnet resource group where virtual network is | exist
 vnetName | virtual network name | existing virtual network name | No | if empty, driver will use the `vnetName` value in azure cloud config file
 subnetName | subnet name | existing subnet name of the agent node | No | if empty, driver will use the `subnetName` value in azure cloud config file
 fsGroupChangePolicy | indicates how volume's ownership will be changed by the driver, pod `securityContext.fsGroupChangePolicy` is ignored  | `OnRootMismatch`(by default), `Always`, `None` | No | `OnRootMismatch`
---- | **Following parameters are only for experimental [VHD disk feature](../deploy/example/disk)** | --- | --- |
-fsType | File System Type | `ext4`, `ext3`, `ext2`, `xfs` | Yes | `ext4`
-diskName | existing VHD disk file name | `pvc-062196a6-6436-11ea-ab51-9efb888c0afb.vhd` | No |
 
  - account tags format created by dynamic provisioning
 ```
@@ -88,7 +85,10 @@ kubectl create secret generic azure-storage-account-{accountname}-secret --from-
  ```
 
 ### Tips
-  - mounting Azure SMB File share requires account key, if `nodeStageSecretRef` field is not provided in PV config, this driver would try to get `azure-storage-account-{accountname}-secret` in the pod namespace first, if that secret does not exist, it would get account key by Azure storage account API directly using kubelet identity (make sure kubelet identity has reader access to the storage account).
+  - mounting Azure SMB File share requires account key
+    - set `storageAccountKey: "false"` in storage class would make driver **not** store account key as k8s secret
+    - if the `nodeStageSecretRef` field is not specified in the persistent volume (PV) configuration, the driver will attempt to retrieve the `azure-storage-account-{accountname}-secret` in the pod namespace. 
+    - If `azure-storage-account-{accountname}-secret` in the pod namespace does not exist, the driver will use the kubelet identity to retrieve the account key directly from the Azure storage account API, provided that the kubelet identity has reader access to the storage account.
   - mounting Azure NFS File share does not need account key, NFS mount access is configured by either of the following settings:
     - `Firewalls and virtual networks`: select `Enabled from selected virtual networks and IP addresses` with same vnet as agent node
     - `Private endpoint connections`
