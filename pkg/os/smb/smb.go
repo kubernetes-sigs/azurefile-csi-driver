@@ -24,10 +24,9 @@ import (
 )
 
 func IsSmbMapped(remotePath string) (bool, error) {
-	cmdLine := fmt.Sprintf(`$(Get-SmbGlobalMapping -RemotePath $Env:smbremotepath -ErrorAction Stop).Status `)
+	cmdLine := `$(Get-SmbGlobalMapping -RemotePath $Env:smbremotepath -ErrorAction Stop).Status`
 	cmd := exec.Command("powershell", "/c", cmdLine)
-	cmd.Env = append(os.Environ(),
-		fmt.Sprintf("smbremotepath=%s", remotePath))
+	cmd.Env = append(os.Environ(), "smbremotepath="+remotePath)
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
