@@ -24,10 +24,9 @@ import (
 )
 
 func IsSmbMapped(remotePath string) (bool, error) {
-	cmdLine := fmt.Sprintf(`$(Get-SmbGlobalMapping -RemotePath $Env:smbremotepath -ErrorAction Stop).Status `)
+	cmdLine := `$(Get-SmbGlobalMapping -RemotePath $Env:smbremotepath -ErrorAction Stop).Status`
 	cmd := exec.Command("powershell", "/c", cmdLine)
-	cmd.Env = append(os.Environ(),
-		fmt.Sprintf("smbremotepath=%s", remotePath))
+	cmd.Env = append(os.Environ(), "smbremotepath="+remotePath)
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -47,19 +46,15 @@ func IsSmbMapped(remotePath string) (bool, error) {
 // Since os.Symlink is currently being used in working code paths, no attempt is made in
 // alpha to merge the paths.
 func NewSmbLink(remotePath, localPath string) error {
-
 	if !strings.HasSuffix(remotePath, "\\") {
 		// Golang has issues resolving paths mapped to file shares if they do not end in a trailing \
 		// so add one if needed.
 		remotePath = remotePath + "\\"
 	}
 
-	cmdLine := fmt.Sprintf(`New-Item -ItemType SymbolicLink $Env:smblocalPath -Target $Env:smbremotepath`)
+	cmdLine := `New-Item -ItemType SymbolicLink $Env:smblocalPath -Target $Env:smbremotepath`
 	cmd := exec.Command("powershell", "/c", cmdLine)
-	cmd.Env = append(os.Environ(),
-		fmt.Sprintf("smbremotepath=%s", remotePath),
-		fmt.Sprintf("smblocalpath=%s", localPath),
-	)
+	cmd.Env = append(os.Environ(), "smbremotepath="+remotePath, "smblocalpath=%s"+localPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error linking %s to %s. output: %s, err: %v", remotePath, localPath, string(output), err)
