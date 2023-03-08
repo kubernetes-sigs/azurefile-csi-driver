@@ -175,3 +175,4 @@ Azure premium files follows provisioned model where IOPS and throughput are asso
 ##### For more, refer to this doc for perforance troubleshooting tips - [Link to performance troubleshooting tips](https://docs.microsoft.com/en-us/azure/storage/files/storage-troubleshooting-files-performance)
 
 ##### [Storage considerations for Azure Kubernetes Service (AKS)](https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/scenarios/app-platform/aks/storage)
+##### [Compare access to Azure Files, Blob Storage, and Azure NetApp Files with NFS](https://learn.microsoft.com/en-us/azure/storage/common/nfs-comparison#comparison)
