@@ -98,3 +98,6 @@ kubectl create secret generic azure-storage-account-{accountname}-secret --from-
  - `${pvc.metadata.name}`
  - `${pvc.metadata.namespace}`
  - `${pv.metadata.name}`
+
+#### [Storage considerations for Azure Kubernetes Service (AKS)](https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/scenarios/app-platform/aks/storage)
+#### [Compare access to Azure Files, Blob Storage, and Azure NetApp Files with NFS](https://learn.microsoft.com/en-us/azure/storage/common/nfs-comparison#comparison)
