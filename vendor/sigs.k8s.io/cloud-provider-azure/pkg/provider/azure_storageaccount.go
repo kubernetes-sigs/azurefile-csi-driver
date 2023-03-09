@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2022-07-01/network"
 	"github.com/Azure/azure-sdk-for-go/services/privatedns/mgmt/2018-09-01/privatedns"
@@ -214,6 +215,7 @@ func (az *Cloud) EnsureStorageAccount(ctx context.Context, accountOptions *Accou
 
 			if len(accounts) > 0 {
 				// pick up a random one of matching accounts
+				rand.Seed(time.Now().UnixNano())
 				accountName = accounts[rand.Intn(len(accounts))].Name
 				createNewAccount = false
 				klog.V(4).Infof("found a matching account %s type %s location %s", accounts[0].Name, accounts[0].StorageType, accounts[0].Location)
