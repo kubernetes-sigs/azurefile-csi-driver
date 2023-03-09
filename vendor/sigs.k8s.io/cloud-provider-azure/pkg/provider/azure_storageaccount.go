@@ -19,6 +19,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2022-07-01/network"
@@ -212,7 +213,8 @@ func (az *Cloud) EnsureStorageAccount(ctx context.Context, accountOptions *Accou
 			}
 
 			if len(accounts) > 0 {
-				accountName = accounts[0].Name
+				// pick up a random one of matching accounts
+				accountName = accounts[rand.Intn(len(accounts))].Name
 				createNewAccount = false
 				klog.V(4).Infof("found a matching account %s type %s location %s", accounts[0].Name, accounts[0].StorageType, accounts[0].Location)
 			}
