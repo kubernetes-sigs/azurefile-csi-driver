@@ -42,7 +42,7 @@ type DynamicallyProvisionedVolumeUnmountTest struct {
 }
 
 func (t *DynamicallyProvisionedVolumeUnmountTest) Run(client clientset.Interface, namespace *v1.Namespace) {
-	tDeployment, cleanup, volumeID := t.Pod.SetupDeployment(client, namespace, t.CSIDriver, t.StorageClassParameters)
+	tDeployment, cleanup, volumeID := t.Pod.SetupDeployment(client, namespace, 1 /*replicas*/, t.CSIDriver, t.StorageClassParameters)
 	// defer must be called here for resources not get removed before using them
 	for i := range cleanup {
 		defer cleanup[i]()

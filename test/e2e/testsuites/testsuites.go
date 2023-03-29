@@ -363,10 +363,9 @@ type TestDeployment struct {
 	podName    string
 }
 
-func NewTestDeployment(c clientset.Interface, ns *v1.Namespace, command string, pvc *v1.PersistentVolumeClaim, volumeName, mountPath string, readOnly, isWindows bool, winServerVer string) *TestDeployment {
+func NewTestDeployment(c clientset.Interface, ns *v1.Namespace, replicas int32, command string, pvc *v1.PersistentVolumeClaim, volumeName, mountPath string, readOnly, isWindows bool, winServerVer string) *TestDeployment {
 	generateName := "azurefile-volume-tester-"
 	selectorValue := fmt.Sprintf("%s%d", generateName, rand.Int())
-	replicas := int32(1)
 	testDeployment := &TestDeployment{
 		client:    c,
 		namespace: ns,
