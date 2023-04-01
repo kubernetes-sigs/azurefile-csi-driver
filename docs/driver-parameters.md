@@ -25,7 +25,7 @@ storageEndpointSuffix | specify Azure storage endpoint suffix | `core.windows.ne
 tags | [tags](https://docs.microsoft.com/en-us/azure/azure-resource-manager/management/tag-resources) would be created in newly created storage account | tag format: 'foo=aaa,bar=bbb' | No | ""
 matchTags | whether matching tags when driver tries to find a suitable storage account | `true`,`false` | No | `false`
 --- | **Following parameters are only for SMB protocol** | --- | --- |
-subscriptionID | specify Azure subscription ID in which Azure file share will be created | Azure subscription ID | No | if not empty, `resourceGroup` must be provided
+subscriptionID | specify Azure subscription ID where Azure file share will be created | Azure subscription ID | No | if not empty, `resourceGroup` must be provided
 storeAccountKey | whether store account key to k8s secret <br><br> Note:  <br> `false` means driver would leverage kubelet identity to get account key | `true`,`false` | No | `true`
 secretName | specify secret name to store account key | | No |
 secretNamespace | specify the namespace of secret to store account key | `default`,`kube-system`, etc | No | pvc namespace (`csi.storage.k8s.io/pvc/namespace`)
@@ -64,6 +64,7 @@ pvc-92a4d7f2-f23b-4904-bad4-2cbfcff6e388
 Name | Meaning | Available Value | Mandatory | Default value
 --- | --- | --- | --- | ---
 volumeHandle | Specify a value the driver can use to uniquely identify the share in the cluster. | A recommended way to produce a unique value is to combine the globally unique storage account name and share name: {account-name}_{file-share-name}. Note: The # character is reserved for internal use. | Yes |
+volumeAttributes.subscriptionID | specify Azure subscription ID where Azure file share is located | Azure subscription ID | No | if not empty, `resourceGroup` must be provided
 volumeAttributes.resourceGroup | Azure resource group name | existing resource group name | No | if empty, driver will use the same resource group name as current k8s cluster
 volumeAttributes.storageAccount | existing storage account name | existing storage account name | Yes |
 volumeAttributes.shareName | Azure file share name | existing Azure file share name | Yes |
