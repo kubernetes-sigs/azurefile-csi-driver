@@ -320,7 +320,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}); err != nil {
 			var helpLinkMsg string
 			if d.appendMountErrorHelpLink {
-				helpLinkMsg = fmt.Sprintf("\nPlease refer to http://aka.ms/filemounterror for possible causes and solutions for mount errors.")
+				helpLinkMsg = "\nPlease refer to http://aka.ms/filemounterror for possible causes and solutions for mount errors."
 			}
 			return nil, status.Error(codes.Internal, fmt.Sprintf("volume(%s) mount %s on %s failed with %v%s", volumeID, source, cifsMountPath, err, helpLinkMsg))
 		}
