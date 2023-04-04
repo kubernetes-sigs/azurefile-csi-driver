@@ -34,6 +34,9 @@ spec:
                     values:
                       - virtual-kubelet
       priorityClassName: system-node-critical
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: liveness-probe
           volumeMounts:

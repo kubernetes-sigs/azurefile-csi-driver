@@ -53,6 +53,9 @@ spec:
         nodeAffinity:
 {{ toYaml .Values.windows.nodeAffinity | indent 10 }}
       priorityClassName: system-node-critical
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
 {{ toYaml .Values.imagePullSecrets | indent 8 }}

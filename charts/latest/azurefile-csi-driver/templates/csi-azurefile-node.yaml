@@ -51,6 +51,9 @@ spec:
         nodeAffinity:
 {{ toYaml .Values.linux.nodeAffinity | indent 10 }}
       priorityClassName: system-node-critical
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
 {{- with .Values.linux.tolerations }}
       tolerations:
 {{ toYaml . | indent 8 }}
