@@ -90,14 +90,6 @@ spec:
             - "--csi-address=$(CSI_ENDPOINT)"
             - "--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)"
             - "--v=2"
-          livenessProbe:
-            exec:
-              command:
-                - /csi-node-driver-registrar.exe
-                - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
-                - --mode=kubelet-registration-probe
-            initialDelaySeconds: 60
-            timeoutSeconds: 30
           env:
             - name: CSI_ENDPOINT
               value: unix://C:\\csi\\csi.sock
