@@ -173,6 +173,7 @@ linux:
   kubeconfig: ""
   distro: debian # available values: debian, fedora
   mountPermissions: 0777
+  enableRegistrationProbe: true
   labels: {}
   annotations: {}
   podLabels: {}
@@ -214,6 +215,7 @@ windows:
   dsName: csi-azurefile-node-win # daemonset name
   kubelet: 'C:\var\lib\kubelet'
   kubeconfig: ""
+  enableRegistrationProbe: true
   labels: {}
   annotations: {}
   podLabels: {}
