@@ -1208,7 +1208,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 					{
 						ClaimSize: "100Gi",
 						MountOptions: []string{
-							"nconnect=8",
+							"nconnect=4",
 							"rsize=1048576",
 							"wsize=1048576",
 						},
@@ -1246,7 +1246,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 					{
 						ClaimSize: "100Gi",
 						MountOptions: []string{
-							"nconnect=8",
+							"nconnect=4",
 							"rsize=1048576",
 							"wsize=1048576",
 						},
