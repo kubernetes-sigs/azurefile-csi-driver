@@ -11,6 +11,8 @@ spec:
   accessModes:
     - ReadWriteMany
   persistentVolumeReclaimPolicy: Retain  # if set as "Delete" file share would be removed in pvc deletion
+  mountOptions:
+    - nconnect=4
   csi:
     driver: file.csi.azure.com
     readOnly: false
