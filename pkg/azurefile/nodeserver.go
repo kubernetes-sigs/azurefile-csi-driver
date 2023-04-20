@@ -18,7 +18,6 @@ package azurefile
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -524,7 +523,7 @@ func (d *Driver) ensureMountPoint(target string, perm os.FileMode) (bool, error)
 
 	if !notMnt {
 		// testing original mount point, make sure the mount link is valid
-		_, err := ioutil.ReadDir(target)
+		_, err := os.ReadDir(target)
 		if err == nil {
 			klog.V(2).Infof("already mounted to target %s", target)
 			return !notMnt, nil

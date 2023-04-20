@@ -19,7 +19,6 @@ package azurefile
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"runtime"
@@ -151,7 +150,7 @@ users:
 				}
 			}()
 
-			if err := ioutil.WriteFile(fakeKubeConfig, []byte(fakeContent), 0666); err != nil {
+			if err := os.WriteFile(fakeKubeConfig, []byte(fakeContent), 0666); err != nil {
 				t.Error(err)
 			}
 		}
@@ -364,7 +363,7 @@ users:
 		}
 	}()
 
-	if err := ioutil.WriteFile(validKubeConfig, []byte(fakeContent), 0666); err != nil {
+	if err := os.WriteFile(validKubeConfig, []byte(fakeContent), 0666); err != nil {
 		t.Error(err)
 	}
 
