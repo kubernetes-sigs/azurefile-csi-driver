@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -544,7 +543,7 @@ func TestGetSnapshot(t *testing.T) {
 
 func TestIsCorruptedDir(t *testing.T) {
 	skipIfTestingOnWindows(t)
-	existingMountPath, err := ioutil.TempDir(os.TempDir(), "csi-mount-test")
+	existingMountPath, err := os.MkdirTemp(os.TempDir(), "csi-mount-test")
 	if err != nil {
 		t.Fatalf("failed to create tmp dir: %v", err)
 	}
@@ -912,7 +911,7 @@ func TestRun(t *testing.T) {
 		{
 			name: "Successful run",
 			testFunc: func(t *testing.T) {
-				if err := ioutil.WriteFile(fakeCredFile, []byte(fakeCredContent), 0666); err != nil {
+				if err := os.WriteFile(fakeCredFile, []byte(fakeCredContent), 0666); err != nil {
 					t.Error(err)
 				}
 
@@ -937,7 +936,7 @@ func TestRun(t *testing.T) {
 		{
 			name: "Successful run with node ID missing",
 			testFunc: func(t *testing.T) {
-				if err := ioutil.WriteFile(fakeCredFile, []byte(fakeCredContent), 0666); err != nil {
+				if err := os.WriteFile(fakeCredFile, []byte(fakeCredContent), 0666); err != nil {
 					t.Error(err)
 				}
 
