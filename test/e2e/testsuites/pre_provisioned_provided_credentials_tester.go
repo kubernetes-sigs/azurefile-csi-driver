@@ -38,31 +38,31 @@ type PreProvisionedProvidedCredentiasTest struct {
 	Azurefile *azurefile.Driver
 }
 
-func (t *PreProvisionedProvidedCredentiasTest) Run(client clientset.Interface, namespace *v1.Namespace) {
+func (t *PreProvisionedProvidedCredentiasTest) Run(ctx context.Context, client clientset.Interface, namespace *v1.Namespace) {
 	for _, pod := range t.Pods {
 		for n, volume := range pod.Volumes {
-			_, accountName, accountKey, fileShareName, _, _, err := t.Azurefile.GetAccountInfo(context.Background(), volume.VolumeID, nil, nil)
+			_, accountName, accountKey, fileShareName, _, _, err := t.Azurefile.GetAccountInfo(ctx, volume.VolumeID, nil, nil)
 			framework.ExpectNoError(err, fmt.Sprintf("Error GetAccountInfo from volumeID(%s): %v", volume.VolumeID, err))
 
 			ginkgo.By("creating the secret")
 			secreteData := map[string]string{"azurestorageaccountname": accountName}
 			secreteData["azurestorageaccountkey"] = accountKey
 			tsecret := NewTestSecret(client, namespace, volume.NodeStageSecretRef, secreteData)
-			tsecret.Create()
-			defer tsecret.Cleanup()
+			tsecret.Create(ctx)
+			defer tsecret.Cleanup(ctx)
 
 			pod.Volumes[n].ShareName = fileShareName
-			tpod, cleanup := pod.SetupWithPreProvisionedVolumes(client, namespace, t.CSIDriver)
+			tpod, cleanup := pod.SetupWithPreProvisionedVolumes(ctx, client, namespace, t.CSIDriver)
 			// defer must be called here for resources not get removed before using them
 			for i := range cleanup {
-				defer cleanup[i]()
+				defer cleanup[i](ctx)
 			}
 
 			ginkgo.By("deploying the pod")
-			tpod.Create()
-			defer tpod.Cleanup()
+			tpod.Create(ctx)
+			defer tpod.Cleanup(ctx)
 			ginkgo.By("checking that the pods command exits with no error")
-			tpod.WaitForSuccess()
+			tpod.WaitForSuccess(ctx)
 		}
 	}
 }

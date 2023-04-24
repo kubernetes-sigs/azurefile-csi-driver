@@ -41,18 +41,18 @@ type DynamicallyProvisionedVolumeUnmountTest struct {
 	StorageClassParameters map[string]string
 }
 
-func (t *DynamicallyProvisionedVolumeUnmountTest) Run(client clientset.Interface, namespace *v1.Namespace) {
-	tDeployment, cleanup, volumeID := t.Pod.SetupDeployment(client, namespace, 1 /*replicas*/, t.CSIDriver, t.StorageClassParameters)
+func (t *DynamicallyProvisionedVolumeUnmountTest) Run(ctx context.Context, client clientset.Interface, namespace *v1.Namespace) {
+	tDeployment, cleanup, volumeID := t.Pod.SetupDeployment(ctx, client, namespace, 1 /*replicas*/, t.CSIDriver, t.StorageClassParameters)
 	// defer must be called here for resources not get removed before using them
 	for i := range cleanup {
-		defer cleanup[i]()
+		defer cleanup[i](ctx)
 	}
 
 	ginkgo.By("deploying the deployment")
-	tDeployment.Create()
+	tDeployment.Create(ctx)
 
 	ginkgo.By("checking that the pod is running")
-	tDeployment.WaitForPodReady()
+	tDeployment.WaitForPodReady(ctx)
 
 	if t.PodCheck != nil {
 		time.Sleep(time.Second)
@@ -61,7 +61,7 @@ func (t *DynamicallyProvisionedVolumeUnmountTest) Run(client clientset.Interface
 	}
 
 	ginkgo.By("delete volume " + volumeID + " first, make sure pod could still be terminated")
-	_, err := t.Azurefile.DeleteVolume(context.TODO(), &csi.DeleteVolumeRequest{VolumeId: volumeID})
+	_, err := t.Azurefile.DeleteVolume(ctx, &csi.DeleteVolumeRequest{VolumeId: volumeID})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	ginkgo.By("check whether " + volumeID + " exists")
@@ -77,11 +77,11 @@ func (t *DynamicallyProvisionedVolumeUnmountTest) Run(client clientset.Interface
 		VolumeCapabilities: multiNodeVolCap,
 	}
 
-	if _, err = t.Azurefile.ValidateVolumeCapabilities(context.TODO(), req); err != nil {
+	if _, err = t.Azurefile.ValidateVolumeCapabilities(ctx, req); err != nil {
 		ginkgo.By("ValidateVolumeCapabilities " + volumeID + " returned with error: " + err.Error())
 	}
 	gomega.Expect(err).To(gomega.HaveOccurred())
 
 	ginkgo.By("deleting the pod for deployment")
-	tDeployment.DeletePodAndWait()
+	tDeployment.DeletePodAndWait(ctx)
 }

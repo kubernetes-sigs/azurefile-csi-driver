@@ -17,7 +17,6 @@ limitations under the License.
 package e2e
 
 import (
-	"context"
 	"fmt"
 
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
@@ -50,7 +49,7 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 		skipManuallyDeletingVolume bool
 	)
 
-	ginkgo.BeforeEach(func() {
+	ginkgo.BeforeEach(func(ctx ginkgo.SpecContext) {
 		checkPodsRestart := testCmd{
 			command:  "bash",
 			args:     []string{"test/utils/check_driver_pods_restart.sh"},
@@ -64,24 +63,24 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 		testDriver = driver.InitAzureFileDriver()
 	})
 
-	ginkgo.AfterEach(func() {
+	ginkgo.AfterEach(func(ctx ginkgo.SpecContext) {
 		if !skipManuallyDeletingVolume {
 			req := &csi.DeleteVolumeRequest{
 				VolumeId: volumeID,
 			}
-			_, err := azurefileDriver.DeleteVolume(context.Background(), req)
+			_, err := azurefileDriver.DeleteVolume(ctx, req)
 			if err != nil {
 				ginkgo.Fail(fmt.Sprintf("create volume %q error: %v", volumeID, err))
 			}
 		}
 	})
 
-	ginkgo.It("should use a pre-provisioned volume and mount it as readOnly in a pod [file.csi.azure.com] [Windows]", func() {
+	ginkgo.It("should use a pre-provisioned volume and mount it as readOnly in a pod [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
 		// Az tests are not yet working for in-tree
 		skipIfUsingInTreeVolumePlugin()
 
 		req := makeCreateVolumeReq("pre-provisioned-readonly", ns.Name)
-		resp, err := azurefileDriver.CreateVolume(context.Background(), req)
+		resp, err := azurefileDriver.CreateVolume(ctx, req)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
 		}
@@ -111,15 +110,15 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 			CSIDriver: testDriver,
 			Pods:      pods,
 		}
-		test.Run(cs, ns)
+		test.Run(ctx, cs, ns)
 	})
 
-	ginkgo.It("should use a pre-provisioned volume and mount it by multiple pods [file.csi.azure.com] [Windows]", func() {
+	ginkgo.It("should use a pre-provisioned volume and mount it by multiple pods [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
 		// Az tests are not yet working for in-tree
 		skipIfUsingInTreeVolumePlugin()
 
 		req := makeCreateVolumeReq("pre-provisioned-multiple-pods", ns.Name)
-		resp, err := azurefileDriver.CreateVolume(context.Background(), req)
+		resp, err := azurefileDriver.CreateVolume(ctx, req)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
 		}
@@ -152,15 +151,15 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 			CSIDriver: testDriver,
 			Pods:      pods,
 		}
-		test.Run(cs, ns)
+		test.Run(ctx, cs, ns)
 	})
 
-	ginkgo.It(fmt.Sprintf("should use a pre-provisioned volume and retain PV with reclaimPolicy %q [file.csi.azure.com] [Windows]", v1.PersistentVolumeReclaimRetain), func() {
+	ginkgo.It(fmt.Sprintf("should use a pre-provisioned volume and retain PV with reclaimPolicy %q [file.csi.azure.com] [Windows]", v1.PersistentVolumeReclaimRetain), func(ctx ginkgo.SpecContext) {
 		// Az tests are not yet working for in tree driver
 		skipIfUsingInTreeVolumePlugin()
 
 		req := makeCreateVolumeReq("pre-provisioned-retain-reclaimpolicy", ns.Name)
-		resp, err := azurefileDriver.CreateVolume(context.Background(), req)
+		resp, err := azurefileDriver.CreateVolume(ctx, req)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
 		}
@@ -180,15 +179,15 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 			CSIDriver: testDriver,
 			Volumes:   volumes,
 		}
-		test.Run(cs, ns)
+		test.Run(ctx, cs, ns)
 	})
 
-	ginkgo.It("should use existing credentials in k8s cluster [file.csi.azure.com] [Windows]", func() {
+	ginkgo.It("should use existing credentials in k8s cluster [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
 		// Az tests are not yet working for in tree driver
 		skipIfUsingInTreeVolumePlugin()
 
 		req := makeCreateVolumeReq("pre-provisioned-existing-credentials", ns.Name)
-		resp, err := azurefileDriver.CreateVolume(context.Background(), req)
+		resp, err := azurefileDriver.CreateVolume(ctx, req)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
 		}
@@ -224,15 +223,15 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 			Pods:      pods,
 			Azurefile: azurefileDriver,
 		}
-		test.Run(cs, ns)
+		test.Run(ctx, cs, ns)
 	})
 
-	ginkgo.It("should use provided credentials [file.csi.azure.com] [Windows]", func() {
+	ginkgo.It("should use provided credentials [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
 		// Az tests are not yet working for in tree driver
 		skipIfUsingInTreeVolumePlugin()
 
 		req := makeCreateVolumeReq("pre-provisioned-provided-credentials", ns.Name)
-		resp, err := azurefileDriver.CreateVolume(context.Background(), req)
+		resp, err := azurefileDriver.CreateVolume(ctx, req)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
 		}
@@ -269,7 +268,7 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 			Pods:      pods,
 			Azurefile: azurefileDriver,
 		}
-		test.Run(cs, ns)
+		test.Run(ctx, cs, ns)
 	})
 })
 

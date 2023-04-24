@@ -17,6 +17,8 @@ limitations under the License.
 package testsuites
 
 import (
+	"context"
+
 	"github.com/onsi/ginkgo/v2"
 	v1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
@@ -32,18 +34,18 @@ type DynamicallyProvisionedStatefulSetTest struct {
 	PodCheck  *PodExecCheck
 }
 
-func (t *DynamicallyProvisionedStatefulSetTest) Run(client clientset.Interface, namespace *v1.Namespace) {
-	tStatefulSet, cleanup := t.Pod.SetupStatefulset(client, namespace, t.CSIDriver)
+func (t *DynamicallyProvisionedStatefulSetTest) Run(ctx context.Context, client clientset.Interface, namespace *v1.Namespace) {
+	tStatefulSet, cleanup := t.Pod.SetupStatefulset(ctx, client, namespace, t.CSIDriver)
 	// defer must be called here for resources not get removed before using them
 	for i := range cleanup {
-		defer cleanup[i]()
+		defer cleanup[i](ctx)
 	}
 
 	ginkgo.By("deploying the statefulset")
-	tStatefulSet.Create()
+	tStatefulSet.Create(ctx)
 
 	ginkgo.By("checking that the pod is running")
-	tStatefulSet.WaitForPodReady()
+	tStatefulSet.WaitForPodReady(ctx)
 
 	if t.PodCheck != nil {
 		ginkgo.By("check pod exec")
@@ -51,10 +53,10 @@ func (t *DynamicallyProvisionedStatefulSetTest) Run(client clientset.Interface, 
 	}
 
 	ginkgo.By("deleting the pod for statefulset")
-	tStatefulSet.DeletePodAndWait()
+	tStatefulSet.DeletePodAndWait(ctx)
 
 	ginkgo.By("checking again that the pod is running")
-	tStatefulSet.WaitForPodReady()
+	tStatefulSet.WaitForPodReady(ctx)
 
 	if t.PodCheck != nil {
 		ginkgo.By("check pod exec")

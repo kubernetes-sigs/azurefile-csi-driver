@@ -17,6 +17,8 @@ limitations under the License.
 package testsuites
 
 import (
+	"context"
+
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 
 	v1 "k8s.io/api/core/v1"
@@ -30,17 +32,17 @@ type PreProvisionedReclaimPolicyTest struct {
 	Volumes   []VolumeDetails
 }
 
-func (t *PreProvisionedReclaimPolicyTest) Run(client clientset.Interface, namespace *v1.Namespace) {
+func (t *PreProvisionedReclaimPolicyTest) Run(ctx context.Context, client clientset.Interface, namespace *v1.Namespace) {
 	for _, volume := range t.Volumes {
-		tpvc, _ := volume.SetupPreProvisionedPersistentVolumeClaim(client, namespace, t.CSIDriver)
+		tpvc, _ := volume.SetupPreProvisionedPersistentVolumeClaim(ctx, client, namespace, t.CSIDriver)
 
 		// will delete the PVC
 		// will also wait for PV to be deleted when reclaimPolicy=Delete
-		tpvc.Cleanup()
+		tpvc.Cleanup(ctx)
 		// first check PV stills exists, then manually delete it
 		if tpvc.ReclaimPolicy() == v1.PersistentVolumeReclaimRetain {
-			tpvc.WaitForPersistentVolumePhase(v1.VolumeReleased)
-			tpvc.DeleteBoundPersistentVolume()
+			tpvc.WaitForPersistentVolumePhase(ctx, v1.VolumeReleased)
+			tpvc.DeleteBoundPersistentVolume(ctx)
 		}
 	}
 }

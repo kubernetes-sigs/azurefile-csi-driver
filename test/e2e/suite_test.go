@@ -72,7 +72,7 @@ type testCmd struct {
 	endLog   string
 }
 
-var _ = ginkgo.BeforeSuite(func() {
+var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 	log.Println(driver.AzureDriverNameVar, os.Getenv(driver.AzureDriverNameVar), fmt.Sprintf("%v", isUsingInTreeVolumePlugin))
 	log.Println(testMigrationEnvVar, os.Getenv(testMigrationEnvVar), fmt.Sprintf("%v", isTestingMigration))
 	log.Println(testWindowsEnvVar, os.Getenv(testWindowsEnvVar), fmt.Sprintf("%v", isWindowsCluster))
@@ -94,7 +94,7 @@ var _ = ginkgo.BeforeSuite(func() {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		_, err = azureClient.EnsureResourceGroup(context.Background(), creds.ResourceGroup, creds.Location, nil)
+		_, err = azureClient.EnsureResourceGroup(ctx, creds.ResourceGroup, creds.Location, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		// check whether current region supports Premium_ZRS with NFS protocol
@@ -145,7 +145,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	}
 })
 
-var _ = ginkgo.AfterSuite(func() {
+var _ = ginkgo.AfterSuite(func(ctx ginkgo.SpecContext) {
 	if testutil.IsRunningInProw() {
 		if isTestingMigration || isUsingInTreeVolumePlugin {
 			cmLog := testCmd{
@@ -221,7 +221,7 @@ var _ = ginkgo.AfterSuite(func() {
 				execTestCmd([]testCmd{installDriver, uninstallDriver})
 			}
 
-			checkAccountCreationLeak()
+			checkAccountCreationLeak(ctx)
 
 			err := credentials.DeleteAzureCredentialFile()
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -263,13 +263,13 @@ func execTestCmd(cmds []testCmd) {
 	}
 }
 
-func checkAccountCreationLeak() {
+func checkAccountCreationLeak(ctx context.Context) {
 	creds, err := credentials.CreateAzureCredentialFile(false)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	accountNum, err := azureClient.GetAccountNumByResourceGroup(context.TODO(), creds.ResourceGroup)
+	accountNum, err := azureClient.GetAccountNumByResourceGroup(ctx, creds.ResourceGroup)
 	framework.ExpectNoError(err, fmt.Sprintf("failed to GetAccountNumByResourceGroup(%s): %v", creds.ResourceGroup, err))
 	ginkgo.By(fmt.Sprintf("GetAccountNumByResourceGroup(%s) returns %d accounts", creds.ResourceGroup, accountNum))
 

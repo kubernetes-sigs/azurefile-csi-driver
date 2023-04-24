@@ -43,15 +43,15 @@ type DynamicallyProvisionedAccountWithTags struct {
 	Tags                   string
 }
 
-func (t *DynamicallyProvisionedAccountWithTags) Run(client clientset.Interface, namespace *v1.Namespace) {
+func (t *DynamicallyProvisionedAccountWithTags) Run(ctx context.Context, client clientset.Interface, namespace *v1.Namespace) {
 	for _, volume := range t.Volumes {
-		tpvc, _ := volume.SetupDynamicPersistentVolumeClaim(client, namespace, t.CSIDriver, t.StorageClassParameters)
-		defer tpvc.Cleanup()
+		tpvc, _ := volume.SetupDynamicPersistentVolumeClaim(ctx, client, namespace, t.CSIDriver, t.StorageClassParameters)
+		defer tpvc.Cleanup(ctx)
 
 		ginkgo.By("checking whether the storage account contains tags")
 
 		pvName := tpvc.persistentVolume.ObjectMeta.Name
-		pv, err := client.CoreV1().PersistentVolumes().Get(context.TODO(), pvName, metav1.GetOptions{})
+		pv, err := client.CoreV1().PersistentVolumes().Get(ctx, pvName, metav1.GetOptions{})
 		framework.ExpectNoError(err, fmt.Sprintf("failed to get pv(%s): %v", pvName, err))
 
 		volumeID := pv.Spec.PersistentVolumeSource.CSI.VolumeHandle
@@ -63,7 +63,7 @@ func (t *DynamicallyProvisionedAccountWithTags) Run(client clientset.Interface, 
 		azureClient, err := azureUtils.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		account, err := azureClient.GetStorageAccount(context.TODO(), resourceGroupName, accountName)
+		account, err := azureClient.GetStorageAccount(ctx, resourceGroupName, accountName)
 		framework.ExpectNoError(err, fmt.Sprintf("failed to get storage account(%s): %v", accountName, err))
 
 		resultTags := account.Tags
