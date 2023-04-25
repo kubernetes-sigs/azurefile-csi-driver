@@ -416,7 +416,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		}
 		if !isUsingInTreeVolumePlugin {
 			scParameters["accountAccessTier"] = "Cool"
-			scParameters["selectRandomMatchingAccount"] = "true"
 		}
 		test := testsuites.DynamicallyProvisionedResizeVolumeTest{
 			CSIDriver:              testDriver,
@@ -711,10 +710,13 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			Cmd: "grep 'hello world' /mnt/test-1/data",
 		}
 		test := testsuites.DynamicallyProvisionedVolumeSnapshotTest{
-			CSIDriver:              testDriver,
-			Pod:                    pod,
-			PodWithSnapshot:        podWithSnapshot,
-			StorageClassParameters: map[string]string{"skuName": "Standard_LRS"},
+			CSIDriver:       testDriver,
+			Pod:             pod,
+			PodWithSnapshot: podWithSnapshot,
+			StorageClassParameters: map[string]string{
+				"skuName":                     "Standard_LRS",
+				"selectRandomMatchingAccount": "true",
+			},
 		}
 		test.Run(ctx, cs, snapshotrcs, ns)
 	})
