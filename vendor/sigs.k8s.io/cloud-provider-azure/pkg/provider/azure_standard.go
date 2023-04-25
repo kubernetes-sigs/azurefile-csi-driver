@@ -56,7 +56,6 @@ var (
 )
 
 const (
-	v4Suffix = "IPv4"
 	v6Suffix = "IPv6"
 )
 
@@ -223,6 +222,7 @@ func getPrimaryIPConfig(nic network.Interface) (*network.InterfaceIPConfiguratio
 	}
 
 	for _, ref := range *nic.IPConfigurations {
+		ref := ref
 		if *ref.Primary {
 			return &ref, nil
 		}
@@ -244,6 +244,7 @@ func getIPConfigByIPFamily(nic network.Interface, IPv6 bool) (*network.Interface
 		ipVersion = network.IPv4
 	}
 	for _, ref := range *nic.IPConfigurations {
+		ref := ref
 		if ref.PrivateIPAddress != nil && ref.PrivateIPAddressVersion == ipVersion {
 			return &ref, nil
 		}
@@ -283,7 +284,8 @@ func (az *Cloud) getLoadBalancerRuleName(service *v1.Service, protocol v1.Protoc
 	ruleName := fmt.Sprintf("%s-%s-%d", prefix, protocol, port)
 	subnet := subnet(service)
 	if subnet == nil {
-		return getResourceByIPFamily(ruleName, isIPv6)
+		// TODO: Use getResourceByIPFamily()
+		return ruleName
 	}
 
 	// Load balancer rule name must be less or equal to 80 characters, so excluding the hyphen two segments cannot exceed 79
@@ -293,7 +295,8 @@ func (az *Cloud) getLoadBalancerRuleName(service *v1.Service, protocol v1.Protoc
 		subnetSegment = subnetSegment[:maxLength-len(ruleName)-1]
 	}
 
-	return getResourceByIPFamily(fmt.Sprintf("%s-%s-%s-%d", prefix, subnetSegment, protocol, port), isIPv6)
+	// TODO: Use getResourceByIPFamily()
+	return fmt.Sprintf("%s-%s-%s-%d", prefix, subnetSegment, protocol, port)
 }
 
 func (az *Cloud) getloadbalancerHAmodeRuleName(service *v1.Service, isIPv6 bool) string {
@@ -308,7 +311,8 @@ func (az *Cloud) getSecurityRuleName(service *v1.Service, port v1.ServicePort, s
 	}
 	rulePrefix := az.getRulePrefix(service)
 	name := fmt.Sprintf("%s-%s-%d-%s", rulePrefix, port.Protocol, port.Port, safePrefix)
-	return getResourceByIPFamily(name, isIPv6)
+	// TODO: Use getResourceByIPFamily
+	return name
 }
 
 // This returns a human-readable version of the Service used to tag some resources.
@@ -322,19 +326,29 @@ func (az *Cloud) getRulePrefix(service *v1.Service) string {
 	return az.GetLoadBalancerName(context.TODO(), "", service)
 }
 
-func (az *Cloud) getPublicIPName(clusterName string, service *v1.Service, isIPv6 bool) string {
+func (az *Cloud) getPublicIPName(clusterName string, service *v1.Service, pipResourceGroup string, isIPv6 bool) (string, error) {
+	// For IPv6, the PIP may not have IPv6 suffix because it may be one created before dual-stack support.
+	if isIPv6 {
+		pip, err := az.findMatchedPIPByIPFamilyAndServiceName(clusterName, service, pipResourceGroup)
+		if err != nil {
+			return "", err
+		}
+		if pip != nil {
+			return pointer.StringDeref(pip.Name, ""), nil
+		}
+	}
+
 	pipName := fmt.Sprintf("%s-%s", clusterName, az.GetLoadBalancerName(context.TODO(), clusterName, service))
-	pipName = getResourceByIPFamily(pipName, isIPv6)
 	if id := getServicePIPPrefixID(service, isIPv6); id != "" {
 		id, err := getLastSegment(id, "/")
-		if err != nil {
-			return pipName
+		if err == nil {
+			pipName = fmt.Sprintf("%s-%s", pipName, id)
 		}
-		pipName = fmt.Sprintf("%s-%s", pipName, id)
 	}
-	return pipName
+	return getResourceByIPFamily(pipName, isIPv6), nil
 }
 
+// TODO: UT
 func (az *Cloud) serviceOwnsRule(service *v1.Service, rule string) bool {
 	prefix := az.getRulePrefix(service)
 	return strings.HasPrefix(strings.ToUpper(rule), strings.ToUpper(prefix))
@@ -345,7 +359,7 @@ func (az *Cloud) serviceOwnsRule(service *v1.Service, rule string) bool {
 // This means the name of the config can be tracked by the service UID.
 // 2. The secondary services must have their loadBalancer IP set if they want to share the same config as the primary
 // service. Hence, it can be tracked by the loadBalancer IP.
-func (az *Cloud) serviceOwnsFrontendIP(fip network.FrontendIPConfiguration, service *v1.Service, pips *[]network.PublicIPAddress) (bool, bool, error) {
+func (az *Cloud) serviceOwnsFrontendIP(fip network.FrontendIPConfiguration, service *v1.Service) (bool, bool, error) {
 	var isPrimaryService bool
 	baseName := az.GetLoadBalancerName(context.TODO(), "", service)
 	if strings.HasPrefix(pointer.StringDeref(fip.Name, ""), baseName) {
@@ -364,7 +378,7 @@ func (az *Cloud) serviceOwnsFrontendIP(fip network.FrontendIPConfiguration, serv
 	if !requiresInternalLoadBalancer(service) {
 		pipResourceGroup := az.getPublicIPAddressResourceGroup(service)
 		for _, loadBalancerIP := range loadBalancerIPs {
-			pip, err := az.findMatchedPIPByLoadBalancerIP(service, loadBalancerIP, pipResourceGroup, pips)
+			pip, err := az.findMatchedPIPByLoadBalancerIP(service, loadBalancerIP, pipResourceGroup)
 			if err != nil {
 				klog.Warningf("serviceOwnsFrontendIP: unexpected error when finding match public IP of the service %s with loadBalancerIP %s: %v", service.Name, loadBalancerIP, err)
 				return false, isPrimaryService, nil
@@ -1142,7 +1156,8 @@ func (as *availabilitySet) EnsureBackendPoolDeleted(service *v1.Service, backend
 			ipconfigPrefixToNicMap[ipConfigIDPrefix] = nic
 		}
 	}
-	for _, nic := range ipconfigPrefixToNicMap {
+	for k := range ipconfigPrefixToNicMap {
+		nic := ipconfigPrefixToNicMap[k]
 		newIPConfigs := *nic.IPConfigurations
 		for j, ipConf := range newIPConfigs {
 			if !pointer.BoolDeref(ipConf.Primary, false) {

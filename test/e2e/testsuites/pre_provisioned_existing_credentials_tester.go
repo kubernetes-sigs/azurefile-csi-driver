@@ -38,10 +38,10 @@ type PreProvisionedExistingCredentialsTest struct {
 	Azurefile *azurefile.Driver
 }
 
-func (t *PreProvisionedExistingCredentialsTest) Run(client clientset.Interface, namespace *v1.Namespace) {
+func (t *PreProvisionedExistingCredentialsTest) Run(ctx context.Context, client clientset.Interface, namespace *v1.Namespace) {
 	for _, pod := range t.Pods {
 		for n, volume := range pod.Volumes {
-			resourceGroupName, accountName, _, fileShareName, _, _, err := t.Azurefile.GetAccountInfo(context.Background(), volume.VolumeID, nil, nil)
+			resourceGroupName, accountName, _, fileShareName, _, _, err := t.Azurefile.GetAccountInfo(ctx, volume.VolumeID, nil, nil)
 			if err != nil {
 				framework.ExpectNoError(err, fmt.Sprintf("Error GetContainerInfo from volumeID(%s): %v", volume.VolumeID, err))
 				return
@@ -55,25 +55,25 @@ func (t *PreProvisionedExistingCredentialsTest) Run(client clientset.Interface, 
 			ginkgo.By("creating the storageclass with existing credentials")
 			sc := t.CSIDriver.GetPreProvisionStorageClass(parameters, volume.MountOptions, volume.ReclaimPolicy, volume.VolumeBindingMode, volume.AllowedTopologyValues, namespace.Name)
 			tsc := NewTestStorageClass(client, namespace, sc)
-			createdStorageClass := tsc.Create()
-			defer tsc.Cleanup()
+			createdStorageClass := tsc.Create(ctx)
+			defer tsc.Cleanup(ctx)
 
 			ginkgo.By("creating pvc with storageclass")
 			tpvc := NewTestPersistentVolumeClaim(client, namespace, volume.ClaimSize, volume.VolumeMode, &createdStorageClass)
-			tpvc.Create()
-			defer tpvc.Cleanup()
+			tpvc.Create(ctx)
+			defer tpvc.Cleanup(ctx)
 
 			ginkgo.By("validating the pvc")
-			tpvc.WaitForBound()
-			tpvc.ValidateProvisionedPersistentVolume()
+			tpvc.WaitForBound(ctx)
+			tpvc.ValidateProvisionedPersistentVolume(ctx)
 
 			tpod := NewTestPod(client, namespace, pod.Cmd, pod.IsWindows, pod.WinServerVer)
 			tpod.SetupVolume(tpvc.persistentVolumeClaim, fmt.Sprintf("%s%d", volume.VolumeMount.NameGenerate, n+1), fmt.Sprintf("%s%d", volume.VolumeMount.MountPathGenerate, n+1), volume.VolumeMount.ReadOnly)
 			ginkgo.By("deploying the pod")
-			tpod.Create()
-			defer tpod.Cleanup()
+			tpod.Create(ctx)
+			defer tpod.Cleanup(ctx)
 			ginkgo.By("checking that the pods command exits with no error")
-			tpod.WaitForSuccess()
+			tpod.WaitForSuccess(ctx)
 		}
 	}
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package testsuites
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -42,18 +43,18 @@ type PodExecCheck struct {
 	ExpectedString string
 }
 
-func (t *DynamicallyProvisionedDeletePodTest) Run(client clientset.Interface, namespace *v1.Namespace) {
-	tDeployment, cleanup, _ := t.Pod.SetupDeployment(client, namespace, 1 /*replicas*/, t.CSIDriver, t.StorageClassParameters)
+func (t *DynamicallyProvisionedDeletePodTest) Run(ctx context.Context, client clientset.Interface, namespace *v1.Namespace) {
+	tDeployment, cleanup, _ := t.Pod.SetupDeployment(ctx, client, namespace, 1 /*replicas*/, t.CSIDriver, t.StorageClassParameters)
 	// defer must be called here for resources not get removed before using them
 	for i := range cleanup {
-		defer cleanup[i]()
+		defer cleanup[i](ctx)
 	}
 
 	ginkgo.By("deploying the deployment")
-	tDeployment.Create()
+	tDeployment.Create(ctx)
 
 	ginkgo.By("checking that the pod is running")
-	tDeployment.WaitForPodReady()
+	tDeployment.WaitForPodReady(ctx)
 
 	if t.PodCheck != nil {
 		time.Sleep(time.Second)
@@ -64,10 +65,10 @@ func (t *DynamicallyProvisionedDeletePodTest) Run(client clientset.Interface, na
 	// repeat to make sure mount/unmount is stable
 	for i := 0; i < 10; i++ {
 		ginkgo.By(fmt.Sprintf("deleting the pod for deployment, %d times", i))
-		tDeployment.DeletePodAndWait()
+		tDeployment.DeletePodAndWait(ctx)
 
 		ginkgo.By(fmt.Sprintf("checking again that the pod is running, %d times", i))
-		tDeployment.WaitForPodReady()
+		tDeployment.WaitForPodReady(ctx)
 	}
 
 	if t.PodCheck != nil {

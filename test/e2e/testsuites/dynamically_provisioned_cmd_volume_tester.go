@@ -17,6 +17,7 @@ limitations under the License.
 package testsuites
 
 import (
+	"context"
 	"fmt"
 
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
@@ -36,25 +37,25 @@ type DynamicallyProvisionedCmdVolumeTest struct {
 	StorageClassParameters map[string]string
 }
 
-func (t *DynamicallyProvisionedCmdVolumeTest) Run(client clientset.Interface, namespace *v1.Namespace) {
+func (t *DynamicallyProvisionedCmdVolumeTest) Run(ctx context.Context, client clientset.Interface, namespace *v1.Namespace) {
 	for _, pod := range t.Pods {
-		tpod, cleanup := pod.SetupWithDynamicVolumes(client, namespace, t.CSIDriver, t.StorageClassParameters)
+		tpod, cleanup := pod.SetupWithDynamicVolumes(ctx, client, namespace, t.CSIDriver, t.StorageClassParameters)
 		// defer must be called here for resources not get removed before using them
 		for i := range cleanup {
-			defer cleanup[i]()
+			defer cleanup[i](ctx)
 		}
 
 		ginkgo.By("deploying the pod")
-		tpod.Create()
-		defer tpod.Cleanup()
+		tpod.Create(ctx)
+		defer tpod.Cleanup(ctx)
 		ginkgo.By("checking that the pods command exits with no error")
 		if pod.WinServerVer == "windows-2022" {
-			if err := e2epod.WaitForPodSuccessInNamespaceSlow(tpod.client, tpod.pod.Name, tpod.namespace.Name); err != nil {
+			if err := e2epod.WaitForPodSuccessInNamespaceSlow(ctx, tpod.client, tpod.pod.Name, tpod.namespace.Name); err != nil {
 				ginkgo.By(fmt.Sprintf("hit error(%v) in first run, give another try", err))
 			}
-			tpod.WaitForSuccess()
+			tpod.WaitForSuccess(ctx)
 		} else {
-			tpod.WaitForSuccess()
+			tpod.WaitForSuccess(ctx)
 		}
 	}
 }

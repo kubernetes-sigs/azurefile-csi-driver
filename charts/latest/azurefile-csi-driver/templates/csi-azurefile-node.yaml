@@ -28,6 +28,9 @@ spec:
       labels:
         app: {{ .Values.linux.dsName }}
         {{- include "azurefile.labels" . | nindent 8 }}
+        {{- if .Values.workloadIdentity.clientID }}
+        azure.workload.identity/use: "true"
+        {{- end }}
 {{- with .Values.linux.podLabels }}
 {{ toYaml . | indent 8 }}
 {{- end }}

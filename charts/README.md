@@ -185,6 +185,8 @@ The following table lists the configurable parameters of the latest Azure File C
 | `windows.resources.azurefile.limits.memory`              | azurefile memory limits                         | 200Mi                                                         |
 | `windows.resources.azurefile.requests.cpu`               | azurefile cpu requests                   | 10m                                                            |
 | `windows.resources.azurefile.requests.memory`            | azurefile memory requests                | 40Mi                                                           |
+| `workloadIdentity.clientID` | client ID of workload identity | ''
+| `workloadIdentity.tenantID` | [optional] If the AAD application or user-assigned managed identity is not in the same tenant as the cluster then set tenantID with the AAD application or user-assigned managed identity tenant ID | ''
 
 ## troubleshooting
  - Add `--wait -v=5 --debug` in `helm install` command to get detailed error

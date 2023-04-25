@@ -17,6 +17,8 @@ limitations under the License.
 package testsuites
 
 import (
+	"context"
+
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 
 	"github.com/onsi/ginkgo/v2"
@@ -37,29 +39,29 @@ type DynamicallyProvisionedVolumeSnapshotTest struct {
 	StorageClassParameters map[string]string
 }
 
-func (t *DynamicallyProvisionedVolumeSnapshotTest) Run(client clientset.Interface, restclient restclientset.Interface, namespace *v1.Namespace) {
+func (t *DynamicallyProvisionedVolumeSnapshotTest) Run(ctx context.Context, client clientset.Interface, restclient restclientset.Interface, namespace *v1.Namespace) {
 	tpod := NewTestPod(client, namespace, t.Pod.Cmd, t.Pod.IsWindows, t.Pod.WinServerVer)
 	volume := t.Pod.Volumes[0]
-	tpvc, pvcCleanup := volume.SetupDynamicPersistentVolumeClaim(client, namespace, t.CSIDriver, t.StorageClassParameters)
+	tpvc, pvcCleanup := volume.SetupDynamicPersistentVolumeClaim(ctx, client, namespace, t.CSIDriver, t.StorageClassParameters)
 	for i := range pvcCleanup {
-		defer pvcCleanup[i]()
+		defer pvcCleanup[i](ctx)
 	}
 	tpod.SetupVolume(tpvc.persistentVolumeClaim, volume.VolumeMount.NameGenerate+"1", volume.VolumeMount.MountPathGenerate+"1", volume.VolumeMount.ReadOnly)
 
 	ginkgo.By("deploying the pod")
-	tpod.Create()
-	defer tpod.Cleanup()
+	tpod.Create(ctx)
+	defer tpod.Cleanup(ctx)
 	ginkgo.By("checking that the pod's command exits with no error")
-	tpod.WaitForSuccess()
+	tpod.WaitForSuccess(ctx)
 
 	ginkgo.By("creating volume snapshot class")
-	tvsc, cleanup := CreateVolumeSnapshotClass(restclient, namespace, t.CSIDriver)
+	tvsc, cleanup := CreateVolumeSnapshotClass(ctx, restclient, namespace, t.CSIDriver)
 	defer cleanup()
 
 	ginkgo.By("taking snapshots")
-	snapshot := tvsc.CreateSnapshot(tpvc.persistentVolumeClaim)
-	defer tvsc.DeleteSnapshot(snapshot)
+	snapshot := tvsc.CreateSnapshot(ctx, tpvc.persistentVolumeClaim)
+	defer tvsc.DeleteSnapshot(ctx, snapshot)
 
 	// If the field ReadyToUse is still false, there will be a timeout error.
-	tvsc.ReadyToUse(snapshot)
+	tvsc.ReadyToUse(ctx, snapshot)
 }
