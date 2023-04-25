@@ -113,7 +113,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 	var sku, subsID, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
 	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, shareAccessTier, accountAccessTier, rootSquashType string
-	var createAccount, useDataPlaneAPI, useSeretCache, matchTags bool
+	var createAccount, useDataPlaneAPI, useSeretCache, matchTags, selectRandomMatchingAccount bool
 	var vnetResourceGroup, vnetName, subnetName, shareNamePrefix, fsGroupChangePolicy string
 	var requireInfraEncryption, disableDeleteRetentionPolicy, enableLFS, isMultichannelEnabled *bool
 	// set allowBlobPublicAccess as false by default
@@ -149,6 +149,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			if strings.EqualFold(v, falseValue) {
 				storeAccountKey = false
 			}
+		case selectRandomMatchingAccountField:
+			value, err := strconv.ParseBool(v)
+			if err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s: %s in storage class", selectRandomMatchingAccountField, v))
+			}
+			selectRandomMatchingAccount = value
 		case secretNameField:
 			secretName = v
 		case secretNamespaceField:
@@ -404,6 +410,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		StorageType:                             provider.StorageTypeFile,
 		StorageEndpointSuffix:                   storageEndpointSuffix,
 		IsMultichannelEnabled:                   isMultichannelEnabled,
+		PickRandomMatchingAccount:               selectRandomMatchingAccount,
 	}
 
 	var accountKey, lockKey string

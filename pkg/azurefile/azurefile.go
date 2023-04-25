@@ -132,6 +132,7 @@ const (
 	requireInfraEncryptionField       = "requireinfraencryption"
 	enableMultichannelField           = "enablemultichannel"
 	premium                           = "premium"
+	selectRandomMatchingAccountField  = "selectrandommatchingaccount"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
 	// this is a workaround fix for 429 throttling issue, will update cloud provider for better fix later

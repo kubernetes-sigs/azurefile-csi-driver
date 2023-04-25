@@ -416,6 +416,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		}
 		if !isUsingInTreeVolumePlugin {
 			scParameters["accountAccessTier"] = "Cool"
+			scParameters["selectRandomMatchingAccount"] = "true"
 		}
 		test := testsuites.DynamicallyProvisionedResizeVolumeTest{
 			CSIDriver:              testDriver,
