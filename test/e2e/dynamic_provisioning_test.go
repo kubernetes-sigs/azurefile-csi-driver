@@ -139,6 +139,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			scParameters["enableLargeFileshares"] = "true"
 			scParameters["networkEndpointType"] = "privateEndpoint"
 			scParameters["accessTier"] = "Hot"
+			scParameters["selectRandomMatchingAccount"] = "true"
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
 			CSIDriver:              testDriver,
@@ -174,8 +175,9 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		}
 
 		scParameters := map[string]string{
-			"skuName":            "Premium_LRS",
-			"enableMultichannel": "true",
+			"skuName":                     "Premium_LRS",
+			"enableMultichannel":          "true",
+			"selectRandomMatchingAccount": "true",
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
 			CSIDriver:              testDriver,
