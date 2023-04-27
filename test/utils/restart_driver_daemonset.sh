@@ -16,12 +16,8 @@
 
 set -euo pipefail
 
-echo "Deleting the Driver node daemonset ..."
-kubectl delete -f ./deploy/csi-azurefile-node.yaml --ignore-not-found
-kubectl delete -f ./deploy/csi-azurefile-node-windows.yaml --ignore-not-found
+NS=kube-system
+LABEL="app=csi-azurefile-node"
 
-sleep 15
-
-echo "Installing the Driver node daemonset ..."
-kubectl apply -f ./deploy/csi-azurefile-node.yaml
-kubectl apply -f ./deploy/csi-azurefile-node-windows.yaml
+echo "Restarting driver pods ..."
+kubectl delete pods -n ${NS} -l ${LABEL}
