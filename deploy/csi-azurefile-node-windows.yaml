@@ -42,7 +42,7 @@ spec:
           volumeMounts:
             - mountPath: C:\csi
               name: plugin-dir
-          image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.8.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.9.0
           args:
             - --csi-address=$(CSI_ENDPOINT)
             - --probe-timeout=3s
@@ -58,7 +58,7 @@ spec:
               cpu: 10m
               memory: 40Mi
         - name: node-driver-registrar
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.6.2
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.6.3
           args:
             - --v=2
             - --csi-address=$(CSI_ENDPOINT)
