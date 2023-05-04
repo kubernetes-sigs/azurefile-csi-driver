@@ -34,7 +34,7 @@ ifdef KUBERNETES_VERSION # disable kubelet-registration-probe on capz cluster te
 E2E_HELM_OPTIONS += --set linux.enableRegistrationProbe=false --set windows.enableRegistrationProbe=false
 endif
 ifdef EXTERNAL_E2E_TEST_NFS
-E2E_HELM_OPTIONS += --set feature.enableVolumeMountGroup=false
+E2E_HELM_OPTIONS += --set feature.enableVolumeMountGroup=false --set feature.fsGroupPolicy=File
 endif
 GINKGO_FLAGS = -ginkgo.v
 GO111MODULE = on

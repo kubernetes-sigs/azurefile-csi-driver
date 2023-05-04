@@ -157,6 +157,7 @@ snapshot:
 feature:
   enableGetVolumeStats: true
   enableVolumeMountGroup: true
+  fsGroupPolicy: ReadWriteOnceWithFSType
 
 driver:
   name: file.csi.azure.com
