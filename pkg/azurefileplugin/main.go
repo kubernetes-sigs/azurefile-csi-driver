@@ -47,6 +47,7 @@ var (
 	customUserAgent                        = flag.String("custom-user-agent", "", "custom userAgent")
 	userAgentSuffix                        = flag.String("user-agent-suffix", "", "userAgent suffix")
 	allowEmptyCloudConfig                  = flag.Bool("allow-empty-cloud-config", true, "allow running driver without cloud config")
+	enableVolumeMountGroup                 = flag.Bool("enable-volume-mount-group", true, "indicates whether enabling VOLUME_MOUNT_GROUP")
 	enableGetVolumeStats                   = flag.Bool("enable-get-volume-stats", true, "allow GET_VOLUME_STATS on agent node")
 	mountPermissions                       = flag.Uint64("mount-permissions", 0777, "mounted folder permissions")
 	allowInlineVolumeKeyAccessWithIdentity = flag.Bool("allow-inline-volume-key-access-with-identity", false, "allow accessing storage account key using cluster identity for inline volume")
@@ -88,6 +89,7 @@ func handle() {
 		CustomUserAgent:                        *customUserAgent,
 		UserAgentSuffix:                        *userAgentSuffix,
 		AllowEmptyCloudConfig:                  *allowEmptyCloudConfig,
+		EnableVolumeMountGroup:                 *enableVolumeMountGroup,
 		EnableGetVolumeStats:                   *enableGetVolumeStats,
 		MountPermissions:                       *mountPermissions,
 		AllowInlineVolumeKeyAccessWithIdentity: *allowInlineVolumeKeyAccessWithIdentity,

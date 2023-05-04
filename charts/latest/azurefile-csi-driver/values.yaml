@@ -156,6 +156,7 @@ snapshot:
 
 feature:
   enableGetVolumeStats: true
+  enableVolumeMountGroup: true
 
 driver:
   name: file.csi.azure.com

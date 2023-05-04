@@ -33,6 +33,9 @@ E2E_HELM_OPTIONS += ${EXTRA_HELM_OPTIONS}
 ifdef KUBERNETES_VERSION # disable kubelet-registration-probe on capz cluster testing
 E2E_HELM_OPTIONS += --set linux.enableRegistrationProbe=false --set windows.enableRegistrationProbe=false
 endif
+ifdef EXTERNAL_E2E_TEST_NFS
+E2E_HELM_OPTIONS += --set feature.enableVolumeMountGroup=false
+endif
 GINKGO_FLAGS = -ginkgo.v
 GO111MODULE = on
 GOPATH ?= $(shell go env GOPATH)

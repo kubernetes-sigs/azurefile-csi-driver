@@ -192,6 +192,7 @@ type DriverOptions struct {
 	AllowEmptyCloudConfig                  bool
 	AllowInlineVolumeKeyAccessWithIdentity bool
 	EnableVHDDiskFeature                   bool
+	EnableVolumeMountGroup                 bool
 	EnableGetVolumeStats                   bool
 	AppendMountErrorHelpLink               bool
 	MountPermissions                       uint64
@@ -214,6 +215,7 @@ type Driver struct {
 	allowInlineVolumeKeyAccessWithIdentity bool
 	enableVHDDiskFeature                   bool
 	enableGetVolumeStats                   bool
+	enableVolumeMountGroup                 bool
 	appendMountErrorHelpLink               bool
 	mountPermissions                       uint64
 	kubeAPIQPS                             float64
@@ -258,6 +260,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.allowEmptyCloudConfig = options.AllowEmptyCloudConfig
 	driver.allowInlineVolumeKeyAccessWithIdentity = options.AllowInlineVolumeKeyAccessWithIdentity
 	driver.enableVHDDiskFeature = options.EnableVHDDiskFeature
+	driver.enableVolumeMountGroup = options.EnableVolumeMountGroup
 	driver.enableGetVolumeStats = options.EnableGetVolumeStats
 	driver.appendMountErrorHelpLink = options.AppendMountErrorHelpLink
 	driver.mountPermissions = options.MountPermissions
@@ -325,7 +328,6 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 			csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 			csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
 			csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT,
-			//csi.ControllerServiceCapability_RPC_LIST_SNAPSHOTS,
 			csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
 			csi.ControllerServiceCapability_RPC_SINGLE_NODE_MULTI_WRITER,
 		})
@@ -342,7 +344,9 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 	nodeCap := []csi.NodeServiceCapability_RPC_Type{
 		csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
 		csi.NodeServiceCapability_RPC_SINGLE_NODE_MULTI_WRITER,
-		csi.NodeServiceCapability_RPC_VOLUME_MOUNT_GROUP,
+	}
+	if d.enableVolumeMountGroup {
+		nodeCap = append(nodeCap, csi.NodeServiceCapability_RPC_VOLUME_MOUNT_GROUP)
 	}
 	if d.enableGetVolumeStats {
 		nodeCap = append(nodeCap, csi.NodeServiceCapability_RPC_GET_VOLUME_STATS)
