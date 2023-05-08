@@ -53,21 +53,8 @@ spec:
             - "C:\\var\\lib\\kubelet\\plugins\\{{ .Values.driver.name }}\\"
             - "-Force"
       containers:
-        - name: liveness-probe
-          image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.7.0
-          imagePullPolicy: IfNotPresent
-          command:
-            - "livenessprobe.exe"
-          args:
-            - --csi-address=$(CSI_ENDPOINT)
-            - --probe-timeout=3s
-            - --health-port=29613
-            - --v=2
-          env:
-            - name: CSI_ENDPOINT
-              value: unix://C:\\var\\lib\\kubelet\\plugins\\file.csi.azure.com\\csi.sock
         - name: node-driver-registrar
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.1
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.0
           imagePullPolicy: IfNotPresent
           command:
             - "csi-node-driver-registrar.exe"
@@ -98,18 +85,6 @@ spec:
             - --nodeid=$(KUBE_NODE_NAME)
             - --kubeconfig=C:\\k\\config
             - --enable-windows-host-process=true
-          ports:
-            - containerPort: 29613
-              name: healthz
-              protocol: TCP
-          livenessProbe:
-            failureThreshold: 5
-            httpGet:
-              path: /healthz
-              port: healthz
-            initialDelaySeconds: 30
-            timeoutSeconds: 10
-            periodSeconds: 30
           env:
             - name: AZURE_CREDENTIAL_FILE
               valueFrom:
