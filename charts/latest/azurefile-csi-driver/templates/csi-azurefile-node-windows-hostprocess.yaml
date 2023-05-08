@@ -64,12 +64,12 @@ spec:
       hostNetwork: true
       initContainers:
         - name: init
-{{- if hasPrefix "/" .Values.image.livenessProbe.repository }}
-          image: "{{ .Values.image.baseRepo }}{{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}"
+{{- if hasPrefix "/" .Values.image.azurefile.repository }}
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}-windows-hp"
 {{- else }}
-          image: "{{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}"
+          image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}-windows-hp"
 {{- end }}
-          imagePullPolicy: {{ .Values.image.livenessProbe.pullPolicy }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
             - "powershell.exe"
             - "-c"

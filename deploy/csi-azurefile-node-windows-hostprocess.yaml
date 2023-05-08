@@ -41,7 +41,7 @@ spec:
       hostNetwork: true
       initContainers:
         - name: init
-          image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.7.0
+          image: mcr.microsoft.com/k8s/csi/azurefile-csi:latest-windows-hp
           imagePullPolicy: IfNotPresent
           command:
             - "powershell.exe"
@@ -54,7 +54,7 @@ spec:
             - "-Force"
       containers:
         - name: node-driver-registrar
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0
           imagePullPolicy: IfNotPresent
           command:
             - "csi-node-driver-registrar.exe"

@@ -53,14 +53,15 @@ if [[ "$#" -gt 1 ]]; then
   fi
 
   if [[ "$2" == *"hostprocess"* ]]; then
-    echo "deploy windows driver with hostprocess ..."
     windowsMode="hostProcess"
-    kubectl apply -f $repo/csi-azurefile-node-windows-hostprocess.yaml
   fi
 fi
 
-if [[ "$windowsMode" == *"csi-proxy"* ]]; then
-  echo "deploy windows pods with csi-proxy ..."
+if [[ "$windowsMode" == *"hostprocess"* ]]; then
+  echo "deploy windows driver with hostprocess mode..."
+  kubectl apply -f $repo/csi-azurefile-node-windows-hostprocess.yaml
+else
+  echo "deploy windows driver with csi-proxy mode ..."
   kubectl apply -f $repo/csi-azurefile-node-windows.yaml
 fi
 
