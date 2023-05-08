@@ -131,6 +131,7 @@ spec:
             - "--custom-user-agent={{ .Values.driver.customUserAgent }}"
             - "--user-agent-suffix={{ .Values.driver.userAgentSuffix }}"
             - "--allow-empty-cloud-config={{ .Values.node.allowEmptyCloudConfig }}"
+            - "--enable-volume-mount-group={{ .Values.feature.enableVolumeMountGroup }}"
             - "--enable-get-volume-stats={{ .Values.feature.enableGetVolumeStats }}"
             - "--mount-permissions={{ .Values.linux.mountPermissions }}"
             - "--allow-inline-volume-key-access-with-identity={{ .Values.node.allowInlineVolumeKeyAccessWithIdentity }}"

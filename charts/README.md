@@ -52,6 +52,8 @@ The following table lists the configurable parameters of the latest Azure File C
 | `driver.userAgentSuffix`                          | userAgent suffix               | `OSS-helm` |
 | `driver.azureGoSDKLogLevel`                       | [Azure go sdk log level](https://github.com/Azure/azure-sdk-for-go/blob/main/documentation/previous-versions-quickstart.md#built-in-basic-requestresponse-logging)  | ``(no logs), `DEBUG`, `INFO`, `WARNING`, `ERROR`, [etc](https://github.com/Azure/go-autorest/blob/50e09bb39af124f28f29ba60efde3fa74a4fe93f/logger/logger.go#L65-L73). |
 | `feature.enableGetVolumeStats`                    | allow GET_VOLUME_STATS on agent node                       | `true`                      |
+| `feature.enableVolumeMountGroup`                  | indicates whether enabling VOLUME_MOUNT_GROUP                       | `true`                      |
+| `feature.fsGroupPolicy`                           | CSIDriver FSGroupPolicy value                  | `ReadWriteOnceWithFSType`(available values: `ReadWriteOnceWithFSType`, `File`, `None`) |
 | `image.baseRepo`                                  | base repository of driver images                           | `mcr.microsoft.com`                      |
 | `image.azurefile.repository`                      | azurefile-csi-driver docker image                          | `/oss/kubernetes-csi/azurefile-csi`                            |
 | `image.azurefile.tag`                             | azurefile-csi-driver docker image tag                      | ``                                                            |
