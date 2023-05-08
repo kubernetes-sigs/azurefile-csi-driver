@@ -54,7 +54,7 @@ func NewSmbLink(remotePath, localPath string) error {
 
 	cmdLine := `New-Item -ItemType SymbolicLink $Env:smblocalPath -Target $Env:smbremotepath`
 	cmd := exec.Command("powershell", "/c", cmdLine)
-	cmd.Env = append(os.Environ(), "smbremotepath="+remotePath, "smblocalpath=%s"+localPath)
+	cmd.Env = append(os.Environ(), fmt.Sprintf("smbremotepath=%s", remotePath), fmt.Sprintf("smblocalpath=%s", localPath))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error linking %s to %s. output: %s, err: %v", remotePath, localPath, string(output), err)
