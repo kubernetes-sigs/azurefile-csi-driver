@@ -172,7 +172,7 @@ users:
 			}
 			os.Setenv(DefaultAzureCredentialFileEnv, fakeCredFile)
 		}
-		cloud, err := getCloudProvider(test.kubeconfig, "", "", "", test.userAgent, test.allowEmptyCloudConfig, 5, 10)
+		cloud, err := getCloudProvider(test.kubeconfig, "", "", "", test.userAgent, test.allowEmptyCloudConfig, false, 5, 10)
 		if !testutil.AssertError(err, &test.expectedErr) && !strings.Contains(err.Error(), test.expectedErr.DefaultError.Error()) {
 			t.Errorf("desc: %s,\n input: %q, getCloudProvider err: %v, expectedErr: %v", test.desc, test.kubeconfig, err, test.expectedErr)
 		}
@@ -367,9 +367,19 @@ users:
 		t.Error(err)
 	}
 
+	os.Setenv("CONTAINER_SANDBOX_MOUNT_POINT", "C:\\var\\lib\\kubelet\\pods\\12345678-1234-1234-1234-123456789012")
+	defer os.Unsetenv("CONTAINER_SANDBOX_MOUNT_POINT")
+
+	os.Setenv("KUBERNETES_SERVICE_HOST", "foo")
+	defer os.Unsetenv("KUBERNETES_SERVICE_HOST")
+
+	os.Setenv("KUBERNETES_SERVICE_PORT", "bar")
+	defer os.Unsetenv("KUBERNETES_SERVICE_PORT")
+
 	tests := []struct {
 		desc                     string
 		kubeconfig               string
+		enableWindowsHostProcess bool
 		expectError              bool
 		envVariableHasConfig     bool
 		envVariableConfigIsValid bool
@@ -377,6 +387,7 @@ users:
 		{
 			desc:                     "[success] valid kube config passed",
 			kubeconfig:               validKubeConfig,
+			enableWindowsHostProcess: false,
 			expectError:              false,
 			envVariableHasConfig:     false,
 			envVariableConfigIsValid: false,
@@ -384,6 +395,23 @@ users:
 		{
 			desc:                     "[failure] invalid kube config passed",
 			kubeconfig:               emptyKubeConfig,
+			enableWindowsHostProcess: false,
+			expectError:              true,
+			envVariableHasConfig:     false,
+			envVariableConfigIsValid: false,
+		},
+		{
+			desc:                     "[failure] invalid kube config passed",
+			kubeconfig:               emptyKubeConfig,
+			enableWindowsHostProcess: false,
+			expectError:              true,
+			envVariableHasConfig:     false,
+			envVariableConfigIsValid: false,
+		},
+		{
+			desc:                     "[failure] empty Kubeconfig under container sandbox mount path",
+			kubeconfig:               "",
+			enableWindowsHostProcess: true,
 			expectError:              true,
 			envVariableHasConfig:     false,
 			envVariableConfigIsValid: false,
@@ -391,7 +419,7 @@ users:
 	}
 
 	for _, test := range tests {
-		_, err := getKubeConfig(test.kubeconfig)
+		_, err := getKubeConfig(test.kubeconfig, test.enableWindowsHostProcess)
 		receiveError := (err != nil)
 		if test.expectError != receiveError {
 			t.Errorf("desc: %s,\n input: %q, GetCloudProvider err: %v, expectErr: %v", test.desc, test.kubeconfig, err, test.expectError)

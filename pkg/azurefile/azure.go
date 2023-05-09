@@ -20,7 +20,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -29,6 +31,7 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/klog/v2"
 
 	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
@@ -45,7 +48,7 @@ var (
 )
 
 // getCloudProvider get Azure Cloud Provider
-func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace, userAgent string, allowEmptyCloudConfig bool, kubeAPIQPS float64, kubeAPIBurst int) (*azure.Cloud, error) {
+func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace, userAgent string, allowEmptyCloudConfig, enableWindowsHostProcess bool, kubeAPIQPS float64, kubeAPIBurst int) (*azure.Cloud, error) {
 	var (
 		config     *azure.Config
 		kubeClient *clientset.Clientset
@@ -60,7 +63,7 @@ func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace, userAgent
 		},
 	}
 
-	kubeCfg, err := getKubeConfig(kubeconfig)
+	kubeCfg, err := getKubeConfig(kubeconfig, enableWindowsHostProcess)
 	if err == nil && kubeCfg != nil {
 		klog.V(2).Infof("set QPS(%f) and QPS Burst(%d) for driver kubeClient", float32(kubeAPIQPS), kubeAPIBurst)
 		kubeCfg.QPS = float32(kubeAPIQPS)
@@ -148,13 +151,13 @@ func getCloudProvider(kubeconfig, nodeID, secretName, secretNamespace, userAgent
 	return az, nil
 }
 
-func getKubeConfig(kubeconfig string) (config *rest.Config, err error) {
+func getKubeConfig(kubeconfig string, enableWindowsHostProcess bool) (config *rest.Config, err error) {
 	if kubeconfig != "" {
 		if config, err = clientcmd.BuildConfigFromFlags("", kubeconfig); err != nil {
 			return nil, err
 		}
 	} else {
-		if config, err = rest.InClusterConfig(); err != nil {
+		if config, err = inClusterConfig(enableWindowsHostProcess); err != nil {
 			return nil, err
 		}
 	}
@@ -226,4 +229,49 @@ func (d *Driver) updateSubnetServiceEndpoints(ctx context.Context, vnetResourceG
 	}
 
 	return nil
+}
+
+// inClusterConfig is copied from https://github.com/kubernetes/client-go/blob/b46677097d03b964eab2d67ffbb022403996f4d4/rest/config.go#L507-L541
+// When using Windows HostProcess containers, the path "/var/run/secrets/kubernetes.io/serviceaccount/" is under host, not container.
+// Then the token and ca.crt files would be not found.
+// An environment variable $CONTAINER_SANDBOX_MOUNT_POINT is set upon container creation and provides the absolute host path to the container volume.
+// See https://kubernetes.io/docs/tasks/configure-pod-container/create-hostprocess-pod/#volume-mounts for more details.
+func inClusterConfig(enableWindowsHostProcess bool) (*rest.Config, error) {
+	var (
+		tokenFile  = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+		rootCAFile = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	)
+	if enableWindowsHostProcess {
+		containerSandboxMountPath := os.Getenv("CONTAINER_SANDBOX_MOUNT_POINT")
+		if len(containerSandboxMountPath) == 0 {
+			return nil, errors.New("unable to load in-cluster configuration, containerSandboxMountPath must be defined")
+		}
+		tokenFile = filepath.Join(containerSandboxMountPath, tokenFile)
+		rootCAFile = filepath.Join(containerSandboxMountPath, rootCAFile)
+	}
+
+	host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
+	if len(host) == 0 || len(port) == 0 {
+		return nil, rest.ErrNotInCluster
+	}
+
+	token, err := os.ReadFile(tokenFile)
+	if err != nil {
+		return nil, err
+	}
+
+	tlsClientConfig := rest.TLSClientConfig{}
+
+	if _, err := certutil.NewPool(rootCAFile); err != nil {
+		klog.Errorf("Expected to load root CA config from %s, but got err: %v", rootCAFile, err)
+	} else {
+		tlsClientConfig.CAFile = rootCAFile
+	}
+
+	return &rest.Config{
+		Host:            "https://" + net.JoinHostPort(host, port),
+		TLSClientConfig: tlsClientConfig,
+		BearerToken:     string(token),
+		BearerTokenFile: tokenFile,
+	}, nil
 }

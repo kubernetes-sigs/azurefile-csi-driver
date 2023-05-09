@@ -95,22 +95,45 @@ e2e-test:
 		go test -v -timeout=0 ./test/e2e ${GINKGO_FLAGS};\
 	fi
 
+# In the scenario "host-process" and "csi-proxy", use the same daemonset name.
+# The command "helm install" would validate if the name is duplicated and return error or not.
+# So here we have to use flag "--disable-openapi-validation" to skip the validation.
 .PHONY: e2e-bootstrap
 e2e-bootstrap: install-helm
+ifdef WINDOWS_USE_HOST_PROCESS_CONTAINERS
+	(docker pull $(CSI_IMAGE_TAG) && docker pull $(CSI_IMAGE_TAG)-windows-hp)  || make container-all push-manifest
+else
 	docker pull $(CSI_IMAGE_TAG) || make container-all push-manifest
+endif
 ifdef TEST_WINDOWS
+ifdef WINDOWS_USE_HOST_PROCESS_CONTAINERS
 	helm install azurefile-csi-driver charts/latest/azurefile-csi-driver --namespace kube-system --wait --timeout=15m -v=5 --debug \
 		${E2E_HELM_OPTIONS} \
 		--set windows.enabled=true \
+		--set windows.hostprocess=true \
 		--set linux.enabled=false \
 		--set driver.azureGoSDKLogLevel=INFO \
 		--set controller.replicas=1 \
 		--set controller.logLevel=6 \
-		--set node.logLevel=6
+		--set node.logLevel=6 \
+		--disable-openapi-validation
 else
 	helm install azurefile-csi-driver charts/latest/azurefile-csi-driver --namespace kube-system --wait --timeout=15m -v=5 --debug \
 		${E2E_HELM_OPTIONS} \
-		--set snapshot.enabled=true
+		--set windows.enabled=true \
+		--set windows.hostprocess=false \
+		--set linux.enabled=false \
+		--set driver.azureGoSDKLogLevel=INFO \
+		--set controller.replicas=1 \
+		--set controller.logLevel=6 \
+		--set node.logLevel=6 \
+		--disable-openapi-validation
+endif
+else
+	helm install azurefile-csi-driver charts/latest/azurefile-csi-driver --namespace kube-system --wait --timeout=15m -v=5 --debug \
+		${E2E_HELM_OPTIONS} \
+		--set snapshot.enabled=true \
+		--disable-openapi-validation
 endif
 
 .PHONY: install-helm
@@ -150,6 +173,12 @@ container-windows:
 		--provenance=false --sbom=false \
 		--build-arg ARCH=${ARCH} -f ./pkg/azurefileplugin/Windows.Dockerfile .
 
+# Set --provenance=false to not generate the provenance (which is what causes the multi-platform index to be generated, even for a single platform).
+.PHONY: container-windows-hostprocess
+container-windows-hostprocess:
+	docker buildx build --pull --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" --provenance=false --sbom=false \
+		-t $(CSI_IMAGE_TAG)-windows-hp -f ./pkg/azurefileplugin/WindowsHostProcess.Dockerfile .
+
 .PHONY: container-all
 container-all: azurefile-windows
 	docker buildx rm container-builder || true
@@ -165,6 +194,7 @@ container-all: azurefile-windows
 	for osversion in $(ALL_OSVERSIONS.windows); do \
 		OSVERSION=$${osversion} $(MAKE) container-windows; \
 	done
+	$(MAKE) container-windows-hostprocess
 
 .PHONY: push-manifest
 push-manifest:

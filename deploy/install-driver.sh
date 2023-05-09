@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# using example: ./install-driver.sh [local|master|any remote branch] [snapshot,hostprocess]
+
 set -euo pipefail
 
 ver="master"
@@ -39,7 +41,8 @@ kubectl apply -f $repo/rbac-csi-azurefile-node.yaml
 kubectl apply -f $repo/csi-azurefile-controller.yaml
 kubectl apply -f $repo/csi-azurefile-driver.yaml
 kubectl apply -f $repo/csi-azurefile-node.yaml
-kubectl apply -f $repo/csi-azurefile-node-windows.yaml
+
+windowsMode="csi-proxy"
 
 if [[ "$#" -gt 1 ]]; then
   if [[ "$2" == *"snapshot"* ]]; then
@@ -48,5 +51,18 @@ if [[ "$#" -gt 1 ]]; then
     kubectl apply -f $repo/rbac-csi-snapshot-controller.yaml
     kubectl apply -f $repo/csi-snapshot-controller.yaml
   fi
+
+  if [[ "$2" == *"hostprocess"* ]]; then
+    windowsMode="hostProcess"
+  fi
 fi
+
+if [[ "$windowsMode" == *"hostprocess"* ]]; then
+  echo "deploy windows driver with hostprocess mode..."
+  kubectl apply -f $repo/csi-azurefile-node-windows-hostprocess.yaml
+else
+  echo "deploy windows driver with csi-proxy mode ..."
+  kubectl apply -f $repo/csi-azurefile-node-windows.yaml
+fi
+
 echo 'Azure File CSI driver installed successfully.'
