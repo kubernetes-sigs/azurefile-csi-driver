@@ -179,6 +179,11 @@ container-windows-hostprocess:
 	docker buildx build --pull --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" --provenance=false --sbom=false \
 		-t $(CSI_IMAGE_TAG)-windows-hp -f ./pkg/azurefileplugin/WindowsHostProcess.Dockerfile .
 
+.PHONY: container-windows-hostprocess-latest
+container-windows-hostprocess-latest:
+	docker buildx build --pull --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" --provenance=false --sbom=false \
+		-t $(CSI_IMAGE_TAG_LATEST)-windows-hp -f ./pkg/azurefileplugin/WindowsHostProcess.Dockerfile .
+
 .PHONY: container-all
 container-all: azurefile-windows
 	docker buildx rm container-builder || true
@@ -220,7 +225,7 @@ ifdef PUBLISH
 		done; \
 	done
 	docker manifest inspect $(CSI_IMAGE_TAG_LATEST)
-	docker manifest create --amend $(CSI_IMAGE_TAG_LATEST)-windows-hp $(CSI_IMAGE_TAG)-windows-hp
+	docker manifest create --amend $(CSI_IMAGE_TAG_LATEST)-windows-hp $(CSI_IMAGE_TAG_LATEST)-windows-hp
 	docker manifest inspect $(CSI_IMAGE_TAG_LATEST)-windows-hp
 endif
 
