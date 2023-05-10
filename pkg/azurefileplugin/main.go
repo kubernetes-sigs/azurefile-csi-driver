@@ -56,6 +56,7 @@ var (
 	kubeAPIBurst                           = flag.Int("kube-api-burst", 50, "Burst to use while communicating with the kubernetes apiserver.")
 	appendMountErrorHelpLink               = flag.Bool("append-mount-error-help-link", true, "Whether to include a link for help with mount errors when a mount error occurs.")
 	enableWindowsHostProcess               = flag.Bool("enable-windows-host-process", false, "enable windows host process")
+	appendClosetimeoOption                 = flag.Bool("append-closetimeo-option", false, "Whether appending closetimeo=0 option to smb mount command")
 )
 
 func main() {
@@ -97,6 +98,7 @@ func handle() {
 		KubeAPIQPS:                             *kubeAPIQPS,
 		KubeAPIBurst:                           *kubeAPIBurst,
 		EnableWindowsHostProcess:               *enableWindowsHostProcess,
+		AppendClosetimeoOption:                 *appendClosetimeoOption,
 	}
 	driver := azurefile.NewDriver(&driverOptions)
 	if driver == nil {
