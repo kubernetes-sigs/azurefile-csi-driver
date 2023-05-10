@@ -92,8 +92,9 @@ func TestNewFakeDriver(t *testing.T) {
 
 func TestAppendDefaultMountOptions(t *testing.T) {
 	tests := []struct {
-		options  []string
-		expected []string
+		options                []string
+		appendClosetimeoOption bool
+		expected               []string
 	}{
 		{
 			options: []string{"dir_mode=0777"},
@@ -164,10 +165,21 @@ func TestAppendDefaultMountOptions(t *testing.T) {
 				mfsymlinks,
 			},
 		},
+		{
+			options:                []string{""},
+			appendClosetimeoOption: true,
+			expected: []string{"", fmt.Sprintf("%s=%s",
+				fileMode, defaultFileMode),
+				fmt.Sprintf("%s=%s", dirMode, defaultDirMode),
+				fmt.Sprintf("%s=%s", actimeo, defaultActimeo),
+				mfsymlinks,
+				"sloppy,closetimeo=0",
+			},
+		},
 	}
 
 	for _, test := range tests {
-		result := appendDefaultMountOptions(test.options)
+		result := appendDefaultMountOptions(test.options, test.appendClosetimeoOption)
 		sort.Strings(result)
 		sort.Strings(test.expected)
 
