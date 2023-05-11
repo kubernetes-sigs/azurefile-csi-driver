@@ -9,11 +9,7 @@ After you finish the Installation guide, you should have already:
 * installed the mutating admission webhook
 * obtained your cluster’s OIDC issuer URL
 
-## 1. Enable Azure Workload Identity Mutating Webhook injection to Pod in the `kube-system` namespace
-
-Per [azure-workload-identity Known Issues](https://github.com/Azure/azure-workload-identity/blob/main/docs/book/src/known-issues.md#environment-variables-not-injected-into-pods-deployed-in-the-kube-system-namespace-in-an-aks-cluster), if you're deploying Azurefile in the `kube-system` namespace of an AKS cluster, add the `"admissions.enforcer/disabled": "true"` label or annotation in the [MutatingWebhookConfiguration](https://github.com/Azure/azure-workload-identity/blob/8644a217f09902fa1ac63e05cf04d9a3f3f1ebc3/deploy/azure-wi-webhook.yaml#L206-L235).
-
-## 2. Export environment variables
+## 1. Export environment variables
 
 ```shell
 export CLUSTER_NAME="<your cluster name>"
@@ -38,7 +34,7 @@ export SA_LIST=( "csi-azurefile-controller-sa" "csi-azurefile-node-sa" )
 export NAMESPACE="kube-system"
 ```
 
-## 3. Create Azurefile resource group
+## 2. Create Azurefile resource group
 
 If you are using AKS, you can get the resource group where Azurefile storage class reside by running:
 
@@ -52,7 +48,7 @@ You can also create resource group by yourself, but you must [specify the resour
 az group create -n $AZURE_FILE_RESOURCE_GROUP -l $LOCATION
 ```
 
-## 4. Create an AAD application or user-assigned managed identity and grant required permissions 
+## 3. Create an AAD application or user-assigned managed identity and grant required permissions 
 
 ```shell
 # create an AAD application if using Azure AD Application for this tutorial
@@ -61,6 +57,7 @@ az ad sp create-for-rbac --name "${APPLICATION_NAME}"
 
 ```shell
 # create a user-assigned managed identity if using user-assigned managed identity for this tutorial
+az group create -n ${IDENTITY_RESOURCE_GROUP} -l $LOCATION
 az identity create --name "${USER_ASSIGNED_IDENTITY_NAME}" --resource-group "${IDENTITY_RESOURCE_GROUP}"
 ```
 
@@ -82,7 +79,7 @@ export AZURE_FILE_RESOURCE_GROUP_ID="$(az group show -n $AZURE_FILE_RESOURCE_GRO
 az role assignment create --assignee $USER_ASSIGNED_IDENTITY_OBJECT_ID --role Contributor --scope $AZURE_FILE_RESOURCE_GROUP_ID
 ```
 
-## 5. Establish federated identity credential between the identity and the Azurefile service account issuer & subject
+## 4. Establish federated identity credential between the identity and the Azurefile service account issuer & subject
 
 If using Azure AD Application:
 
@@ -122,7 +119,7 @@ az identity federated-credential create \
 done
 ```
 
-## 6. Deploy Azurefile
+## 5. Deploy Azurefile
 
 Deploy storageclass:
 
@@ -140,7 +137,7 @@ export CLIENT_ID="$(az ad sp list --display-name "${APPLICATION_NAME}" --query '
 export TENANT_ID="$(az ad sp list --display-name "${APPLICATION_NAME}" --query '[0].appOwnerOrganizationId' -otsv)"
 helm install azurefile-csi-driver charts/latest/azurefile-csi-driver \
 --namespace $NAMESPACE \
---set workloadIdentity.clientID=$CLIENT_ID 
+--set workloadIdentity.clientID=$CLIENT_ID \
 --set workloadIdentity.tenantID=$TENANT_ID
 ```
 
@@ -151,11 +148,11 @@ export CLIENT_ID="$(az identity show --name "${USER_ASSIGNED_IDENTITY_NAME}" --r
 export TENANT_ID="$(az identity show --name "${USER_ASSIGNED_IDENTITY_NAME}" --resource-group "${IDENTITY_RESOURCE_GROUP}" --query 'tenantId' -otsv)"
 helm install azurefile-csi-driver charts/latest/azurefile-csi-driver \
 --namespace $NAMESPACE \
---set workloadIdentity.clientID=$CLIENT_ID 
+--set workloadIdentity.clientID=$CLIENT_ID \
 --set workloadIdentity.tenantID=$TENANT_ID
 ```
 
-## 7. Deploy application using Azurefile
+## 6. Deploy application using Azurefile
 
 ```shell
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/nfs/statefulset.yaml
