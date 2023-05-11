@@ -138,6 +138,24 @@ func TestAppendDefaultMountOptions(t *testing.T) {
 			},
 		},
 		{
+			options: []string{"acregmax=1"},
+			expected: []string{
+				"acregmax=1",
+				fmt.Sprintf("%s=%s", fileMode, defaultFileMode),
+				fmt.Sprintf("%s=%s", dirMode, defaultDirMode),
+				mfsymlinks,
+			},
+		},
+		{
+			options: []string{"acdirmax=2"},
+			expected: []string{
+				"acdirmax=2",
+				fmt.Sprintf("%s=%s", fileMode, defaultFileMode),
+				fmt.Sprintf("%s=%s", dirMode, defaultDirMode),
+				mfsymlinks,
+			},
+		},
+		{
 			options: []string{mfsymlinks},
 			expected: []string{
 				mfsymlinks,
