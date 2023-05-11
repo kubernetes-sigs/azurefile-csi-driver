@@ -443,6 +443,10 @@ func appendDefaultMountOptions(mountOptions []string) []string {
 				included[k] = true
 			}
 		}
+		// actimeo would set both acregmax and acdirmax, so we only need to check one of them
+		if strings.Contains(mountOption, "acregmax") || strings.Contains(mountOption, "acdirmax") {
+			included[actimeo] = true
+		}
 	}
 
 	allMountOptions := mountOptions
@@ -457,11 +461,6 @@ func appendDefaultMountOptions(mountOptions []string) []string {
 		}
 	}
 
-	/* todo: looks like fsGroup is not included in CSI
-	if !gidFlag && fsGroup != nil {
-		allMountOptions = append(allMountOptions, fmt.Sprintf("%s=%d", gid, *fsGroup))
-	}
-	*/
 	return allMountOptions
 }
 
