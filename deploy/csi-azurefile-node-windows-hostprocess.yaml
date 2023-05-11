@@ -41,7 +41,7 @@ spec:
       hostNetwork: true
       initContainers:
         - name: init
-          image: mcr.microsoft.com/k8s/csi/azurefile-csi:latest-windows-hp
+          image: mcr.microsoft.com/k8s/csi/azurefile-csi:latest
           imagePullPolicy: IfNotPresent
           command:
             - "powershell.exe"
@@ -70,7 +70,7 @@ spec:
                 fieldRef:
                   fieldPath: spec.nodeName
         - name: azurefile
-          image: mcr.microsoft.com/k8s/csi/azurefile-csi:latest-windows-hp
+          image: mcr.microsoft.com/k8s/csi/azurefile-csi:latest
           imagePullPolicy: IfNotPresent
           command:
             - "azurefileplugin.exe"

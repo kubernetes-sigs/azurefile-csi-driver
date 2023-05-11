@@ -101,7 +101,7 @@ e2e-test:
 .PHONY: e2e-bootstrap
 e2e-bootstrap: install-helm
 ifdef WINDOWS_USE_HOST_PROCESS_CONTAINERS
-	(docker pull $(CSI_IMAGE_TAG) && docker pull $(CSI_IMAGE_TAG)-windows-hp)  || make container-all push-manifest
+	(docker pull $(CSI_IMAGE_TAG) && docker pull $(CSI_IMAGE_TAG))  || make container-all push-manifest
 else
 	docker pull $(CSI_IMAGE_TAG) || make container-all push-manifest
 endif
@@ -179,11 +179,6 @@ container-windows-hostprocess:
 	docker buildx build --pull --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" --provenance=false --sbom=false \
 		-t $(CSI_IMAGE_TAG)-windows-hp -f ./pkg/azurefileplugin/WindowsHostProcess.Dockerfile .
 
-.PHONY: container-windows-hostprocess-latest
-container-windows-hostprocess-latest:
-	docker buildx build --pull --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" --provenance=false --sbom=false \
-		-t $(CSI_IMAGE_TAG_LATEST)-windows-hp -f ./pkg/azurefileplugin/WindowsHostProcess.Dockerfile .
-
 .PHONY: container-all
 container-all: azurefile-windows
 	docker buildx rm container-builder || true
@@ -203,7 +198,7 @@ container-all: azurefile-windows
 
 .PHONY: push-manifest
 push-manifest:
-	docker manifest create --amend $(CSI_IMAGE_TAG) $(foreach osarch, $(ALL_OS_ARCH), $(CSI_IMAGE_TAG)-${osarch})
+	docker manifest create --amend $(CSI_IMAGE_TAG) $(foreach osarch, $(ALL_OS_ARCH), $(CSI_IMAGE_TAG)-${osarch}) $(CSI_IMAGE_TAG)-windows-hp
 	set -x; \
 	for arch in $(ALL_ARCH.windows); do \
 		for osversion in $(ALL_OSVERSIONS.windows); do \
@@ -215,7 +210,7 @@ push-manifest:
 	docker manifest push --purge $(CSI_IMAGE_TAG)
 	docker manifest inspect $(CSI_IMAGE_TAG)
 ifdef PUBLISH
-	docker manifest create --amend $(CSI_IMAGE_TAG_LATEST) $(foreach osarch, $(ALL_OS_ARCH), $(CSI_IMAGE_TAG)-${osarch})
+	docker manifest create --amend $(CSI_IMAGE_TAG_LATEST) $(foreach osarch, $(ALL_OS_ARCH), $(CSI_IMAGE_TAG)-${osarch}) $(CSI_IMAGE_TAG)-windows-hp
 	set -x; \
 	for arch in $(ALL_ARCH.windows); do \
 		for osversion in $(ALL_OSVERSIONS.windows); do \
@@ -225,18 +220,14 @@ ifdef PUBLISH
 		done; \
 	done
 	docker manifest inspect $(CSI_IMAGE_TAG_LATEST)
-	docker manifest create --amend $(CSI_IMAGE_TAG_LATEST)-windows-hp $(CSI_IMAGE_TAG_LATEST)-windows-hp
-	docker manifest inspect $(CSI_IMAGE_TAG_LATEST)-windows-hp
 endif
 
 .PHONY: push-latest
 push-latest:
 ifdef CI
 	docker manifest push --purge $(CSI_IMAGE_TAG_LATEST)
-	docker manifest push --purge $(CSI_IMAGE_TAG_LATEST)-windows-hp
 else
 	docker push $(CSI_IMAGE_TAG_LATEST)
-	docker push $(CSI_IMAGE_TAG_LATEST)-windows-hp
 endif
 
 .PHONY: clean

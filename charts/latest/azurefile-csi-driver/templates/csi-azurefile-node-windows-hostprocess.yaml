@@ -65,9 +65,9 @@ spec:
       initContainers:
         - name: init
 {{- if hasPrefix "/" .Values.image.azurefile.repository }}
-          image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}-windows-hp"
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
 {{- else }}
-          image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}-windows-hp"
+          image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
 {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
@@ -103,9 +103,9 @@ spec:
           resources: {{- toYaml .Values.windows.resources.nodeDriverRegistrar | nindent 12 }}
         - name: azurefile
 {{- if hasPrefix "/" .Values.image.azurefile.repository }}
-          image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}-windows-hp"
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
 {{- else }}
-          image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}-windows-hp"
+          image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
 {{- end }}
           command:
             - "azurefileplugin.exe"

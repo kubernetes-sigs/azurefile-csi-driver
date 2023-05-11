@@ -28,7 +28,7 @@ export CI=1
 export PUBLISH=1
 
 az acr login --name $REGISTRY_NAME
-make container-all container-windows-hostprocess-latest push-manifest push-latest
+make container-all push-manifest push-latest
 
 echo "sleep 60s ..."
 sleep 60
