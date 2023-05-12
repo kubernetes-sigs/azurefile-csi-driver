@@ -172,6 +172,9 @@ container-windows:
 		-t $(CSI_IMAGE_TAG)-windows-$(OSVERSION)-$(ARCH) --build-arg OSVERSION=$(OSVERSION) \
 		--provenance=false --sbom=false \
 		--build-arg ARCH=${ARCH} -f ./pkg/azurefileplugin/Windows.Dockerfile .
+ifdef WINDOWS_USE_HOST_PROCESS_CONTAINERS
+	$(MAKE) container-windows-hostprocess
+endif
 
 # Set --provenance=false to not generate the provenance (which is what causes the multi-platform index to be generated, even for a single platform).
 .PHONY: container-windows-hostprocess
@@ -199,7 +202,6 @@ container-all: azurefile-windows
 	for osversion in $(ALL_OSVERSIONS.windows); do \
 		OSVERSION=$${osversion} $(MAKE) container-windows; \
 	done
-	$(MAKE) container-windows-hostprocess
 
 .PHONY: push-manifest
 push-manifest:

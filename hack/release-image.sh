@@ -26,6 +26,7 @@ export REGISTRY=$REGISTRY_NAME.azurecr.io
 export IMAGE_NAME=public/k8s/csi/azurefile-csi
 export CI=1
 export PUBLISH=1
+export WINDOWS_USE_HOST_PROCESS_CONTAINERS=1
 
 az acr login --name $REGISTRY_NAME
 make container-all container-windows-hostprocess-latest push-manifest push-latest
