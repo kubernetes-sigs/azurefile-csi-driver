@@ -1,18 +1,18 @@
-## Install azurefile CSI driver v1.26.1 version on a Kubernetes cluster
+## Install azurefile CSI driver v1.26.2 version on a Kubernetes cluster
 If you have already installed Helm, you can also use it to install this driver. Please check [Installation with Helm](../charts/README.md).
 
 ### Install by kubectl
  - Option#1. remote install
 ```console
-curl -skSL https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/v1.26.1/deploy/install-driver.sh | bash -s v1.26.1 --
+curl -skSL https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/v1.26.2/deploy/install-driver.sh | bash -s v1.26.2 --
 ```
 
  - Option#2. local install
 ```console
 git clone https://github.com/kubernetes-sigs/azurefile-csi-driver.git
 cd azurefile-csi-driver
-git checkout v1.26.1
-./deploy/install-driver.sh v1.26.1 local
+git checkout v1.26.2
+./deploy/install-driver.sh v1.26.2 local
 ```
 
  - check pods status:
@@ -33,13 +33,13 @@ csi-azurefile-node-dr4s4                        3/3     Running   0          7m4
 ### clean up CSI driver
  - Option#1. remote uninstall
 ```console
-curl -skSL https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/v1.26.1/deploy/uninstall-driver.sh | bash -s --
+curl -skSL https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/v1.26.2/deploy/uninstall-driver.sh | bash -s --
 ```
 
  - Option#2. local uninstall
 ```console
 git clone https://github.com/kubernetes-sigs/azurefile-csi-driver.git
 cd azurefile-csi-driver
-git checkout v1.26.1
-./deploy/install-driver.sh v1.26.1 local
+git checkout v1.26.2
+./deploy/install-driver.sh v1.26.2 local
 ```
