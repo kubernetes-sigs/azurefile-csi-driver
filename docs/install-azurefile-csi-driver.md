@@ -5,5 +5,5 @@
 
  - [install CSI driver master version](./install-csi-driver-master.md)(only for testing purpose)
  - [install v1.27.0 CSI driver](./install-csi-driver-v1.27.0.md)
- - [install v1.26.1 CSI driver](./install-csi-driver-v1.26.1.md)
+ - [install v1.26.2 CSI driver](./install-csi-driver-v1.26.2.md)
  - [install v1.25.1 CSI driver](./install-csi-driver-v1.25.1.md)
