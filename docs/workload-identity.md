@@ -1,4 +1,8 @@
-# How to Use workload identity with Azurefile
+# workload identity support
+> Note:
+>  - supported version: v1.28.0
+>  - workload identity is supported on OpenShift, capz and other self-managed clusters
+>  - workload identity is NOT supported on AKS **managed** Azure File CSI driver since the driver controller is managed by AKS control plane which is already using [managed identity](https://learn.microsoft.com/en-us/azure/aks/use-managed-identity) by default, it's not necessary to use workload identity for AKS managed Azure File CSI driver.
 
 ## Prerequisites
 
@@ -29,26 +33,12 @@ export APPLICATION_NAME="<your application name>"
 export USER_ASSIGNED_IDENTITY_NAME="<your user-assigned managed identity name>"
 export IDENTITY_RESOURCE_GROUP="<resource group where your user-assigned managed identity reside>"
 
-# Azurefile CSI Driver Service Account and namespace
+# Azure File CSI driver Service Account and namespace
 export SA_LIST=( "csi-azurefile-controller-sa" "csi-azurefile-node-sa" )
 export NAMESPACE="kube-system"
 ```
 
-## 2. Create Azurefile resource group
-
-If you are using AKS, you can get the resource group where Azurefile storage class reside by running:
-
-```shell
-export AZURE_FILE_RESOURCE_GROUP="$(az aks show --name $CLUSTER_NAME --resource-group $CLUSTER_RESOURCE_GROUP --query "nodeResourceGroup" -o tsv)"
-```
-
-You can also create resource group by yourself, but you must [specify the resource group](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/driver-parameters.md#:~:text=current%20k8s%20cluster-,resourceGroup,No,-if%20empty%2C%20driver) in the storage class while using Azurefile.
-
-```shell
-az group create -n $AZURE_FILE_RESOURCE_GROUP -l $LOCATION
-```
-
-## 3. Create an AAD application or user-assigned managed identity and grant required permissions 
+## 2. Create an AAD application or user-assigned managed identity and grant required permissions
 
 ```shell
 # create an AAD application if using Azure AD Application for this tutorial
@@ -61,9 +51,9 @@ az group create -n ${IDENTITY_RESOURCE_GROUP} -l $LOCATION
 az identity create --name "${USER_ASSIGNED_IDENTITY_NAME}" --resource-group "${IDENTITY_RESOURCE_GROUP}"
 ```
 
-Grant required permission to the AAD application or user-assigned managed identity, for simplicity, we just assign Contributor role to the resource group where Azurefile storage class reside:
+Grant required permission to the AAD application or user-assigned managed identity, for simplicity, we just assign Contributor role to the resource group where Azure file storage account resides:
 
-If using Azure AD Application:
+ - if you are using Azure AD Application:
 
 ```shell
 export APPLICATION_CLIENT_ID="$(az ad sp list --display-name "${APPLICATION_NAME}" --query '[0].appId' -otsv)"
@@ -71,7 +61,7 @@ export AZURE_FILE_RESOURCE_GROUP_ID="$(az group show -n $AZURE_FILE_RESOURCE_GRO
 az role assignment create --assignee $APPLICATION_CLIENT_ID --role Contributor --scope $AZURE_FILE_RESOURCE_GROUP_ID
 ```
 
-if using user-assigned managed identity:
+ - if you are using user-assigned managed identity:
 
 ```shell
 export USER_ASSIGNED_IDENTITY_OBJECT_ID="$(az identity show --name "${USER_ASSIGNED_IDENTITY_NAME}" --resource-group "${IDENTITY_RESOURCE_GROUP}" --query 'principalId' -otsv)"
@@ -79,9 +69,9 @@ export AZURE_FILE_RESOURCE_GROUP_ID="$(az group show -n $AZURE_FILE_RESOURCE_GRO
 az role assignment create --assignee $USER_ASSIGNED_IDENTITY_OBJECT_ID --role Contributor --scope $AZURE_FILE_RESOURCE_GROUP_ID
 ```
 
-## 4. Establish federated identity credential between the identity and the Azurefile service account issuer & subject
+## 3. Establish federated identity credential between the identity and the Azurefile service account issuer & subject
 
-If using Azure AD Application:
+ - if you are using Azure AD Application:
 
 ```shell
 # Get the object ID of the AAD application
@@ -105,7 +95,7 @@ az ad app federated-credential create --id ${APPLICATION_OBJECT_ID} --parameters
 done
 ```
 
-If using user-assigned managed identity:
+ - if you are using user-assigned managed identity:
 
 ```shell
 for SERVICE_ACCOUNT_NAME in "${SA_LIST[@]}"
@@ -119,18 +109,11 @@ az identity federated-credential create \
 done
 ```
 
-## 5. Deploy Azurefile
+## 4. Install CSI driver manually
+ > workload identity is NOT supported on AKS **managed** Azure File CSI driver
+ > if you are using AKS, please disable the managed Azure File CSI driver by `--disable-file-driver` first
 
-Deploy storageclass:
-
-```shell
-kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-csi.yaml
-kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-nfs.yaml
-```
-
-Deploy Azurefile(If you are using AKS, please disable the managed Azurefile CSI driver by `--disable-file-driver` first)
-
-If using Azure AD Application:
+ - if you are using Azure AD Application:
 
 ```shell
 export CLIENT_ID="$(az ad sp list --display-name "${APPLICATION_NAME}" --query '[0].appId' -otsv)"
@@ -141,7 +124,7 @@ helm install azurefile-csi-driver charts/latest/azurefile-csi-driver \
 --set workloadIdentity.tenantID=$TENANT_ID
 ```
 
-If using user-assigned managed identity:
+ - if you are using user-assigned managed identity:
 
 ```shell
 export CLIENT_ID="$(az identity show --name "${USER_ASSIGNED_IDENTITY_NAME}" --resource-group "${IDENTITY_RESOURCE_GROUP}" --query 'clientId' -otsv)"
@@ -152,11 +135,8 @@ helm install azurefile-csi-driver charts/latest/azurefile-csi-driver \
 --set workloadIdentity.tenantID=$TENANT_ID
 ```
 
-## 6. Deploy application using Azurefile
-
+## 5. Deploy application using CSI driver volume
 ```shell
+kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-csi.yaml
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/nfs/statefulset.yaml
-kubectl create -f  https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/deployment.yaml
 ```
-
-Please make sure all the Pods are running.

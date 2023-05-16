@@ -52,7 +52,8 @@ This option does not depend on cloud provider config file, supports cross subscr
  - [NFS](./deploy/example/nfs)
  - [Snapshot](./deploy/example/snapshot)
  - [Resize](./deploy/example/resize)
- 
+ - [Workload identity](./docs/workload-identity.md)
+
 ### Troubleshooting
  - [CSI driver troubleshooting guide](./docs/csi-debug.md) 
 
