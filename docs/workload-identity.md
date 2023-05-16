@@ -36,12 +36,12 @@ export NAMESPACE="kube-system"
 ## 2. Create an AAD application or user-assigned managed identity and grant required permissions
 
 ```shell
-# create an AAD application if using Azure AD Application for this tutorial
+# create an AAD application if you are using Azure AD Application
 az ad sp create-for-rbac --name "${APPLICATION_NAME}"
 ```
 
 ```shell
-# create a user-assigned managed identity if using user-assigned managed identity for this tutorial
+# create a user-assigned managed identity if you are using user-assigned managed identity
 az group create -n ${IDENTITY_RESOURCE_GROUP} -l $LOCATION
 az identity create --name "${USER_ASSIGNED_IDENTITY_NAME}" --resource-group "${IDENTITY_RESOURCE_GROUP}"
 ```
