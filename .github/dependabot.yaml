@@ -18,3 +18,14 @@ updates:
     - "release-note-none"
     - "ok-to-test"
   open-pull-requests-limit: 1
+- package-ecosystem: "docker"
+  directory: "/pkg/azurefileplugin/"
+  schedule:
+    interval: "daily"
+    time: "01:00"
+    timezone: "Asia/Shanghai"
+  labels:
+    - "area/dependency"
+    - "release-note-none"
+    - "ok-to-test"
+    - "kind/cleanup"
