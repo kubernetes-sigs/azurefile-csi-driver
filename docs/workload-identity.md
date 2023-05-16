@@ -8,7 +8,7 @@
 
 Before proceeding with the following steps, please ensure that you have completed the [Installation guide](https://azure.github.io/azure-workload-identity/docs/installation.html). After completing the installation, you should have already installed the mutating admission webhook and obtained the OIDC issuer URL for your cluster.
 
-## 1. Export environment variables
+## 1. Set environment variables
 
 ```shell
 export CLUSTER_NAME="<your cluster name>"
