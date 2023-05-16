@@ -6,12 +6,7 @@
 
 ## Prerequisites
 
-This document is mainly refer to [Azure AD Workload Identity Quick Start](https://azure.github.io/azure-workload-identity/docs/quick-start.html). Please Complete the [Installation guide](https://azure.github.io/azure-workload-identity/docs/installation.html) before the following steps.
-
-After you finish the Installation guide, you should have already:
-
-* installed the mutating admission webhook
-* obtained your cluster’s OIDC issuer URL
+Before proceeding with the following steps, please ensure that you have completed the [Installation guide](https://azure.github.io/azure-workload-identity/docs/installation.html). Once you have completed the Installation guide, you should have already installed the mutating admission webhook and obtained your cluster's OIDC issuer URL.
 
 ## 1. Export environment variables
 
@@ -69,7 +64,7 @@ export AZURE_FILE_RESOURCE_GROUP_ID="$(az group show -n $AZURE_FILE_RESOURCE_GRO
 az role assignment create --assignee $USER_ASSIGNED_IDENTITY_OBJECT_ID --role Contributor --scope $AZURE_FILE_RESOURCE_GROUP_ID
 ```
 
-## 3. Establish federated identity credential between the identity and the Azurefile service account issuer & subject
+## 3. Establish federated identity credential between the identity and the Azurefile service account issuer and subject
 
  - if you are using Azure AD Application:
 
