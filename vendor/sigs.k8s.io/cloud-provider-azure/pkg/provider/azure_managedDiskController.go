@@ -76,8 +76,6 @@ type ManagedDiskOptions struct {
 	LogicalSectorSize int32
 	// SkipGetDiskOperation indicates whether skip GetDisk operation(mainly due to throttling)
 	SkipGetDiskOperation bool
-	// PublicNetworkAccess - Possible values include: 'Enabled', 'Disabled'
-	PublicNetworkAccess compute.PublicNetworkAccess
 	// NetworkAccessPolicy - Possible values include: 'AllowAll', 'AllowPrivate', 'DenyAll'
 	NetworkAccessPolicy compute.NetworkAccessPolicy
 	// DiskAccessID - ARM id of the DiskAccess resource for using private endpoints on disks.
@@ -139,10 +137,6 @@ func (c *ManagedDiskController) CreateManagedDisk(ctx context.Context, options *
 		DiskSizeGB:      &diskSizeGB,
 		CreationData:    &creationData,
 		BurstingEnabled: options.BurstingEnabled,
-	}
-
-	if options.PublicNetworkAccess != "" {
-		diskProperties.PublicNetworkAccess = options.PublicNetworkAccess
 	}
 
 	if options.NetworkAccessPolicy != "" {
