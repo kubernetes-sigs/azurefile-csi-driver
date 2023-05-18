@@ -16,6 +16,13 @@ limitations under the License.
 
 package util
 
+import (
+	"os"
+	"os/exec"
+
+	"k8s.io/klog/v2"
+)
+
 const (
 	GiB                  = 1024 * 1024 * 1024
 	MaxPathLengthWindows = 260
@@ -54,4 +61,12 @@ func roundUpSize(volumeSizeBytes int64, allocationUnitBytes int64) int64 {
 		roundedUp++
 	}
 	return roundedUp
+}
+
+func RunPowershellCmd(command string, envs ...string) ([]byte, error) {
+	cmd := exec.Command("powershell", "-Mta", "-NoProfile", "-Command", command)
+	cmd.Env = append(os.Environ(), envs...)
+	klog.V(8).Infof("Executing command: %q", cmd.String())
+	out, err := cmd.CombinedOutput()
+	return out, err
 }

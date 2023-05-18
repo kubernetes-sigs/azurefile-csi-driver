@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 
@@ -88,9 +87,9 @@ func PathExists(ctx context.Context, request *PathExistsRequest) (bool, error) {
 }
 
 func PathValid(ctx context.Context, path string) (bool, error) {
-	cmd := exec.Command("powershell", "/c", `Test-Path $Env:remotepath`)
-	cmd.Env = append(os.Environ(), fmt.Sprintf("remotepath=%s", path))
-	output, err := cmd.CombinedOutput()
+	cmd := `Test-Path $Env:remotepath`
+	cmdEnv := fmt.Sprintf("remotepath=%s", path)
+	output, err := util.RunPowershellCmd(cmd, cmdEnv)
 	if err != nil {
 		return false, fmt.Errorf("returned output: %s, error: %v", string(output), err)
 	}
