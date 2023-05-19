@@ -295,7 +295,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			if ephemeralVol {
 				cifsMountFlags = util.JoinMountOptions(cifsMountFlags, strings.Split(ephemeralVolMountOptions, ","))
 			}
-			mountOptions = appendDefaultMountOptions(cifsMountFlags)
+			mountOptions = appendDefaultMountOptions(cifsMountFlags, d.appendNoShareSockOption)
 		}
 	}
 
