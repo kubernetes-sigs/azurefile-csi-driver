@@ -54,6 +54,7 @@ var (
 	enableVHDDiskFeature                   = flag.Bool("enable-vhd", true, "enable VHD disk feature (experimental)")
 	kubeAPIQPS                             = flag.Float64("kube-api-qps", 25.0, "QPS to use while communicating with the kubernetes apiserver.")
 	kubeAPIBurst                           = flag.Int("kube-api-burst", 50, "Burst to use while communicating with the kubernetes apiserver.")
+	appendNoShareSockOption                = flag.Bool("append-nosharesock-option", true, "Whether appending nosharesock option to smb mount command")
 )
 
 func main() {
@@ -93,6 +94,7 @@ func handle() {
 		EnableVHDDiskFeature:                   *enableVHDDiskFeature,
 		KubeAPIQPS:                             *kubeAPIQPS,
 		KubeAPIBurst:                           *kubeAPIBurst,
+		AppendNoShareSockOption:                *appendNoShareSockOption,
 	}
 	driver := azurefile.NewDriver(&driverOptions)
 	if driver == nil {
