@@ -201,6 +201,7 @@ type DriverOptions struct {
 	KubeAPIBurst                           int
 	EnableWindowsHostProcess               bool
 	AppendClosetimeoOption                 bool
+	AppendNoShareSockOption                bool
 }
 
 // Driver implements all interfaces of CSI drivers
@@ -223,6 +224,7 @@ type Driver struct {
 	kubeAPIBurst                           int
 	enableWindowsHostProcess               bool
 	appendClosetimeoOption                 bool
+	appendNoShareSockOption                bool
 	fileClient                             *azureFileClient
 	mounter                                *mount.SafeFormatAndMount
 	// lock per volume attach (only for vhd disk feature)
@@ -271,6 +273,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.kubeAPIBurst = options.KubeAPIBurst
 	driver.enableWindowsHostProcess = options.EnableWindowsHostProcess
 	driver.appendClosetimeoOption = options.AppendClosetimeoOption
+	driver.appendNoShareSockOption = options.AppendNoShareSockOption
 	driver.volLockMap = newLockMap()
 	driver.subnetLockMap = newLockMap()
 	driver.volumeLocks = newVolumeLocks()
@@ -429,7 +432,7 @@ func GetFileShareInfo(id string) (string, string, string, string, string, string
 }
 
 // check whether mountOptions contains file_mode, dir_mode, vers, if not, append default mode
-func appendDefaultMountOptions(mountOptions []string, appendClosetimeoOption bool) []string {
+func appendDefaultMountOptions(mountOptions []string, appendNoShareSockOption, appendClosetimeoOption bool) []string {
 	var defaultMountOptions = map[string]string{
 		fileMode:   defaultFileMode,
 		dirMode:    defaultDirMode,
@@ -439,6 +442,9 @@ func appendDefaultMountOptions(mountOptions []string, appendClosetimeoOption boo
 
 	if appendClosetimeoOption {
 		defaultMountOptions["sloppy,closetimeo=0"] = ""
+	}
+	if appendNoShareSockOption {
+		defaultMountOptions["nosharesock"] = ""
 	}
 
 	// stores the mount options already included in mountOptions
