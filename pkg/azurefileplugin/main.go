@@ -57,6 +57,7 @@ var (
 	appendMountErrorHelpLink               = flag.Bool("append-mount-error-help-link", true, "Whether to include a link for help with mount errors when a mount error occurs.")
 	enableWindowsHostProcess               = flag.Bool("enable-windows-host-process", false, "enable windows host process")
 	appendClosetimeoOption                 = flag.Bool("append-closetimeo-option", false, "Whether appending closetimeo=0 option to smb mount command")
+	appendNoShareSockOption                = flag.Bool("append-nosharesock-option", true, "Whether appending nosharesock option to smb mount command")
 )
 
 func main() {
@@ -99,6 +100,7 @@ func handle() {
 		KubeAPIBurst:                           *kubeAPIBurst,
 		EnableWindowsHostProcess:               *enableWindowsHostProcess,
 		AppendClosetimeoOption:                 *appendClosetimeoOption,
+		AppendNoShareSockOption:                *appendNoShareSockOption,
 	}
 	driver := azurefile.NewDriver(&driverOptions)
 	if driver == nil {
