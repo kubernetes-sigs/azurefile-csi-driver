@@ -72,18 +72,12 @@ func pathExists(path string) (bool, error) {
 }
 
 // PathExists checks if the given path exists on the host.
-func PathExists(ctx context.Context, request *PathExistsRequest) (bool, error) {
-	klog.V(2).Infof("Request: PathExists with path=%q", request.Path)
-	err := ValidatePathWindows(request.Path)
-	if err != nil {
+func PathExists(path string) (bool, error) {
+	if err := ValidatePathWindows(path); err != nil {
 		klog.Errorf("failed validatePathWindows %v", err)
 		return false, err
 	}
-	exists, err := pathExists(request.Path)
-	if err != nil {
-		klog.Errorf("failed check PathExists %v", err)
-	}
-	return exists, err
+	return pathExists(path)
 }
 
 func PathValid(ctx context.Context, path string) (bool, error) {
@@ -129,94 +123,44 @@ func ValidatePathWindows(path string) error {
 	return nil
 }
 
-func Mkdir(ctx context.Context, request *MkdirRequest) error {
-	klog.V(2).Infof("Request: Mkdir with path=%q", request.Path)
-	err := ValidatePathWindows(request.Path)
-	if err != nil {
-		klog.Errorf("failed validatePathWindows %v", err)
+func Mkdir(path string) error {
+	if err := ValidatePathWindows(path); err != nil {
 		return err
 	}
-	err = os.MkdirAll(request.Path, 0755)
-	if err != nil {
-		klog.Errorf("failed Mkdir %v", err)
-		return err
-	}
-
-	return err
+	return os.MkdirAll(path, 0755)
 }
 
-func Rmdir(ctx context.Context, request *RmdirRequest) error {
-	klog.V(2).Infof("Request: Rmdir with path=%q", request.Path)
-	err := ValidatePathWindows(request.Path)
-	if err != nil {
-		klog.Errorf("failed validatePathWindows %v", err)
+func Rmdir(path string, force bool) error {
+	if err := ValidatePathWindows(path); err != nil {
 		return err
 	}
 
-	if request.Force {
-		err = os.RemoveAll(request.Path)
-	} else {
-		err = os.Remove(request.Path)
+	if force {
+		return os.RemoveAll(path)
 	}
-	if err != nil {
-		klog.Errorf("failed Rmdir %v", err)
-		return err
-	}
-
-	return err
-}
-func LinkPath(ctx context.Context, request *LinkPathRequest) error {
-	klog.V(2).Infof("Request: LinkPath with targetPath=%q sourcePath=%q", request.TargetPath, request.SourcePath)
-	createSymlinkRequest := &CreateSymlinkRequest{
-		SourcePath: request.SourcePath,
-		TargetPath: request.TargetPath,
-	}
-	if err := CreateSymlink(ctx, createSymlinkRequest); err != nil {
-		klog.Errorf("Failed to forward to CreateSymlink: %v", err)
-		return err
-	}
-	return nil
+	return os.Remove(path)
 }
 
-func CreateSymlink(ctx context.Context, request *CreateSymlinkRequest) error {
-	klog.V(2).Infof("Request: CreateSymlink with targetPath=%q sourcePath=%q", request.TargetPath, request.SourcePath)
-	err := ValidatePathWindows(request.TargetPath)
-	if err != nil {
-		klog.Errorf("failed validatePathWindows for target path %v", err)
-		return err
-	}
-	err = ValidatePathWindows(request.SourcePath)
-	if err != nil {
-		klog.Errorf("failed validatePathWindows for source path %v", err)
-		return err
-	}
-	err = os.Symlink(request.SourcePath, request.TargetPath)
-	if err != nil {
-		klog.Errorf("failed CreateSymlink: %v", err)
-		return err
-	}
-	return nil
+func LinkPath(sourcePath, targetPath string) error {
+	return CreateSymlink(sourcePath, targetPath)
 }
 
-func IsMountPoint(ctx context.Context, request *IsMountPointRequest) (bool, error) {
-	klog.V(2).Infof("Request: IsMountPoint with path=%q", request.Path)
-	isSymlinkRequest := &IsSymlinkRequest{
-		Path: request.Path,
+func CreateSymlink(sourcePath, targetPath string) error {
+	if err := ValidatePathWindows(targetPath); err != nil {
+		return err
 	}
-	isSymlink, err := IsSymlink(ctx, isSymlinkRequest)
-	if err != nil {
-		klog.Errorf("Failed to forward to IsSymlink: %v", err)
+	if err := ValidatePathWindows(sourcePath); err != nil {
+		return err
 	}
-	return isSymlink, err
+	return os.Symlink(sourcePath, targetPath)
 }
 
-func IsSymlink(ctx context.Context, request *IsSymlinkRequest) (bool, error) {
-	klog.V(2).Infof("Request: IsSymlink with path=%q", request.Path)
-	isSymlink, err := isSymlink(request.Path)
-	if err != nil {
-		klog.Errorf("failed IsSymlink %v", err)
-	}
-	return isSymlink, err
+func IsMountPoint(path string) (bool, error) {
+	return IsSymlink(path)
+}
+
+func IsSymlink(path string) (bool, error) {
+	return isSymlink(path)
 }
 
 // IsSymlink - returns true if tgt is a mount point.

@@ -131,31 +131,13 @@ func (mounter *winMounter) SMBUnmount(target string) error {
 }
 
 // Mount just creates a soft link at target pointing to source.
-func (mounter *winMounter) Mount(source string, target string, fstype string, options []string) error {
-	klog.V(4).Infof("Mount: old name: %s. new name: %s", source, target)
-	// Mount is called after the format is done.
-	// TODO: Confirm that fstype is empty.
-	linkRequest := &filesystem.LinkPathRequest{
-		SourcePath: normalizeWindowsPath(source),
-		TargetPath: normalizeWindowsPath(target),
-	}
-	if err := filesystem.LinkPath(context.Background(), linkRequest); err != nil {
-		return err
-	}
-	return nil
+func (mounter *winMounter) Mount(source, target, fstype string, options []string) error {
+	return filesystem.LinkPath(normalizeWindowsPath(source), normalizeWindowsPath(target))
 }
 
 // Rmdir - delete the given directory
 func (mounter *winMounter) Rmdir(path string) error {
-	klog.V(4).Infof("Remove directory: %s", path)
-	rmdirRequest := &filesystem.RmdirRequest{
-		Path:  normalizeWindowsPath(path),
-		Force: true,
-	}
-	if err := filesystem.Rmdir(context.Background(), rmdirRequest); err != nil {
-		return err
-	}
-	return nil
+	return filesystem.Rmdir(normalizeWindowsPath(path), true)
 }
 
 // Unmount - Removes the directory - equivalent to unmount on Linux.
@@ -183,7 +165,6 @@ func (mounter *winMounter) IsMountPointMatch(mp mount.MountPoint, dir string) bo
 // IsLikelyMountPoint - If the directory does not exists, the function will return os.ErrNotExist error.
 // If the path exists, will check if its a link, if its a link then existence of target path is checked.
 func (mounter *winMounter) IsLikelyNotMountPoint(path string) (bool, error) {
-	klog.V(4).Infof("IsLikelyNotMountPoint: %s", path)
 	isExists, err := mounter.ExistsPath(path)
 	if err != nil {
 		return false, err
@@ -192,10 +173,7 @@ func (mounter *winMounter) IsLikelyNotMountPoint(path string) (bool, error) {
 		return true, os.ErrNotExist
 	}
 
-	response, err := filesystem.IsMountPoint(context.Background(),
-		&filesystem.IsMountPointRequest{
-			Path: normalizeWindowsPath(path),
-		})
+	response, err := filesystem.IsMountPoint(normalizeWindowsPath(path))
 	if err != nil {
 		return false, err
 	}
@@ -206,24 +184,12 @@ func (mounter *winMounter) IsLikelyNotMountPoint(path string) (bool, error) {
 // Currently the make dir is only used from the staging code path, hence we call it
 // with Plugin context..
 func (mounter *winMounter) MakeDir(path string) error {
-	klog.V(4).Infof("Make directory: %s", path)
-	mkdirReq := &filesystem.MkdirRequest{
-		Path: normalizeWindowsPath(path),
-	}
-	if err := filesystem.Mkdir(context.Background(), mkdirReq); err != nil {
-		return err
-	}
-
-	return nil
+	return filesystem.Mkdir(normalizeWindowsPath(path))
 }
 
 // ExistsPath - Checks if a path exists. Unlike util ExistsPath, this call does not perform follow link.
 func (mounter *winMounter) ExistsPath(path string) (bool, error) {
-	klog.V(4).Infof("Exists path: %s", path)
-	return filesystem.PathExists(context.Background(),
-		&filesystem.PathExistsRequest{
-			Path: normalizeWindowsPath(path),
-		})
+	return filesystem.PathExists(normalizeWindowsPath(path))
 }
 
 func (mounter *winMounter) MountSensitive(source string, target string, fstype string, options []string, sensitiveOptions []string) error {
