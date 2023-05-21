@@ -214,7 +214,7 @@ linux:
 
 windows:
   enabled: true
-  hostprocess: false
+  useHostProcessContainers: false
   dsName: csi-azurefile-node-win # daemonset name
   kubelet: 'C:\var\lib\kubelet'
   kubeconfig: ""
