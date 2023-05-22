@@ -92,8 +92,6 @@ func PathValid(ctx context.Context, path string) (bool, error) {
 }
 
 func ValidatePathWindows(path string) error {
-	prefix := `C:\var\lib\kubelet`
-
 	pathlen := len(path)
 
 	if pathlen > util.MaxPathLengthWindows {
@@ -114,10 +112,6 @@ func ValidatePathWindows(path string) error {
 
 	if !isAbsWindows(path) {
 		return fmt.Errorf("not an absolute Windows path: %s", path)
-	}
-
-	if !strings.HasPrefix(strings.ToLower(path), strings.ToLower(prefix)) {
-		return fmt.Errorf("path: %s is not within context path: %s", path, prefix)
 	}
 
 	return nil
