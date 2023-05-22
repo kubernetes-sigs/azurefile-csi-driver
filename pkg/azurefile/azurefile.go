@@ -22,6 +22,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net/url"
+	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,6 +33,8 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/pborman/uuid"
 	"github.com/rubiojr/go-vhd/vhd"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -174,6 +177,9 @@ const (
 	SnapshotID       = "snapshot_id"
 
 	FSGroupChangeNone = "None"
+
+	waitForCopyInterval = 5 * time.Second
+	waitForCopyTimeout  = 3 * time.Minute
 )
 
 var (
@@ -209,6 +215,7 @@ type DriverOptions struct {
 	SkipMatchingTagCacheExpireInMinutes    int
 	VolStatsCacheExpireInMinutes           int
 	PrintVolumeStatsCallLogs               bool
+	SasTokenExpirationMinutes              int
 }
 
 // Driver implements all interfaces of CSI drivers
@@ -260,6 +267,8 @@ type Driver struct {
 	resizeFileShareFailureCache azcache.Resource
 	// a timed cache storing volume stats <volumeID, volumeStats>
 	volStatsCache azcache.Resource
+	// sas expiry time for azcopy in volume clone
+	sasTokenExpirationMinutes int
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -287,6 +296,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.appendClosetimeoOption = options.AppendClosetimeoOption
 	driver.appendNoShareSockOption = options.AppendNoShareSockOption
 	driver.printVolumeStatsCallLogs = options.PrintVolumeStatsCallLogs
+	driver.sasTokenExpirationMinutes = options.SasTokenExpirationMinutes
 	driver.volLockMap = newLockMap()
 	driver.subnetLockMap = newLockMap()
 	driver.volumeLocks = newVolumeLocks()
@@ -363,6 +373,7 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 			csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT,
 			csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
 			csi.ControllerServiceCapability_RPC_SINGLE_NODE_MULTI_WRITER,
+			csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
 		})
 	d.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{
 		csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
@@ -887,6 +898,65 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 		}
 		return true, err
 	})
+}
+
+// CopyFileShare copies a fileshare in the same storage account
+func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest, accountKey string, shareOptions *fileclient.ShareOptions, storageEndpointSuffix string) error {
+	if shareOptions.Protocol == storage.EnabledProtocolsNFS {
+		return fmt.Errorf("protocol nfs is not supported for volume cloning")
+	}
+	var sourceVolumeID string
+	if req.GetVolumeContentSource() != nil && req.GetVolumeContentSource().GetVolume() != nil {
+		sourceVolumeID = req.GetVolumeContentSource().GetVolume().GetVolumeId()
+	}
+	resourceGroupName, accountName, srcFileShareName, _, _, _, err := GetFileShareInfo(sourceVolumeID) //nolint:dogsled
+	if err != nil {
+		return status.Error(codes.NotFound, err.Error())
+	}
+	dstFileShareName := shareOptions.Name
+	if srcFileShareName == "" || dstFileShareName == "" {
+		return fmt.Errorf("srcFileShareName(%s) or dstFileShareName(%s) is empty", srcFileShareName, dstFileShareName)
+	}
+
+	klog.V(2).Infof("generate sas token for account(%s)", accountName)
+	accountSasToken, genErr := generateSASToken(accountName, accountKey, storageEndpointSuffix, d.sasTokenExpirationMinutes)
+	if genErr != nil {
+		return genErr
+	}
+
+	timeAfter := time.After(waitForCopyTimeout)
+	timeTick := time.Tick(waitForCopyInterval)
+	srcPath := fmt.Sprintf("https://%s.file.%s/%s%s", accountName, storageEndpointSuffix, srcFileShareName, accountSasToken)
+	dstPath := fmt.Sprintf("https://%s.file.%s/%s%s", accountName, storageEndpointSuffix, dstFileShareName, accountSasToken)
+
+	jobState, percent, err := getAzcopyJob(dstFileShareName)
+	klog.V(2).Infof("azcopy job status: %s, copy percent: %s%%, error: %v", jobState, percent, err)
+	if jobState == AzcopyJobError || jobState == AzcopyJobCompleted {
+		return err
+	}
+	klog.V(2).Infof("begin to copy fileshare %s to %s", srcFileShareName, dstFileShareName)
+	for {
+		select {
+		case <-timeTick:
+			jobState, percent, err := getAzcopyJob(dstFileShareName)
+			klog.V(2).Infof("azcopy job status: %s, copy percent: %s%%, error: %v", jobState, percent, err)
+			switch jobState {
+			case AzcopyJobError, AzcopyJobCompleted:
+				return err
+			case AzcopyJobNotFound:
+				klog.V(2).Infof("copy fileshare %s to %s", srcFileShareName, dstFileShareName)
+				out, copyErr := exec.Command("azcopy", "copy", srcPath, dstPath, "--recursive", "--check-length=false").CombinedOutput()
+				if copyErr != nil {
+					klog.Warningf("CopyFileShare(%s, %s, %s) failed with error(%v): %v", resourceGroupName, accountName, dstFileShareName, copyErr, string(out))
+				} else {
+					klog.V(2).Infof("copied fileshare %s to %s successfully", srcFileShareName, dstFileShareName)
+				}
+				return copyErr
+			}
+		case <-timeAfter:
+			return fmt.Errorf("timeout waiting for copy fileshare %s to %s succeed", srcFileShareName, dstFileShareName)
+		}
+	}
 }
 
 // GetTotalAccountQuota returns the total quota in GB of all file shares in the storage account and the number of file shares

@@ -62,6 +62,7 @@ var (
 	skipMatchingTagCacheExpireInMinutes    = flag.Int("skip-matching-tag-cache-expire-in-minutes", 30, "The cache expire time in minutes for skipMatchingTagCache")
 	volStatsCacheExpireInMinutes           = flag.Int("vol-stats-cache-expire-in-minutes", 10, "The cache expire time in minutes for volume stats cache")
 	printVolumeStatsCallLogs               = flag.Bool("print-volume-stats-call-logs", false, "Whether to print volume statfs call logs with log level 2")
+	sasTokenExpirationMinutes              = flag.Int("sas-token-expiration-minutes", 1440, "sas token expiration minutes during volume cloning")
 )
 
 func main() {
@@ -109,6 +110,7 @@ func handle() {
 		SkipMatchingTagCacheExpireInMinutes:    *skipMatchingTagCacheExpireInMinutes,
 		VolStatsCacheExpireInMinutes:           *volStatsCacheExpireInMinutes,
 		PrintVolumeStatsCallLogs:               *printVolumeStatsCallLogs,
+		SasTokenExpirationMinutes:              *sasTokenExpirationMinutes,
 	}
 	driver := azurefile.NewDriver(&driverOptions)
 	if driver == nil {
