@@ -35,6 +35,8 @@ spec:
                       - virtual-kubelet
       priorityClassName: system-node-critical
       securityContext:
+        seccompProfile:
+          type: RuntimeDefault
         windowsOptions:
           hostProcess: true
           runAsUserName: "NT AUTHORITY\\SYSTEM"
@@ -69,6 +71,12 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+          resources:
+            limits:
+              memory: 150Mi
+            requests:
+              cpu: 30m
+              memory: 40Mi
         - name: azurefile
           image: mcr.microsoft.com/k8s/csi/azurefile-csi:latest-windows-hp
           imagePullPolicy: IfNotPresent
@@ -94,3 +102,9 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
+          resources:
+            limits:
+              memory: 200Mi
+            requests:
+              cpu: 10m
+              memory: 40Mi

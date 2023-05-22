@@ -1,4 +1,4 @@
-{{- if and .Values.windows.enabled .Values.windows.hostprocess }}
+{{- if and .Values.windows.enabled .Values.windows.useHostProcessContainers }}
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
@@ -58,6 +58,8 @@ spec:
 {{ toYaml .Values.imagePullSecrets | indent 8 }}
       {{- end }}
       securityContext:
+        seccompProfile:
+          type: RuntimeDefault
         windowsOptions:
           hostProcess: true
           runAsUserName: "NT AUTHORITY\\SYSTEM"
@@ -145,4 +147,5 @@ spec:
                   apiVersion: v1
                   fieldPath: spec.nodeName
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources: {{- toYaml .Values.windows.resources.azurefile | nindent 12 }}
 {{- end -}}
