@@ -10,11 +10,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
+    - name: Harden Runner
+      uses: step-security/harden-runner@128a63446a954579617e875aaab7d2978154e969 # v2.4.0
+      with:
+        egress-policy: audit
+
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2.7.0
 
     - name: Download pluto
-      uses: FairwindsOps/pluto/github-action@master
+      uses: FairwindsOps/pluto/github-action@02eccc41292c2b4380fa05f6406628fd1afe6cb9 # master
 
     - name: Check deploy folder
       run: |
