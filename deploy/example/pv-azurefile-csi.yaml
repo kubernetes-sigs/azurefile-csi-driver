@@ -27,7 +27,6 @@ spec:
     # the # character is reserved for internal use
     volumeHandle: account-name_file-share-name
     volumeAttributes:
-      resourceGroup: EXISTING_RESOURCE_GROUP_NAME  # optional, only set this when storage account is not in the same resource group as agent node
       shareName: EXISTING_FILE_SHARE_NAME  # only file share name, don't use full path
     nodeStageSecretRef:
       name: azure-secret
