@@ -97,6 +97,7 @@ e2e-test:
 
 .PHONY: e2e-bootstrap
 e2e-bootstrap: install-helm
+	docker pull $(CSI_IMAGE_TAG) || make container-all push-manifest
 ifdef WINDOWS_USE_HOST_PROCESS_CONTAINERS
 	(docker pull $(CSI_IMAGE_TAG) && docker pull $(CSI_IMAGE_TAG)-windows-hp) || make container-all push-manifest
 else
@@ -154,23 +155,6 @@ container-windows:
 		-t $(CSI_IMAGE_TAG)-windows-$(OSVERSION)-$(ARCH) --build-arg OSVERSION=$(OSVERSION) \
 		--provenance=false --sbom=false \
 		--build-arg ARCH=${ARCH} -f ./pkg/azurefileplugin/Windows.Dockerfile .
-# workaround: only build hostprocess image once
-ifdef WINDOWS_USE_HOST_PROCESS_CONTAINERS
-ifeq ($(OSVERSION),ltsc2022)
-	$(MAKE) container-windows-hostprocess
-endif
-endif
-
-# Set --provenance=false to not generate the provenance (which is what causes the multi-platform index to be generated, even for a single platform).
-.PHONY: container-windows-hostprocess
-container-windows-hostprocess:
-	docker buildx build --pull --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" --provenance=false --sbom=false \
-		-t $(CSI_IMAGE_TAG)-windows-hp -f ./pkg/azurefileplugin/WindowsHostProcess.Dockerfile .
-
-.PHONY: container-windows-hostprocess-latest
-container-windows-hostprocess-latest:
-	docker buildx build --pull --output=type=$(OUTPUT_TYPE) --platform="windows/$(ARCH)" --provenance=false --sbom=false \
-		-t $(CSI_IMAGE_TAG_LATEST)-windows-hp -f ./pkg/azurefileplugin/WindowsHostProcess.Dockerfile .
 
 .PHONY: container-all
 container-all: azurefile-windows
@@ -212,18 +196,14 @@ ifdef PUBLISH
 		done; \
 	done
 	docker manifest inspect $(CSI_IMAGE_TAG_LATEST)
-	docker manifest create --amend $(CSI_IMAGE_TAG_LATEST)-windows-hp $(CSI_IMAGE_TAG_LATEST)-windows-hp
-	docker manifest inspect $(CSI_IMAGE_TAG_LATEST)-windows-hp
 endif
 
 .PHONY: push-latest
 push-latest:
 ifdef CI
 	docker manifest push --purge $(CSI_IMAGE_TAG_LATEST)
-	docker manifest push --purge $(CSI_IMAGE_TAG_LATEST)-windows-hp
 else
 	docker push $(CSI_IMAGE_TAG_LATEST)
-	docker push $(CSI_IMAGE_TAG_LATEST)-windows-hp
 endif
 
 .PHONY: clean
