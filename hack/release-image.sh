@@ -21,12 +21,12 @@ if [[ "$#" -lt 1 ]]; then
   exit 1
 fi
 
-REGISTRY_NAME="$1"
-REGISTRY=$REGISTRY_NAME.azurecr.io
-IMAGE_NAME=public/k8s/csi/azurefile-csi
-CI=1
-PUBLISH=1
-WINDOWS_USE_HOST_PROCESS_CONTAINERS=true
+export REGISTRY_NAME="$1"
+export REGISTRY=$REGISTRY_NAME.azurecr.io
+export IMAGE_NAME=public/k8s/csi/azurefile-csi
+export CI=1
+export PUBLISH=1
+export WINDOWS_USE_HOST_PROCESS_CONTAINERS=true
 
 az acr login --name $REGISTRY_NAME
 make container-all container-windows-hostprocess-latest push-manifest push-latest
