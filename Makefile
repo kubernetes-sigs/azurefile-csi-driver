@@ -99,9 +99,9 @@ e2e-test:
 
 .PHONY: e2e-bootstrap
 e2e-bootstrap: install-helm
-ifdef WINDOWS_USE_HOST_PROCESS_CONTAINERS
+ifeq ($(WINDOWS_USE_HOST_PROCESS_CONTAINERS),"true")
 	(docker pull $(CSI_IMAGE_TAG) && docker pull $(CSI_IMAGE_TAG)-windows-hp)  || make container-all push-manifest
-	USE_HOST_PROCESS_CONTAINERS=${WINDOWS_USE_HOST_PROCESS_CONTAINERS}
+	USE_HOST_PROCESS_CONTAINERS=true
 else
 	docker pull $(CSI_IMAGE_TAG) || make container-all push-manifest
 endif
