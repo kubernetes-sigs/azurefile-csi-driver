@@ -19,6 +19,7 @@ package util
 import (
 	"os"
 	"os/exec"
+	"sync"
 
 	"k8s.io/klog/v2"
 )
@@ -27,6 +28,8 @@ const (
 	GiB                  = 1024 * 1024 * 1024
 	MaxPathLengthWindows = 260
 )
+
+var mutex = &sync.Mutex{}
 
 // RoundUpBytes rounds up the volume size in bytes up to multiplications of GiB
 // in the unit of Bytes
@@ -64,9 +67,12 @@ func roundUpSize(volumeSizeBytes int64, allocationUnitBytes int64) int64 {
 }
 
 func RunPowershellCmd(command string, envs ...string) ([]byte, error) {
+	// only one powershell command can be executed at a time to avoid OOM
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	cmd := exec.Command("powershell", "-Mta", "-NoProfile", "-Command", command)
 	cmd.Env = append(os.Environ(), envs...)
 	klog.V(8).Infof("Executing command: %q", cmd.String())
-	out, err := cmd.CombinedOutput()
-	return out, err
+	return cmd.CombinedOutput()
 }

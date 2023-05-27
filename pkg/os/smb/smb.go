@@ -20,11 +20,12 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/util"
 )
 
 func IsSmbMapped(remotePath string) (bool, error) {
-	cmdLine := `$(Get-SmbGlobalMapping -RemotePath $Env:smbremotepath -ErrorAction Stop).Status `
+	cmdLine := `$(Get-SmbGlobalMapping -RemotePath $Env:smbremotepath -ErrorAction Stop).Status`
 	cmdEnv := fmt.Sprintf("smbremotepath=%s", remotePath)
 	out, err := util.RunPowershellCmd(cmdLine, cmdEnv)
 	if err != nil {
@@ -52,6 +53,7 @@ func NewSmbLink(remotePath, localPath string) error {
 	}
 
 	cmdLine := `New-Item -ItemType SymbolicLink $Env:smblocalPath -Target $Env:smbremotepath`
+	klog.V(2).Infof("begin to run NewSmbLink with %s, %s", remotePath, localPath)
 	output, err := util.RunPowershellCmd(cmdLine, fmt.Sprintf("smbremotepath=%s", remotePath), fmt.Sprintf("smblocalpath=%s", localPath))
 	if err != nil {
 		return fmt.Errorf("error linking %s to %s. output: %s, err: %v", remotePath, localPath, string(output), err)
@@ -67,6 +69,7 @@ func NewSmbGlobalMapping(remotePath, username, password string) error {
 		`;$Credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $Env:smbuser, $PWord` +
 		`;New-SmbGlobalMapping -RemotePath $Env:smbremotepath -Credential $Credential -RequirePrivacy $true`)
 
+	klog.V(2).Infof("begin to run NewSmbGlobalMapping with %s, %s", remotePath, username)
 	if output, err := util.RunPowershellCmd(cmdLine, fmt.Sprintf("smbuser=%s", username),
 		fmt.Sprintf("smbpassword=%s", password),
 		fmt.Sprintf("smbremotepath=%s", remotePath)); err != nil {
@@ -77,6 +80,7 @@ func NewSmbGlobalMapping(remotePath, username, password string) error {
 
 func RemoveSmbGlobalMapping(remotePath string) error {
 	cmd := `Remove-SmbGlobalMapping -RemotePath $Env:smbremotepath -Force`
+	klog.V(2).Infof("begin to run RemoveSmbGlobalMapping with %s", remotePath)
 	if output, err := util.RunPowershellCmd(cmd, fmt.Sprintf("smbremotepath=%s", remotePath)); err != nil {
 		return fmt.Errorf("UnmountSmbShare failed. output: %q, err: %v", string(output), err)
 	}
