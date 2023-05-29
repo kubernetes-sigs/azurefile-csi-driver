@@ -19,10 +19,13 @@ package smb
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/util"
 )
+
+var newSMBMappingMutex = &sync.Mutex{}
 
 func IsSmbMapped(remotePath string) (bool, error) {
 	cmdLine := `$(Get-SmbGlobalMapping -RemotePath $Env:smbremotepath -ErrorAction Stop).Status`
@@ -63,6 +66,10 @@ func NewSmbLink(remotePath, localPath string) error {
 }
 
 func NewSmbGlobalMapping(remotePath, username, password string) error {
+	// only one NewSmbGlobalMapping powershell command can be executed at a time to avoid OOM
+	newSMBMappingMutex.Lock()
+	defer newSMBMappingMutex.Unlock()
+
 	// use PowerShell Environment Variables to store user input string to prevent command line injection
 	// https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_environment_variables?view=powershell-5.1
 	cmdLine := fmt.Sprintf(`$PWord = ConvertTo-SecureString -String $Env:smbpassword -AsPlainText -Force` +
