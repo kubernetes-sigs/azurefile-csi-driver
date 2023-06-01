@@ -59,8 +59,6 @@ ARCH ?= amd64
 OSVERSION ?= 1809
 # Output type of docker buildx build
 OUTPUT_TYPE ?= registry
-# enable host process containers for Windows
-USE_HOST_PROCESS_CONTAINERS ?= false
 
 .EXPORT_ALL_VARIABLES:
 
@@ -100,8 +98,7 @@ e2e-test:
 .PHONY: e2e-bootstrap
 e2e-bootstrap: install-helm
 ifdef WINDOWS_USE_HOST_PROCESS_CONTAINERS
-	(docker pull $(CSI_IMAGE_TAG) && docker pull $(CSI_IMAGE_TAG)-windows-hp)  || make container-all push-manifest
-	USE_HOST_PROCESS_CONTAINERS=${WINDOWS_USE_HOST_PROCESS_CONTAINERS}
+	(docker pull $(CSI_IMAGE_TAG) && docker pull $(CSI_IMAGE_TAG)-windows-hp) || make container-all push-manifest
 else
 	docker pull $(CSI_IMAGE_TAG) || make container-all push-manifest
 endif
@@ -109,12 +106,12 @@ ifdef TEST_WINDOWS
 	helm install azurefile-csi-driver charts/latest/azurefile-csi-driver --namespace kube-system --wait --timeout=15m -v=5 --debug \
 		${E2E_HELM_OPTIONS} \
 		--set windows.enabled=true \
-		--set windows.useHostProcessContainers=${USE_HOST_PROCESS_CONTAINERS} \
+		--set windows.useHostProcessContainers=${WINDOWS_USE_HOST_PROCESS_CONTAINERS} \
 		--set linux.enabled=false \
 		--set driver.azureGoSDKLogLevel=INFO \
 		--set controller.replicas=1 \
 		--set controller.logLevel=6 \
-		--set node.logLevel=6
+		--set node.logLevel=10
 else
 	helm install azurefile-csi-driver charts/latest/azurefile-csi-driver --namespace kube-system --wait --timeout=15m -v=5 --debug \
 		${E2E_HELM_OPTIONS} \
