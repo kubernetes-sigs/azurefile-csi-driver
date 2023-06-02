@@ -42,14 +42,14 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: csi-snapshot-controller
-          image: mcr.microsoft.com/oss/kubernetes-csi/snapshot-controller:v6.2.1
+          image: mcr.microsoft.com/oss/kubernetes-csi/snapshot-controller:v6.2.2
           args:
             - "--v=2"
             - "--leader-election=true"
             - "--leader-election-namespace=kube-system"
           resources:
             limits:
-              memory: 100Mi
+              memory: 300Mi
             requests:
               cpu: 10m
               memory: 20Mi
