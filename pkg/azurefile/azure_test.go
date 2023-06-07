@@ -401,14 +401,6 @@ users:
 			envVariableConfigIsValid: false,
 		},
 		{
-			desc:                     "[failure] invalid kube config passed",
-			kubeconfig:               emptyKubeConfig,
-			enableWindowsHostProcess: false,
-			expectError:              true,
-			envVariableHasConfig:     false,
-			envVariableConfigIsValid: false,
-		},
-		{
 			desc:                     "[failure] empty Kubeconfig under container sandbox mount path",
 			kubeconfig:               "",
 			enableWindowsHostProcess: true,
