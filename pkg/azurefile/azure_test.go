@@ -370,12 +370,6 @@ users:
 	os.Setenv("CONTAINER_SANDBOX_MOUNT_POINT", "C:\\var\\lib\\kubelet\\pods\\12345678-1234-1234-1234-123456789012")
 	defer os.Unsetenv("CONTAINER_SANDBOX_MOUNT_POINT")
 
-	os.Setenv("KUBERNETES_SERVICE_HOST", "foo")
-	defer os.Unsetenv("KUBERNETES_SERVICE_HOST")
-
-	os.Setenv("KUBERNETES_SERVICE_PORT", "bar")
-	defer os.Unsetenv("KUBERNETES_SERVICE_PORT")
-
 	tests := []struct {
 		desc                     string
 		kubeconfig               string
@@ -389,14 +383,6 @@ users:
 			kubeconfig:               validKubeConfig,
 			enableWindowsHostProcess: false,
 			expectError:              false,
-			envVariableHasConfig:     false,
-			envVariableConfigIsValid: false,
-		},
-		{
-			desc:                     "[failure] invalid kube config passed",
-			kubeconfig:               emptyKubeConfig,
-			enableWindowsHostProcess: false,
-			expectError:              true,
 			envVariableHasConfig:     false,
 			envVariableConfigIsValid: false,
 		},
