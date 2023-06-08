@@ -22,6 +22,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -100,6 +101,7 @@ const (
 	createAccountField                = "createaccount"
 	useDataPlaneAPIField              = "usedataplaneapi"
 	storeAccountKeyField              = "storeaccountkey"
+	getLatestAccountKeyField          = "getlatestaccountkey"
 	useSecretCacheField               = "usesecretcache"
 	getAccountKeyFromSecretField      = "getaccountkeyfromsecret"
 	disableDeleteRetentionPolicyField = "disabledeleteretentionpolicy"
@@ -621,8 +623,8 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 	}
 
 	var protocol, accountKey, secretName, pvcNamespace string
-	// indicates whether get account key only from k8s secret
-	getAccountKeyFromSecret := false
+	// getAccountKeyFromSecret indicates whether get account key only from k8s secret
+	var getAccountKeyFromSecret, getLatestAccountKey bool
 
 	for k, v := range reqContext {
 		switch strings.ToLower(k) {
@@ -648,6 +650,10 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 			secretNamespace = v
 		case pvcNamespaceKey:
 			pvcNamespace = v
+		case getLatestAccountKeyField:
+			if getLatestAccountKey, err = strconv.ParseBool(v); err != nil {
+				return rgName, accountName, accountKey, fileShareName, diskName, subsID, fmt.Errorf("invalid %s: %s in volume context", getLatestAccountKeyField, v)
+			}
 		}
 	}
 
@@ -692,7 +698,7 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 					klog.Warningf("GetStorageAccountFromSecret(%s, %s) failed with error: %v", secretName, secretNamespace, err)
 					if !getAccountKeyFromSecret && d.cloud.StorageAccountClient != nil && accountName != "" {
 						klog.V(2).Infof("use cluster identity to get account key from (%s, %s, %s)", subsID, rgName, accountName)
-						accountKey, err = d.cloud.GetStorageAccesskey(ctx, subsID, accountName, rgName)
+						accountKey, err = d.cloud.GetStorageAccesskey(ctx, subsID, accountName, rgName, getLatestAccountKey)
 						if err != nil {
 							klog.Errorf("GetStorageAccesskey(%s, %s, %s) failed with error: %v", subsID, rgName, accountName, err)
 						}
@@ -905,7 +911,7 @@ func (d *Driver) GetStorageAccesskey(ctx context.Context, accountOptions *azure.
 	_, accountKey, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
 	if err != nil {
 		klog.V(2).Infof("could not get account(%s) key from secret(%s), error: %v, use cluster identity to get account key instead", accountOptions.Name, secretName, err)
-		accountKey, err = d.cloud.GetStorageAccesskey(ctx, accountOptions.SubscriptionID, accountName, accountOptions.ResourceGroup)
+		accountKey, err = d.cloud.GetStorageAccesskey(ctx, accountOptions.SubscriptionID, accountName, accountOptions.ResourceGroup, accountOptions.GetLatestAccountKey)
 	}
 
 	if err == nil && accountKey != "" {
