@@ -1507,7 +1507,7 @@ func TestDeleteVolume(t *testing.T) {
 						},
 					},
 				}
-				d.dataPlaneAPIAccountCache, _ = azcache.NewTimedcache(10*time.Minute, func(key string) (interface{}, error) { return nil, nil })
+				d.dataPlaneAPIAccountCache, _ = azcache.NewTimedCache(10*time.Minute, func(key string) (interface{}, error) { return nil, nil }, false)
 				d.dataPlaneAPIAccountCache.Set("f5713de20cde511e8ba4900", "1")
 				d.cloud = &azure.Cloud{}
 
@@ -1762,7 +1762,7 @@ func TestControllerPublishVolume(t *testing.T) {
 	d.cloud = azure.GetTestCloud(ctrl)
 	d.cloud.Location = "centralus"
 	d.cloud.ResourceGroup = "rg"
-	d.dataPlaneAPIAccountCache, _ = azcache.NewTimedcache(10*time.Minute, func(key string) (interface{}, error) { return nil, nil })
+	d.dataPlaneAPIAccountCache, _ = azcache.NewTimedCache(10*time.Minute, func(key string) (interface{}, error) { return nil, nil }, false)
 	nodeName := "vm1"
 	instanceID := fmt.Sprintf("/subscriptions/subscription/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/%s", nodeName)
 	vm := compute.VirtualMachine{
@@ -2249,7 +2249,7 @@ func TestControllerExpandVolume(t *testing.T) {
 						ResourceGroup: "vol_2",
 					},
 				}
-				d.dataPlaneAPIAccountCache, _ = azcache.NewTimedcache(10*time.Minute, func(key string) (interface{}, error) { return nil, nil })
+				d.dataPlaneAPIAccountCache, _ = azcache.NewTimedCache(10*time.Minute, func(key string) (interface{}, error) { return nil, nil }, false)
 				d.dataPlaneAPIAccountCache.Set("f5713de20cde511e8ba4900", "1")
 				ctrl := gomock.NewController(t)
 				defer ctrl.Finish()
