@@ -93,6 +93,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				"tags":    tags,
 				// make sure this is the first test case due to storeAccountKey is set as false
 				"storeAccountKey":        "false",
+				"getLatestAccountKey":    "true",
 				"shareAccessTier":        "Premium",
 				"requireInfraEncryption": "true",
 			},

@@ -603,6 +603,37 @@ func TestCreateVolume(t *testing.T) {
 			},
 		},
 		{
+			name: "invalid getLatestAccountKey value",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{
+					getLatestAccountKeyField: "invalid",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name-getLatestAccountKey-invalid",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         allParam,
+				}
+
+				d := NewFakeDriver()
+				d.cloud = &azure.Cloud{
+					Config: azure.Config{},
+				}
+
+				d.AddControllerServiceCapabilities(
+					[]csi.ControllerServiceCapability_RPC_Type{
+						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					})
+
+				expectedErr := status.Errorf(codes.InvalidArgument, "invalid getlatestaccountkey: invalid in storage class")
+				_, err := d.CreateVolume(context.Background(), req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v, expected error: %v", err, expectedErr)
+				}
+			},
+		},
+		{
 			name: "storageAccount and matchTags conflict",
 			testFunc: func(t *testing.T) {
 				allParam := map[string]string{

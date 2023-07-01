@@ -802,6 +802,20 @@ func TestGetAccountInfo(t *testing.T) {
 			expectFileShareName: "test_sharename",
 			expectDiskName:      "",
 		},
+		{
+			volumeID: "invalid_getLatestAccountKey_value##",
+			rgName:   "vol_2",
+			secrets:  emptySecret,
+			reqContext: map[string]string{
+				shareNameField:           "test_sharename",
+				getLatestAccountKeyField: "invalid",
+			},
+			expectErr:           true,
+			err:                 fmt.Errorf("invalid %s: %s in volume context", getLatestAccountKeyField, "invalid"),
+			expectAccountName:   "",
+			expectFileShareName: "test_sharename",
+			expectDiskName:      "test_diskname",
+		},
 	}
 
 	for _, test := range tests {
