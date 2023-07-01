@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2022-08-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2022-07-01/network"
@@ -85,19 +86,19 @@ type ScaleSet struct {
 	// vmssCache is timed cache where the Store in the cache is a map of
 	// Key: consts.VMSSKey
 	// Value: sync.Map of [vmssName]*VMSSEntry
-	vmssCache *azcache.TimedCache
+	vmssCache azcache.Resource
 
 	// vmssVMCache is timed cache where the Store in the cache is a map of
 	// Key: [resourcegroup/vmssName]
 	// Value: sync.Map of [vmName]*VMSSVirtualMachineEntry
-	vmssVMCache *azcache.TimedCache
+	vmssVMCache azcache.Resource
 
 	// nonVmssUniformNodesCache is used to store node names from non uniform vm.
 	// Currently, the nodes can from avset or vmss flex or individual vm.
 	// This cache contains an entry called nonVmssUniformNodesEntry.
 	// nonVmssUniformNodesEntry contains avSetVMNodeNames list, clusterNodeNames list
 	// and current clusterNodeNames.
-	nonVmssUniformNodesCache *azcache.TimedCache
+	nonVmssUniformNodesCache azcache.Resource
 
 	// lockMap in cache refresh
 	lockMap *lockMap
@@ -1877,7 +1878,7 @@ func (ss *ScaleSet) ensureBackendPoolDeleted(service *v1.Service, backendPoolIDs
 	}
 
 	// Update VMs with best effort that have already been added to nodeUpdates.
-	var updatedVM bool
+	var updatedVM atomic.Bool
 	for meta, update := range nodeUpdates {
 		// create new instance of meta and update for passing to anonymous function
 		meta := meta
@@ -1906,22 +1907,22 @@ func (ss *ScaleSet) ensureBackendPoolDeleted(service *v1.Service, backendPoolIDs
 				return rerr.Error()
 			}
 
-			updatedVM = true
+			updatedVM.Store(true)
 			return nil
 		})
 	}
 	errs := utilerrors.AggregateGoroutines(hostUpdates...)
 	if errs != nil {
-		return updatedVM, utilerrors.Flatten(errs)
+		return updatedVM.Load(), utilerrors.Flatten(errs)
 	}
 
 	// Fail if there are other errors.
 	if len(allErrs) > 0 {
-		return updatedVM, utilerrors.Flatten(utilerrors.NewAggregate(allErrs))
+		return updatedVM.Load(), utilerrors.Flatten(utilerrors.NewAggregate(allErrs))
 	}
 
 	isOperationSucceeded = true
-	return updatedVM, nil
+	return updatedVM.Load(), nil
 }
 
 // EnsureBackendPoolDeleted ensures the loadBalancer backendAddressPools deleted from the specified nodes.
