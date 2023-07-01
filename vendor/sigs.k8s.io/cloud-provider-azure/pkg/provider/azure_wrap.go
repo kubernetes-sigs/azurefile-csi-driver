@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2022-03-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2022-08-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2022-07-01/network"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -125,8 +125,8 @@ func (az *Cloud) getPublicIPAddress(pipResourceGroup string, pipName string, crt
 	return *(deepcopy.Copy(pip).(*network.PublicIPAddress)), true, nil
 }
 
-func (az *Cloud) listPIP(pipResourceGroup string) ([]network.PublicIPAddress, error) {
-	cached, err := az.pipCache.Get(pipResourceGroup, azcache.CacheReadTypeDefault)
+func (az *Cloud) listPIP(pipResourceGroup string, crt azcache.AzureCacheReadType) ([]network.PublicIPAddress, error) {
+	cached, err := az.pipCache.Get(pipResourceGroup, crt)
 	if err != nil {
 		return nil, err
 	}
@@ -158,9 +158,7 @@ func (az *Cloud) getSubnet(virtualNetworkName string, subnetName string) (networ
 
 	if !exists {
 		klog.V(2).Infof("Subnet %q not found", subnetName)
-		return subnet, false, nil
 	}
-
 	return subnet, exists, nil
 }
 
@@ -231,7 +229,7 @@ func (az *Cloud) newVMCache() (*azcache.TimedCache, error) {
 		}
 
 		if vm.VirtualMachineProperties != nil &&
-			strings.EqualFold(pointer.StringDeref(vm.VirtualMachineProperties.ProvisioningState, ""), string(compute.ProvisioningStateDeleting)) {
+			strings.EqualFold(pointer.StringDeref(vm.VirtualMachineProperties.ProvisioningState, ""), string(consts.ProvisioningStateDeleting)) {
 			klog.V(2).Infof("Virtual machine %q is under deleting", key)
 			return nil, nil
 		}
