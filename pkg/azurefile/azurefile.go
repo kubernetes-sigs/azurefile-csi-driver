@@ -239,17 +239,17 @@ type Driver struct {
 	// a map storing all volumes created by this driver <volumeName, accountName>
 	volMap sync.Map
 	// a timed cache storing all account name and keys retrieved by this driver <accountName, accountkey>
-	accountCacheMap *azcache.TimedCache
+	accountCacheMap azcache.Resource
 	// a map storing all secret names created by this driver <secretCacheKey, "">
-	secretCacheMap *azcache.TimedCache
+	secretCacheMap azcache.Resource
 	// a map storing all volumes using data plane API <volumeID, "">
 	dataPlaneAPIVolMap sync.Map
 	// a timed cache storing all storage accounts that are using data plane API temporarily
-	dataPlaneAPIAccountCache *azcache.TimedCache
+	dataPlaneAPIAccountCache azcache.Resource
 	// a timed cache storing account search history (solve account list throttling issue)
-	accountSearchCache *azcache.TimedCache
+	accountSearchCache azcache.Resource
 	// a timed cache storing tag removing history (solve account update throttling issue)
-	removeTagCache *azcache.TimedCache
+	removeTagCache azcache.Resource
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -283,23 +283,23 @@ func NewDriver(options *DriverOptions) *Driver {
 	var err error
 	getter := func(key string) (interface{}, error) { return nil, nil }
 
-	if driver.secretCacheMap, err = azcache.NewTimedcache(time.Minute, getter); err != nil {
+	if driver.secretCacheMap, err = azcache.NewTimedCache(time.Minute, getter, false); err != nil {
 		klog.Fatalf("%v", err)
 	}
 
-	if driver.accountSearchCache, err = azcache.NewTimedcache(time.Minute, getter); err != nil {
+	if driver.accountSearchCache, err = azcache.NewTimedCache(time.Minute, getter, false); err != nil {
 		klog.Fatalf("%v", err)
 	}
 
-	if driver.removeTagCache, err = azcache.NewTimedcache(3*time.Minute, getter); err != nil {
+	if driver.removeTagCache, err = azcache.NewTimedCache(3*time.Minute, getter, false); err != nil {
 		klog.Fatalf("%v", err)
 	}
 
-	if driver.accountCacheMap, err = azcache.NewTimedcache(3*time.Minute, getter); err != nil {
+	if driver.accountCacheMap, err = azcache.NewTimedCache(3*time.Minute, getter, false); err != nil {
 		klog.Fatalf("%v", err)
 	}
 
-	if driver.dataPlaneAPIAccountCache, err = azcache.NewTimedcache(10*time.Minute, getter); err != nil {
+	if driver.dataPlaneAPIAccountCache, err = azcache.NewTimedCache(10*time.Minute, getter, false); err != nil {
 		klog.Fatalf("%v", err)
 	}
 
