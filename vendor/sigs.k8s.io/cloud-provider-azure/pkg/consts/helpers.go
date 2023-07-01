@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/utils/net"
 )
 
 // IsK8sServiceHasHAModeEnabled return if HA Mode is enabled in kubernetes service annotations
@@ -34,10 +33,6 @@ func IsK8sServiceHasHAModeEnabled(service *v1.Service) bool {
 // IsK8sServiceUsingInternalLoadBalancer return if service is using an internal load balancer.
 func IsK8sServiceUsingInternalLoadBalancer(service *v1.Service) bool {
 	return expectAttributeInSvcAnnotationBeEqualTo(service.Annotations, ServiceAnnotationLoadBalancerInternal, TrueAnnotationValue)
-}
-
-func IsK8sServiceInternalIPv6(service *v1.Service) bool {
-	return IsK8sServiceUsingInternalLoadBalancer(service) && net.IsIPv6String(service.Spec.ClusterIP)
 }
 
 // IsK8sServiceDisableLoadBalancerFloatingIP return if floating IP in load balancer is disabled in kubernetes service annotations
@@ -141,4 +136,18 @@ func expectAttributeInSvcAnnotationBeEqualTo(annotations map[string]string, key 
 		return strings.EqualFold(*l, value)
 	}
 	return false
+}
+
+// getLoadBalancerConfigurationsNames parse the annotation and return the names of the load balancer configurations.
+func GetLoadBalancerConfigurationsNames(service *v1.Service) []string {
+	var names []string
+	for key, lbConfig := range service.Annotations {
+		if strings.EqualFold(key, ServiceAnnotationLoadBalancerConfigurations) {
+			names = append(names, strings.Split(lbConfig, ",")...)
+		}
+	}
+	for i := range names {
+		names[i] = strings.ToLower(strings.TrimSpace(names[i]))
+	}
+	return names
 }

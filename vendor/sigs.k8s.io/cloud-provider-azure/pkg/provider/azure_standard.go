@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
 
@@ -103,8 +104,8 @@ func (az *Cloud) getBackendPoolIDWithRG(lbName, rgName, backendPoolName string) 
 
 func (az *Cloud) getBackendPoolIDs(clusterName, lbName string) map[bool]string {
 	return map[bool]string{
-		false: az.getBackendPoolID(lbName, getBackendPoolName(clusterName, false)),
-		true:  az.getBackendPoolID(lbName, getBackendPoolName(clusterName, true)),
+		consts.IPVersionIPv4: az.getBackendPoolID(lbName, getBackendPoolName(clusterName, consts.IPVersionIPv4)),
+		consts.IPVersionIPv6: az.getBackendPoolID(lbName, getBackendPoolName(clusterName, consts.IPVersionIPv6)),
 	}
 }
 
@@ -139,26 +140,11 @@ func (az *Cloud) mapLoadBalancerNameToVMSet(lbName string, clusterName string) (
 	return vmSetName
 }
 
-// For a load balancer, all frontend ip should reference either a subnet or publicIpAddress.
-// Thus Azure do not allow mixed type (public and internal) load balancer.
-// So we'd have a separate name for internal load balancer.
-// This would be the name for Azure LoadBalancer resource.
-func (az *Cloud) getAzureLoadBalancerName(clusterName string, vmSetName string, isInternal bool) string {
-	if az.LoadBalancerName != "" {
-		clusterName = az.LoadBalancerName
+func (az *Cloud) mapVMSetNameToLoadBalancerName(vmSetName, clusterName string) string {
+	if vmSetName == az.VMSet.GetPrimaryVMSetName() {
+		return clusterName
 	}
-	lbNamePrefix := vmSetName
-	// The LB name prefix is set to the name of the cluster when:
-	// 1. the LB belongs to the primary agent pool.
-	// 2. using the single SLB.
-	if strings.EqualFold(vmSetName, az.VMSet.GetPrimaryVMSetName()) || az.useStandardLoadBalancer() {
-		lbNamePrefix = clusterName
-	}
-
-	if isInternal {
-		return fmt.Sprintf("%s%s", lbNamePrefix, consts.InternalLoadBalancerNameSuffix)
-	}
-	return lbNamePrefix
+	return vmSetName
 }
 
 // isControlPlaneNode returns true if the node has a control-plane role label.
@@ -296,8 +282,8 @@ func getBackendPoolName(clusterName string, isIPv6 bool) string {
 // getBackendPoolNames returns the IPv4 and IPv6 backend pool names.
 func getBackendPoolNames(clusterName string) map[bool]string {
 	return map[bool]string{
-		false: getBackendPoolName(clusterName, false),
-		true:  getBackendPoolName(clusterName, true),
+		consts.IPVersionIPv4: getBackendPoolName(clusterName, consts.IPVersionIPv4),
+		consts.IPVersionIPv6: getBackendPoolName(clusterName, consts.IPVersionIPv6),
 	}
 }
 
@@ -334,15 +320,17 @@ func (az *Cloud) getloadbalancerHAmodeRuleName(service *v1.Service, isIPv6 bool)
 }
 
 func (az *Cloud) getSecurityRuleName(service *v1.Service, port v1.ServicePort, sourceAddrPrefix string, isIPv6 bool) string {
+	isDualStack := isServiceDualStack(service)
 	safePrefix := strings.Replace(sourceAddrPrefix, "/", "_", -1)
 	safePrefix = strings.Replace(safePrefix, ":", ".", -1) // Consider IPv6 address
+	var name string
 	if useSharedSecurityRule(service) {
-		return fmt.Sprintf("shared-%s-%d-%s", port.Protocol, port.Port, safePrefix)
+		name = fmt.Sprintf("shared-%s-%d-%s", port.Protocol, port.Port, safePrefix)
+	} else {
+		rulePrefix := az.getRulePrefix(service)
+		name = fmt.Sprintf("%s-%s-%d-%s", rulePrefix, port.Protocol, port.Port, safePrefix)
 	}
-	rulePrefix := az.getRulePrefix(service)
-	name := fmt.Sprintf("%s-%s-%d-%s", rulePrefix, port.Protocol, port.Port, safePrefix)
-	// TODO: Use getResourceByIPFamily
-	return name
+	return getResourceByIPFamily(name, isDualStack, isIPv6)
 }
 
 // This returns a human-readable version of the Service used to tag some resources.
@@ -446,8 +434,8 @@ func (az *Cloud) getFrontendIPConfigNames(service *v1.Service) map[bool]string {
 	isDualStack := isServiceDualStack(service)
 	defaultLBFrontendIPConfigName := az.getDefaultFrontendIPConfigName(service)
 	return map[bool]string{
-		false: getResourceByIPFamily(defaultLBFrontendIPConfigName, isDualStack, false),
-		true:  getResourceByIPFamily(defaultLBFrontendIPConfigName, isDualStack, true),
+		consts.IPVersionIPv4: getResourceByIPFamily(defaultLBFrontendIPConfigName, isDualStack, consts.IPVersionIPv4),
+		consts.IPVersionIPv6: getResourceByIPFamily(defaultLBFrontendIPConfigName, isDualStack, consts.IPVersionIPv6),
 	}
 }
 
@@ -506,7 +494,7 @@ func MakeCRC32(str string) string {
 type availabilitySet struct {
 	*Cloud
 
-	vmasCache *azcache.TimedCache
+	vmasCache azcache.Resource
 }
 
 type AvailabilitySetEntry struct {
@@ -514,7 +502,7 @@ type AvailabilitySetEntry struct {
 	ResourceGroup string
 }
 
-func (as *availabilitySet) newVMASCache() (*azcache.TimedCache, error) {
+func (as *availabilitySet) newVMASCache() (azcache.Resource, error) {
 	getter := func(key string) (interface{}, error) {
 		localCache := &sync.Map{}
 
@@ -550,7 +538,7 @@ func (as *availabilitySet) newVMASCache() (*azcache.TimedCache, error) {
 		as.Config.AvailabilitySetsCacheTTLInSeconds = consts.VMASCacheTTLDefaultInSeconds
 	}
 
-	return azcache.NewTimedcache(time.Duration(as.Config.AvailabilitySetsCacheTTLInSeconds)*time.Second, getter)
+	return azcache.NewTimedCache(time.Duration(as.Config.AvailabilitySetsCacheTTLInSeconds)*time.Second, getter, as.Cloud.Config.DisableAPICallCache)
 }
 
 // newStandardSet creates a new availabilitySet.
@@ -1127,7 +1115,6 @@ func (as *availabilitySet) EnsureBackendPoolDeleted(service *v1.Service, backend
 	}
 	nicUpdaters := make([]func() error, 0)
 	allErrs := make([]error, 0)
-	var nicUpdated bool
 
 	ipconfigPrefixToNicMap := map[string]network.Interface{} // ipconfig prefix -> nic
 	for i := range ipConfigurationIDs {
@@ -1176,6 +1163,7 @@ func (as *availabilitySet) EnsureBackendPoolDeleted(service *v1.Service, backend
 			ipconfigPrefixToNicMap[ipConfigIDPrefix] = nic
 		}
 	}
+	var nicUpdated atomic.Bool
 	for k := range ipconfigPrefixToNicMap {
 		nic := ipconfigPrefixToNicMap[k]
 		newIPConfigs := *nic.IPConfigurations
@@ -1208,21 +1196,21 @@ func (as *availabilitySet) EnsureBackendPoolDeleted(service *v1.Service, backend
 				klog.Errorf("EnsureBackendPoolDeleted CreateOrUpdate for NIC(%s, %s) failed with error %v", as.ResourceGroup, pointer.StringDeref(nic.Name, ""), rerr.Error())
 				return rerr.Error()
 			}
-			nicUpdated = true
+			nicUpdated.Store(true)
 			return nil
 		})
 	}
 	errs := utilerrors.AggregateGoroutines(nicUpdaters...)
 	if errs != nil {
-		return nicUpdated, utilerrors.Flatten(errs)
+		return nicUpdated.Load(), utilerrors.Flatten(errs)
 	}
 	// Fail if there are other errors.
 	if len(allErrs) > 0 {
-		return nicUpdated, utilerrors.Flatten(utilerrors.NewAggregate(allErrs))
+		return nicUpdated.Load(), utilerrors.Flatten(utilerrors.NewAggregate(allErrs))
 	}
 
 	isOperationSucceeded = true
-	return nicUpdated, nil
+	return nicUpdated.Load(), nil
 }
 
 func getAvailabilitySetNameByID(asID string) (string, error) {
