@@ -90,7 +90,7 @@ kubectl create secret generic azure-storage-account-{accountname}-secret --from-
 
 ### Tips
   - mounting Azure SMB File share requires account key
-    - set `storageAccountKey: "false"` in storage class would make driver **not** store account key as k8s secret
+    - set `storeAccountKey: "false"` in storage class would make driver **not** store account key as k8s secret
     - if the `nodeStageSecretRef` field is not specified in the persistent volume (PV) configuration, the driver will attempt to retrieve the `azure-storage-account-{accountname}-secret` in the pod namespace. 
     - If `azure-storage-account-{accountname}-secret` in the pod namespace does not exist, the driver will use the kubelet identity to retrieve the account key directly from the Azure storage account API, provided that the kubelet identity has reader access to the storage account.
   - mounting Azure NFS File share does not require account key, NFS mount access is configured by either of the following settings:
