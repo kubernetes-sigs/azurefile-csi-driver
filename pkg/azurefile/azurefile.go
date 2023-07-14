@@ -495,10 +495,10 @@ func getStorageAccount(secrets map[string]string) (string, string, error) {
 	}
 
 	if accountName == "" {
-		return "", "", fmt.Errorf("could not find accountname or azurestorageaccountname field secrets(%v)", secrets)
+		return "", "", fmt.Errorf("could not find accountname or azurestorageaccountname field in secrets")
 	}
 	if accountKey == "" {
-		return "", "", fmt.Errorf("could not find accountkey or azurestorageaccountkey field in secrets(%v)", secrets)
+		return "", "", fmt.Errorf("could not find accountkey or azurestorageaccountkey field in secrets")
 	}
 	accountName = strings.TrimSpace(accountName)
 
