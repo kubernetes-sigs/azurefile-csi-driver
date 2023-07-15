@@ -170,7 +170,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `windows.dsName`                                  | name of driver daemonset on windows                             |`csi-azurefile-node-win`                                                         |
 | `windows.useHostProcessContainers`                | whether deploy driver daemonset with host process containers on windows | `false`                                                             |
 | `windows.kubelet`                                 | configure kubelet directory path on Windows agent node                | `'C:\var\lib\kubelet'`                                            |
-| `windows.kubeconfig`                              | configure kubeconfig path on Windows agent node                | `'C:\k\config'`                                            |
+| `windows.kubeconfig`                              | configure kubeconfig path on Windows agent node                | `` (empty, use InClusterConfig by default)                                            |
 | `windows.enableRegistrationProbe`                 | enable [kubelet-registration-probe](https://github.com/kubernetes-csi/node-driver-registrar#health-check-with-an-exec-probe) on windows driver config     | `true`
 | `windows.tolerations`                             | windows node driver tolerations                            |                                                              |
 | `windows.affinity`                                | windows node pod affinity                                     | `{}`                                                             |
