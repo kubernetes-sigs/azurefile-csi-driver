@@ -41,7 +41,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.2.0
 	github.com/jongio/azidext/go/azidext v0.4.0
 	github.com/onsi/ginkgo/v2 v2.11.0
-	k8s.io/pod-security-admission v0.27.1
+	k8s.io/pod-security-admission v0.27.3
 )
 
 require (
