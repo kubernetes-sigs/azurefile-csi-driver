@@ -23,13 +23,13 @@ require (
 	golang.org/x/net v0.12.0
 	google.golang.org/grpc v1.51.0
 	google.golang.org/protobuf v1.31.0
-	k8s.io/api v0.27.3
-	k8s.io/apimachinery v0.27.3
+	k8s.io/api v0.27.4
+	k8s.io/apimachinery v0.27.4
 	k8s.io/client-go v0.27.3
 	k8s.io/cloud-provider v0.27.3
 	k8s.io/component-base v0.27.3
 	k8s.io/klog/v2 v2.100.1
-	k8s.io/kubernetes v1.27.3
+	k8s.io/kubernetes v1.27.4
 	k8s.io/mount-utils v0.0.0
 	k8s.io/utils v0.0.0-20230209194617-a36077c30491
 	sigs.k8s.io/cloud-provider-azure v1.27.1-0.20230630150243-d45a7951c84a
