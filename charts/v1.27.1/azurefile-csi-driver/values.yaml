@@ -2,27 +2,27 @@ image:
   baseRepo: mcr.microsoft.com
   azurefile:
     repository: /oss/kubernetes-csi/azurefile-csi
-    tag: v1.28.0
+    tag: v1.27.1
     pullPolicy: IfNotPresent
   csiProvisioner:
     repository: /oss/kubernetes-csi/csi-provisioner
-    tag: v3.5.0
+    tag: v3.4.1
     pullPolicy: IfNotPresent
   csiAttacher:
     repository: /oss/kubernetes-csi/csi-attacher
-    tag: v4.3.0
+    tag: v4.2.0
     pullPolicy: IfNotPresent
   csiResizer:
     repository: /oss/kubernetes-csi/csi-resizer
-    tag: v1.8.0
+    tag: v1.7.0
     pullPolicy: IfNotPresent
   livenessProbe:
     repository: /oss/kubernetes-csi/livenessprobe
-    tag: v2.10.0
+    tag: v2.9.0
     pullPolicy: IfNotPresent
   nodeDriverRegistrar:
     repository: /oss/kubernetes-csi/csi-node-driver-registrar
-    tag: v2.8.0
+    tag: v2.6.3
     pullPolicy: IfNotPresent
 
 ## Reference to one or more secrets to be used when pulling images
@@ -133,11 +133,11 @@ snapshot:
   image:
     csiSnapshotter:
       repository: /oss/kubernetes-csi/csi-snapshotter
-      tag: v6.2.1
+      tag: v5.0.1
       pullPolicy: IfNotPresent
     csiSnapshotController:
       repository: /oss/kubernetes-csi/snapshot-controller
-      tag: v6.2.1
+      tag: v5.0.1
       pullPolicy: IfNotPresent
   snapshotController:
     name: csi-snapshot-controller
@@ -156,8 +156,6 @@ snapshot:
 
 feature:
   enableGetVolumeStats: true
-  enableVolumeMountGroup: true
-  fsGroupPolicy: ReadWriteOnceWithFSType
 
 driver:
   name: file.csi.azure.com
@@ -214,7 +212,6 @@ linux:
 
 windows:
   enabled: true
-  useHostProcessContainers: false
   dsName: csi-azurefile-node-win # daemonset name
   kubelet: 'C:\var\lib\kubelet'
   kubeconfig: ""
