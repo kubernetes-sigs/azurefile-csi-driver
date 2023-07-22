@@ -94,7 +94,7 @@ spec:
               cpu: 30m
               memory: 40Mi
         - name: azurefile
-          image: mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.27.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.27.1
           imagePullPolicy: IfNotPresent
           args:
             - --v=5

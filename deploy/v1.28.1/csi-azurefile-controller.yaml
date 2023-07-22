@@ -31,7 +31,7 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: csi-provisioner
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-provisioner:v3.4.1
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-provisioner:v3.5.0
           args:
             - "-v=2"
             - "--csi-address=$(ADDRESS)"
@@ -54,7 +54,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: csi-attacher
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-attacher:v4.2.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-attacher:v4.3.0
           args:
             - "-v=2"
             - "-csi-address=$(ADDRESS)"
@@ -76,7 +76,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: csi-snapshotter
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-snapshotter:v5.0.1
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-snapshotter:v6.2.1
           args:
             - "-v=2"
             - "-csi-address=$(ADDRESS)"
@@ -95,7 +95,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: csi-resizer
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-resizer:v1.7.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-resizer:v1.8.0
           args:
             - "-csi-address=$(ADDRESS)"
             - "-v=2"
@@ -117,7 +117,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: liveness-probe
-          image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.9.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.10.0
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
@@ -133,7 +133,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: azurefile
-          image: mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.27.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.1
           imagePullPolicy: IfNotPresent
           args:
             - "--v=5"
