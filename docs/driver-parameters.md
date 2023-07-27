@@ -1,6 +1,19 @@
 ## Driver Parameters
 `file.csi.azure.com` driver parameters
 
+<details><summary>required permissions for CSI driver</summary>
+<pre>
+    - Microsoft.Storage/storageAccounts/fileServices/read
+    - Microsoft.Storage/storageAccounts/fileServices/shares/read
+    - Microsoft.Storage/storageAccounts/fileServices/shares/write
+    - Microsoft.Storage/storageAccounts/fileServices/shares/delete
+    - Microsoft.Storage/storageAccounts/listKeys/action
+    - Microsoft.Storage/storageAccounts/read
+    - Microsoft.Storage/storageAccounts/write
+    - Microsoft.Storage/storageAccounts/delete
+</pre>
+</details>
+
 ### Dynamic Provision
   > get a [example](../deploy/example/storageclass-azurefile-csi.yaml)
 
