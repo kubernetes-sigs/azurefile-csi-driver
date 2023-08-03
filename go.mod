@@ -25,9 +25,9 @@ require (
 	google.golang.org/protobuf v1.31.0
 	k8s.io/api v0.27.4
 	k8s.io/apimachinery v0.27.4
-	k8s.io/client-go v0.27.3
+	k8s.io/client-go v0.27.4
 	k8s.io/cloud-provider v0.27.3
-	k8s.io/component-base v0.27.3
+	k8s.io/component-base v0.27.4
 	k8s.io/klog/v2 v2.100.1
 	k8s.io/kubernetes v1.27.4
 	k8s.io/mount-utils v0.0.0
@@ -41,7 +41,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.2.0
 	github.com/jongio/azidext/go/azidext v0.4.0
 	github.com/onsi/ginkgo/v2 v2.11.0
-	k8s.io/pod-security-admission v0.27.3
+	k8s.io/pod-security-admission v0.27.4
 )
 
 require (
@@ -144,10 +144,10 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.0.0 // indirect
-	k8s.io/apiserver v0.27.3 // indirect
+	k8s.io/apiserver v0.27.4 // indirect
 	k8s.io/component-helpers v0.27.3 // indirect
 	k8s.io/controller-manager v0.27.3 // indirect
-	k8s.io/kms v0.27.3 // indirect
+	k8s.io/kms v0.27.4 // indirect
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect
 	k8s.io/kubectl v0.0.0 // indirect
 	k8s.io/kubelet v0.27.3 // indirect
