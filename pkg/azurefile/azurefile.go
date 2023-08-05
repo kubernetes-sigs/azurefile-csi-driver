@@ -877,10 +877,11 @@ func (d *Driver) RemoveStorageAccountTag(ctx context.Context, subsID, resourceGr
 	}
 
 	klog.V(2).Infof("remove tag(%s) on account(%s) subsID(%s), resourceGroup(%s)", key, account, subsID, resourceGroup)
-	defer d.removeTagCache.Set(account, key)
 	if rerr := d.cloud.RemoveStorageAccountTag(ctx, subsID, resourceGroup, account, key); rerr != nil {
 		return rerr.Error()
 	}
+	// only cache when remove tag successfully
+	d.removeTagCache.Set(account, "")
 	return nil
 }
 
