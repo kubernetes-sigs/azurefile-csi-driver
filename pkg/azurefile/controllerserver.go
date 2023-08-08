@@ -1032,6 +1032,16 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 		subsID = d.cloud.SubscriptionID
 	}
 
+	if accountName != "" {
+		cache, err := d.resizeFileShareFailureCache.Get(accountName, azcache.CacheReadTypeDefault)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "resizeFileShareFailureCache(%s) failed with error: %v", accountName, err)
+		}
+		if cache != nil {
+			return nil, status.Errorf(codes.Internal, "account(%s) is in %s, wait for a few minutes to retry", accountName, accountLimitExceedManagementAPI)
+		}
+	}
+
 	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_expand_volume", resourceGroupName, subsID, d.Name)
 	isOperationSucceeded := false
 	defer func() {
@@ -1053,6 +1063,11 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 	}
 
 	if err = d.ResizeFileShare(ctx, subsID, resourceGroupName, accountName, fileShareName, int(requestGiB), secrets); err != nil {
+		if strings.Contains(err.Error(), accountLimitExceedManagementAPI) || strings.Contains(err.Error(), accountLimitExceedDataPlaneAPI) {
+			if accountName != "" {
+				d.resizeFileShareFailureCache.Set(accountName, "")
+			}
+		}
 		return nil, status.Errorf(codes.Internal, "expand volume error: %v", err)
 	}
 
