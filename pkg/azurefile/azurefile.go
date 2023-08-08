@@ -250,6 +250,8 @@ type Driver struct {
 	accountSearchCache azcache.Resource
 	// a timed cache storing tag removing history (solve account update throttling issue)
 	removeTagCache azcache.Resource
+	// a timed cache when resize file share failed due to account limit exceeded
+	resizeFileShareFailureCache azcache.Resource
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -300,6 +302,10 @@ func NewDriver(options *DriverOptions) *Driver {
 	}
 
 	if driver.dataPlaneAPIAccountCache, err = azcache.NewTimedCache(10*time.Minute, getter, false); err != nil {
+		klog.Fatalf("%v", err)
+	}
+
+	if driver.resizeFileShareFailureCache, err = azcache.NewTimedCache(3*time.Minute, getter, false); err != nil {
 		klog.Fatalf("%v", err)
 	}
 
