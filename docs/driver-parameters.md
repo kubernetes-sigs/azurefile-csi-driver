@@ -11,6 +11,9 @@
     - Microsoft.Storage/storageAccounts/read
     - Microsoft.Storage/storageAccounts/write
     - Microsoft.Storage/storageAccounts/delete
+    - Microsoft.Network/networkSecurityGroups/join/action
+    - Microsoft.Network/virtualNetworks/subnets/read
+    - Microsoft.Network/virtualNetworks/subnets/write
 </pre>
 </details>
 
