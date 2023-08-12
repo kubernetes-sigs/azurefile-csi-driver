@@ -229,7 +229,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				Cmd: convertToPowershellCommandIfNecessary("while true; do echo $(date -u) >> /mnt/test-1/data; sleep 100; done"),
 				Volumes: []testsuites.VolumeDetails{
 					{
-						FSType:    "ext3",
 						ClaimSize: "10Gi",
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
@@ -244,7 +243,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				Cmd: convertToPowershellCommandIfNecessary("while true; do echo $(date -u) >> /mnt/test-1/data; sleep 100; done"),
 				Volumes: []testsuites.VolumeDetails{
 					{
-						FSType:    "ext4",
 						ClaimSize: "10Gi",
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
@@ -525,7 +523,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				Cmd: "while true; do echo $(date -u) >> /mnt/test-1/data; sleep 100; done",
 				Volumes: []testsuites.VolumeDetails{
 					{
-						FSType:    "ext3",
 						ClaimSize: "10Gi",
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
@@ -538,7 +535,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				Cmd: convertToPowershellCommandIfNecessary("while true; do echo $(date -u) >> /mnt/test-1/data; sleep 100; done"),
 				Volumes: []testsuites.VolumeDetails{
 					{
-						FSType:    "ext4",
 						ClaimSize: "10Gi",
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
@@ -554,7 +550,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			CSIDriver:              testDriver,
 			Pods:                   pods,
 			ColocatePods:           true,
-			StorageClassParameters: map[string]string{"skuName": "Premium_LRS", "fsType": "xfs"},
+			StorageClassParameters: map[string]string{"skuName": "Premium_LRS"},
 		}
 		test.Run(ctx, cs, ns)
 	})
