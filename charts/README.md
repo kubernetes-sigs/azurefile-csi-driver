@@ -47,6 +47,7 @@ The following table lists the configurable parameters of the latest Azure File C
 
 | Parameter                                         | Description                                                | Default                                                           |
 |---------------------------------------------------|------------------------------------------------------------|-------------------------------------------------------------------|
+| `azureCredentialFileConfigMap`                    | alternative ConfigMap name for the credentials file        | `azure-cred-file` |
 | `driver.name`                                     | alternative driver name                                    | `file.csi.azure.com` |
 | `driver.customUserAgent`                          | custom userAgent               | `` |
 | `driver.userAgentSuffix`                          | userAgent suffix               | `OSS-helm` |
