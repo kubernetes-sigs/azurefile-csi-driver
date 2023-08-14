@@ -77,6 +77,7 @@ var (
 			Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER,
 		},
 	}
+	skipMatchingTag = map[string]*string{azure.SkipMatchingTag: pointer.String("")}
 )
 
 // CreateVolume provisions an azure file
@@ -123,6 +124,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	// store account key to k8s secret by default
 	storeAccountKey := true
 
+	var accountQuota int32
 	// Apply ProvisionerParameters (case-insensitive). We leave validation of
 	// the values to the cloud provider.
 	for k, v := range parameters {
@@ -245,6 +247,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s: %s in storage class", getLatestAccountKeyField, v))
 			}
 			getLatestAccountKey = value
+		case accountQuotaField:
+			value, err := strconv.ParseInt(v, 10, 32)
+			if err != nil || value < minimumAccountQuota {
+				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid accountQuota %s in storage class, minimum quota: %d", v, minimumAccountQuota))
+			}
+			accountQuota = int32(value)
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid parameter %q in storage class", k))
 		}
@@ -452,6 +460,22 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				if err != nil {
 					return nil, status.Errorf(codes.Internal, "failed to ensure storage account: %v", err)
 				}
+				if accountQuota > minimumAccountQuota {
+					totalQuotaGB, fileshareNum, err := d.GetTotalAccountQuota(ctx, subsID, resourceGroup, accountName)
+					if err != nil {
+						return nil, status.Errorf(codes.Internal, "failed to get total quota on account(%s), error: %v", accountName, err)
+					}
+					klog.V(2).Infof("total used quota on account(%s) is %d GB, file share number: %d", accountName, totalQuotaGB, fileshareNum)
+					if totalQuotaGB > accountQuota {
+						klog.Warningf("account(%s) used quota(%d GB) is over %d GB, skip matching current account", accountName, accountQuota, totalQuotaGB)
+						if rerr := d.cloud.AddStorageAccountTags(ctx, subsID, resourceGroup, accountName, skipMatchingTag); rerr != nil {
+							klog.Warningf("AddStorageAccountTags(%v) on account(%s) subsID(%s) rg(%s) failed with error: %v", tags, accountName, subsID, resourceGroup, rerr.Error())
+						}
+						// release volume lock first to prevent deadlock
+						d.volumeLocks.Release(volName)
+						return d.CreateVolume(ctx, req)
+					}
+				}
 				d.accountSearchCache.Set(lockKey, accountName)
 				d.volMap.Store(volName, accountName)
 				if accountKey != "" {
@@ -502,10 +526,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if err := d.CreateFileShare(ctx, accountOptions, shareOptions, secret); err != nil {
 		if strings.Contains(err.Error(), accountLimitExceedManagementAPI) || strings.Contains(err.Error(), accountLimitExceedDataPlaneAPI) {
 			klog.Warningf("create file share(%s) on account(%s) type(%s) subID(%s) rg(%s) location(%s) size(%d), error: %v, skip matching current account", validFileShareName, accountName, sku, subsID, resourceGroup, location, fileShareSize, err)
-			tags := map[string]*string{
-				azure.SkipMatchingTag: pointer.String(""),
-			}
-			if rerr := d.cloud.AddStorageAccountTags(ctx, subsID, resourceGroup, accountName, tags); rerr != nil {
+			if rerr := d.cloud.AddStorageAccountTags(ctx, subsID, resourceGroup, accountName, skipMatchingTag); rerr != nil {
 				klog.Warningf("AddStorageAccountTags(%v) on account(%s) subsID(%s) rg(%s) failed with error: %v", tags, accountName, subsID, resourceGroup, rerr.Error())
 			}
 			// release volume lock first to prevent deadlock
@@ -514,7 +535,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			if err := d.accountSearchCache.Delete(lockKey); err != nil {
 				return nil, status.Errorf(codes.Internal, err.Error())
 			}
-			// remove the volName from the volMap to stop it matching the same storage account
+			// remove the volName from the volMap to stop matching the same storage account
 			d.volMap.Delete(volName)
 			return d.CreateVolume(ctx, req)
 		}
