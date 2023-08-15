@@ -69,6 +69,7 @@ func TestCreateVolume(t *testing.T) {
 	stdCapRange := &csi.CapacityRange{RequiredBytes: stdVolSize}
 	zeroCapRange := &csi.CapacityRange{RequiredBytes: int64(0)}
 	lessThanPremCapRange := &csi.CapacityRange{RequiredBytes: int64(fakeShareQuota * 1024 * 1024 * 1024)}
+	ctx := context.Background()
 
 	testCases := []struct {
 		name     string
@@ -84,8 +85,8 @@ func TestCreateVolume(t *testing.T) {
 					Parameters:         nil,
 				}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
+				d.Cap = []*csi.ControllerServiceCapability{}
 
 				expectedErr := status.Errorf(codes.InvalidArgument, "CREATE_DELETE_VOLUME")
 				_, err := d.CreateVolume(ctx, req)
@@ -103,13 +104,7 @@ func TestCreateVolume(t *testing.T) {
 					VolumeCapabilities: stdVolCap,
 					Parameters:         nil,
 				}
-
-				ctx := context.Background()
 				d := NewFakeDriver()
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
 
 				expectedErr := status.Error(codes.InvalidArgument, "CreateVolume Name must be provided")
 				_, err := d.CreateVolume(ctx, req)
@@ -127,12 +122,7 @@ func TestCreateVolume(t *testing.T) {
 					Parameters:    nil,
 				}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
 
 				expectedErr := status.Error(codes.InvalidArgument, "CreateVolume Volume capabilities not valid: CreateVolume Volume capabilities must be provided")
 				_, err := d.CreateVolume(ctx, req)
@@ -160,12 +150,7 @@ func TestCreateVolume(t *testing.T) {
 					Parameters: nil,
 				}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
 
 				expectedErr := status.Error(codes.InvalidArgument, "CreateVolume Volume capabilities not valid: driver does not support block volumes")
 				_, err := d.CreateVolume(ctx, req)
@@ -184,16 +169,10 @@ func TestCreateVolume(t *testing.T) {
 					Parameters:         nil,
 				}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
 				locks := newVolumeLocks()
 				locks.locks.Insert(req.GetName())
 				d.volumeLocks = locks
-
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
 
 				expectedErr := status.Error(codes.Aborted, "An operation with the given Volume ID random-vol-name-vol-cap-invalid already exists")
 				_, err := d.CreateVolume(ctx, req)
@@ -218,19 +197,12 @@ func TestCreateVolume(t *testing.T) {
 					Parameters:         allParam,
 				}
 
-				ctx := context.Background()
-
 				driverOptions := DriverOptions{
 					NodeID:               fakeNodeID,
 					DriverName:           DefaultDriverName,
 					EnableVHDDiskFeature: false,
 				}
 				d := NewFakeDriverCustomOptions(driverOptions)
-
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
 
 				expectedErr := status.Errorf(codes.InvalidArgument, "fsType storage class parameter enables experimental VDH disk feature which is currently disabled, use --enable-vhd driver option to enable it")
 				_, err := d.CreateVolume(ctx, req)
@@ -253,19 +225,12 @@ func TestCreateVolume(t *testing.T) {
 					Parameters:         allParam,
 				}
 
-				ctx := context.Background()
-
 				driverOptions := DriverOptions{
 					NodeID:               fakeNodeID,
 					DriverName:           DefaultDriverName,
 					EnableVHDDiskFeature: true,
 				}
 				d := NewFakeDriverCustomOptions(driverOptions)
-
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
 
 				expectedErr := status.Errorf(codes.InvalidArgument, "fsType(test_fs) is not supported, supported fsType list: [cifs smb nfs ext4 ext3 ext2 xfs]")
 				_, err := d.CreateVolume(ctx, req)
@@ -288,13 +253,7 @@ func TestCreateVolume(t *testing.T) {
 					Parameters:         allParam,
 				}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
-
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
 
 				expectedErr := status.Errorf(codes.InvalidArgument, "protocol(test_protocol) is not supported, supported protocol list: [smb nfs]")
 				_, err := d.CreateVolume(ctx, req)
@@ -318,13 +277,7 @@ func TestCreateVolume(t *testing.T) {
 					Parameters:         allParam,
 				}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
-
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
 
 				expectedErr := status.Errorf(codes.InvalidArgument, "shareAccessTier(test_accessTier) is not supported, supported ShareAccessTier list: [Cool Hot Premium TransactionOptimized]")
 				_, err := d.CreateVolume(ctx, req)
@@ -347,13 +300,7 @@ func TestCreateVolume(t *testing.T) {
 					Parameters:         allParam,
 				}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
-
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
 
 				expectedErr := status.Errorf(codes.InvalidArgument, "rootSquashType(test_rootSquashType) is not supported, supported RootSquashType list: [AllSquash NoRootSquash RootSquash]")
 				_, err := d.CreateVolume(ctx, req)
@@ -376,13 +323,7 @@ func TestCreateVolume(t *testing.T) {
 					Parameters:         allParam,
 				}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
-
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
 
 				expectedErr := status.Errorf(codes.InvalidArgument, "fsGroupChangePolicy(test_fsGroupChangePolicy) is not supported, supported fsGroupChangePolicy list: [None Always OnRootMismatch]")
 				_, err := d.CreateVolume(ctx, req)
@@ -404,16 +345,32 @@ func TestCreateVolume(t *testing.T) {
 					VolumeCapabilities: stdVolCap,
 					Parameters:         allParam,
 				}
-
-				ctx := context.Background()
 				d := NewFakeDriver()
 
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
-
 				expectedErr := status.Errorf(codes.InvalidArgument, "shareNamePrefix(-invalid) can only contain lowercase letters, numbers, hyphens, and length should be less than 21")
+				_, err := d.CreateVolume(ctx, req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "Invalid accountQuota",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{
+					accountQuotaField: "10",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name-vol-cap-invalid",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         allParam,
+				}
+
+				d := NewFakeDriver()
+
+				expectedErr := status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid accountQuota %d in storage class, minimum quota: %d", 10, minimumAccountQuota))
 				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
@@ -443,13 +400,7 @@ func TestCreateVolume(t *testing.T) {
 					Parameters:         allParam,
 				}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
-
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
 
 				expectedErr := status.Errorf(codes.InvalidArgument, fmt.Errorf("Tags 'tags' are invalid, the format should like: 'key1=value1,key2=value2'").Error())
 				_, err := d.CreateVolume(ctx, req)
@@ -483,17 +434,11 @@ func TestCreateVolume(t *testing.T) {
 					Parameters:         allParam,
 				}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
 				d.cloud = fakeCloud
 				d.volMap = sync.Map{}
 				d.volMap.Store("random-vol-name-vol-cap-invalid", "account")
 				d.fileClient = &azureFileClient{}
-
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
 
 				expectedErr := status.Errorf(codes.Internal, "failed to GetStorageAccesskey on account(account) rg(), error: StorageAccountClient is nil")
 				_, err := d.CreateVolume(ctx, req)
@@ -517,19 +462,12 @@ func TestCreateVolume(t *testing.T) {
 					Parameters:         allParam,
 				}
 
-				ctx := context.Background()
-
 				driverOptions := DriverOptions{
 					NodeID:               fakeNodeID,
 					DriverName:           DefaultDriverName,
 					EnableVHDDiskFeature: true,
 				}
 				d := NewFakeDriverCustomOptions(driverOptions)
-
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
 
 				expectedErr := status.Errorf(codes.InvalidArgument, "fsType(ext4) is not supported with protocol(nfs)")
 				_, err := d.CreateVolume(ctx, req)
@@ -558,13 +496,8 @@ func TestCreateVolume(t *testing.T) {
 					Config: azure.Config{},
 				}
 
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
-
 				expectedErr := status.Errorf(codes.InvalidArgument, "resourceGroup must be provided in cross subscription(abc)")
-				_, err := d.CreateVolume(context.Background(), req)
+				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
 				}
@@ -590,13 +523,8 @@ func TestCreateVolume(t *testing.T) {
 					Config: azure.Config{},
 				}
 
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
-
 				expectedErr := status.Errorf(codes.InvalidArgument, "matchTags must set as false when storageAccount(abc) is provided")
-				_, err := d.CreateVolume(context.Background(), req)
+				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
 				}
@@ -625,7 +553,6 @@ func TestCreateVolume(t *testing.T) {
 					VolumeCapabilities: stdVolCap,
 					Parameters:         allParam,
 				}
-				ctx := context.Background()
 				d := NewFakeDriver()
 
 				d.cloud = fakeCloud
@@ -635,11 +562,6 @@ func TestCreateVolume(t *testing.T) {
 				fakeCloud.SubnetsClient = mockSubnetClient
 
 				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(network.Subnet{}, retErr).Times(1)
-
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
 
 				expectedErr := status.Errorf(codes.Internal, "update service endpoints failed with error: failed to get the subnet fake-subnet under vnet fake-vnet: &{false 0 0001-01-01 00:00:00 +0000 UTC the subnet does not exist}")
 				_, err := d.CreateVolume(ctx, req)
@@ -708,12 +630,6 @@ func TestCreateVolume(t *testing.T) {
 				mockFileClient.EXPECT().GetServiceProperties(context.TODO(), gomock.Any(), gomock.Any()).Return(fileServiceProperties, nil).AnyTimes()
 				mockFileClient.EXPECT().SetServiceProperties(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fileServiceProperties, nil).AnyTimes()
 
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
-
-				ctx := context.Background()
 				expectedErr := fmt.Errorf("no valid keys")
 
 				_, err := d.CreateVolume(ctx, req)
@@ -776,12 +692,6 @@ func TestCreateVolume(t *testing.T) {
 				mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
-
-				ctx := context.Background()
 				expectedErr := fmt.Errorf("no valid keys")
 
 				_, err := d.CreateVolume(ctx, req)
@@ -832,13 +742,8 @@ func TestCreateVolume(t *testing.T) {
 				mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 				mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: nil}}, fmt.Errorf("test error")).AnyTimes()
+				mockFileClient.EXPECT().ListFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return([]storage.FileShareItem{}, nil).AnyTimes()
 
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
-
-				ctx := context.Background()
 				expectedErr := status.Errorf(codes.Internal, "test error")
 
 				_, err := d.CreateVolume(ctx, req)
@@ -906,13 +811,6 @@ func TestCreateVolume(t *testing.T) {
 				mockFileClient.EXPECT().WithSubscriptionID(gomock.Any()).Return(mockFileClient).AnyTimes()
 				mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
 
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
-
-				ctx := context.Background()
-
 				expectedErr := status.Errorf(codes.Internal, "FileShareProperties or FileShareProperties.ShareQuota is nil")
 
 				_, err := d.CreateVolume(ctx, req)
@@ -979,13 +877,6 @@ func TestCreateVolume(t *testing.T) {
 				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 				mockFileClient.EXPECT().WithSubscriptionID(gomock.Any()).Return(mockFileClient).AnyTimes()
 				mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: to.Int32Ptr(1)}}, nil).AnyTimes()
-
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
-
-				ctx := context.Background()
 
 				expectedErr := status.Errorf(codes.AlreadyExists, "request file share(random-vol-name-crete-file-error) already exists, but its capacity 1 is smaller than 100")
 				_, err := d.CreateVolume(ctx, req)
@@ -1074,13 +965,6 @@ func TestCreateVolume(t *testing.T) {
 					mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 					mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
 
-					d.AddControllerServiceCapabilities(
-						[]csi.ControllerServiceCapability_RPC_Type{
-							csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-						})
-
-					ctx := context.Background()
-
 					_, err := d.CreateVolume(ctx, req)
 					if !reflect.DeepEqual(err, test.expectedErr) {
 						t.Errorf("Unexpected error: %v", err)
@@ -1117,6 +1001,7 @@ func TestCreateVolume(t *testing.T) {
 					storeAccountKeyField:    "storeaccountkey",
 					secretNamespaceField:    "default",
 					mountPermissionsField:   "0755",
+					accountQuotaField:       "1000",
 				}
 
 				req := &csi.CreateVolumeRequest{
@@ -1145,13 +1030,6 @@ func TestCreateVolume(t *testing.T) {
 				mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 				mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
-
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
-
-				ctx := context.Background()
 
 				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, nil) {
@@ -1207,13 +1085,6 @@ func TestCreateVolume(t *testing.T) {
 				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 				mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
 
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
-
-				ctx := context.Background()
-
 				expectedErr := status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s %s in storage class", "mountPermissions", "0abc"))
 				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectedErr) {
@@ -1268,13 +1139,6 @@ func TestCreateVolume(t *testing.T) {
 				mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 				mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
-
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
-
-				ctx := context.Background()
 
 				expectedErr := status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid parameter %q in storage class", "invalidparameter"))
 				_, err := d.CreateVolume(ctx, req)
@@ -1343,13 +1207,6 @@ func TestCreateVolume(t *testing.T) {
 				mockStorageAccountsClient.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 				mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
 
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					})
-
-				ctx := context.Background()
-
 				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, nil) {
 					t.Errorf("Unexpected error: %v", err)
@@ -1364,6 +1221,8 @@ func TestCreateVolume(t *testing.T) {
 }
 
 func TestDeleteVolume(t *testing.T) {
+	ctx := context.Background()
+
 	testCases := []struct {
 		name     string
 		testFunc func(t *testing.T)
@@ -1375,7 +1234,6 @@ func TestDeleteVolume(t *testing.T) {
 					Secrets: map[string]string{},
 				}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
 
 				expectedErr := status.Error(codes.InvalidArgument, "Volume ID missing in request")
@@ -1393,8 +1251,8 @@ func TestDeleteVolume(t *testing.T) {
 					Secrets:  map[string]string{},
 				}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
+				d.Cap = []*csi.ControllerServiceCapability{}
 
 				expectedErr := status.Errorf(codes.InvalidArgument, "invalid delete volume request: %v", req)
 				_, err := d.DeleteVolume(ctx, req)
@@ -1411,7 +1269,6 @@ func TestDeleteVolume(t *testing.T) {
 					Secrets:  map[string]string{},
 				}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
 				d.Cap = []*csi.ControllerServiceCapability{
 					{
@@ -1435,7 +1292,6 @@ func TestDeleteVolume(t *testing.T) {
 					Secrets:  map[string]string{},
 				}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
 				d.Cap = []*csi.ControllerServiceCapability{
 					{
@@ -1463,15 +1319,7 @@ func TestDeleteVolume(t *testing.T) {
 					Secrets:  map[string]string{},
 				}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
-				d.Cap = []*csi.ControllerServiceCapability{
-					{
-						Type: &csi.ControllerServiceCapability_Rpc{
-							Rpc: &csi.ControllerServiceCapability_RPC{Type: csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME},
-						},
-					},
-				}
 				ctrl := gomock.NewController(t)
 				defer ctrl.Finish()
 				mockFileClient := mockfileclient.NewMockInterface(ctrl)
@@ -1495,15 +1343,7 @@ func TestDeleteVolume(t *testing.T) {
 					Secrets:  map[string]string{},
 				}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
-				d.Cap = []*csi.ControllerServiceCapability{
-					{
-						Type: &csi.ControllerServiceCapability_Rpc{
-							Rpc: &csi.ControllerServiceCapability_RPC{Type: csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME},
-						},
-					},
-				}
 				ctrl := gomock.NewController(t)
 				defer ctrl.Finish()
 				mockFileClient := mockfileclient.NewMockInterface(ctrl)
@@ -2016,6 +1856,7 @@ func TestDeleteSnapshot(t *testing.T) {
 func TestControllerExpandVolume(t *testing.T) {
 	stdVolSize := int64(5 * 1024 * 1024 * 1024)
 	stdCapRange := &csi.CapacityRange{RequiredBytes: stdVolSize}
+	ctx := context.Background()
 
 	testCases := []struct {
 		name     string
@@ -2026,7 +1867,6 @@ func TestControllerExpandVolume(t *testing.T) {
 			testFunc: func(t *testing.T) {
 				req := &csi.ControllerExpandVolumeRequest{}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
 
 				expectedErr := status.Error(codes.InvalidArgument, "Volume ID missing in request")
@@ -2043,8 +1883,8 @@ func TestControllerExpandVolume(t *testing.T) {
 					VolumeId: "vol_1",
 				}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
+				d.Cap = []*csi.ControllerServiceCapability{}
 
 				expectedErr := status.Error(codes.InvalidArgument, "volume capacity range missing in request")
 				_, err := d.ControllerExpandVolume(ctx, req)
@@ -2061,8 +1901,8 @@ func TestControllerExpandVolume(t *testing.T) {
 					CapacityRange: stdCapRange,
 				}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
+				d.Cap = []*csi.ControllerServiceCapability{}
 
 				expectedErr := status.Errorf(codes.InvalidArgument, "invalid expand volume request: volume_id:\"vol_1\" capacity_range:<required_bytes:5368709120 > ")
 				_, err := d.ControllerExpandVolume(ctx, req)
@@ -2079,12 +1919,7 @@ func TestControllerExpandVolume(t *testing.T) {
 					CapacityRange: stdCapRange,
 				}
 
-				ctx := context.Background()
 				d := NewFakeDriver()
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
-					})
 
 				expectedErr := status.Errorf(codes.InvalidArgument, "GetFileShareInfo(vol_1) failed with error: error parsing volume id: \"vol_1\", should at least contain two #")
 				_, err := d.ControllerExpandVolume(ctx, req)
@@ -2097,10 +1932,6 @@ func TestControllerExpandVolume(t *testing.T) {
 			name: "Disk name not empty",
 			testFunc: func(t *testing.T) {
 				d := NewFakeDriver()
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
-					})
 				d.cloud = &azure.Cloud{}
 
 				ctrl := gomock.NewController(t)
@@ -2117,7 +1948,6 @@ func TestControllerExpandVolume(t *testing.T) {
 					CapacityRange: stdCapRange,
 				}
 
-				ctx := context.Background()
 				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
 				d.cloud.StorageAccountClient = mockStorageAccountsClient
 				d.cloud.KubeClient = clientSet
@@ -2135,10 +1965,6 @@ func TestControllerExpandVolume(t *testing.T) {
 			name: "Resize file share returns error",
 			testFunc: func(t *testing.T) {
 				d := NewFakeDriver()
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
-					})
 				d.cloud = &azure.Cloud{}
 
 				ctrl := gomock.NewController(t)
@@ -2155,7 +1981,6 @@ func TestControllerExpandVolume(t *testing.T) {
 					CapacityRange: stdCapRange,
 				}
 
-				ctx := context.Background()
 				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
 				d.cloud.StorageAccountClient = mockStorageAccountsClient
 				d.cloud.KubeClient = clientSet
@@ -2177,10 +2002,6 @@ func TestControllerExpandVolume(t *testing.T) {
 			name: "get account info failed",
 			testFunc: func(t *testing.T) {
 				d := NewFakeDriver()
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
-					})
 				d.cloud = &azure.Cloud{
 					Config: azure.Config{
 						ResourceGroup: "vol_2",
@@ -2220,10 +2041,6 @@ func TestControllerExpandVolume(t *testing.T) {
 			name: "Valid request",
 			testFunc: func(t *testing.T) {
 				d := NewFakeDriver()
-				d.AddControllerServiceCapabilities(
-					[]csi.ControllerServiceCapability_RPC_Type{
-						csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
-					})
 				d.cloud = &azure.Cloud{}
 
 				ctrl := gomock.NewController(t)
@@ -2240,7 +2057,6 @@ func TestControllerExpandVolume(t *testing.T) {
 					CapacityRange: stdCapRange,
 				}
 
-				ctx := context.Background()
 				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
 				d.cloud.StorageAccountClient = mockStorageAccountsClient
 				d.cloud.KubeClient = clientSet
