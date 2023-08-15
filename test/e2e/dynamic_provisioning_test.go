@@ -178,6 +178,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			"skuName":                     "Premium_LRS",
 			"enableMultichannel":          "true",
 			"selectRandomMatchingAccount": "true",
+			"accountQuota":                "200",
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
 			CSIDriver:              testDriver,
