@@ -262,3 +262,5 @@ workloadIdentity:
   # [optional] If the AAD application or user-assigned managed identity is not in the same tenant as the cluster
   # then set tenantID with the application or user-assigned managed identity tenant ID
   tenantID: ""
+
+azureCredentialFileConfigMap: azure-cred-file

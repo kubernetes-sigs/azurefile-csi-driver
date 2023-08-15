@@ -128,7 +128,7 @@ spec:
             - name: AZURE_CREDENTIAL_FILE
               valueFrom:
                 configMapKeyRef:
-                  name: azure-cred-file
+                  name: {{ .Values.azureCredentialFileConfigMap }}
                   key: path-windows
                   optional: true
             - name: CSI_ENDPOINT
