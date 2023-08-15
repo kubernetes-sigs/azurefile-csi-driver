@@ -73,6 +73,7 @@ const (
 	// Minimum size of Azure Premium Files is 100GiB
 	// See https://docs.microsoft.com/en-us/azure/storage/files/storage-files-planning#provisioned-shares
 	defaultAzureFileQuota = 100
+	minimumAccountQuota   = 100 // GB
 
 	// key of snapshot name in metadata
 	snapshotNameKey = "initiator"
@@ -135,6 +136,7 @@ const (
 	enableMultichannelField           = "enablemultichannel"
 	premium                           = "premium"
 	selectRandomMatchingAccountField  = "selectrandommatchingaccount"
+	accountQuotaField                 = "accountquota"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
 	// this is a workaround fix for 429 throttling issue, will update cloud provider for better fix later
@@ -868,6 +870,21 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 		}
 		return true, err
 	})
+}
+
+// GetTotalAccountQuota returns the total quota in GB of all file shares in the storage account and the number of file shares
+func (d *Driver) GetTotalAccountQuota(ctx context.Context, subsID, resourceGroup, accountName string) (int32, int32, error) {
+	fileshares, err := d.cloud.FileClient.WithSubscriptionID(subsID).ListFileShare(ctx, resourceGroup, accountName, "", "")
+	if err != nil {
+		return -1, -1, err
+	}
+	var totalQuotaGB int32
+	for _, fs := range fileshares {
+		if fs.ShareQuota != nil {
+			totalQuotaGB += *fs.ShareQuota
+		}
+	}
+	return totalQuotaGB, int32(len(fileshares)), nil
 }
 
 // RemoveStorageAccountTag remove tag from storage account
