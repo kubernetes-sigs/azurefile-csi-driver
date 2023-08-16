@@ -29,7 +29,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/volume"
 	"k8s.io/kubernetes/pkg/volume/util"
 
 	"google.golang.org/grpc/codes"
@@ -432,53 +431,7 @@ func (d *Driver) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeS
 		return nil, status.Errorf(codes.Internal, "failed to stat file %s: %v", req.VolumePath, err)
 	}
 
-	volumeMetrics, err := volume.NewMetricsStatFS(req.VolumePath).GetMetrics()
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get metrics: %v", err)
-	}
-
-	available, ok := volumeMetrics.Available.AsInt64()
-	if !ok {
-		return nil, status.Errorf(codes.Internal, "failed to transform volume available size(%v)", volumeMetrics.Available)
-	}
-	capacity, ok := volumeMetrics.Capacity.AsInt64()
-	if !ok {
-		return nil, status.Errorf(codes.Internal, "failed to transform volume capacity size(%v)", volumeMetrics.Capacity)
-	}
-	used, ok := volumeMetrics.Used.AsInt64()
-	if !ok {
-		return nil, status.Errorf(codes.Internal, "failed to transform volume used size(%v)", volumeMetrics.Used)
-	}
-
-	inodesFree, ok := volumeMetrics.InodesFree.AsInt64()
-	if !ok {
-		return nil, status.Errorf(codes.Internal, "failed to transform disk inodes free(%v)", volumeMetrics.InodesFree)
-	}
-	inodes, ok := volumeMetrics.Inodes.AsInt64()
-	if !ok {
-		return nil, status.Errorf(codes.Internal, "failed to transform disk inodes(%v)", volumeMetrics.Inodes)
-	}
-	inodesUsed, ok := volumeMetrics.InodesUsed.AsInt64()
-	if !ok {
-		return nil, status.Errorf(codes.Internal, "failed to transform disk inodes used(%v)", volumeMetrics.InodesUsed)
-	}
-
-	return &csi.NodeGetVolumeStatsResponse{
-		Usage: []*csi.VolumeUsage{
-			{
-				Unit:      csi.VolumeUsage_BYTES,
-				Available: available,
-				Total:     capacity,
-				Used:      used,
-			},
-			{
-				Unit:      csi.VolumeUsage_INODES,
-				Available: inodesFree,
-				Total:     inodes,
-				Used:      inodesUsed,
-			},
-		},
-	}, nil
+	return GetVolumeStats(req.VolumePath, d.enableWindowsHostProcess)
 }
 
 // NodeExpandVolume node expand volume
