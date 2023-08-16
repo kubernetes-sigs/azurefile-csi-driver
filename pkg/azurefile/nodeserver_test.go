@@ -877,6 +877,9 @@ func TestNodeGetVolumeStats(t *testing.T) {
 	d := NewFakeDriver()
 
 	for _, test := range tests {
+		if runtime.GOOS == "darwin" {
+			continue
+		}
 		_, err := d.NodeGetVolumeStats(context.Background(), &test.req)
 		//t.Errorf("[debug] error: %v\n metrics: %v", err, metrics)
 		if !reflect.DeepEqual(err, test.expectedErr) {

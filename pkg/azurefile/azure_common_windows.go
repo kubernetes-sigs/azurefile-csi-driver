@@ -22,7 +22,12 @@ package azurefile
 import (
 	"fmt"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
+	"golang.org/x/sys/windows"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
+	"k8s.io/kubernetes/pkg/volume"
 	mount "k8s.io/mount-utils"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/mounter"
 )
@@ -68,4 +73,63 @@ func preparePublishPath(path string, m *mount.SafeFormatAndMount) error {
 
 func prepareStagePath(path string, m *mount.SafeFormatAndMount) error {
 	return removeDir(path, m)
+}
+
+// GetFreeSpace returns the free space of the volume in bytes, total size of the volume in bytes and the used space of the volume in bytes
+func GetFreeSpace(path string) (int64, int64, int64, error) {
+	var totalNumberOfBytes, totalNumberOfFreeBytes uint64
+	dirName := windows.StringToUTF16Ptr(path)
+	if err := windows.GetDiskFreeSpaceEx(dirName, nil, &totalNumberOfBytes, &totalNumberOfFreeBytes); err != nil {
+		return 0, 0, 0, err
+	}
+	return int64(totalNumberOfFreeBytes), int64(totalNumberOfBytes), int64(totalNumberOfBytes - totalNumberOfFreeBytes), nil
+}
+
+// GetVolumeStats returns volume stats based on the given path.
+func GetVolumeStats(path string, enableWindowsHostProcess bool) (*csi.NodeGetVolumeStatsResponse, error) {
+	if enableWindowsHostProcess {
+		// only in host process mode, we can get the free space of the volume, otherwise, we will get permission denied error
+		freeBytesAvailable, totalBytes, totalBytesUsed, err := GetFreeSpace(path)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to get free space on path %s: %v", path, err)
+		}
+		return &csi.NodeGetVolumeStatsResponse{
+			Usage: []*csi.VolumeUsage{
+				{
+					Unit:      csi.VolumeUsage_BYTES,
+					Available: freeBytesAvailable,
+					Total:     totalBytes,
+					Used:      totalBytesUsed,
+				},
+			},
+		}, nil
+	}
+
+	volumeMetrics, err := volume.NewMetricsStatFS(path).GetMetrics()
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get metrics: %v", err)
+	}
+
+	available, ok := volumeMetrics.Available.AsInt64()
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "failed to transform volume available size(%v)", volumeMetrics.Available)
+	}
+	capacity, ok := volumeMetrics.Capacity.AsInt64()
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "failed to transform volume capacity size(%v)", volumeMetrics.Capacity)
+	}
+	used, ok := volumeMetrics.Used.AsInt64()
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "failed to transform volume used size(%v)", volumeMetrics.Used)
+	}
+	return &csi.NodeGetVolumeStatsResponse{
+		Usage: []*csi.VolumeUsage{
+			{
+				Unit:      csi.VolumeUsage_BYTES,
+				Available: available,
+				Total:     capacity,
+				Used:      used,
+			},
+		},
+	}, nil
 }
