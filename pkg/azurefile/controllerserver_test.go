@@ -69,7 +69,7 @@ func TestCreateVolume(t *testing.T) {
 	stdCapRange := &csi.CapacityRange{RequiredBytes: stdVolSize}
 	zeroCapRange := &csi.CapacityRange{RequiredBytes: int64(0)}
 	lessThanPremCapRange := &csi.CapacityRange{RequiredBytes: int64(fakeShareQuota * 1024 * 1024 * 1024)}
-	ctx := context.Background()
+	ctx := context.TODO()
 
 	testCases := []struct {
 		name     string
@@ -1221,7 +1221,7 @@ func TestCreateVolume(t *testing.T) {
 }
 
 func TestDeleteVolume(t *testing.T) {
-	ctx := context.Background()
+	ctx := context.TODO()
 
 	testCases := []struct {
 		name     string
@@ -1524,7 +1524,7 @@ func TestValidateVolumeCapabilities(t *testing.T) {
 		mockFileClient.EXPECT().WithSubscriptionID(gomock.Any()).Return(mockFileClient).AnyTimes()
 		mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, test.mockedFileShareErr).AnyTimes()
 
-		_, err := d.ValidateVolumeCapabilities(context.Background(), &test.req)
+		_, err := d.ValidateVolumeCapabilities(context.TODO(), &test.req)
 		if !reflect.DeepEqual(err, test.expectedErr) {
 			t.Errorf("test[%s]: unexpected error: %v, expected error: %v", test.desc, err, test.expectedErr)
 		}
@@ -1856,7 +1856,7 @@ func TestDeleteSnapshot(t *testing.T) {
 func TestControllerExpandVolume(t *testing.T) {
 	stdVolSize := int64(5 * 1024 * 1024 * 1024)
 	stdCapRange := &csi.CapacityRange{RequiredBytes: stdVolSize}
-	ctx := context.Background()
+	ctx := context.TODO()
 
 	testCases := []struct {
 		name     string
@@ -2023,7 +2023,7 @@ func TestControllerExpandVolume(t *testing.T) {
 					CapacityRange: stdCapRange,
 				}
 
-				ctx := context.Background()
+				ctx := context.TODO()
 				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
 				d.cloud.StorageAccountClient = mockStorageAccountsClient
 				d.cloud.KubeClient = clientSet
