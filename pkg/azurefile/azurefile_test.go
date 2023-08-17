@@ -1344,7 +1344,7 @@ func TestGetTotalAccountQuota(t *testing.T) {
 		mockFileClient.EXPECT().WithSubscriptionID(gomock.Any()).Return(mockFileClient).AnyTimes()
 		mockFileClient.EXPECT().ListFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.fileShareItems, test.listFileShareErr).AnyTimes()
 
-		quota, fileShareNum, err := d.GetTotalAccountQuota(context.Background(), test.subsID, test.resourceGroup, test.accountName)
+		quota, fileShareNum, err := d.GetTotalAccountQuota(context.TODO(), test.subsID, test.resourceGroup, test.accountName)
 		assert.Equal(t, test.expectedErr, err, test.name)
 		assert.Equal(t, test.expectedQuota, quota, test.name)
 		assert.Equal(t, test.expectedShareNum, fileShareNum, test.name)
