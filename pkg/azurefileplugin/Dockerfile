@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM alpine:3.15.1
+FROM alpine:3.18.3
 
 ARG ARCH=amd64
 ARG binary=./_output/${ARCH}/azurefileplugin
