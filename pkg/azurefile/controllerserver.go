@@ -364,6 +364,17 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	fileShareSize := int(requestGiB)
+
+	if account != "" && resourceGroup != "" && sku == "" && fileShareSize < minimumPremiumShareSize {
+		accountProperties, err := d.cloud.StorageAccountClient.GetProperties(ctx, subsID, resourceGroup, account)
+		if err != nil {
+			klog.Warningf("failed to get properties on storage account account(%s) rg(%s), error: %v", account, resourceGroup, err)
+		}
+		if accountProperties.Sku != nil {
+			sku = string(accountProperties.Sku.Name)
+		}
+	}
+
 	// account kind should be FileStorage for Premium File
 	accountKind := string(storage.KindStorageV2)
 	if strings.HasPrefix(strings.ToLower(sku), premium) {
