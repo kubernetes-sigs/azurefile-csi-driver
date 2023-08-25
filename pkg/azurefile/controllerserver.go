@@ -529,6 +529,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			if rerr := d.cloud.AddStorageAccountTags(ctx, subsID, resourceGroup, accountName, skipMatchingTag); rerr != nil {
 				klog.Warningf("AddStorageAccountTags(%v) on account(%s) subsID(%s) rg(%s) failed with error: %v", tags, accountName, subsID, resourceGroup, rerr.Error())
 			}
+			// do not remove skipMatchingTag in a period of time
+			d.skipMatchingTagCache.Set(accountName, "")
 			// release volume lock first to prevent deadlock
 			d.volumeLocks.Release(volName)
 			// clean search cache
