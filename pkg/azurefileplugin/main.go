@@ -59,6 +59,7 @@ var (
 	enableWindowsHostProcess               = flag.Bool("enable-windows-host-process", false, "enable windows host process")
 	appendClosetimeoOption                 = flag.Bool("append-closetimeo-option", false, "Whether appending closetimeo=0 option to smb mount command")
 	appendNoShareSockOption                = flag.Bool("append-nosharesock-option", true, "Whether appending nosharesock option to smb mount command")
+	skipMatchingTagCacheExpireInMinutes    = flag.Int("skip-matching-tag-cache-expire-in-minutes", 30, "The cache expire time in minutes for skipMatchingTagCache")
 )
 
 func main() {
@@ -103,6 +104,7 @@ func handle() {
 		EnableWindowsHostProcess:               *enableWindowsHostProcess,
 		AppendClosetimeoOption:                 *appendClosetimeoOption,
 		AppendNoShareSockOption:                *appendNoShareSockOption,
+		SkipMatchingTagCacheExpireInMinutes:    *skipMatchingTagCacheExpireInMinutes,
 	}
 	driver := azurefile.NewDriver(&driverOptions)
 	if driver == nil {

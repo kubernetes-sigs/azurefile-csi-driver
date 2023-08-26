@@ -206,6 +206,7 @@ type DriverOptions struct {
 	EnableWindowsHostProcess               bool
 	AppendClosetimeoOption                 bool
 	AppendNoShareSockOption                bool
+	SkipMatchingTagCacheExpireInMinutes    int
 }
 
 // Driver implements all interfaces of CSI drivers
@@ -295,7 +296,10 @@ func NewDriver(options *DriverOptions) *Driver {
 		klog.Fatalf("%v", err)
 	}
 
-	if driver.skipMatchingTagCache, err = azcache.NewTimedCache(30*time.Minute, getter, false); err != nil {
+	if options.SkipMatchingTagCacheExpireInMinutes <= 0 {
+		options.SkipMatchingTagCacheExpireInMinutes = 30 // default expire in 30 minutes
+	}
+	if driver.skipMatchingTagCache, err = azcache.NewTimedCache(time.Duration(options.SkipMatchingTagCacheExpireInMinutes)*time.Minute, getter, false); err != nil {
 		klog.Fatalf("%v", err)
 	}
 
