@@ -198,6 +198,7 @@ type DriverOptions struct {
 	KubeAPIQPS                             float64
 	KubeAPIBurst                           int
 	AppendNoShareSockOption                bool
+	SkipMatchingTagCacheExpireInMinutes    int
 }
 
 // Driver implements all interfaces of CSI drivers
@@ -238,8 +239,8 @@ type Driver struct {
 	dataPlaneAPIAccountCache *azcache.TimedCache
 	// a timed cache storing account search history (solve account list throttling issue)
 	accountSearchCache *azcache.TimedCache
-	// a timed cache storing tag removing history (solve account update throttling issue)
-	removeTagCache *azcache.TimedCache
+	// a timed cache storing whether skipMatchingTag is added or removed recently
+	skipMatchingTagCache *azcache.TimedCache
 	// a timed cache when resize file share failed due to account limit exceeded
 	resizeFileShareFailureCache *azcache.TimedCache
 }
@@ -279,7 +280,10 @@ func NewDriver(options *DriverOptions) *Driver {
 		klog.Fatalf("%v", err)
 	}
 
-	if driver.removeTagCache, err = azcache.NewTimedcache(3*time.Minute, getter); err != nil {
+	if options.SkipMatchingTagCacheExpireInMinutes <= 0 {
+		options.SkipMatchingTagCacheExpireInMinutes = 30 // default expire in 30 minutes
+	}
+	if driver.skipMatchingTagCache, err = azcache.NewTimedcache(time.Duration(options.SkipMatchingTagCacheExpireInMinutes)*time.Minute, getter); err != nil {
 		klog.Fatalf("%v", err)
 	}
 
@@ -866,17 +870,17 @@ func (d *Driver) GetTotalAccountQuota(ctx context.Context, subsID, resourceGroup
 // RemoveStorageAccountTag remove tag from storage account
 func (d *Driver) RemoveStorageAccountTag(ctx context.Context, subsID, resourceGroup, account, key string) error {
 	// search in cache first
-	cache, err := d.removeTagCache.Get(account, azcache.CacheReadTypeDefault)
+	cache, err := d.skipMatchingTagCache.Get(account, azcache.CacheReadTypeDefault)
 	if err != nil {
 		return err
 	}
 	if cache != nil {
-		klog.V(6).Infof("skip remove tag(%s) on account(%s) subsID(%s) resourceGroup(%s) since tag already removed in a short time", key, account, subsID, resourceGroup)
+		klog.V(6).Infof("skip remove tag(%s) on account(%s) subsID(%s) resourceGroup(%s) since tag is added or removed in a short time", key, account, subsID, resourceGroup)
 		return nil
 	}
 
 	klog.V(2).Infof("remove tag(%s) on account(%s) subsID(%s), resourceGroup(%s)", key, account, subsID, resourceGroup)
-	defer d.removeTagCache.Set(account, key)
+	defer d.skipMatchingTagCache.Set(account, "")
 	if rerr := d.cloud.RemoveStorageAccountTag(ctx, subsID, resourceGroup, account, key); rerr != nil {
 		return rerr.Error()
 	}
