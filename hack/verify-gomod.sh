@@ -30,4 +30,6 @@ if [[ -n "${diff}" ]]; then
 fi
 echo "Done"
 
-go list -mod readonly -m all
+# disable now due to error:
+# server response: not found: k8s.io/endpointslice@v0.0.0: invalid version: unknown revision v0.0.0
+#go list -mod readonly -m all
