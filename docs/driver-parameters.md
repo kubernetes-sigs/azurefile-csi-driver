@@ -40,7 +40,7 @@ requireInfraEncryption | specify whether or not the service applies a secondary 
 storageEndpointSuffix | specify Azure storage endpoint suffix | `core.windows.net`, `core.chinacloudapi.cn`, etc | No | if empty, driver will use default storage endpoint suffix according to cloud environment, e.g. `core.windows.net`
 tags | [tags](https://docs.microsoft.com/en-us/azure/azure-resource-manager/management/tag-resources) would be created in newly created storage account | tag format: 'foo=aaa,bar=bbb' | No | ""
 matchTags | whether matching tags when driver tries to find a suitable storage account | `true`,`false` | No | `false`
-selectRandomMatchingAccount | whether randomly selecting a matching account, by default, the driver would always select the first matching account in alphabetical order | `true`,`false` | No | `false`
+selectRandomMatchingAccount | whether randomly selecting a matching account, by default, the driver would always select the first matching account in alphabetical order(note: this driver uses account search cache, which results in uneven distribution of file creation across multiple accounts) | `true`,`false` | No | `false`
 accountQuota | to limit the quota for an account, you can specify a maximum quota in GB (`102400`GB by default). If the account exceeds the specified quota, the driver would skip selecting the account | `` | No | `102400`
 --- | **Following parameters are only for SMB protocol** | --- | --- |
 subscriptionID | specify Azure subscription ID where Azure file share will be created | Azure subscription ID | No | if not empty, `resourceGroup` must be provided
