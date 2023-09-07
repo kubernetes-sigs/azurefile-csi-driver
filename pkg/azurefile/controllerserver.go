@@ -442,7 +442,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, err.Error())
 			}
-			if cache != nil && !selectRandomMatchingAccount {
+			if cache != nil {
 				accountName = cache.(string)
 			} else {
 				d.volLockMap.LockEntry(lockKey)
