@@ -196,8 +196,11 @@ const (
 
 // IP family variables
 const (
-	IPVersionIPv6 bool = true
-	IPVersionIPv4 bool = false
+	IPVersionIPv6            bool   = true
+	IPVersionIPv4            bool   = false
+	IPVersionIPv4String      string = "IPv4"
+	IPVersionIPv6String      string = "IPv6"
+	IPVersionDualStackString string = "DualStack"
 )
 
 // LB variables for dual-stack
@@ -330,6 +333,9 @@ const (
 	// The list is separated by comma. It will be omitted if multi-slb is not used.
 	ServiceAnnotationLoadBalancerConfigurations = "service.beta.kubernetes.io/azure-load-balancer-configurations"
 
+	// ServiceAnnotationDisableTCPReset is the annotation used on the service to disable TCP reset on the load balancer.
+	ServiceAnnotationDisableTCPReset = "service.beta.kubernetes.io/azure-load-balancer-disable-tcp-reset"
+
 	// ServiceTagKey is the service key applied for public IP tags.
 	ServiceTagKey       = "k8s-azure-service"
 	LegacyServiceTagKey = "service"
@@ -428,8 +434,8 @@ const (
 	RouteNameFmt       = "%s____%s"
 	RouteNameSeparator = "____"
 
-	// routeUpdateInterval defines the route reconciling interval.
-	RouteUpdateInterval = 30 * time.Second
+	// DefaultRouteUpdateIntervalInSeconds defines the route reconciling interval.
+	DefaultRouteUpdateIntervalInSeconds = 30
 )
 
 // cloud provider config secret
@@ -541,4 +547,8 @@ type LoadBalancerBackendPoolUpdateOperation string
 const (
 	LoadBalancerBackendPoolUpdateOperationAdd    LoadBalancerBackendPoolUpdateOperation = "add"
 	LoadBalancerBackendPoolUpdateOperationRemove LoadBalancerBackendPoolUpdateOperation = "remove"
+
+	DefaultLoadBalancerBackendPoolUpdateIntervalInSeconds = 30
+
+	ServiceNameLabel = "kubernetes.io/service-name"
 )

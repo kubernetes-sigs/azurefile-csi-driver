@@ -314,9 +314,9 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	enableHTTPSTrafficOnly := true
 	shareProtocol := storage.EnabledProtocolsSMB
-	createPrivateEndpoint := false
+	var createPrivateEndpoint *bool
 	if strings.EqualFold(networkEndpointType, privateEndpoint) {
-		createPrivateEndpoint = true
+		createPrivateEndpoint = pointer.BoolPtr(true)
 	}
 	var vnetResourceIDs []string
 	if fsType == nfs || protocol == nfs {
@@ -332,7 +332,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		// reset protocol field (compatble with "fsType: nfs")
 		setKeyValueInMap(parameters, protocolField, protocol)
 
-		if !createPrivateEndpoint {
+		if !pointer.BoolDeref(createPrivateEndpoint, false) {
 			// set VirtualNetworkResourceIDs for storage account firewall setting
 			vnetResourceID := d.getSubnetResourceID(vnetResourceGroup, vnetName, subnetName)
 			klog.V(2).Infof("set vnetResourceID(%s) for NFS protocol", vnetResourceID)
@@ -435,7 +435,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			accountName = v.(string)
 		} else {
 			lockKey = fmt.Sprintf("%s%s%s%s%s%s%s%v%v%v%v%v", sku, accountKind, resourceGroup, location, protocol, subsID, accountAccessTier,
-				createPrivateEndpoint, pointer.BoolDeref(allowBlobPublicAccess, false), pointer.BoolDeref(requireInfraEncryption, false),
+				pointer.BoolDeref(createPrivateEndpoint, false), pointer.BoolDeref(allowBlobPublicAccess, false), pointer.BoolDeref(requireInfraEncryption, false),
 				pointer.BoolDeref(enableLFS, false), pointer.BoolDeref(disableDeleteRetentionPolicy, false))
 			// search in cache first
 			cache, err := d.accountSearchCache.Get(lockKey, azcache.CacheReadTypeDefault)
@@ -485,7 +485,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
-	if createPrivateEndpoint {
+	if pointer.BoolDeref(createPrivateEndpoint, false) {
 		setKeyValueInMap(parameters, serverNameField, fmt.Sprintf("%s.privatelink.file.%s", accountName, storageEndpointSuffix))
 	}
 
