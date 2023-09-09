@@ -207,6 +207,7 @@ type DriverOptions struct {
 	AppendClosetimeoOption                 bool
 	AppendNoShareSockOption                bool
 	SkipMatchingTagCacheExpireInMinutes    int
+	VolStatsCacheExpireInMinutes           int
 }
 
 // Driver implements all interfaces of CSI drivers
@@ -255,6 +256,8 @@ type Driver struct {
 	skipMatchingTagCache azcache.Resource
 	// a timed cache when resize file share failed due to account limit exceeded
 	resizeFileShareFailureCache azcache.Resource
+	// a timed cache storing volume stats <volumeID, volumeStats>
+	volStatsCache azcache.Resource
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -312,6 +315,13 @@ func NewDriver(options *DriverOptions) *Driver {
 	}
 
 	if driver.resizeFileShareFailureCache, err = azcache.NewTimedCache(3*time.Minute, getter, false); err != nil {
+		klog.Fatalf("%v", err)
+	}
+
+	if options.VolStatsCacheExpireInMinutes <= 0 {
+		options.VolStatsCacheExpireInMinutes = 10 // default expire in 10 minutes
+	}
+	if driver.volStatsCache, err = azcache.NewTimedCache(time.Duration(options.VolStatsCacheExpireInMinutes)*time.Minute, getter, false); err != nil {
 		klog.Fatalf("%v", err)
 	}
 
