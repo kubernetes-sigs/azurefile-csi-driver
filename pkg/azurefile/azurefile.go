@@ -199,6 +199,7 @@ type DriverOptions struct {
 	KubeAPIBurst                           int
 	AppendNoShareSockOption                bool
 	SkipMatchingTagCacheExpireInMinutes    int
+	VolStatsCacheExpireInMinutes           int
 }
 
 // Driver implements all interfaces of CSI drivers
@@ -243,6 +244,8 @@ type Driver struct {
 	skipMatchingTagCache *azcache.TimedCache
 	// a timed cache when resize file share failed due to account limit exceeded
 	resizeFileShareFailureCache *azcache.TimedCache
+	// a timed cache storing volume stats <volumeID, volumeStats>
+	volStatsCache *azcache.TimedCache
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -296,6 +299,13 @@ func NewDriver(options *DriverOptions) *Driver {
 	}
 
 	if driver.resizeFileShareFailureCache, err = azcache.NewTimedcache(3*time.Minute, getter); err != nil {
+		klog.Fatalf("%v", err)
+	}
+
+	if options.VolStatsCacheExpireInMinutes <= 0 {
+		options.VolStatsCacheExpireInMinutes = 10 // default expire in 10 minutes
+	}
+	if driver.volStatsCache, err = azcache.NewTimedcache(time.Duration(options.VolStatsCacheExpireInMinutes)*time.Minute, getter); err != nil {
 		klog.Fatalf("%v", err)
 	}
 
