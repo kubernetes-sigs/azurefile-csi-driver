@@ -36,6 +36,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"golang.org/x/net/context"
+
+	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 )
 
 // NodePublishVolume mount the volume from staging to target path
@@ -425,12 +427,47 @@ func (d *Driver) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeS
 		return nil, status.Error(codes.InvalidArgument, "NodeGetVolumeStats volume path was empty")
 	}
 
+	// check if the volume stats is cached
+	cache, err := d.volStatsCache.Get(req.VolumeId, azcache.CacheReadTypeDefault)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+	if cache != nil {
+		resp := cache.(csi.NodeGetVolumeStatsResponse)
+		klog.V(6).Infof("NodeGetVolumeStats: volume stats for volume %s path %s is cached", req.VolumeId, req.VolumePath)
+		return &resp, nil
+	}
+
+	// fileShareName in volumeID may contain subPath, e.g. csi-shared-config/ASCP01/certs
+	// get the file share name without subPath from volumeID and check the cache again using new volumeID
+	var newVolID string
+	if _, accountName, fileShareName, _, secretNamespace, _, err := GetFileShareInfo(req.VolumeId); err == nil {
+		if splitStr := strings.Split(fileShareName, "/"); len(splitStr) > 1 {
+			fileShareName = splitStr[0]
+		}
+		// get new volumeID
+		if accountName != "" && fileShareName != "" {
+			newVolID = fmt.Sprintf(volumeIDTemplate, "", accountName, fileShareName, "", "", secretNamespace)
+		}
+	}
+
+	if cache, err = d.volStatsCache.Get(newVolID, azcache.CacheReadTypeDefault); err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+	if cache != nil {
+		resp := cache.(csi.NodeGetVolumeStatsResponse)
+		klog.V(6).Infof("NodeGetVolumeStats: volume stats for volume %s path %s is cached", req.VolumeId, req.VolumePath)
+		return &resp, nil
+	}
+
 	if _, err := os.Lstat(req.VolumePath); err != nil {
 		if os.IsNotExist(err) {
 			return nil, status.Errorf(codes.NotFound, "path %s does not exist", req.VolumePath)
 		}
 		return nil, status.Errorf(codes.Internal, "failed to stat file %s: %v", req.VolumePath, err)
 	}
+
+	klog.V(6).Infof("NodeGetVolumeStats: begin to get VolumeStats on volume %s path %s", req.VolumeId, req.VolumePath)
 
 	volumeMetrics, err := volume.NewMetricsStatFS(req.VolumePath).GetMetrics()
 	if err != nil {
@@ -463,7 +500,7 @@ func (d *Driver) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeS
 		return nil, status.Errorf(codes.Internal, "failed to transform disk inodes used(%v)", volumeMetrics.InodesUsed)
 	}
 
-	return &csi.NodeGetVolumeStatsResponse{
+	resp := &csi.NodeGetVolumeStatsResponse{
 		Usage: []*csi.VolumeUsage{
 			{
 				Unit:      csi.VolumeUsage_BYTES,
@@ -478,7 +515,16 @@ func (d *Driver) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeS
 				Used:      inodesUsed,
 			},
 		},
-	}, nil
+	}
+
+	klog.V(6).Infof("NodeGetVolumeStats: volume stats for volume %s path %s is %v", req.VolumeId, req.VolumePath, resp)
+	// cache the volume stats per volume
+	d.volStatsCache.Set(req.VolumeId, *resp)
+	if newVolID != "" {
+		d.volStatsCache.Set(newVolID, *resp)
+	}
+
+	return resp, nil
 }
 
 // NodeExpandVolume node expand volume
