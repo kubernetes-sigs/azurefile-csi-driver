@@ -4,7 +4,7 @@ kind: CSIDriver
 metadata:
   name: file.csi.azure.com
   annotations:
-    csiDriver: v1.29.0
+    csiDriver: latest
     snapshot: v6.2.2
 spec:
   attachRequired: false
