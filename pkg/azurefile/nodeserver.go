@@ -468,7 +468,11 @@ func (d *Driver) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeS
 		return nil, status.Errorf(codes.Internal, "failed to stat file %s: %v", req.VolumePath, err)
 	}
 
-	klog.V(6).Infof("NodeGetVolumeStats: begin to get VolumeStats on volume %s path %s", req.VolumeId, req.VolumePath)
+	if d.printVolumeStatsCallLogs {
+		klog.V(2).Infof("NodeGetVolumeStats: begin to get VolumeStats on volume %s path %s", req.VolumeId, req.VolumePath)
+	} else {
+		klog.V(6).Infof("NodeGetVolumeStats: begin to get VolumeStats on volume %s path %s", req.VolumeId, req.VolumePath)
+	}
 
 	volumeMetrics, err := volume.NewMetricsStatFS(req.VolumePath).GetMetrics()
 	if err != nil {
@@ -518,7 +522,11 @@ func (d *Driver) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeS
 		},
 	}
 
-	klog.V(6).Infof("NodeGetVolumeStats: volume stats for volume %s path %s is %v", req.VolumeId, req.VolumePath, resp)
+	if d.printVolumeStatsCallLogs {
+		klog.V(2).Infof("NodeGetVolumeStats: volume stats for volume %s path %s is %v", req.VolumeId, req.VolumePath, resp)
+	} else {
+		klog.V(6).Infof("NodeGetVolumeStats: volume stats for volume %s path %s is %v", req.VolumeId, req.VolumePath, resp)
+	}
 	// cache the volume stats per volume
 	d.volStatsCache.Set(req.VolumeId, *resp)
 	if newVolID != "" {
