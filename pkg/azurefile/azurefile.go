@@ -205,6 +205,7 @@ type DriverOptions struct {
 	AppendNoShareSockOption                bool
 	SkipMatchingTagCacheExpireInMinutes    int
 	VolStatsCacheExpireInMinutes           int
+	PrintVolumeStatsCallLogs               bool
 }
 
 // Driver implements all interfaces of CSI drivers
@@ -227,6 +228,7 @@ type Driver struct {
 	enableWindowsHostProcess               bool
 	appendClosetimeoOption                 bool
 	appendNoShareSockOption                bool
+	printVolumeStatsCallLogs               bool
 	fileClient                             *azureFileClient
 	mounter                                *mount.SafeFormatAndMount
 	// lock per volume attach (only for vhd disk feature)
@@ -279,6 +281,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.enableWindowsHostProcess = options.EnableWindowsHostProcess
 	driver.appendClosetimeoOption = options.AppendClosetimeoOption
 	driver.appendNoShareSockOption = options.AppendNoShareSockOption
+	driver.printVolumeStatsCallLogs = options.PrintVolumeStatsCallLogs
 	driver.volLockMap = newLockMap()
 	driver.subnetLockMap = newLockMap()
 	driver.volumeLocks = newVolumeLocks()
