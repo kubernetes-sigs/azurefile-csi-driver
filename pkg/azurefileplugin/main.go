@@ -58,6 +58,7 @@ var (
 	appendNoShareSockOption                = flag.Bool("append-nosharesock-option", true, "Whether appending nosharesock option to smb mount command")
 	skipMatchingTagCacheExpireInMinutes    = flag.Int("skip-matching-tag-cache-expire-in-minutes", 30, "The cache expire time in minutes for skipMatchingTagCache")
 	volStatsCacheExpireInMinutes           = flag.Int("vol-stats-cache-expire-in-minutes", 10, "The cache expire time in minutes for volume stats cache")
+	printVolumeStatsCallLogs               = flag.Bool("print-volume-stats-call-logs", false, "Whether to print volume statfs call logs with log level 2")
 )
 
 func main() {
@@ -101,6 +102,7 @@ func handle() {
 		AppendNoShareSockOption:                *appendNoShareSockOption,
 		SkipMatchingTagCacheExpireInMinutes:    *skipMatchingTagCacheExpireInMinutes,
 		VolStatsCacheExpireInMinutes:           *volStatsCacheExpireInMinutes,
+		PrintVolumeStatsCallLogs:               *printVolumeStatsCallLogs,
 	}
 	driver := azurefile.NewDriver(&driverOptions)
 	if driver == nil {
