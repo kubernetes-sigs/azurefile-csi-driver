@@ -1,5 +1,58 @@
 # Release History
 
+## 1.2.2 (2023-03-07)
+
+### Other Changes
+* Upgraded dependencies
+
+## 1.3.0-beta.3 (2023-02-07)
+
+### Features Added
+* By default, credentials set client capability "CP1" to enable support for
+  [Continuous Access Evaluation (CAE)](https://docs.microsoft.com/azure/active-directory/develop/app-resilience-continuous-access-evaluation).
+  This indicates to Azure Active Directory that your application can handle CAE claims challenges.
+  You can disable this behavior by setting the environment variable "AZURE_IDENTITY_DISABLE_CP1" to "true".
+* `InteractiveBrowserCredentialOptions.LoginHint` enables pre-populating the login
+  prompt with a username ([#15599](https://github.com/Azure/azure-sdk-for-go/pull/15599))
+* Service principal and user credentials support ADFS authentication on Azure Stack.
+  Specify "adfs" as the credential's tenant.
+* Applications running in private or disconnected clouds can prevent credentials from
+  requesting Azure AD instance metadata by setting the `DisableInstanceDiscovery`
+  field on credential options.
+* Many credentials can now be configured to authenticate in multiple tenants. The
+  options types for these credentials have an `AdditionallyAllowedTenants` field
+  that specifies additional tenants in which the credential may authenticate.
+
+## 1.2.1 (2023-01-26)
+
+### Other Changes
+* Upgrade MSAL to v0.8.1
+
+## 1.3.0-beta.2 (2023-01-10)
+
+### Features Added
+* Added `OnBehalfOfCredential` to support the on-behalf-of flow
+  ([#16642](https://github.com/Azure/azure-sdk-for-go/issues/16642))
+
+### Bugs Fixed
+* `AzureCLICredential` reports token expiration in local time (should be UTC)
+
+### Other Changes
+* `AzureCLICredential` imposes its default timeout only when the `Context`
+  passed to `GetToken()` has no deadline
+* Added `NewCredentialUnavailableError()`. This function constructs an error indicating
+  a credential can't authenticate and an encompassing `ChainedTokenCredential` should
+  try its next credential, if any.
+
+## 1.3.0-beta.1 (2022-12-13)
+
+### Features Added
+* `WorkloadIdentityCredential` and `DefaultAzureCredential` support
+  Workload Identity Federation on Kubernetes. `DefaultAzureCredential`
+  support requires environment variable configuration as set by the
+  Workload Identity webhook.
+  ([#15615](https://github.com/Azure/azure-sdk-for-go/issues/15615))
+
 ## 1.2.0 (2022-11-08)
 
 ### Other Changes

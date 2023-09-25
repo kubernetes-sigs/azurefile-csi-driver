@@ -19,6 +19,7 @@ DriverInfo:
     volumeLimits: false
     snapshotDataSource: true
     volumeMountGroup: true
+    pvcDataSource: true
   StressTestOptions:
     NumPods: 10
     NumRestarts: 10

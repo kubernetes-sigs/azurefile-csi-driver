@@ -290,6 +290,12 @@ func skipIfUsingInTreeVolumePlugin() {
 	}
 }
 
+func skipIfTestingInMigrationCluster() {
+	if isTestingMigration {
+		ginkgo.Skip("test case not supported by Migration clusters")
+	}
+}
+
 func convertToPowershellCommandIfNecessary(command string) string {
 	if !isWindowsCluster {
 		return command

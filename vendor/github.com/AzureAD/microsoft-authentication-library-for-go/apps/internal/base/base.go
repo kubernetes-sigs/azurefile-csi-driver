@@ -45,8 +45,12 @@ type partitionedManager interface {
 
 type noopCacheAccessor struct{}
 
-func (n noopCacheAccessor) Replace(cache cache.Unmarshaler, key string) {}
-func (n noopCacheAccessor) Export(cache cache.Marshaler, key string)    {}
+func (n noopCacheAccessor) Replace(ctx context.Context, u cache.Unmarshaler, h cache.ReplaceHints) error {
+	return nil
+}
+func (n noopCacheAccessor) Export(ctx context.Context, m cache.Marshaler, h cache.ExportHints) error {
+	return nil
+}
 
 // AcquireTokenSilentParameters contains the parameters to acquire a token silently (from cache).
 type AcquireTokenSilentParameters struct {
@@ -55,8 +59,10 @@ type AcquireTokenSilentParameters struct {
 	RequestType       accesstokens.AppType
 	Credential        *accesstokens.Credential
 	IsAppCache        bool
+	TenantID          string
 	UserAssertion     string
 	AuthorizationType authority.AuthorizeType
+	Claims            string
 }
 
 // AcquireTokenAuthCodeParameters contains the parameters required to acquire an access token using the auth code flow.
@@ -67,14 +73,18 @@ type AcquireTokenAuthCodeParameters struct {
 	Scopes      []string
 	Code        string
 	Challenge   string
+	Claims      string
 	RedirectURI string
 	AppType     accesstokens.AppType
 	Credential  *accesstokens.Credential
+	TenantID    string
 }
 
 type AcquireTokenOnBehalfOfParameters struct {
 	Scopes        []string
+	Claims        string
 	Credential    *accesstokens.Credential
+	TenantID      string
 	UserAssertion string
 }
 
@@ -136,42 +146,69 @@ type Client struct {
 }
 
 // Option is an optional argument to the New constructor.
-type Option func(c *Client)
+type Option func(c *Client) error
 
 // WithCacheAccessor allows you to set some type of cache for storing authentication tokens.
 func WithCacheAccessor(ca cache.ExportReplace) Option {
-	return func(c *Client) {
+	return func(c *Client) error {
 		if ca != nil {
 			c.cacheAccessor = ca
 		}
+		return nil
+	}
+}
+
+// WithClientCapabilities allows configuring one or more client capabilities such as "CP1"
+func WithClientCapabilities(capabilities []string) Option {
+	return func(c *Client) error {
+		var err error
+		if len(capabilities) > 0 {
+			cc, err := authority.NewClientCapabilities(capabilities)
+			if err == nil {
+				c.AuthParams.Capabilities = cc
+			}
+		}
+		return err
 	}
 }
 
 // WithKnownAuthorityHosts specifies hosts Client shouldn't validate or request metadata for because they're known to the user
 func WithKnownAuthorityHosts(hosts []string) Option {
-	return func(c *Client) {
+	return func(c *Client) error {
 		cp := make([]string, len(hosts))
 		copy(cp, hosts)
 		c.AuthParams.KnownAuthorityHosts = cp
+		return nil
 	}
 }
 
 // WithX5C specifies if x5c claim(public key of the certificate) should be sent to STS to enable Subject Name Issuer Authentication.
 func WithX5C(sendX5C bool) Option {
-	return func(c *Client) {
+	return func(c *Client) error {
 		c.AuthParams.SendX5C = sendX5C
+		return nil
 	}
 }
 
 func WithRegionDetection(region string) Option {
-	return func(c *Client) {
+	return func(c *Client) error {
 		c.AuthParams.AuthorityInfo.Region = region
+		return nil
+	}
+}
+
+func WithInstanceDiscovery(instanceDiscoveryEnabled bool) Option {
+	return func(c *Client) error {
+		c.AuthParams.AuthorityInfo.ValidateAuthority = instanceDiscoveryEnabled
+		c.AuthParams.AuthorityInfo.InstanceDiscoveryDisabled = !instanceDiscoveryEnabled
+		return nil
 	}
 }
 
 // New is the constructor for Base.
 func New(clientID string, authorityURI string, token *oauth.Client, options ...Option) (Client, error) {
-	authInfo, err := authority.NewInfoFromAuthorityURI(authorityURI, true)
+	//By default, validateAuthority is set to true and instanceDiscoveryDisabled is set to false
+	authInfo, err := authority.NewInfoFromAuthorityURI(authorityURI, true, false)
 	if err != nil {
 		return Client{}, err
 	}
@@ -184,9 +221,11 @@ func New(clientID string, authorityURI string, token *oauth.Client, options ...O
 		pmanager:      storage.NewPartitionedManager(token),
 	}
 	for _, o := range options {
-		o(&client)
+		if err = o(&client); err != nil {
+			break
+		}
 	}
-	return client, nil
+	return client, err
 
 }
 
@@ -202,6 +241,11 @@ func (b Client) AuthCodeURL(ctx context.Context, clientID, redirectURI string, s
 		return "", err
 	}
 
+	claims, err := authParams.MergeCapabilitiesAndClaims()
+	if err != nil {
+		return "", err
+	}
+
 	v := url.Values{}
 	v.Add("client_id", clientID)
 	v.Add("response_type", "code")
@@ -210,14 +254,23 @@ func (b Client) AuthCodeURL(ctx context.Context, clientID, redirectURI string, s
 	if authParams.State != "" {
 		v.Add("state", authParams.State)
 	}
+	if claims != "" {
+		v.Add("claims", claims)
+	}
 	if authParams.CodeChallenge != "" {
 		v.Add("code_challenge", authParams.CodeChallenge)
 	}
 	if authParams.CodeChallengeMethod != "" {
 		v.Add("code_challenge_method", authParams.CodeChallengeMethod)
 	}
+	if authParams.LoginHint != "" {
+		v.Add("login_hint", authParams.LoginHint)
+	}
 	if authParams.Prompt != "" {
 		v.Add("prompt", authParams.Prompt)
+	}
+	if authParams.DomainHint != "" {
+		v.Add("domain_hint", authParams.DomainHint)
 	}
 	// There were left over from an implementation that didn't use any of these.  We may
 	// need to add them later, but as of now aren't needed.
@@ -225,72 +278,91 @@ func (b Client) AuthCodeURL(ctx context.Context, clientID, redirectURI string, s
 		if p.ResponseMode != "" {
 			urlParams.Add("response_mode", p.ResponseMode)
 		}
-		if p.LoginHint != "" {
-			urlParams.Add("login_hint", p.LoginHint)
-		}
-		if p.DomainHint != "" {
-			urlParams.Add("domain_hint", p.DomainHint)
-		}
 	*/
 	baseURL.RawQuery = v.Encode()
 	return baseURL.String(), nil
 }
 
-func (b Client) AcquireTokenSilent(ctx context.Context, silent AcquireTokenSilentParameters) (AuthResult, error) {
-	authParams := b.AuthParams // This is a copy, as we dont' have a pointer receiver and authParams is not a pointer.
+func (b Client) AcquireTokenSilent(ctx context.Context, silent AcquireTokenSilentParameters) (ar AuthResult, err error) {
+	// when tenant == "", the caller didn't specify a tenant and WithTenant will use the client's configured tenant
+	tenant := silent.TenantID
+	authParams, err := b.AuthParams.WithTenant(tenant)
+	if err != nil {
+		return ar, err
+	}
 	authParams.Scopes = silent.Scopes
 	authParams.HomeAccountID = silent.Account.HomeAccountID
 	authParams.AuthorizationType = silent.AuthorizationType
+	authParams.Claims = silent.Claims
 	authParams.UserAssertion = silent.UserAssertion
 
 	var storageTokenResponse storage.TokenResponse
-	var err error
 	if authParams.AuthorizationType == authority.ATOnBehalfOf {
 		if s, ok := b.pmanager.(cache.Serializer); ok {
 			suggestedCacheKey := authParams.CacheKey(silent.IsAppCache)
-			b.cacheAccessor.Replace(s, suggestedCacheKey)
-			defer b.cacheAccessor.Export(s, suggestedCacheKey)
+			err = b.cacheAccessor.Replace(ctx, s, cache.ReplaceHints{PartitionKey: suggestedCacheKey})
+			if err != nil {
+				return ar, err
+			}
+			defer func() {
+				err = b.export(ctx, s, suggestedCacheKey, err)
+			}()
 		}
 		storageTokenResponse, err = b.pmanager.Read(ctx, authParams)
 		if err != nil {
-			return AuthResult{}, err
+			return ar, err
 		}
 	} else {
 		if s, ok := b.manager.(cache.Serializer); ok {
 			suggestedCacheKey := authParams.CacheKey(silent.IsAppCache)
-			b.cacheAccessor.Replace(s, suggestedCacheKey)
-			defer b.cacheAccessor.Export(s, suggestedCacheKey)
+			err = b.cacheAccessor.Replace(ctx, s, cache.ReplaceHints{PartitionKey: suggestedCacheKey})
+			if err != nil {
+				return ar, err
+			}
+			defer func() {
+				err = b.export(ctx, s, suggestedCacheKey, err)
+			}()
 		}
 		authParams.AuthorizationType = authority.ATRefreshToken
 		storageTokenResponse, err = b.manager.Read(ctx, authParams, silent.Account)
 		if err != nil {
-			return AuthResult{}, err
+			return ar, err
 		}
 	}
 
-	result, err := AuthResultFromStorage(storageTokenResponse)
+	// ignore cached access tokens when given claims
+	if silent.Claims == "" {
+		ar, err = AuthResultFromStorage(storageTokenResponse)
+		if err == nil {
+			return ar, err
+		}
+	}
+
+	// redeem a cached refresh token, if available
+	if reflect.ValueOf(storageTokenResponse.RefreshToken).IsZero() {
+		err = errors.New("no token found")
+		return ar, err
+	}
+	var cc *accesstokens.Credential
+	if silent.RequestType == accesstokens.ATConfidential {
+		cc = silent.Credential
+	}
+
+	token, err := b.Token.Refresh(ctx, silent.RequestType, authParams, cc, storageTokenResponse.RefreshToken)
 	if err != nil {
-		if reflect.ValueOf(storageTokenResponse.RefreshToken).IsZero() {
-			return AuthResult{}, errors.New("no token found")
-		}
-
-		var cc *accesstokens.Credential
-		if silent.RequestType == accesstokens.ATConfidential {
-			cc = silent.Credential
-		}
-
-		token, err := b.Token.Refresh(ctx, silent.RequestType, authParams, cc, storageTokenResponse.RefreshToken)
-		if err != nil {
-			return AuthResult{}, err
-		}
-
-		return b.AuthResultFromToken(ctx, authParams, token, true)
+		return ar, err
 	}
-	return result, nil
+
+	ar, err = b.AuthResultFromToken(ctx, authParams, token, true)
+	return ar, err
 }
 
 func (b Client) AcquireTokenByAuthCode(ctx context.Context, authCodeParams AcquireTokenAuthCodeParameters) (AuthResult, error) {
-	authParams := b.AuthParams // This is a copy, as we dont' have a pointer receiver and .AuthParams is not a pointer.
+	authParams, err := b.AuthParams.WithTenant(authCodeParams.TenantID)
+	if err != nil {
+		return AuthResult{}, err
+	}
+	authParams.Claims = authCodeParams.Claims
 	authParams.Scopes = authCodeParams.Scopes
 	authParams.Redirecturi = authCodeParams.RedirectURI
 	authParams.AuthorizationType = authority.ATAuthCode
@@ -316,91 +388,132 @@ func (b Client) AcquireTokenByAuthCode(ctx context.Context, authCodeParams Acqui
 
 // AcquireTokenOnBehalfOf acquires a security token for an app using middle tier apps access token.
 func (b Client) AcquireTokenOnBehalfOf(ctx context.Context, onBehalfOfParams AcquireTokenOnBehalfOfParameters) (AuthResult, error) {
-	authParams := b.AuthParams // This is a copy, as we dont' have a pointer receiver and .AuthParams is not a pointer.
-	authParams.Scopes = onBehalfOfParams.Scopes
-	authParams.AuthorizationType = authority.ATOnBehalfOf
-	authParams.UserAssertion = onBehalfOfParams.UserAssertion
-
+	var ar AuthResult
 	silentParameters := AcquireTokenSilentParameters{
 		Scopes:            onBehalfOfParams.Scopes,
 		RequestType:       accesstokens.ATConfidential,
 		Credential:        onBehalfOfParams.Credential,
 		UserAssertion:     onBehalfOfParams.UserAssertion,
 		AuthorizationType: authority.ATOnBehalfOf,
+		TenantID:          onBehalfOfParams.TenantID,
+		Claims:            onBehalfOfParams.Claims,
 	}
-	token, err := b.AcquireTokenSilent(ctx, silentParameters)
+	ar, err := b.AcquireTokenSilent(ctx, silentParameters)
+	if err == nil {
+		return ar, err
+	}
+	authParams, err := b.AuthParams.WithTenant(onBehalfOfParams.TenantID)
 	if err != nil {
-		fmt.Println("Acquire Token Silent failed ")
-		token, err := b.Token.OnBehalfOf(ctx, authParams, onBehalfOfParams.Credential)
-		if err != nil {
-			return AuthResult{}, err
-		}
-		return b.AuthResultFromToken(ctx, authParams, token, true)
+		return AuthResult{}, err
 	}
-	return token, err
+	authParams.AuthorizationType = authority.ATOnBehalfOf
+	authParams.Claims = onBehalfOfParams.Claims
+	authParams.Scopes = onBehalfOfParams.Scopes
+	authParams.UserAssertion = onBehalfOfParams.UserAssertion
+	token, err := b.Token.OnBehalfOf(ctx, authParams, onBehalfOfParams.Credential)
+	if err == nil {
+		ar, err = b.AuthResultFromToken(ctx, authParams, token, true)
+	}
+	return ar, err
 }
 
-func (b Client) AuthResultFromToken(ctx context.Context, authParams authority.AuthParams, token accesstokens.TokenResponse, cacheWrite bool) (AuthResult, error) {
+func (b Client) AuthResultFromToken(ctx context.Context, authParams authority.AuthParams, token accesstokens.TokenResponse, cacheWrite bool) (ar AuthResult, err error) {
 	if !cacheWrite {
 		return NewAuthResult(token, shared.Account{})
 	}
 
 	var account shared.Account
-	var err error
 	if authParams.AuthorizationType == authority.ATOnBehalfOf {
 		if s, ok := b.pmanager.(cache.Serializer); ok {
 			suggestedCacheKey := token.CacheKey(authParams)
-			b.cacheAccessor.Replace(s, suggestedCacheKey)
-			defer b.cacheAccessor.Export(s, suggestedCacheKey)
+			err = b.cacheAccessor.Replace(ctx, s, cache.ReplaceHints{PartitionKey: suggestedCacheKey})
+			if err != nil {
+				return ar, err
+			}
+			defer func() {
+				err = b.export(ctx, s, suggestedCacheKey, err)
+			}()
 		}
 		account, err = b.pmanager.Write(authParams, token)
 		if err != nil {
-			return AuthResult{}, err
+			return ar, err
 		}
 	} else {
 		if s, ok := b.manager.(cache.Serializer); ok {
 			suggestedCacheKey := token.CacheKey(authParams)
-			b.cacheAccessor.Replace(s, suggestedCacheKey)
-			defer b.cacheAccessor.Export(s, suggestedCacheKey)
+			err = b.cacheAccessor.Replace(ctx, s, cache.ReplaceHints{PartitionKey: suggestedCacheKey})
+			if err != nil {
+				return ar, err
+			}
+			defer func() {
+				err = b.export(ctx, s, suggestedCacheKey, err)
+			}()
 		}
 		account, err = b.manager.Write(authParams, token)
 		if err != nil {
-			return AuthResult{}, err
+			return ar, err
 		}
 	}
-	return NewAuthResult(token, account)
+	ar, err = NewAuthResult(token, account)
+	return ar, err
 }
 
-func (b Client) AllAccounts() []shared.Account {
+func (b Client) AllAccounts(ctx context.Context) (accts []shared.Account, err error) {
 	if s, ok := b.manager.(cache.Serializer); ok {
 		suggestedCacheKey := b.AuthParams.CacheKey(false)
-		b.cacheAccessor.Replace(s, suggestedCacheKey)
-		defer b.cacheAccessor.Export(s, suggestedCacheKey)
+		err = b.cacheAccessor.Replace(ctx, s, cache.ReplaceHints{PartitionKey: suggestedCacheKey})
+		if err != nil {
+			return accts, err
+		}
+		defer func() {
+			err = b.export(ctx, s, suggestedCacheKey, err)
+		}()
 	}
 
-	accounts := b.manager.AllAccounts()
-	return accounts
+	accts = b.manager.AllAccounts()
+	return accts, err
 }
 
-func (b Client) Account(homeAccountID string) shared.Account {
+func (b Client) Account(ctx context.Context, homeAccountID string) (acct shared.Account, err error) {
 	authParams := b.AuthParams // This is a copy, as we dont' have a pointer receiver and .AuthParams is not a pointer.
 	authParams.AuthorizationType = authority.AccountByID
 	authParams.HomeAccountID = homeAccountID
 	if s, ok := b.manager.(cache.Serializer); ok {
 		suggestedCacheKey := b.AuthParams.CacheKey(false)
-		b.cacheAccessor.Replace(s, suggestedCacheKey)
-		defer b.cacheAccessor.Export(s, suggestedCacheKey)
+		err = b.cacheAccessor.Replace(ctx, s, cache.ReplaceHints{PartitionKey: suggestedCacheKey})
+		if err != nil {
+			return acct, err
+		}
+		defer func() {
+			err = b.export(ctx, s, suggestedCacheKey, err)
+		}()
 	}
-	account := b.manager.Account(homeAccountID)
-	return account
+	acct = b.manager.Account(homeAccountID)
+	return acct, err
 }
 
 // RemoveAccount removes all the ATs, RTs and IDTs from the cache associated with this account.
-func (b Client) RemoveAccount(account shared.Account) {
+func (b Client) RemoveAccount(ctx context.Context, account shared.Account) (err error) {
 	if s, ok := b.manager.(cache.Serializer); ok {
 		suggestedCacheKey := b.AuthParams.CacheKey(false)
-		b.cacheAccessor.Replace(s, suggestedCacheKey)
-		defer b.cacheAccessor.Export(s, suggestedCacheKey)
+		err = b.cacheAccessor.Replace(ctx, s, cache.ReplaceHints{PartitionKey: suggestedCacheKey})
+		if err != nil {
+			return err
+		}
+		defer func() {
+			err = b.export(ctx, s, suggestedCacheKey, err)
+		}()
 	}
 	b.manager.RemoveAccount(account, b.AuthParams.ClientID)
+	return err
+}
+
+// export helps other methods defer exporting the cache after possibly updating its in-memory content.
+// err is the error the calling method will return. If err isn't nil, export returns it without
+// exporting the cache.
+func (b Client) export(ctx context.Context, marshal cache.Marshaler, key string, err error) error {
+	if err != nil {
+		return err
+	}
+	return b.cacheAccessor.Export(ctx, marshal, cache.ExportHints{PartitionKey: key})
 }
