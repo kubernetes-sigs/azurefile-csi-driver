@@ -39,7 +39,7 @@ require (
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.6.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.3.0
-	github.com/Azure/azure-sdk-for-go/sdk/storage/azfile v0.1.0
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azfile v1.0.0
 	github.com/jongio/azidext/go/azidext v0.5.0
 	github.com/onsi/ginkgo/v2 v2.11.0
 	golang.org/x/sys v0.12.0
