@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -53,13 +55,14 @@ const (
 	snapshotTimeFormat     = "2006-01-02T15:04:05.0000000Z07:00"
 	snapshotsExpand        = "snapshots"
 
-	azcopyAutoLoginType             = "AZCOPY_AUTO_LOGIN_TYPE"
-	azcopySPAApplicationID          = "AZCOPY_SPA_APPLICATION_ID"
-	azcopySPAClientSecret           = "AZCOPY_SPA_CLIENT_SECRET"
-	azcopyTenantID                  = "AZCOPY_TENANT_ID"
-	azcopyMSIClientID               = "AZCOPY_MSI_CLIENT_ID"
-	MSI                             = "MSI"
-	SPN                             = "SPN"
+	azcopyAutoLoginType    = "AZCOPY_AUTO_LOGIN_TYPE"
+	azcopySPAApplicationID = "AZCOPY_SPA_APPLICATION_ID"
+	azcopySPAClientSecret  = "AZCOPY_SPA_CLIENT_SECRET"
+	azcopyTenantID         = "AZCOPY_TENANT_ID"
+	azcopyMSIClientID      = "AZCOPY_MSI_CLIENT_ID"
+	MSI                    = "MSI"
+	SPN                    = "SPN"
+
 	authorizationPermissionMismatch = "AuthorizationPermissionMismatch"
 )
 
@@ -577,11 +580,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Errorf(codes.Internal, "failed to create file share(%s) on account(%s) type(%s) subsID(%s) rg(%s) location(%s) size(%d), error: %v", validFileShareName, account, sku, subsID, resourceGroup, location, fileShareSize, err)
 	}
 	if req.GetVolumeContentSource() != nil {
-		accountSASToken, authAzcopyEnv, err := d.getAzcopyAuth(ctx, accountName, accountKey, storageEndpointSuffix, accountOptions, secret, secretName, secretNamespace, d.azcopyUseSasToken)
+		accountSASToken, authAzcopyEnv, err := d.getAzcopyAuth(ctx, accountName, accountKey, storageEndpointSuffix, accountOptions, secret, secretName, secretNamespace)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to getAzcopyAuth on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
 		}
-		if err := d.copyVolume(ctx, req, accountSASToken, authAzcopyEnv, secretName, secretNamespace, secret, shareOptions, accountOptions, storageEndpointSuffix); err != nil {
+		if err := d.copyVolume(ctx, req, accountName, accountSASToken, authAzcopyEnv, secretName, secretNamespace, secret, shareOptions, accountOptions, storageEndpointSuffix); err != nil {
 			return nil, err
 		}
 		// storeAccountKey is not needed here since copy volume is only using SAS token
@@ -732,11 +735,11 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 }
 
 // copyVolume copy an azure file
-func (d *Driver) copyVolume(ctx context.Context, req *csi.CreateVolumeRequest, accountSASToken string, authAzcopyEnv []string, secretName, secretNamespace string, secrets map[string]string, shareOptions *fileclient.ShareOptions, accountOptions *azure.AccountOptions, storageEndpointSuffix string) error {
+func (d *Driver) copyVolume(ctx context.Context, req *csi.CreateVolumeRequest, accountName, accountSASToken string, authAzcopyEnv []string, secretName, secretNamespace string, secrets map[string]string, shareOptions *fileclient.ShareOptions, accountOptions *azure.AccountOptions, storageEndpointSuffix string) error {
 	vs := req.VolumeContentSource
 	switch vs.Type.(type) {
 	case *csi.VolumeContentSource_Snapshot:
-		return status.Errorf(codes.InvalidArgument, "copy volume from volumeSnapshot is not supported")
+		return d.restoreSnapshot(ctx, req, accountName, accountSASToken, authAzcopyEnv, secretName, secretNamespace, secrets, shareOptions, accountOptions, storageEndpointSuffix)
 	case *csi.VolumeContentSource_Volume:
 		return d.copyFileShare(ctx, req, accountSASToken, authAzcopyEnv, secretName, secretNamespace, secrets, shareOptions, accountOptions, storageEndpointSuffix)
 	default:
@@ -986,6 +989,115 @@ func (d *Driver) ListSnapshots(_ context.Context, _ *csi.ListSnapshotsRequest) (
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
+// restoreSnapshot restores from a snapshot
+func (d *Driver) restoreSnapshot(ctx context.Context, req *csi.CreateVolumeRequest, dstAccountName, dstAccountSasToken string, authAzcopyEnv []string, secretName, secretNamespace string, secrets map[string]string, shareOptions *fileclient.ShareOptions, accountOptions *azure.AccountOptions, storageEndpointSuffix string) error {
+	if shareOptions.Protocol == storage.EnabledProtocolsNFS {
+		return fmt.Errorf("protocol nfs is not supported for snapshot restore")
+	}
+	var sourceSnapshotID string
+	if req.GetVolumeContentSource() != nil && req.GetVolumeContentSource().GetSnapshot() != nil {
+		sourceSnapshotID = req.GetVolumeContentSource().GetSnapshot().GetSnapshotId()
+	}
+	resourceGroupName, srcAccountName, srcFileShareName, _, _, _, err := GetFileShareInfo(sourceSnapshotID) //nolint:dogsled
+	if err != nil {
+		return status.Error(codes.NotFound, err.Error())
+	}
+	snapshot, err := getSnapshot(sourceSnapshotID)
+	if err != nil {
+		return status.Error(codes.NotFound, err.Error())
+	}
+	dstFileShareName := shareOptions.Name
+	if srcFileShareName == "" || dstFileShareName == "" {
+		return fmt.Errorf("srcFileShareName(%s) or dstFileShareName(%s) is empty", srcFileShareName, dstFileShareName)
+	}
+	srcAccountSasToken := dstAccountSasToken
+	if srcAccountName != dstAccountName {
+		var srcAccountKey string
+		if srcAccountKey, err = d.cloud.GetStorageAccesskey(ctx, d.cloud.SubscriptionID, srcAccountName, resourceGroupName, true); err != nil {
+			return fmt.Errorf("get src accountkey get err: %v", err)
+		}
+		klog.V(2).Infof("generate sas token for resource group(%s) src account(%s)", resourceGroupName, srcAccountName)
+		if srcAccountSasToken, err = d.generateSASToken(srcAccountName, srcAccountKey, storageEndpointSuffix, d.sasTokenExpirationMinutes); err != nil {
+			return err
+		}
+	}
+
+	srcPath := fmt.Sprintf("https://%s.file.%s/%s%s", srcAccountName, storageEndpointSuffix, srcFileShareName, srcAccountSasToken)
+	dstPath := fmt.Sprintf("https://%s.file.%s/%s%s", dstAccountName, storageEndpointSuffix, dstFileShareName, dstAccountSasToken)
+
+	srcFileShareSnapshotName := fmt.Sprintf("%s(snapshot: %s)", srcFileShareName, snapshot)
+	return d.copyFileShareByAzcopy(ctx, srcFileShareSnapshotName, dstFileShareName, srcPath, dstPath, snapshot, srcAccountName, resourceGroupName, srcAccountSasToken, authAzcopyEnv, secretName, secretNamespace, secrets, accountOptions, storageEndpointSuffix)
+}
+
+func (d *Driver) copyFileShareByAzcopy(ctx context.Context, srcFileShareName, dstFileShareName, srcPath, dstPath, snapshot, accountName, resourceGroupName, accountSASToken string, authAzcopyEnv []string, secretName, secretNamespace string, secrets map[string]string, accountOptions *azure.AccountOptions, storageEndpointSuffix string) error {
+	azcopyCopyOptions := azcopyCloneVolumeOptions
+	srcPathAuth := srcPath
+	srcPathSASSnapshot := ""
+	if snapshot != "" {
+		azcopyCopyOptions = azcopySnapshotRestoreOptions
+		if accountSASToken == "" {
+			srcPathAuth = fmt.Sprintf("%s?sharesnapshot=%s", srcPath, snapshot)
+		} else {
+			srcPathAuth = fmt.Sprintf("%s&sharesnapshot=%s", srcPath, snapshot)
+		}
+		srcPathSASSnapshot = fmt.Sprintf("&sharesnapshot=%s", snapshot)
+	}
+
+	jobState, percent, err := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
+	klog.V(2).Infof("azcopy job status: %s, copy percent: %s%%, error: %v", jobState, percent, err)
+	switch jobState {
+	case volumehelper.AzcopyJobError, volumehelper.AzcopyJobCompleted:
+		return err
+	case volumehelper.AzcopyJobRunning:
+		return fmt.Errorf("wait for the existing AzCopy job to complete, current copy percentage is %s%%", percent)
+	case volumehelper.AzcopyJobNotFound:
+		klog.V(2).Infof("copy fileshare %s to %s", srcFileShareName, dstFileShareName)
+		execFuncWithAuth := func() error {
+			if out, err := d.execAzcopyCopy(srcPathAuth, dstPath, azcopyCopyOptions, authAzcopyEnv); err != nil {
+				return fmt.Errorf("exec error: %v, output: %v", err, string(out))
+			}
+			return nil
+		}
+		timeoutFunc := func() error {
+			_, percent, _ := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
+			return fmt.Errorf("timeout waiting for copy fileshare %s to %s complete, current copy percent: %s%%", srcFileShareName, dstFileShareName, percent)
+		}
+		copyErr := volumehelper.WaitUntilTimeout(time.Duration(d.waitForAzCopyTimeoutMinutes)*time.Minute, execFuncWithAuth, timeoutFunc)
+		if accountSASToken == "" && copyErr != nil && strings.Contains(copyErr.Error(), authorizationPermissionMismatch) {
+			klog.Warningf("azcopy list failed with AuthorizationPermissionMismatch error, should assign \"Storage File Data Privileged Contributor\" role to controller identity, fall back to use sas token, original error: %v", copyErr)
+			d.azcopySasTokenCache.Set(accountName, "")
+			var sasToken string
+			if sasToken, _, err = d.getAzcopyAuth(ctx, accountName, "", storageEndpointSuffix, accountOptions, secrets, secretName, secretNamespace); err != nil {
+				return err
+			}
+			execFuncWithSasToken := func() error {
+				if out, err := d.execAzcopyCopy(srcPath+sasToken+srcPathSASSnapshot, dstPath+sasToken, azcopyCopyOptions, []string{}); err != nil {
+					return fmt.Errorf("exec error: %v, output: %v", err, string(out))
+				}
+				return nil
+			}
+			copyErr = volumehelper.WaitUntilTimeout(time.Duration(d.waitForAzCopyTimeoutMinutes)*time.Minute, execFuncWithSasToken, timeoutFunc)
+		}
+		if copyErr != nil {
+			klog.Warningf("CopyFileShare(%s, %s, %s) failed with error: %v", resourceGroupName, accountName, dstFileShareName, copyErr)
+		} else {
+			klog.V(2).Infof("copied fileshare %s to %s successfully", srcFileShareName, dstFileShareName)
+		}
+		return copyErr
+	}
+	return err
+}
+
+// execAzcopyCopy exec azcopy copy command
+func (d *Driver) execAzcopyCopy(srcPath, dstPath string, azcopyCopyOptions, authAzcopyEnv []string) ([]byte, error) {
+	cmd := exec.Command("azcopy", "copy", srcPath, dstPath)
+	cmd.Args = append(cmd.Args, azcopyCopyOptions...)
+	if len(authAzcopyEnv) > 0 {
+		cmd.Env = append(os.Environ(), authAzcopyEnv...)
+	}
+	return cmd.CombinedOutput()
+}
+
 // ControllerExpandVolume controller expand volume
 func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
 	volumeID := req.GetVolumeId()
@@ -1227,11 +1339,11 @@ func (d *Driver) authorizeAzcopyWithIdentity() ([]string, error) {
 // 1. secrets is not empty
 // 2. driver is not using managed identity and service principal
 // 3. azcopy returns AuthorizationPermissionMismatch error when using service principal or managed identity
-// 4. parameter useSasToken is true
-func (d *Driver) getAzcopyAuth(ctx context.Context, accountName, accountKey, storageEndpointSuffix string, accountOptions *azure.AccountOptions, secrets map[string]string, secretName, secretNamespace string, useSasToken bool) (string, []string, error) {
+func (d *Driver) getAzcopyAuth(ctx context.Context, accountName, accountKey, storageEndpointSuffix string, accountOptions *azure.AccountOptions, secrets map[string]string, secretName, secretNamespace string) (string, []string, error) {
 	var authAzcopyEnv []string
 	var err error
-	if !useSasToken && len(secrets) == 0 && len(secretName) == 0 {
+	useSasToken := false
+	if len(secrets) == 0 && len(secretName) == 0 {
 		// search in cache first
 		if cache, err := d.azcopySasTokenCache.Get(accountName, azcache.CacheReadTypeDefault); err == nil && cache != nil {
 			klog.V(2).Infof("use sas token for account(%s) since this account is found in azcopySasTokenCache", accountName)

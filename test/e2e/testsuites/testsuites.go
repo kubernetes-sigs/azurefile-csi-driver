@@ -66,6 +66,26 @@ const (
 	pollLongTimeout      = 5 * time.Minute
 	pollTimeout          = 10 * time.Minute
 	pollForStringTimeout = 1 * time.Minute
+
+	testLabelKey   = "test-label-key"
+	testLabelValue = "test-label-value"
+	HostNameLabel  = "kubernetes.io/hostname"
+)
+
+var (
+	TestLabel = map[string]string{
+		testLabelKey: testLabelValue,
+	}
+
+	TestPodAntiAffinity = v1.Affinity{
+		PodAntiAffinity: &v1.PodAntiAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: []v1.PodAffinityTerm{
+				{
+					LabelSelector: &metav1.LabelSelector{MatchLabels: TestLabel},
+					TopologyKey:   HostNameLabel,
+				}},
+		},
+	}
 )
 
 type TestStorageClass struct {
@@ -837,6 +857,14 @@ func (t *TestPod) Cleanup(ctx context.Context) {
 
 func (t *TestPod) Logs(ctx context.Context) ([]byte, error) {
 	return podLogs(ctx, t.client, t.pod.Name, t.namespace.Name)
+}
+
+func (t *TestPod) SetAffinity(affinity *v1.Affinity) {
+	t.pod.Spec.Affinity = affinity
+}
+
+func (t *TestPod) SetLabel(labels map[string]string) {
+	t.pod.ObjectMeta.Labels = labels
 }
 
 type TestSecret struct {
