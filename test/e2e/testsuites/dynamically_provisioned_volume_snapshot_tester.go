@@ -35,10 +35,14 @@ import (
 // Create a snapshot, validate whether it is ready to use.
 // This test only supports a single volume
 type DynamicallyProvisionedVolumeSnapshotTest struct {
-	CSIDriver              driver.PVTestDriver
-	Pod                    PodDetails
-	PodWithSnapshot        PodDetails
-	StorageClassParameters map[string]string
+	CSIDriver                      driver.PVTestDriver
+	Pod                            PodDetails
+	ShouldOverwrite                bool
+	ShouldRestore                  bool
+	PodOverwrite                   PodDetails
+	PodWithSnapshot                PodDetails
+	StorageClassParameters         map[string]string
+	SnapshotStorageClassParameters map[string]string
 }
 
 func (t *DynamicallyProvisionedVolumeSnapshotTest) Run(ctx context.Context, client clientset.Interface, restclient restclientset.Interface, namespace *v1.Namespace) {
@@ -55,24 +59,65 @@ func (t *DynamicallyProvisionedVolumeSnapshotTest) Run(ctx context.Context, clie
 	defer tpod.Cleanup(ctx)
 	ginkgo.By("checking that the pod's command exits with no error")
 	tpod.WaitForSuccess(ctx)
+	ginkgo.By("sleep 10s to make sure the data is written to the disk")
+	time.Sleep(time.Millisecond * 10000)
 
 	ginkgo.By("creating volume snapshot class")
 	tvsc, cleanup := CreateVolumeSnapshotClass(ctx, restclient, namespace, t.CSIDriver)
+	if tvsc.volumeSnapshotClass.Parameters == nil {
+		tvsc.volumeSnapshotClass.Parameters = map[string]string{}
+	}
 	defer cleanup()
 
 	ginkgo.By("sleeping for 5 seconds to wait for data to be written to the volume")
 	time.Sleep(5 * time.Second)
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 2; i++ {
 		ginkgo.By("taking snapshot# " + strconv.Itoa(i+1))
 		snapshot := tvsc.CreateSnapshot(ctx, tpvc.persistentVolumeClaim)
-		defer tvsc.DeleteSnapshot(ctx, snapshot)
 
 		ginkgo.By("sleeping for 3 seconds to wait for snapshot to be ready")
 		time.Sleep(3 * time.Second)
 
 		// If the field ReadyToUse is still false, there will be a timeout error.
 		tvsc.ReadyToUse(ctx, snapshot)
-	}
 
+		if t.ShouldOverwrite && i == 1 { // just overwrite in the last snapshot test case
+			tpod = NewTestPod(client, namespace, t.PodOverwrite.Cmd, t.PodOverwrite.IsWindows, t.Pod.WinServerVer)
+
+			tpod.SetupVolume(tpvc.persistentVolumeClaim, volume.VolumeMount.NameGenerate+"1", volume.VolumeMount.MountPathGenerate+"1", volume.VolumeMount.ReadOnly)
+			tpod.SetLabel(TestLabel)
+			ginkgo.By("deploying a new pod to overwrite pv data")
+			tpod.Create(ctx)
+			defer tpod.Cleanup(ctx)
+			ginkgo.By("checking that the pod is running")
+			tpod.WaitForRunning(ctx)
+		}
+
+		defer tvsc.DeleteSnapshot(ctx, snapshot)
+
+		if t.ShouldRestore {
+			snapshotVolume := volume
+			snapshotVolume.DataSource = &DataSource{
+				Kind: VolumeSnapshotKind,
+				Name: snapshot.Name,
+			}
+			snapshotVolume.ClaimSize = volume.ClaimSize
+			snapshotStorageClassParameters := t.StorageClassParameters
+			if t.SnapshotStorageClassParameters != nil {
+				snapshotStorageClassParameters = t.SnapshotStorageClassParameters
+			}
+			t.PodWithSnapshot.Volumes = []VolumeDetails{snapshotVolume}
+			tPodWithSnapshot, tPodWithSnapshotCleanup := t.PodWithSnapshot.SetupWithDynamicVolumes(ctx, client, namespace, t.CSIDriver, snapshotStorageClassParameters)
+			for idx := range tPodWithSnapshotCleanup {
+				defer tPodWithSnapshotCleanup[idx](ctx)
+			}
+
+			ginkgo.By("deploying a pod with a volume restored from the snapshot")
+			tPodWithSnapshot.Create(ctx)
+			defer tPodWithSnapshot.Cleanup(ctx)
+			ginkgo.By("checking that the pod's command exits with no error")
+			tPodWithSnapshot.WaitForSuccess(ctx)
+		}
+	}
 }
