@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2022-07-01/network"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/subnetclient/mocksubnetclient"
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 
@@ -1418,6 +1419,196 @@ func TestDeleteVolume(t *testing.T) {
 	}
 }
 
+func TestCopyVolume(t *testing.T) {
+	stdVolCap := []*csi.VolumeCapability{
+		{
+			AccessType: &csi.VolumeCapability_Mount{
+				Mount: &csi.VolumeCapability_MountVolume{},
+			},
+			AccessMode: &csi.VolumeCapability_AccessMode{
+				Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+			},
+		},
+	}
+	fakeShareQuota := int32(100)
+	lessThanPremCapRange := &csi.CapacityRange{RequiredBytes: int64(fakeShareQuota * 1024 * 1024 * 1024)}
+
+	testCases := []struct {
+		name     string
+		testFunc func(t *testing.T)
+	}{
+		{
+			name: "copy volume from volumeSnapshot is not supported",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{}
+
+				volumeSnapshotSource := &csi.VolumeContentSource_SnapshotSource{
+					SnapshotId: "unit-test",
+				}
+				volumeContentSourceSnapshotSource := &csi.VolumeContentSource_Snapshot{
+					Snapshot: volumeSnapshotSource,
+				}
+				volumecontensource := csi.VolumeContentSource{
+					Type: volumeContentSourceSnapshotSource,
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:                "random-vol-name-valid-request",
+					VolumeCapabilities:  stdVolCap,
+					CapacityRange:       lessThanPremCapRange,
+					Parameters:          allParam,
+					VolumeContentSource: &volumecontensource,
+				}
+
+				d := NewFakeDriver()
+				ctx := context.Background()
+
+				expectedErr := status.Errorf(codes.InvalidArgument, "copy volume from volumeSnapshot is not supported")
+				err := d.copyVolume(ctx, req, "", nil, "core.windows.net")
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "copy volume nfs is not supported",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{}
+
+				volumeSource := &csi.VolumeContentSource_VolumeSource{
+					VolumeId: "unit-test",
+				}
+				volumeContentSourceVolumeSource := &csi.VolumeContentSource_Volume{
+					Volume: volumeSource,
+				}
+				volumecontensource := csi.VolumeContentSource{
+					Type: volumeContentSourceVolumeSource,
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:                "random-vol-name-valid-request",
+					VolumeCapabilities:  stdVolCap,
+					CapacityRange:       lessThanPremCapRange,
+					Parameters:          allParam,
+					VolumeContentSource: &volumecontensource,
+				}
+
+				d := NewFakeDriver()
+				ctx := context.Background()
+
+				expectedErr := fmt.Errorf("protocol nfs is not supported for volume cloning")
+				err := d.copyVolume(ctx, req, "", &fileclient.ShareOptions{Protocol: storage.EnabledProtocolsNFS}, "core.windows.net")
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "copy volume from volume not found",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{}
+
+				volumeSource := &csi.VolumeContentSource_VolumeSource{
+					VolumeId: "unit-test",
+				}
+				volumeContentSourceVolumeSource := &csi.VolumeContentSource_Volume{
+					Volume: volumeSource,
+				}
+				volumecontensource := csi.VolumeContentSource{
+					Type: volumeContentSourceVolumeSource,
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:                "random-vol-name-valid-request",
+					VolumeCapabilities:  stdVolCap,
+					CapacityRange:       lessThanPremCapRange,
+					Parameters:          allParam,
+					VolumeContentSource: &volumecontensource,
+				}
+
+				d := NewFakeDriver()
+				ctx := context.Background()
+
+				expectedErr := status.Errorf(codes.NotFound, "error parsing volume id: \"unit-test\", should at least contain two #")
+				err := d.copyVolume(ctx, req, "", &fileclient.ShareOptions{Name: "dstFileshare"}, "core.windows.net")
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "src fileshare is empty",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{}
+
+				volumeSource := &csi.VolumeContentSource_VolumeSource{
+					VolumeId: "rg#unit-test##",
+				}
+				volumeContentSourceVolumeSource := &csi.VolumeContentSource_Volume{
+					Volume: volumeSource,
+				}
+				volumecontensource := csi.VolumeContentSource{
+					Type: volumeContentSourceVolumeSource,
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:                "random-vol-name-valid-request",
+					VolumeCapabilities:  stdVolCap,
+					CapacityRange:       lessThanPremCapRange,
+					Parameters:          allParam,
+					VolumeContentSource: &volumecontensource,
+				}
+
+				d := NewFakeDriver()
+				ctx := context.Background()
+
+				expectedErr := fmt.Errorf("srcFileShareName() or dstFileShareName(dstFileshare) is empty")
+				err := d.copyVolume(ctx, req, "", &fileclient.ShareOptions{Name: "dstFileshare"}, "core.windows.net")
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "dst fileshare is empty",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{}
+
+				volumeSource := &csi.VolumeContentSource_VolumeSource{
+					VolumeId: "vol_1#f5713de20cde511e8ba4900#fileshare#",
+				}
+				volumeContentSourceVolumeSource := &csi.VolumeContentSource_Volume{
+					Volume: volumeSource,
+				}
+				volumecontensource := csi.VolumeContentSource{
+					Type: volumeContentSourceVolumeSource,
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:                "random-vol-name-valid-request",
+					VolumeCapabilities:  stdVolCap,
+					CapacityRange:       lessThanPremCapRange,
+					Parameters:          allParam,
+					VolumeContentSource: &volumecontensource,
+				}
+
+				d := NewFakeDriver()
+				ctx := context.Background()
+
+				expectedErr := fmt.Errorf("srcFileShareName(fileshare) or dstFileShareName() is empty")
+				err := d.copyVolume(ctx, req, "", &fileclient.ShareOptions{}, "core.windows.net")
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, tc.testFunc)
+	}
+}
+
 func TestControllerGetVolume(t *testing.T) {
 	d := NewFakeDriver()
 	req := csi.ControllerGetVolumeRequest{}
@@ -2408,5 +2599,43 @@ func TestSetAzureCredentials(t *testing.T) {
 			t.Errorf("desc: %s,\n input: accountName(%v), accountKey(%v),\n setAzureCredentials result: %v, expectedName: %v err: %v, expectedErr: %v",
 				test.desc, test.accountName, test.accountKey, result, test.expectedName, err, test.expectedErr)
 		}
+	}
+}
+
+func TestGenerateSASToken(t *testing.T) {
+	storageEndpointSuffix := "core.windows.net"
+	tests := []struct {
+		name        string
+		accountName string
+		accountKey  string
+		want        string
+		expectedErr error
+	}{
+		{
+			name:        "accountName nil",
+			accountName: "",
+			accountKey:  "",
+			want:        "se=",
+			expectedErr: nil,
+		},
+		{
+			name:        "account key illegal",
+			accountName: "unit-test",
+			accountKey:  "fakeValue",
+			want:        "",
+			expectedErr: status.Errorf(codes.Internal, fmt.Sprintf("failed to generate sas token in creating new shared key credential, accountName: %s, err: %s", "unit-test", "decode account key: illegal base64 data at input byte 8")),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sas, err := generateSASToken(tt.accountName, tt.accountKey, storageEndpointSuffix, 30)
+			if !reflect.DeepEqual(err, tt.expectedErr) {
+				t.Errorf("generateSASToken error = %v, expectedErr %v, sas token = %v, want %v", err, tt.expectedErr, sas, tt.want)
+				return
+			}
+			if !strings.Contains(sas, tt.want) {
+				t.Errorf("sas token = %v, want %v", sas, tt.want)
+			}
+		})
 	}
 }

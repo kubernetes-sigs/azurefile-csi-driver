@@ -26,6 +26,8 @@ import (
 
 	volumehelper "sigs.k8s.io/azurefile-csi-driver/pkg/util"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/sas"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/service"
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
 	"github.com/Azure/azure-storage-file-go/azfile"
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -104,6 +106,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	if acquired := d.volumeLocks.TryAcquire(volName); !acquired {
+		// logging the job status if it's volume cloning
+		if req.GetVolumeContentSource() != nil {
+			jobState, percent, err := getAzcopyJob(volName)
+			klog.V(2).Infof("azcopy job status: %s, copy percent: %s%%, error: %v", jobState, percent, err)
+		}
 		return nil, status.Errorf(codes.Aborted, volumeOperationAlreadyExistsFmt, volName)
 	}
 	defer d.volumeLocks.Release(volName)
@@ -516,7 +523,16 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	var volumeID string
-	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_create_volume", d.cloud.ResourceGroup, subsID, d.Name)
+	requestName := "controller_create_volume"
+	if req.GetVolumeContentSource() != nil {
+		switch req.VolumeContentSource.Type.(type) {
+		case *csi.VolumeContentSource_Snapshot:
+			requestName = "controller_create_volume_from_snapshot"
+		case *csi.VolumeContentSource_Volume:
+			requestName = "controller_create_volume_from_volume"
+		}
+	}
+	mc := metrics.NewMetricContext(azureFileCSIDriverName, requestName, d.cloud.ResourceGroup, subsID, d.Name)
 	isOperationSucceeded := false
 	defer func() {
 		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
@@ -543,9 +559,20 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 		return nil, status.Errorf(codes.Internal, "failed to create file share(%s) on account(%s) type(%s) subsID(%s) rg(%s) location(%s) size(%d), error: %v", validFileShareName, account, sku, subsID, resourceGroup, location, fileShareSize, err)
 	}
+	if req.GetVolumeContentSource() != nil {
+		accountKeyCopy, err := d.GetStorageAccesskey(ctx, accountOptions, req.GetSecrets(), secretName, secretNamespace)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
+		}
+		if err := d.copyVolume(ctx, req, accountKeyCopy, shareOptions, storageEndpointSuffix); err != nil {
+			return nil, err
+		}
+		// storeAccountKey is not needed here since copy volume is only using SAS token
+		storeAccountKey = false
+	}
 	klog.V(2).Infof("create file share %s on storage account %s successfully", validFileShareName, accountName)
 
-	if isDiskFsType(fsType) && !strings.HasSuffix(diskName, vhdSuffix) {
+	if isDiskFsType(fsType) && !strings.HasSuffix(diskName, vhdSuffix) && req.GetVolumeContentSource() == nil {
 		if accountKey == "" {
 			if accountKey, err = d.GetStorageAccesskey(ctx, accountOptions, req.GetSecrets(), secretName, secretNamespace); err != nil {
 				return nil, status.Errorf(codes.Internal, "failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
@@ -619,6 +646,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			VolumeId:      volumeID,
 			CapacityBytes: capacityBytes,
 			VolumeContext: parameters,
+			ContentSource: req.GetVolumeContentSource(),
 		},
 	}, nil
 }
@@ -684,6 +712,18 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 
 	isOperationSucceeded = true
 	return &csi.DeleteVolumeResponse{}, nil
+}
+
+func (d *Driver) copyVolume(ctx context.Context, req *csi.CreateVolumeRequest, accountKey string, shareOptions *fileclient.ShareOptions, storageEndpointSuffix string) error {
+	vs := req.VolumeContentSource
+	switch vs.Type.(type) {
+	case *csi.VolumeContentSource_Snapshot:
+		return status.Errorf(codes.InvalidArgument, "copy volume from volumeSnapshot is not supported")
+	case *csi.VolumeContentSource_Volume:
+		return d.copyFileShare(ctx, req, accountKey, shareOptions, storageEndpointSuffix)
+	default:
+		return status.Errorf(codes.InvalidArgument, "%v is not a proper volume source", vs)
+	}
 }
 
 // ControllerGetVolume get volume
@@ -1242,4 +1282,28 @@ func isValidVolumeCapabilities(volCaps []*csi.VolumeCapability) error {
 		}
 	}
 	return nil
+}
+
+func generateSASToken(accountName, accountKey, storageEndpointSuffix string, expiryTime int) (string, error) {
+	credential, err := service.NewSharedKeyCredential(accountName, accountKey)
+	if err != nil {
+		return "", status.Errorf(codes.Internal, fmt.Sprintf("failed to generate sas token in creating new shared key credential, accountName: %s, err: %s", accountName, err.Error()))
+	}
+	serviceClient, err := service.NewClientWithSharedKeyCredential(fmt.Sprintf("https://%s.file.%s/", accountName, storageEndpointSuffix), credential, nil)
+	if err != nil {
+		return "", status.Errorf(codes.Internal, fmt.Sprintf("failed to generate sas token in creating new client with shared key credential, accountName: %s, err: %s", accountName, err.Error()))
+	}
+	nowTime := time.Now()
+	sasURL, err := serviceClient.GetSASURL(
+		sas.AccountResourceTypes{Object: true, Service: true, Container: true},
+		sas.AccountPermissions{Read: true, List: true, Write: true},
+		time.Now().Add(time.Duration(expiryTime)*time.Minute), &service.GetSASURLOptions{StartTime: &nowTime})
+	if err != nil {
+		return "", err
+	}
+	u, err := url.Parse(sasURL)
+	if err != nil {
+		return "", err
+	}
+	return "?" + u.RawQuery, nil
 }
