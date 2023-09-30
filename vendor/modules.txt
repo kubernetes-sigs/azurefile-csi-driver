@@ -30,6 +30,7 @@ github.com/Azure/azure-sdk-for-go/sdk/azcore/log
 github.com/Azure/azure-sdk-for-go/sdk/azcore/policy
 github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime
 github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming
+github.com/Azure/azure-sdk-for-go/sdk/azcore/to
 github.com/Azure/azure-sdk-for-go/sdk/azcore/tracing
 # github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.3.0
 ## explicit; go 1.18
@@ -43,6 +44,18 @@ github.com/Azure/azure-sdk-for-go/sdk/internal/log
 github.com/Azure/azure-sdk-for-go/sdk/internal/poller
 github.com/Azure/azure-sdk-for-go/sdk/internal/temporal
 github.com/Azure/azure-sdk-for-go/sdk/internal/uuid
+# github.com/Azure/azure-sdk-for-go/sdk/storage/azfile v0.1.0
+## explicit; go 1.18
+github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/directory
+github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/file
+github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/fileerror
+github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/internal/base
+github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/internal/exported
+github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/internal/generated
+github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/internal/shared
+github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/sas
+github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/service
+github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share
 # github.com/Azure/azure-storage-file-go v0.8.0
 ## explicit; go 1.13
 github.com/Azure/azure-storage-file-go/azfile
