@@ -435,6 +435,22 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		GetLatestAccountKey:                     getLatestAccountKey,
 	}
 
+	var volumeID string
+	requestName := "controller_create_volume"
+	if req.GetVolumeContentSource() != nil {
+		switch req.VolumeContentSource.Type.(type) {
+		case *csi.VolumeContentSource_Snapshot:
+			requestName = "controller_create_volume_from_snapshot"
+		case *csi.VolumeContentSource_Volume:
+			requestName = "controller_create_volume_from_volume"
+		}
+	}
+	mc := metrics.NewMetricContext(azureFileCSIDriverName, requestName, d.cloud.ResourceGroup, subsID, d.Name)
+	isOperationSucceeded := false
+	defer func() {
+		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
+	}()
+
 	var accountKey, lockKey string
 	accountName := account
 	if len(req.GetSecrets()) == 0 && accountName == "" {
@@ -521,22 +537,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		AccessTier: shareAccessTier,
 		RootSquash: rootSquashType,
 	}
-
-	var volumeID string
-	requestName := "controller_create_volume"
-	if req.GetVolumeContentSource() != nil {
-		switch req.VolumeContentSource.Type.(type) {
-		case *csi.VolumeContentSource_Snapshot:
-			requestName = "controller_create_volume_from_snapshot"
-		case *csi.VolumeContentSource_Volume:
-			requestName = "controller_create_volume_from_volume"
-		}
-	}
-	mc := metrics.NewMetricContext(azureFileCSIDriverName, requestName, d.cloud.ResourceGroup, subsID, d.Name)
-	isOperationSucceeded := false
-	defer func() {
-		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
-	}()
 
 	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) subID(%s) rg(%s) location(%s) size(%d) protocol(%s)", validFileShareName, accountName, sku, subsID, resourceGroup, location, fileShareSize, shareProtocol)
 	if err := d.CreateFileShare(ctx, accountOptions, shareOptions, secret); err != nil {
