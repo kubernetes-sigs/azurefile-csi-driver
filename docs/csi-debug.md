@@ -173,7 +173,7 @@ Enable [large file shares](https://docs.microsoft.com/azure/storage/files/storag
 ##### Premium Files
 Azure premium files follows provisioned model where IOPS and throughput are associated to the quota. See this article that explains the co-relation between share size and IOPS and throughput - [link](https://docs.microsoft.com/azure/storage/files/understanding-billing#provisioned-model). Increase the share quota by following this guide - [link](https://github.com/kubernetes-sigs/azurefile-csi-driver/tree/master/deploy/example/resize).
 
-##### For more, refer to this doc for perforance troubleshooting tips - [Link to performance troubleshooting tips](https://docs.microsoft.com/en-us/azure/storage/files/storage-troubleshooting-files-performance)
+##### For more, refer to this doc for performance troubleshooting tips - [Link to performance troubleshooting tips](https://docs.microsoft.com/en-us/azure/storage/files/storage-troubleshooting-files-performance)
 
 ##### [Storage considerations for Azure Kubernetes Service (AKS)](https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/scenarios/app-platform/aks/storage)
 ##### [Compare access to Azure Files, Blob Storage, and Azure NetApp Files with NFS](https://learn.microsoft.com/en-us/azure/storage/common/nfs-comparison#comparison)
