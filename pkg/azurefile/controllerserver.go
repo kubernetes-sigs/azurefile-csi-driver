@@ -359,6 +359,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
+	if resourceGroup == "" {
+		resourceGroup = d.cloud.ResourceGroup
+	}
+
 	fileShareSize := int(requestGiB)
 	// account kind should be FileStorage for Premium File
 	accountKind := string(storage.KindStorageV2)
@@ -385,10 +389,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			}
 		}
 		validFileShareName = getValidFileShareName(name)
-	}
-
-	if resourceGroup == "" {
-		resourceGroup = d.cloud.ResourceGroup
 	}
 
 	tags, err := ConvertTagsToMap(customTags)
