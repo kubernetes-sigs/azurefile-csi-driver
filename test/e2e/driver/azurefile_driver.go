@@ -39,7 +39,7 @@ type AzureFileDriver struct {
 	driverName string
 }
 
-// InitAzureFileDriver returns AzureFileDriver that implemnts DynamicPVTestDriver interface
+// InitAzureFileDriver returns AzureFileDriver that implements DynamicPVTestDriver interface
 func InitAzureFileDriver() PVTestDriver {
 	driverName := os.Getenv(AzureDriverNameVar)
 	if driverName == "" {
