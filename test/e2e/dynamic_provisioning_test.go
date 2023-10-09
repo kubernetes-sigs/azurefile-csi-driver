@@ -697,7 +697,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			Cmd: "echo 'hello world' > /mnt/test-1/data",
 			Volumes: []testsuites.VolumeDetails{
 				{
-					FSType:    "ext4",
 					ClaimSize: "10Gi",
 					VolumeMount: testsuites.VolumeMountDetails{
 						NameGenerate:      "test-volume-",
@@ -724,13 +723,15 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 	ginkgo.It("should create a pod, write and read to it, take a nfs volume snapshot, and validate whether it is ready to use [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
 		skipIfTestingInWindowsCluster()
 		skipIfUsingInTreeVolumePlugin()
+		if !supportSnapshotwithNFS {
+			ginkgo.Skip("take snapshot on nfs file share is not supported on current region")
+		}
 
 		pod := testsuites.PodDetails{
 			Cmd: "echo 'hello world' > /mnt/test-1/data",
 			Volumes: []testsuites.VolumeDetails{
 				{
-					FSType:    "ext4",
-					ClaimSize: "10Gi",
+					ClaimSize: "100Gi",
 					VolumeMount: testsuites.VolumeMountDetails{
 						NameGenerate:      "test-volume-",
 						MountPathGenerate: "/mnt/test-",
