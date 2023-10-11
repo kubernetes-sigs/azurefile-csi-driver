@@ -58,7 +58,7 @@ if [[ -z "$(command -v jq)" ]]; then
 fi
 
 # install yq
-pip install --ignore-installed --require-hashes -r ${PKG_ROOT}/hack/requirements.txt
+pip install --break-system-packages --ignore-installed --require-hashes -r ${PKG_ROOT}/hack/requirements.txt
 
 # Extract images from csi-azurefile-controller.yaml
 expected_csi_provisioner_image="$(cat ${PKG_ROOT}/deploy/csi-azurefile-controller.yaml | yq -r .spec.template.spec.containers[0].image | head -n 1)"
