@@ -18,6 +18,7 @@ package testsuites
 
 import (
 	"context"
+	"time"
 
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 
@@ -57,6 +58,9 @@ func (t *DynamicallyProvisionedVolumeSnapshotTest) Run(ctx context.Context, clie
 	ginkgo.By("creating volume snapshot class")
 	tvsc, cleanup := CreateVolumeSnapshotClass(ctx, restclient, namespace, t.CSIDriver)
 	defer cleanup()
+
+	ginkgo.By("sleeping for 5 seconds to wait for data to be written to the volume")
+	time.Sleep(5 * time.Second)
 
 	ginkgo.By("taking snapshots")
 	snapshot := tvsc.CreateSnapshot(ctx, tpvc.persistentVolumeClaim)
