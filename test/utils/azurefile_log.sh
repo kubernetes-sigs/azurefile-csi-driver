@@ -63,7 +63,12 @@ kubectl get pods -n${NS} -l${LABEL} \
     | awk 'NR>1 {print $1}' \
     | xargs -I {} bash -c "echo 'dumping logs for ${NS}/{}/${DRIVER}' && kubectl logs {} -c${CONTAINER} -n${NS}"
 
-#echo "print out cloudprovider_azure metrics ..."
-#echo "======================================================================================"
-#ip=`kubectl get svc csi-${DRIVER}-controller -n kube-system | awk '{print $4}'`
-#curl http://$ip:29614/metrics
+echo "======================================================================================"
+ip=`kubectl get svc csi-${DRIVER}-controller -n kube-system | awk '{print $4}'`
+if echo "$ip" | grep -q "\."; then
+    echo "print out cloudprovider_azure metrics ..."
+    curl http://$ip:29614/metrics
+else
+    echo "csi-$DRIVER-controller service ip is empty"
+    kubectl get svc csi-$DRIVER-controller -n kube-system
+fi
