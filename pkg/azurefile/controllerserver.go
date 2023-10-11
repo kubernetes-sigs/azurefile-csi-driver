@@ -336,7 +336,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		shareProtocol = storage.EnabledProtocolsNFS
 		// NFS protocol does not need account key
 		storeAccountKey = false
-		// reset protocol field (compatble with "fsType: nfs")
+		// reset protocol field (compatible with "fsType: nfs")
 		setKeyValueInMap(parameters, protocolField, protocol)
 
 		if !pointer.BoolDeref(createPrivateEndpoint, false) {
@@ -359,7 +359,22 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
+	if resourceGroup == "" {
+		resourceGroup = d.cloud.ResourceGroup
+	}
+
 	fileShareSize := int(requestGiB)
+
+	if account != "" && resourceGroup != "" && sku == "" && fileShareSize < minimumPremiumShareSize {
+		accountProperties, err := d.cloud.StorageAccountClient.GetProperties(ctx, subsID, resourceGroup, account)
+		if err != nil {
+			klog.Warningf("failed to get properties on storage account account(%s) rg(%s), error: %v", account, resourceGroup, err)
+		}
+		if accountProperties.Sku != nil {
+			sku = string(accountProperties.Sku.Name)
+		}
+	}
+
 	// account kind should be FileStorage for Premium File
 	accountKind := string(storage.KindStorageV2)
 	if strings.HasPrefix(strings.ToLower(sku), premium) {
@@ -385,10 +400,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			}
 		}
 		validFileShareName = getValidFileShareName(name)
-	}
-
-	if resourceGroup == "" {
-		resourceGroup = d.cloud.ResourceGroup
 	}
 
 	tags, err := ConvertTagsToMap(customTags)

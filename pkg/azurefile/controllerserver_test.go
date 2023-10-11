@@ -23,13 +23,13 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2022-07-01/network"
-	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/subnetclient/mocksubnetclient"
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 
@@ -1262,6 +1262,187 @@ func TestCreateVolume(t *testing.T) {
 				mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
 
 				_, err := d.CreateVolume(ctx, req)
+				if !reflect.DeepEqual(err, nil) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "Premium storage account type (sku) loads from storage account when not given as parameter and share request size is increased to min. size required by premium",
+			testFunc: func(t *testing.T) {
+				name := "stoacc"
+				sku := "premium"
+				value := "foo bar"
+				accounts := []storage.Account{
+					{Name: &name, Sku: &storage.Sku{Name: storage.SkuName(sku)}},
+				}
+				keys := storage.AccountListKeysResult{
+					Keys: &[]storage.AccountKey{
+						{Value: &value},
+					},
+				}
+				capRange := &csi.CapacityRange{RequiredBytes: 1024 * 1024 * 1024, LimitBytes: 1024 * 1024 * 1024}
+
+				allParam := map[string]string{
+					locationField:         "loc",
+					storageAccountField:   "stoacc",
+					resourceGroupField:    "rg",
+					shareNameField:        "",
+					diskNameField:         "diskname.vhd",
+					fsTypeField:           "",
+					storeAccountKeyField:  "storeaccountkey",
+					secretNamespaceField:  "default",
+					mountPermissionsField: "0755",
+					accountQuotaField:     "1000",
+					protocolField:         smb,
+				}
+				req := &csi.CreateVolumeRequest{
+					Name:               "vol-1",
+					Parameters:         allParam,
+					VolumeCapabilities: stdVolCap,
+					CapacityRange:      capRange,
+				}
+
+				expectedShareOptions := &fileclient.ShareOptions{Name: "vol-1", Protocol: "SMB", RequestGiB: 100, AccessTier: "", RootSquash: "", Metadata: nil}
+
+				d := NewFakeDriver()
+
+				ctrl := gomock.NewController(t)
+				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
+				mockFileClient := mockfileclient.NewMockInterface(ctrl)
+				d.cloud.FileClient = mockFileClient
+				d.cloud.StorageAccountClient = mockStorageAccountsClient
+
+				mockFileClient.EXPECT().WithSubscriptionID(gomock.Any()).Return(mockFileClient).AnyTimes()
+				mockFileClient.EXPECT().CreateFileShare(context.TODO(), gomock.Any(), gomock.Any(), expectedShareOptions, gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
+				mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().GetProperties(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(accounts[0], nil).AnyTimes()
+
+				_, err := d.CreateVolume(ctx, req)
+
+				if !reflect.DeepEqual(err, nil) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "Premium storage account type (sku) does not load from storage account for size request above min. premium size",
+			testFunc: func(t *testing.T) {
+				name := "stoacc"
+				sku := "premium"
+				value := "foo bar"
+				accounts := []storage.Account{
+					{Name: &name, Sku: &storage.Sku{Name: storage.SkuName(sku)}},
+				}
+				keys := storage.AccountListKeysResult{
+					Keys: &[]storage.AccountKey{
+						{Value: &value},
+					},
+				}
+				capRange := &csi.CapacityRange{RequiredBytes: 1024 * 1024 * 1024 * 100, LimitBytes: 1024 * 1024 * 1024 * 100}
+
+				allParam := map[string]string{
+					locationField:         "loc",
+					storageAccountField:   "stoacc",
+					resourceGroupField:    "rg",
+					shareNameField:        "",
+					diskNameField:         "diskname.vhd",
+					fsTypeField:           "",
+					storeAccountKeyField:  "storeaccountkey",
+					secretNamespaceField:  "default",
+					mountPermissionsField: "0755",
+					accountQuotaField:     "1000",
+					protocolField:         smb,
+				}
+				req := &csi.CreateVolumeRequest{
+					Name:               "vol-1",
+					Parameters:         allParam,
+					VolumeCapabilities: stdVolCap,
+					CapacityRange:      capRange,
+				}
+
+				expectedShareOptions := &fileclient.ShareOptions{Name: "vol-1", Protocol: "SMB", RequestGiB: 100, AccessTier: "", RootSquash: "", Metadata: nil}
+
+				d := NewFakeDriver()
+
+				ctrl := gomock.NewController(t)
+				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
+				mockFileClient := mockfileclient.NewMockInterface(ctrl)
+				d.cloud.FileClient = mockFileClient
+				d.cloud.StorageAccountClient = mockStorageAccountsClient
+
+				mockFileClient.EXPECT().WithSubscriptionID(gomock.Any()).Return(mockFileClient).AnyTimes()
+				mockFileClient.EXPECT().CreateFileShare(context.TODO(), gomock.Any(), gomock.Any(), expectedShareOptions, gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
+				mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+				_, err := d.CreateVolume(ctx, req)
+
+				if !reflect.DeepEqual(err, nil) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "Storage account type (sku) defaults to standard type and share request size is unchanged",
+			testFunc: func(t *testing.T) {
+				name := "stoacc"
+				sku := ""
+				value := "foo bar"
+				accounts := []storage.Account{
+					{Name: &name, Sku: &storage.Sku{Name: storage.SkuName(sku)}},
+				}
+				keys := storage.AccountListKeysResult{
+					Keys: &[]storage.AccountKey{
+						{Value: &value},
+					},
+				}
+				capRange := &csi.CapacityRange{RequiredBytes: 1024 * 1024 * 1024, LimitBytes: 1024 * 1024 * 1024}
+
+				allParam := map[string]string{
+					locationField:         "loc",
+					storageAccountField:   "stoacc",
+					resourceGroupField:    "rg",
+					shareNameField:        "",
+					diskNameField:         "diskname.vhd",
+					fsTypeField:           "",
+					storeAccountKeyField:  "storeaccountkey",
+					secretNamespaceField:  "default",
+					mountPermissionsField: "0755",
+					accountQuotaField:     "1000",
+				}
+				req := &csi.CreateVolumeRequest{
+					Name:               "vol-1",
+					Parameters:         allParam,
+					VolumeCapabilities: stdVolCap,
+					CapacityRange:      capRange,
+				}
+
+				expectedShareOptions := &fileclient.ShareOptions{Name: "vol-1", Protocol: "SMB", RequestGiB: 1, AccessTier: "", RootSquash: "", Metadata: nil}
+
+				d := NewFakeDriver()
+
+				ctrl := gomock.NewController(t)
+				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
+				mockFileClient := mockfileclient.NewMockInterface(ctrl)
+				d.cloud.FileClient = mockFileClient
+				d.cloud.StorageAccountClient = mockStorageAccountsClient
+
+				mockFileClient.EXPECT().WithSubscriptionID(gomock.Any()).Return(mockFileClient).AnyTimes()
+				mockFileClient.EXPECT().CreateFileShare(context.TODO(), gomock.Any(), gomock.Any(), expectedShareOptions, gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
+				mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().GetProperties(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(accounts[0], nil).AnyTimes()
+
+				_, err := d.CreateVolume(ctx, req)
+
 				if !reflect.DeepEqual(err, nil) {
 					t.Errorf("Unexpected error: %v", err)
 				}
