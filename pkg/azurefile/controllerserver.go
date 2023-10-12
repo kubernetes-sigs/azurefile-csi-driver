@@ -108,7 +108,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if acquired := d.volumeLocks.TryAcquire(volName); !acquired {
 		// logging the job status if it's volume cloning
 		if req.GetVolumeContentSource() != nil {
-			jobState, percent, err := getAzcopyJob(volName)
+			jobState, percent, err := d.azcopy.GetAzcopyJob(volName)
 			klog.V(2).Infof("azcopy job status: %s, copy percent: %s%%, error: %v", jobState, percent, err)
 		}
 		return nil, status.Errorf(codes.Aborted, volumeOperationAlreadyExistsFmt, volName)

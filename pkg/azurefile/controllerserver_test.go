@@ -23,11 +23,13 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
-	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"sigs.k8s.io/azurefile-csi-driver/pkg/util"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2022-07-01/network"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/subnetclient/mocksubnetclient"
@@ -1778,6 +1780,95 @@ func TestCopyVolume(t *testing.T) {
 
 				expectedErr := fmt.Errorf("srcFileShareName(fileshare) or dstFileShareName() is empty")
 				err := d.copyVolume(ctx, req, "", &fileclient.ShareOptions{}, "core.windows.net")
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "azcopy job is already completed",
+			testFunc: func(t *testing.T) {
+				d := NewFakeDriver()
+				mp := map[string]string{}
+
+				volumeSource := &csi.VolumeContentSource_VolumeSource{
+					VolumeId: "vol_1#f5713de20cde511e8ba4900#fileshare#",
+				}
+				volumeContentSourceVolumeSource := &csi.VolumeContentSource_Volume{
+					Volume: volumeSource,
+				}
+				volumecontensource := csi.VolumeContentSource{
+					Type: volumeContentSourceVolumeSource,
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:                "unit-test",
+					VolumeCapabilities:  stdVolCap,
+					Parameters:          mp,
+					VolumeContentSource: &volumecontensource,
+				}
+
+				ctrl := gomock.NewController(t)
+				defer ctrl.Finish()
+
+				m := util.NewMockEXEC(ctrl)
+				listStr := "JobId: ed1c3833-eaff-fe42-71d7-513fb065a9d9\nStart Time: Monday, 07-Aug-23 03:29:54 UTC\nStatus: Completed\nCommand: copy https://{accountName}.file.core.windows.net/{srcFileshare}{SAStoken} https://{accountName}.file.core.windows.net/{dstFileshare}{SAStoken} --recursive --check-length=false"
+				m.EXPECT().RunCommand(gomock.Eq("azcopy jobs list | grep dstFileshare -B 3")).Return(listStr, nil)
+				// if test.enableShow {
+				// 	m.EXPECT().RunCommand(gomock.Not("azcopy jobs list | grep dstContainer -B 3")).Return(test.showStr, test.showErr)
+				// }
+
+				d.azcopy.ExecCmd = m
+
+				ctx := context.Background()
+
+				var expectedErr error
+				err := d.copyVolume(ctx, req, "", &fileclient.ShareOptions{Name: "dstFileshare"}, "core.windows.net")
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "azcopy job is first in progress and then be completed",
+			testFunc: func(t *testing.T) {
+				d := NewFakeDriver()
+				mp := map[string]string{}
+
+				volumeSource := &csi.VolumeContentSource_VolumeSource{
+					VolumeId: "vol_1#f5713de20cde511e8ba4900#fileshare#",
+				}
+				volumeContentSourceVolumeSource := &csi.VolumeContentSource_Volume{
+					Volume: volumeSource,
+				}
+				volumecontensource := csi.VolumeContentSource{
+					Type: volumeContentSourceVolumeSource,
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:                "unit-test",
+					VolumeCapabilities:  stdVolCap,
+					Parameters:          mp,
+					VolumeContentSource: &volumecontensource,
+				}
+
+				ctrl := gomock.NewController(t)
+				defer ctrl.Finish()
+
+				m := util.NewMockEXEC(ctrl)
+				listStr1 := "JobId: ed1c3833-eaff-fe42-71d7-513fb065a9d9\nStart Time: Monday, 07-Aug-23 03:29:54 UTC\nStatus: InProgress\nCommand: copy https://{accountName}.file.core.windows.net/{srcFileshare}{SAStoken} https://{accountName}.file.core.windows.net/{dstFileshare}{SAStoken} --recursive --check-length=false"
+				listStr2 := "JobId: ed1c3833-eaff-fe42-71d7-513fb065a9d9\nStart Time: Monday, 07-Aug-23 03:29:54 UTC\nStatus: Completed\nCommand: copy https://{accountName}.file.core.windows.net/{srcFileshare}{SAStoken} https://{accountName}.file.core.windows.net/{dstFileshare}{SAStoken} --recursive --check-length=false"
+				o1 := m.EXPECT().RunCommand(gomock.Eq("azcopy jobs list | grep dstFileshare -B 3")).Return(listStr1, nil).Times(1)
+				m.EXPECT().RunCommand(gomock.Not("azcopy jobs list | grep dstFileshare -B 3")).Return("Percent Complete (approx): 50.0", nil)
+				o2 := m.EXPECT().RunCommand(gomock.Eq("azcopy jobs list | grep dstFileshare -B 3")).Return(listStr2, nil)
+				gomock.InOrder(o1, o2)
+
+				d.azcopy.ExecCmd = m
+
+				ctx := context.Background()
+
+				var expectedErr error
+				err := d.copyVolume(ctx, req, "", &fileclient.ShareOptions{Name: "dstFileshare"}, "core.windows.net")
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
 				}
