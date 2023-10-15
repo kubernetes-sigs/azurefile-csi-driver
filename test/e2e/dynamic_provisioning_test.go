@@ -1322,10 +1322,11 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 		// print azure file driver logs before driver restart
 		azurefileLog := testCmd{
-			command:  "bash",
-			args:     []string{"test/utils/azurefile_log.sh"},
-			startLog: "===================azurefile log (before restart)===================",
-			endLog:   "====================================================================",
+			command:     "bash",
+			args:        []string{"test/utils/azurefile_log.sh"},
+			startLog:    "===================azurefile log (before restart)===================",
+			endLog:      "====================================================================",
+			ignoreError: true,
 		}
 		execTestCmd([]testCmd{azurefileLog})
 
