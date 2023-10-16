@@ -23,6 +23,13 @@ if [[ "$#" -gt 0 ]]; then
     DRIVER=$1
 fi
 
+cleanup() {
+    echo "hit unexpected error during log print, exit 0"
+    exit 0
+}
+
+trap cleanup ERR
+
 echo "print out all nodes status ..."
 kubectl get nodes -o wide
 echo "======================================================================================"
