@@ -23,6 +23,13 @@ if [[ "$#" -gt 0 ]]; then
     DRIVER=$1
 fi
 
+cleanup() {
+    echo "hit unexpected error during log print, exit 0"
+    exit 0
+}
+
+trap cleanup ERR
+
 echo "print out all nodes status ..."
 kubectl get nodes -o wide
 echo "======================================================================================"
@@ -63,7 +70,12 @@ kubectl get pods -n${NS} -l${LABEL} \
     | awk 'NR>1 {print $1}' \
     | xargs -I {} bash -c "echo 'dumping logs for ${NS}/{}/${DRIVER}' && kubectl logs {} -c${CONTAINER} -n${NS}"
 
-#echo "print out cloudprovider_azure metrics ..."
-#echo "======================================================================================"
-#ip=`kubectl get svc csi-${DRIVER}-controller -n kube-system | awk '{print $4}'`
-#curl http://$ip:29614/metrics
+echo "======================================================================================"
+ip=`kubectl get svc csi-${DRIVER}-controller -n kube-system | awk '{print $4}'`
+if echo "$ip" | grep -q "\."; then
+    echo "print out cloudprovider_azure metrics ..."
+    curl http://$ip:29614/metrics
+else
+    echo "csi-$DRIVER-controller service ip is empty"
+    kubectl get svc csi-$DRIVER-controller -n kube-system
+fi
