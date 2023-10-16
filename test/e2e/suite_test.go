@@ -67,10 +67,11 @@ var (
 )
 
 type testCmd struct {
-	command  string
-	args     []string
-	startLog string
-	endLog   string
+	command     string
+	args        []string
+	startLog    string
+	endLog      string
+	ignoreError bool
 }
 
 var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
@@ -190,10 +191,11 @@ var _ = ginkgo.AfterSuite(func(ctx ginkgo.SpecContext) {
 			execTestCmd([]testCmd{createExampleDeployment})
 
 			azurefileLog := testCmd{
-				command:  "bash",
-				args:     []string{"test/utils/azurefile_log.sh"},
-				startLog: "===================azurefile log===================",
-				endLog:   "===================================================",
+				command:     "bash",
+				args:        []string{"test/utils/azurefile_log.sh"},
+				startLog:    "===================azurefile log===================",
+				endLog:      "===================================================",
+				ignoreError: true,
 			}
 			e2eTeardown := testCmd{
 				command:  "make",
@@ -267,7 +269,12 @@ func execTestCmd(cmds []testCmd) {
 		cmdSh.Stdout = os.Stdout
 		cmdSh.Stderr = os.Stderr
 		err = cmdSh.Run()
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		if err != nil {
+			log.Println(err)
+			if !cmd.ignoreError {
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			}
+		}
 		log.Println(cmd.endLog)
 	}
 }
