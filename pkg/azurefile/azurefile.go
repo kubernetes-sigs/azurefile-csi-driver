@@ -46,6 +46,7 @@ import (
 
 	csicommon "sigs.k8s.io/azurefile-csi-driver/pkg/csi-common"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/mounter"
+	fileutil "sigs.k8s.io/azurefile-csi-driver/pkg/util"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
@@ -269,6 +270,8 @@ type Driver struct {
 	volStatsCache azcache.Resource
 	// sas expiry time for azcopy in volume clone
 	sasTokenExpirationMinutes int
+	// azcopy for provide exec mock for ut
+	azcopy *fileutil.Azcopy
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -300,6 +303,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.volLockMap = newLockMap()
 	driver.subnetLockMap = newLockMap()
 	driver.volumeLocks = newVolumeLocks()
+	driver.azcopy = &fileutil.Azcopy{}
 
 	var err error
 	getter := func(key string) (interface{}, error) { return nil, nil }
@@ -928,21 +932,21 @@ func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest
 	srcPath := fmt.Sprintf("https://%s.file.%s/%s%s", accountName, storageEndpointSuffix, srcFileShareName, accountSasToken)
 	dstPath := fmt.Sprintf("https://%s.file.%s/%s%s", accountName, storageEndpointSuffix, dstFileShareName, accountSasToken)
 
-	jobState, percent, err := getAzcopyJob(dstFileShareName)
+	jobState, percent, err := d.azcopy.GetAzcopyJob(dstFileShareName)
 	klog.V(2).Infof("azcopy job status: %s, copy percent: %s%%, error: %v", jobState, percent, err)
-	if jobState == AzcopyJobError || jobState == AzcopyJobCompleted {
+	if jobState == fileutil.AzcopyJobError || jobState == fileutil.AzcopyJobCompleted {
 		return err
 	}
 	klog.V(2).Infof("begin to copy fileshare %s to %s", srcFileShareName, dstFileShareName)
 	for {
 		select {
 		case <-timeTick:
-			jobState, percent, err := getAzcopyJob(dstFileShareName)
+			jobState, percent, err := d.azcopy.GetAzcopyJob(dstFileShareName)
 			klog.V(2).Infof("azcopy job status: %s, copy percent: %s%%, error: %v", jobState, percent, err)
 			switch jobState {
-			case AzcopyJobError, AzcopyJobCompleted:
+			case fileutil.AzcopyJobError, fileutil.AzcopyJobCompleted:
 				return err
-			case AzcopyJobNotFound:
+			case fileutil.AzcopyJobNotFound:
 				klog.V(2).Infof("copy fileshare %s to %s", srcFileShareName, dstFileShareName)
 				out, copyErr := exec.Command("azcopy", "copy", srcPath, dstPath, "--recursive", "--check-length=false").CombinedOutput()
 				if copyErr != nil {
