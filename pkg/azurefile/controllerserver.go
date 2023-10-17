@@ -995,7 +995,11 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		itemSnapshotTime = properties.LastModified()
 		itemSnapshotQuota = properties.Quota()
 	} else {
-		snapshotShare, err := d.cloud.FileClient.WithSubscriptionID(subsID).CreateFileShare(ctx, rgName, accountName, &fileclient.ShareOptions{Name: fileShareName, RequestGiB: defaultAzureFileQuota, Metadata: map[string]*string{snapshotNameKey: &snapshotName}}, snapshotsExpand)
+		fileshare, err := d.cloud.FileClient.WithSubscriptionID(subsID).GetFileShare(ctx, rgName, accountName, fileShareName, "")
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "get fileshare from(%s) failed with %v, accountName: %q", sourceVolumeID, err, accountName)
+		}
+		snapshotShare, err := d.cloud.FileClient.WithSubscriptionID(subsID).CreateFileShare(ctx, rgName, accountName, &fileclient.ShareOptions{Name: fileShareName, RequestGiB: int(pointer.Int32Deref(fileshare.ShareQuota, defaultAzureFileQuota)), Metadata: map[string]*string{snapshotNameKey: &snapshotName}}, snapshotsExpand)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "create snapshot from(%s) failed with %v, accountName: %q", sourceVolumeID, err, accountName)
 		}
