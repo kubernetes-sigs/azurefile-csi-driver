@@ -87,6 +87,7 @@ spec:
             - --endpoint=$(CSI_ENDPOINT)
             - --nodeid=$(KUBE_NODE_NAME)
             - --enable-windows-host-process=true
+            - --metrics-address="0.0.0.0:29615"
           env:
             - name: AZURE_CREDENTIAL_FILE
               valueFrom:
