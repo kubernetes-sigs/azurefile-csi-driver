@@ -37,6 +37,7 @@ import (
 	"golang.org/x/net/context"
 
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
+	"sigs.k8s.io/cloud-provider-azure/pkg/metrics"
 )
 
 // NodePublishVolume mount the volume from staging to target path
@@ -157,6 +158,12 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	mountFlags := req.GetVolumeCapability().GetMount().GetMountFlags()
 	volumeMountGroup := req.GetVolumeCapability().GetMount().GetVolumeMountGroup()
 	gidPresent := checkGidPresentInMountFlags(mountFlags)
+
+	mc := metrics.NewMetricContext(azureFileCSIDriverName, "node_stage_volume", d.cloud.ResourceGroup, "", d.Name)
+	isOperationSucceeded := false
+	defer func() {
+		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
+	}()
 
 	_, accountName, accountKey, fileShareName, diskName, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), context)
 	if err != nil {
@@ -369,6 +376,8 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			}
 		}
 	}
+
+	isOperationSucceeded = true
 	return &csi.NodeStageVolumeResponse{}, nil
 }
 
@@ -388,6 +397,12 @@ func (d *Driver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolu
 	}
 	defer d.volumeLocks.Release(volumeID)
 
+	mc := metrics.NewMetricContext(azureFileCSIDriverName, "node_unstage_volume", d.cloud.ResourceGroup, "", d.Name)
+	isOperationSucceeded := false
+	defer func() {
+		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
+	}()
+
 	klog.V(2).Infof("NodeUnstageVolume: CleanupMountPoint volume %s on %s", volumeID, stagingTargetPath)
 	if err := CleanupMountPoint(d.mounter, stagingTargetPath, true /*extensiveMountPointCheck*/); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to unmount staging target %s: %v", stagingTargetPath, err)
@@ -400,6 +415,7 @@ func (d *Driver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolu
 	}
 	klog.V(2).Infof("NodeUnstageVolume: unmount volume %s on %s successfully", volumeID, stagingTargetPath)
 
+	isOperationSucceeded = true
 	return &csi.NodeUnstageVolumeResponse{}, nil
 }
 
@@ -472,6 +488,12 @@ func (d *Driver) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeS
 		klog.V(6).Infof("NodeGetVolumeStats: begin to get VolumeStats on volume %s path %s", req.VolumeId, req.VolumePath)
 	}
 
+	mc := metrics.NewMetricContext(azureFileCSIDriverName, "node_get_volume_stats", d.cloud.ResourceGroup, "", d.Name)
+	isOperationSucceeded := false
+	defer func() {
+		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, req.VolumeId)
+	}()
+
 	resp, err := GetVolumeStats(req.VolumePath, d.enableWindowsHostProcess)
 	if err == nil && resp != nil {
 		if d.printVolumeStatsCallLogs {
@@ -485,6 +507,7 @@ func (d *Driver) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeS
 			d.volStatsCache.Set(newVolID, *resp)
 		}
 	}
+	isOperationSucceeded = true
 	return resp, err
 }
 
