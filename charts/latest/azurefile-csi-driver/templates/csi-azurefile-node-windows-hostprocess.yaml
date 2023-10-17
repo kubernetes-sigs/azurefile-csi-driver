@@ -124,6 +124,7 @@ spec:
             - "--allow-empty-cloud-config={{ .Values.node.allowEmptyCloudConfig }}"
             - "--enable-get-volume-stats={{ .Values.feature.enableGetVolumeStats }}"
             - "--enable-windows-host-process=true"
+            - "--metrics-address=0.0.0.0:{{ .Values.node.metricsPort }}"
           env:
             - name: AZURE_CREDENTIAL_FILE
               valueFrom:
