@@ -137,6 +137,7 @@ spec:
             - "--allow-empty-cloud-config={{ .Values.node.allowEmptyCloudConfig }}"
             - "--enable-get-volume-stats={{ .Values.feature.enableGetVolumeStats }}"
             - "--allow-inline-volume-key-access-with-identity={{ .Values.node.allowInlineVolumeKeyAccessWithIdentity }}"
+            - "--metrics-address=0.0.0.0:{{ .Values.node.metricsPort }}"
           ports:
             - containerPort: {{ .Values.node.livenessProbe.healthPort }}
               name: healthz
