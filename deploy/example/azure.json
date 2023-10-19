@@ -6,8 +6,8 @@
     "location": "eastus2",                         // mandatory
     "aadClientId": "xxxx-xxxx-xxxx-xxxx-xxxx",     // mandatory if using service principal
     "aadClientSecret": "xxxx-xxxx-xxxx-xxxx-xxxx", // mandatory if using service principal
-    "useManagedIdentityExtension": false,          // set true if using managed idenitty
-    "userAssignedIdentityID": "",                  // mandatory if using managed idenitty
+    "useManagedIdentityExtension": false,          // set true if using managed identity
+    "userAssignedIdentityID": "",                  // mandatory if using managed identity
     "useInstanceMetadata": true,                   // optional
     "vmType": "standard",                          // optional
     "subnetName": "k8s-subnet",                    // optional
