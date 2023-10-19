@@ -31,7 +31,7 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: csi-provisioner
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-provisioner:v3.5.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-provisioner:v3.6.1
           args:
             - "-v=2"
             - "--csi-address=$(ADDRESS)"
@@ -55,7 +55,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: csi-attacher
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-attacher:v4.3.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-attacher:v4.4.1
           args:
             - "-v=2"
             - "-csi-address=$(ADDRESS)"
@@ -96,7 +96,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: csi-resizer
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-resizer:v1.8.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-resizer:v1.9.1
           args:
             - "-csi-address=$(ADDRESS)"
             - "-v=2"
