@@ -15,7 +15,7 @@ require (
 	github.com/kubernetes-csi/csi-lib-utils v0.14.0
 	github.com/kubernetes-csi/csi-proxy/client v1.0.1
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
-	github.com/onsi/gomega v1.28.0
+	github.com/onsi/gomega v1.28.1
 	github.com/pborman/uuid v1.2.0
 	github.com/pelletier/go-toml v1.9.4
 	github.com/rubiojr/go-vhd v0.0.0-20200706105327-02e210299021
@@ -29,7 +29,7 @@ require (
 	k8s.io/cloud-provider v0.28.1
 	k8s.io/component-base v0.28.1
 	k8s.io/klog/v2 v2.100.1
-	k8s.io/kubernetes v1.28.2
+	k8s.io/kubernetes v1.28.3
 	k8s.io/mount-utils v0.28.2
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
 	sigs.k8s.io/cloud-provider-azure v1.27.1-0.20230907063607-e9994a5f9c7a
@@ -41,7 +41,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.3.1
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azfile v1.1.0
 	github.com/jongio/azidext/go/azidext v0.5.0
-	github.com/onsi/ginkgo/v2 v2.12.0
+	github.com/onsi/ginkgo/v2 v2.13.0
 	golang.org/x/sys v0.13.0
 	k8s.io/pod-security-admission v0.27.4
 )
@@ -84,7 +84,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/cel-go v0.16.1 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1 // indirect
 	github.com/google/uuid v1.3.1 // indirect
