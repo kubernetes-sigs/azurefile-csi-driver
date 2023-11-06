@@ -12,7 +12,7 @@ require (
 	github.com/gofrs/uuid v4.4.0+incompatible // indirect
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.3
-	github.com/kubernetes-csi/csi-lib-utils v0.14.0
+	github.com/kubernetes-csi/csi-lib-utils v0.15.0
 	github.com/kubernetes-csi/csi-proxy/client v1.0.1
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/onsi/gomega v1.28.0
@@ -29,7 +29,7 @@ require (
 	k8s.io/cloud-provider v0.28.1
 	k8s.io/component-base v0.28.1
 	k8s.io/klog/v2 v2.100.1
-	k8s.io/kubernetes v1.28.2
+	k8s.io/kubernetes v1.28.3
 	k8s.io/mount-utils v0.28.2
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
 	sigs.k8s.io/cloud-provider-azure v1.27.1-0.20230907063607-e9994a5f9c7a

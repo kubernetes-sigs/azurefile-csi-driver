@@ -285,7 +285,7 @@ github.com/josharian/intern
 # github.com/json-iterator/go v1.1.12
 ## explicit; go 1.12
 github.com/json-iterator/go
-# github.com/kubernetes-csi/csi-lib-utils v0.14.0
+# github.com/kubernetes-csi/csi-lib-utils v0.15.0
 ## explicit; go 1.18
 github.com/kubernetes-csi/csi-lib-utils/protosanitizer
 # github.com/kubernetes-csi/csi-proxy/client v1.0.1
@@ -1457,7 +1457,7 @@ k8s.io/kubectl/pkg/util/podutils
 # k8s.io/kubelet v0.28.1 => k8s.io/kubelet v0.28.1
 ## explicit; go 1.20
 k8s.io/kubelet/pkg/apis
-# k8s.io/kubernetes v1.28.2
+# k8s.io/kubernetes v1.28.3
 ## explicit; go 1.20
 k8s.io/kubernetes/pkg/api/legacyscheme
 k8s.io/kubernetes/pkg/api/service
