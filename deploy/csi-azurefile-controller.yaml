@@ -77,7 +77,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: csi-snapshotter
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-snapshotter:v6.2.2
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-snapshotter:v6.3.1
           args:
             - "-v=2"
             - "-csi-address=$(ADDRESS)"
