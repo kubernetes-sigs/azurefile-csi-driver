@@ -42,7 +42,7 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: csi-snapshot-controller
-          image: mcr.microsoft.com/oss/kubernetes-csi/snapshot-controller:v6.2.2
+          image: mcr.microsoft.com/oss/kubernetes-csi/snapshot-controller:v6.3.1
           args:
             - "--v=2"
             - "--leader-election=true"
