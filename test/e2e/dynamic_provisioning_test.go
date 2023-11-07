@@ -1487,7 +1487,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		skipIfUsingInTreeVolumePlugin()
 
 		pod := testsuites.PodDetails{
-			Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data && dd if=/dev/zero of=/mnt/test-1/test bs=99G count=5",
+			Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data && dd if=/dev/zero of=/mnt/test-1/test bs=19G count=5",
 			Volumes: []testsuites.VolumeDetails{
 				{
 					ClaimSize: "100Gi",
