@@ -404,7 +404,7 @@ func setServiceLoadBalancerIP(service *v1.Service, ip string) {
 	}
 	parsedIP := net.ParseIP(ip)
 	if parsedIP == nil {
-		klog.Warning("setServiceLoadBalancerIP: IP %q is not valid for Service", ip, service.Name)
+		klog.Warningf("setServiceLoadBalancerIP: IP %q is not valid for Service %q", ip, service.Name)
 		return
 	}
 
@@ -453,7 +453,7 @@ func getServicePIPPrefixID(service *v1.Service, isIPv6 bool) string {
 // the old PIPs will be recreated.
 func getResourceByIPFamily(resource string, isDualStack, isIPv6 bool) string {
 	if isDualStack && isIPv6 {
-		return fmt.Sprintf("%s-%s", resource, v6Suffix)
+		return fmt.Sprintf("%s-%s", resource, consts.IPVersionIPv6String)
 	}
 	return resource
 }
@@ -603,4 +603,19 @@ func getServiceIPFamily(service *v1.Service) string {
 		}
 	}
 	return consts.IPVersionIPv4String
+}
+
+// getResourceGroupAndNameFromNICID parses the ip configuration ID to get the resource group and nic name.
+func getResourceGroupAndNameFromNICID(ipConfigurationID string) (string, string, error) {
+	matches := nicIDRE.FindStringSubmatch(ipConfigurationID)
+	if len(matches) != 3 {
+		klog.V(4).Infof("Can not extract nic name from ipConfigurationID (%s)", ipConfigurationID)
+		return "", "", fmt.Errorf("invalid ip config ID %s", ipConfigurationID)
+	}
+
+	nicResourceGroup, nicName := matches[1], matches[2]
+	if nicResourceGroup == "" || nicName == "" {
+		return "", "", fmt.Errorf("invalid ip config ID %s", ipConfigurationID)
+	}
+	return nicResourceGroup, nicName, nil
 }

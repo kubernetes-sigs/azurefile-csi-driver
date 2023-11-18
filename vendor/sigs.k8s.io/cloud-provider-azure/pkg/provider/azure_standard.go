@@ -54,14 +54,6 @@ var (
 	vmasIDRE           = regexp.MustCompile(`/subscriptions/(?:.*)/resourceGroups/(?:.*)/providers/Microsoft.Compute/availabilitySets/(.+)`)
 )
 
-const (
-	v6Suffix = "IPv6"
-)
-
-var (
-	v6SuffixLower = strings.ToLower(v6Suffix)
-)
-
 // returns the full identifier of an availabilitySet
 func (az *Cloud) getAvailabilitySetID(resourceGroup, availabilitySetName string) string {
 	return fmt.Sprintf(
@@ -270,7 +262,7 @@ func isInternalLoadBalancer(lb *network.LoadBalancer) bool {
 // clusters moving from IPv6 to dualstack will require no changes as the IPv4 backend pool will created with <clusterName>
 func getBackendPoolName(clusterName string, isIPv6 bool) string {
 	if isIPv6 {
-		return fmt.Sprintf("%s-%s", clusterName, v6Suffix)
+		return fmt.Sprintf("%s-%s", clusterName, consts.IPVersionIPv6String)
 	}
 
 	return clusterName
@@ -290,7 +282,7 @@ func isBackendPoolIPv6(name string) bool {
 }
 
 func managedResourceHasIPv6Suffix(name string) bool {
-	return strings.HasSuffix(strings.ToLower(name), fmt.Sprintf("-%s", v6SuffixLower))
+	return strings.HasSuffix(strings.ToLower(name), fmt.Sprintf("-%s", consts.IPVersionIPv6StringLower))
 }
 
 func (az *Cloud) getLoadBalancerRuleName(service *v1.Service, protocol v1.Protocol, port int32, isIPv6 bool) string {
@@ -351,12 +343,6 @@ func (az *Cloud) getPublicIPName(clusterName string, service *v1.Service, isIPv6
 		}
 	}
 	return getResourceByIPFamily(pipName, isDualStack, isIPv6), nil
-}
-
-// TODO: UT
-func (az *Cloud) serviceOwnsRule(service *v1.Service, rule string) bool {
-	prefix := az.getRulePrefix(service)
-	return strings.HasPrefix(strings.ToUpper(rule), strings.ToUpper(prefix))
 }
 
 func publicIPOwnsFrontendIP(service *v1.Service, fip *network.FrontendIPConfiguration, pip *network.PublicIPAddress) bool {
@@ -523,8 +509,8 @@ func (as *availabilitySet) GetPowerStatusByNodeName(name string) (powerState str
 	}
 
 	// vm.InstanceView or vm.InstanceView.Statuses are nil when the VM is under deleting.
-	klog.V(3).Infof("InstanceView for node %q is nil, assuming it's stopped", name)
-	return vmPowerStateStopped, nil
+	klog.V(3).Infof("InstanceView for node %q is nil, assuming it's deleting", name)
+	return vmPowerStateUnknown, nil
 }
 
 // GetProvisioningStateByNodeName returns the provisioningState for the specified node.

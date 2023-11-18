@@ -501,7 +501,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 					}
 					klog.V(2).Infof("total used quota on account(%s) is %d GB, file share number: %d", accountName, totalQuotaGB, fileshareNum)
 					if totalQuotaGB > accountQuota {
-						klog.Warningf("account(%s) used quota(%d GB) is over %d GB, skip matching current account", accountName, accountQuota, totalQuotaGB)
+						klog.Warningf("account(%s) used quota(%d GB) is over %d GB, skip matching current account", accountName, totalQuotaGB, accountQuota)
 						if rerr := d.cloud.AddStorageAccountTags(ctx, subsID, resourceGroup, accountName, skipMatchingTag); rerr != nil {
 							klog.Warningf("AddStorageAccountTags(%v) on account(%s) subsID(%s) rg(%s) failed with error: %v", tags, accountName, subsID, resourceGroup, rerr.Error())
 						}
