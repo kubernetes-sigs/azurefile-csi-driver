@@ -73,7 +73,7 @@ func pathExists(path string) (bool, error) {
 }
 
 // PathExists checks if the given path exists on the host.
-func PathExists(ctx context.Context, request *PathExistsRequest) (bool, error) {
+func PathExists(_ context.Context, request *PathExistsRequest) (bool, error) {
 	klog.V(2).Infof("Request: PathExists with path=%q", request.Path)
 	err := ValidatePathWindows(request.Path)
 	if err != nil {
@@ -130,7 +130,7 @@ func ValidatePathWindows(path string) error {
 	return nil
 }
 
-func Mkdir(ctx context.Context, request *MkdirRequest) error {
+func Mkdir(_ context.Context, request *MkdirRequest) error {
 	klog.V(2).Infof("Request: Mkdir with path=%q", request.Path)
 	err := ValidatePathWindows(request.Path)
 	if err != nil {
@@ -146,7 +146,7 @@ func Mkdir(ctx context.Context, request *MkdirRequest) error {
 	return err
 }
 
-func Rmdir(ctx context.Context, request *RmdirRequest) error {
+func Rmdir(_ context.Context, request *RmdirRequest) error {
 	klog.V(2).Infof("Request: Rmdir with path=%q", request.Path)
 	err := ValidatePathWindows(request.Path)
 	if err != nil {
@@ -179,7 +179,7 @@ func LinkPath(ctx context.Context, request *LinkPathRequest) error {
 	return nil
 }
 
-func CreateSymlink(ctx context.Context, request *CreateSymlinkRequest) error {
+func CreateSymlink(_ context.Context, request *CreateSymlinkRequest) error {
 	klog.V(2).Infof("Request: CreateSymlink with targetPath=%q sourcePath=%q", request.TargetPath, request.SourcePath)
 	err := ValidatePathWindows(request.TargetPath)
 	if err != nil {
@@ -211,7 +211,7 @@ func IsMountPoint(ctx context.Context, request *IsMountPointRequest) (bool, erro
 	return isSymlink, err
 }
 
-func IsSymlink(ctx context.Context, request *IsSymlinkRequest) (bool, error) {
+func IsSymlink(_ context.Context, request *IsSymlinkRequest) (bool, error) {
 	klog.V(2).Infof("Request: IsSymlink with path=%q", request.Path)
 	isSymlink, err := isSymlink(request.Path)
 	if err != nil {
