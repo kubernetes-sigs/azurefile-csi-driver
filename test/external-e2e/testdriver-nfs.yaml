@@ -22,3 +22,5 @@ DriverInfo:
   StressTestOptions:
     NumPods: 10
     NumRestarts: 10
+  SupportedSizeRange:
+    Min: 100Gi
