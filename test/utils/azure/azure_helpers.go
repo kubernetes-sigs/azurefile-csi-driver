@@ -72,7 +72,7 @@ func (az *Client) GetAzureFilesClient() (storage.FileSharesClient, error) {
 	return az.filesharesClient, nil
 }
 
-func (az *Client) EnsureSSHPublicKey(ctx context.Context, subscriptionID, resourceGroupName, location, keyName string) (publicKey string, err error) {
+func (az *Client) EnsureSSHPublicKey(ctx context.Context, _, resourceGroupName, location, keyName string) (publicKey string, err error) {
 	_, err = az.sshPublicKeysClient.Create(ctx, resourceGroupName, keyName, compute.SSHPublicKeyResource{Location: &location})
 	if err != nil {
 		return "", err
@@ -313,7 +313,7 @@ func getCloudConfig(env azure.Environment) cloud.Configuration {
 	}
 }
 
-func getClient(env azure.Environment, subscriptionID, tenantID string, cred *azidentity.ClientSecretCredential, scope string) *Client {
+func getClient(env azure.Environment, subscriptionID, _ string, cred *azidentity.ClientSecretCredential, scope string) *Client {
 	c := &Client{
 		environment:         env,
 		subscriptionID:      subscriptionID,
