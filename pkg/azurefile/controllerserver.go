@@ -575,7 +575,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
 		}
-		if err := d.copyVolume(ctx, req, accountKeyCopy, shareOptions, storageEndpointSuffix); err != nil {
+		if err := d.copyVolume(req, accountKeyCopy, shareOptions, storageEndpointSuffix); err != nil {
 			return nil, err
 		}
 		// storeAccountKey is not needed here since copy volume is only using SAS token
@@ -725,13 +725,14 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
-func (d *Driver) copyVolume(ctx context.Context, req *csi.CreateVolumeRequest, accountKey string, shareOptions *fileclient.ShareOptions, storageEndpointSuffix string) error {
+// copyVolume copy an azure file
+func (d *Driver) copyVolume(req *csi.CreateVolumeRequest, accountKey string, shareOptions *fileclient.ShareOptions, storageEndpointSuffix string) error {
 	vs := req.VolumeContentSource
 	switch vs.Type.(type) {
 	case *csi.VolumeContentSource_Snapshot:
 		return status.Errorf(codes.InvalidArgument, "copy volume from volumeSnapshot is not supported")
 	case *csi.VolumeContentSource_Volume:
-		return d.copyFileShare(ctx, req, accountKey, shareOptions, storageEndpointSuffix)
+		return d.copyFileShare(req, accountKey, shareOptions, storageEndpointSuffix)
 	default:
 		return status.Errorf(codes.InvalidArgument, "%v is not a proper volume source", vs)
 	}
