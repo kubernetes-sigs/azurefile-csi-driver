@@ -643,8 +643,7 @@ func TestParseAzcopyJobList(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		dstFileShare := "dstFileShare"
-		jobid, jobState, err := parseAzcopyJobList(test.str, dstFileShare)
+		jobid, jobState, err := parseAzcopyJobList(test.str)
 		if jobid != test.expectedJobid || jobState != test.expectedJobState || !reflect.DeepEqual(err, test.expectedErr) {
 			t.Errorf("test[%s]: unexpected jobid: %v, jobState: %v, err: %v, expected jobid: %v, jobState: %v, err: %v", test.desc, jobid, jobState, err, test.expectedJobid, test.expectedJobState, test.expectedErr)
 		}

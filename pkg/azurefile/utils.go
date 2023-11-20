@@ -295,7 +295,7 @@ func getAzcopyJob(dstFileshare string) (AzcopyJobState, string, error) {
 		klog.Warningf("failed to get azcopy job with error: %v, jobState: %v", err, AzcopyJobError)
 		return AzcopyJobError, "", fmt.Errorf("couldn't list jobs in azcopy %v", err)
 	}
-	jobid, jobState, err := parseAzcopyJobList(string(out), dstFileshare)
+	jobid, jobState, err := parseAzcopyJobList(string(out))
 	if err != nil || jobState == AzcopyJobError {
 		klog.Warningf("failed to get azcopy job with error: %v, jobState: %v", err, jobState)
 		return AzcopyJobError, "", fmt.Errorf("couldn't parse azcopy job list in azcopy %v", err)
@@ -322,7 +322,7 @@ func getAzcopyJob(dstFileshare string) (AzcopyJobState, string, error) {
 	return jobState, percent, nil
 }
 
-func parseAzcopyJobList(joblist string, dstFileShareName string) (string, AzcopyJobState, error) {
+func parseAzcopyJobList(joblist string) (string, AzcopyJobState, error) {
 	jobid := ""
 	jobSegments := strings.Split(joblist, "JobId: ")
 	if len(jobSegments) < 2 {

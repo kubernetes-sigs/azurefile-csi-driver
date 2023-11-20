@@ -44,9 +44,9 @@ func (t *DynamicallyProvisionedInlineVolumeTest) Run(ctx context.Context, client
 		var tpod *TestPod
 		var cleanup []func()
 		if t.CSIInlineVolume {
-			tpod, cleanup = pod.SetupWithCSIInlineVolumes(client, namespace, t.CSIDriver, t.SecretName, t.ShareName, t.Server, t.ReadOnly)
+			tpod, cleanup = pod.SetupWithCSIInlineVolumes(client, namespace, t.SecretName, t.ShareName, t.Server, t.ReadOnly)
 		} else {
-			tpod, cleanup = pod.SetupWithInlineVolumes(client, namespace, t.CSIDriver, t.SecretName, t.ShareName, t.ReadOnly)
+			tpod, cleanup = pod.SetupWithInlineVolumes(client, namespace, t.SecretName, t.ShareName, t.ReadOnly)
 		}
 
 		// defer must be called here for resources not get removed before using them

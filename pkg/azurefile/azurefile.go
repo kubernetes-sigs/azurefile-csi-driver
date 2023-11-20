@@ -900,8 +900,8 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 	})
 }
 
-// CopyFileShare copies a fileshare in the same storage account
-func (d *Driver) copyFileShare(_ context.Context, req *csi.CreateVolumeRequest, accountKey string, shareOptions *fileclient.ShareOptions, storageEndpointSuffix string) error {
+// copyFileShare copies a fileshare in the same storage account
+func (d *Driver) copyFileShare(req *csi.CreateVolumeRequest, accountKey string, shareOptions *fileclient.ShareOptions, storageEndpointSuffix string) error {
 	if shareOptions.Protocol == storage.EnabledProtocolsNFS {
 		return fmt.Errorf("protocol nfs is not supported for volume cloning")
 	}
