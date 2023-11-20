@@ -22,6 +22,24 @@ type AccessToken = exported.AccessToken
 // TokenCredential represents a credential capable of providing an OAuth token.
 type TokenCredential = exported.TokenCredential
 
+// KeyCredential contains an authentication key used to authenticate to an Azure service.
+type KeyCredential = exported.KeyCredential
+
+// NewKeyCredential creates a new instance of [KeyCredential] with the specified values.
+//   - key is the authentication key
+func NewKeyCredential(key string) *KeyCredential {
+	return exported.NewKeyCredential(key)
+}
+
+// SASCredential contains a shared access signature used to authenticate to an Azure service.
+type SASCredential = exported.SASCredential
+
+// NewSASCredential creates a new instance of [SASCredential] with the specified values.
+//   - sas is the shared access signature
+func NewSASCredential(sas string) *SASCredential {
+	return exported.NewSASCredential(sas)
+}
+
 // holds sentinel values used to send nulls
 var nullables map[reflect.Type]interface{} = map[reflect.Type]interface{}{}
 
@@ -73,6 +91,10 @@ type ClientOptions = policy.ClientOptions
 type Client struct {
 	pl runtime.Pipeline
 	tr tracing.Tracer
+
+	// cached on the client to support shallow copying with new values
+	tp     tracing.Provider
+	modVer string
 }
 
 // NewClient creates a new Client instance with the provided values.
@@ -100,7 +122,13 @@ func NewClient(clientName, moduleVersion string, plOpts runtime.PipelineOptions,
 	pl := runtime.NewPipeline(mod, moduleVersion, plOpts, options)
 
 	tr := options.TracingProvider.NewTracer(client, moduleVersion)
-	return &Client{pl: pl, tr: tr}, nil
+
+	return &Client{
+		pl:     pl,
+		tr:     tr,
+		tp:     options.TracingProvider,
+		modVer: moduleVersion,
+	}, nil
 }
 
 // Pipeline returns the pipeline for this client.
@@ -111,4 +139,12 @@ func (c *Client) Pipeline() runtime.Pipeline {
 // Tracer returns the tracer for this client.
 func (c *Client) Tracer() tracing.Tracer {
 	return c.tr
+}
+
+// WithClientName returns a shallow copy of the Client with its tracing client name changed to clientName.
+// Note that the values for module name and version will be preserved from the source Client.
+//   - clientName - the fully qualified name of the client ("package.Client"); this is used by the tracing provider when creating spans
+func (c *Client) WithClientName(clientName string) *Client {
+	tr := c.tp.NewTracer(clientName, c.modVer)
+	return &Client{pl: c.pl, tr: tr, tp: c.tp, modVer: c.modVer}
 }
