@@ -12,3 +12,5 @@ volumeBindingMode: Immediate
 allowVolumeExpansion: true
 mountOptions:
   - nconnect=4
+  - noresvport
+  - actimeo=30
