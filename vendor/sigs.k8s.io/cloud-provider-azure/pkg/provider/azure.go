@@ -218,9 +218,6 @@ type Config struct {
 	// NonVmssUniformNodesCacheTTLInSeconds sets the Cache TTL for NonVmssUniformNodesCacheTTLInSeconds
 	// if not set, will use default value
 	NonVmssUniformNodesCacheTTLInSeconds int `json:"nonVmssUniformNodesCacheTTLInSeconds,omitempty" yaml:"nonVmssUniformNodesCacheTTLInSeconds,omitempty"`
-	// AvailabilitySetNodesCacheTTLInSeconds sets the Cache TTL for availabilitySetNodesCache
-	// if not set, will use default value
-	AvailabilitySetNodesCacheTTLInSeconds int `json:"availabilitySetNodesCacheTTLInSeconds,omitempty" yaml:"availabilitySetNodesCacheTTLInSeconds,omitempty"`
 	// VmssCacheTTLInSeconds sets the cache TTL for VMSS
 	VmssCacheTTLInSeconds int `json:"vmssCacheTTLInSeconds,omitempty" yaml:"vmssCacheTTLInSeconds,omitempty"`
 	// VmssVirtualMachinesCacheTTLInSeconds sets the cache TTL for vmssVirtualMachines
@@ -281,6 +278,16 @@ type Config struct {
 	RouteUpdateIntervalInSeconds int `json:"routeUpdateIntervalInSeconds,omitempty" yaml:"routeUpdateIntervalInSeconds,omitempty"`
 	// LoadBalancerBackendPoolUpdateIntervalInSeconds is the interval for updating load balancer backend pool of local services. Default is 30 seconds.
 	LoadBalancerBackendPoolUpdateIntervalInSeconds int `json:"loadBalancerBackendPoolUpdateIntervalInSeconds,omitempty" yaml:"loadBalancerBackendPoolUpdateIntervalInSeconds,omitempty"`
+
+	// ClusterServiceLoadBalancerHealthProbeMode determines the health probe mode for cluster service load balancer.
+	// Supported values are `shared` and `servicenodeport`.
+	// `unshared`: the health probe will be created against each port of each service by watching the backend application (default).
+	// `shared`: all cluster services shares one HTTP probe targeting the kube-proxy on the node (<nodeIP>/healthz:10256).
+	ClusterServiceLoadBalancerHealthProbeMode string `json:"clusterServiceLoadBalancerHealthProbeMode,omitempty" yaml:"clusterServiceLoadBalancerHealthProbeMode,omitempty"`
+	// ClusterServiceSharedLoadBalancerHealthProbePort defines the target port of the shared health probe. Default to 10256.
+	ClusterServiceSharedLoadBalancerHealthProbePort int32 `json:"clusterServiceSharedLoadBalancerHealthProbePort,omitempty" yaml:"clusterServiceSharedLoadBalancerHealthProbePort,omitempty"`
+	// ClusterServiceSharedLoadBalancerHealthProbePath defines the target path of the shared health probe. Default to `/healthz`.
+	ClusterServiceSharedLoadBalancerHealthProbePath string `json:"clusterServiceSharedLoadBalancerHealthProbePath,omitempty" yaml:"clusterServiceSharedLoadBalancerHealthProbePath,omitempty"`
 }
 
 // MultipleStandardLoadBalancerConfiguration stores the properties regarding multiple standard load balancers.
@@ -433,7 +440,7 @@ type Cloud struct {
 	// key: [resourceGroupName]
 	// Value: sync.Map of [pipName]*PublicIPAddress
 	pipCache azcache.Resource
-	// use LB frontEndIpConfiguration ID as the key and search for PLS attached to the frontEnd
+	// use [resourceGroupName*LBFrontEndIpConfigurationID] as the key and search for PLS attached to the frontEnd
 	plsCache azcache.Resource
 	// a timed cache storing storage account properties to avoid querying storage account frequently
 	storageAccountCache azcache.Resource
@@ -630,6 +637,26 @@ func (az *Cloud) InitializeCloudFromConfig(ctx context.Context, config *Config, 
 		}
 	}
 
+	if config.ClusterServiceLoadBalancerHealthProbeMode == "" {
+		config.ClusterServiceLoadBalancerHealthProbeMode = consts.ClusterServiceLoadBalancerHealthProbeModeServiceNodePort
+	} else {
+		supportedClusterServiceLoadBalancerHealthProbeModes := sets.New(
+			strings.ToLower(consts.ClusterServiceLoadBalancerHealthProbeModeServiceNodePort),
+			strings.ToLower(consts.ClusterServiceLoadBalancerHealthProbeModeShared),
+		)
+		if !supportedClusterServiceLoadBalancerHealthProbeModes.Has(strings.ToLower(config.ClusterServiceLoadBalancerHealthProbeMode)) {
+			return fmt.Errorf("clusterServiceLoadBalancerHealthProbeMode %s is not supported, supported values are %v", config.ClusterServiceLoadBalancerHealthProbeMode, supportedClusterServiceLoadBalancerHealthProbeModes.UnsortedList())
+		}
+	}
+	if strings.EqualFold(config.ClusterServiceLoadBalancerHealthProbeMode, consts.ClusterServiceLoadBalancerHealthProbeModeShared) {
+		if config.ClusterServiceSharedLoadBalancerHealthProbePort == 0 {
+			config.ClusterServiceSharedLoadBalancerHealthProbePort = consts.ClusterServiceLoadBalancerHealthProbeDefaultPort
+		}
+		if config.ClusterServiceSharedLoadBalancerHealthProbePath == "" {
+			config.ClusterServiceSharedLoadBalancerHealthProbePath = consts.ClusterServiceLoadBalancerHealthProbeDefaultPath
+		}
+	}
+
 	env, err := ratelimitconfig.ParseAzureEnvironment(config.Cloud, config.ResourceManagerEndpoint, config.IdentitySystem)
 	if err != nil {
 		return err
@@ -724,7 +751,7 @@ func (az *Cloud) InitializeCloudFromConfig(ctx context.Context, config *Config, 
 		return err
 	}
 
-	if err := initDiskControllers(az); err != nil {
+	if err := InitDiskControllers(az); err != nil {
 		return err
 	}
 
@@ -1153,7 +1180,7 @@ func (az *Cloud) ProviderName() string {
 	return consts.CloudProviderName
 }
 
-func initDiskControllers(az *Cloud) error {
+func InitDiskControllers(az *Cloud) error {
 	// Common controller contains the function
 	// needed by both blob disk and managed disk controllers
 
@@ -1258,17 +1285,18 @@ func (az *Cloud) updateNodeCaches(prevNode, newNode *v1.Node) {
 			az.unmanagedNodes.Delete(prevNode.ObjectMeta.Name)
 		}
 
+		// Remove from nodePrivateIPs cache.
+		for _, address := range getNodePrivateIPAddresses(prevNode) {
+			klog.V(6).Infof("removing IP address %s of the node %s", address, prevNode.Name)
+			az.nodePrivateIPs[prevNode.Name].Delete(address)
+			delete(az.nodePrivateIPToNodeNameMap, address)
+		}
+
 		// if the node is being deleted from the cluster, exclude it from load balancers
 		if newNode == nil {
 			az.excludeLoadBalancerNodes.Insert(prevNode.ObjectMeta.Name)
 			az.nodesWithCorrectLoadBalancerByPrimaryVMSet.Delete(strings.ToLower(prevNode.ObjectMeta.Name))
-		}
-
-		// Remove from nodePrivateIPs cache.
-		for _, address := range getNodePrivateIPAddresses(prevNode) {
-			klog.V(4).Infof("removing IP address %s of the node %s", address, prevNode.Name)
-			az.nodePrivateIPs[prevNode.Name].Delete(address)
-			delete(az.nodePrivateIPToNodeNameMap, address)
+			delete(az.nodePrivateIPs, strings.ToLower(prevNode.Name))
 		}
 	}
 
@@ -1318,15 +1346,15 @@ func (az *Cloud) updateNodeCaches(prevNode, newNode *v1.Node) {
 
 		// Add to nodePrivateIPs cache
 		for _, address := range getNodePrivateIPAddresses(newNode) {
-			if az.nodePrivateIPs[newNode.Name] == nil {
-				az.nodePrivateIPs[newNode.Name] = sets.New[string]()
+			if az.nodePrivateIPs[strings.ToLower(newNode.Name)] == nil {
+				az.nodePrivateIPs[strings.ToLower(newNode.Name)] = sets.New[string]()
 			}
 			if az.nodePrivateIPToNodeNameMap == nil {
 				az.nodePrivateIPToNodeNameMap = make(map[string]string)
 			}
 
 			klog.V(6).Infof("adding IP address %s of the node %s", address, newNode.Name)
-			az.nodePrivateIPs[newNode.Name].Insert(address)
+			az.nodePrivateIPs[strings.ToLower(newNode.Name)].Insert(address)
 			az.nodePrivateIPToNodeNameMap[address] = newNode.Name
 		}
 	}
@@ -1356,7 +1384,7 @@ func (az *Cloud) updateNodeTaint(node *v1.Node) {
 				klog.Errorf("failed to add taint %s to the node %s", v1.TaintNodeOutOfService, node.Name)
 			}
 		} else {
-			klog.V(2).Infof("node %s is not ready but node shutdown taint is not added, skip adding node out-of-service taint", node.Name)
+			klog.V(2).Infof("node %s is not ready but either shutdown taint is missing or out-of-service taint is already added, skip adding node out-of-service taint", node.Name)
 		}
 	}
 }
