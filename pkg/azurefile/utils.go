@@ -197,11 +197,11 @@ func (l *VolumeMounter) CanMount() error {
 	return nil
 }
 
-func (l *VolumeMounter) SetUp(mounterArgs volume.MounterArgs) error {
+func (l *VolumeMounter) SetUp(_ volume.MounterArgs) error {
 	return nil
 }
 
-func (l *VolumeMounter) SetUpAt(dir string, mounterArgs volume.MounterArgs) error {
+func (l *VolumeMounter) SetUpAt(_ string, _ volume.MounterArgs) error {
 	return nil
 }
 
