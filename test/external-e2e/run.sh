@@ -32,6 +32,8 @@ setup_e2e_binaries() {
     export EXTRA_HELM_OPTIONS=" --set driver.name=$DRIVER.csi.azure.com --set controller.name=csi-$DRIVER-controller --set linux.dsName=csi-$DRIVER-node --set windows.dsName=csi-$DRIVER-node-win"
     sed -i "s/file.csi.azure.com/$DRIVER.csi.azure.com/g" deploy/example/storageclass-azurefile-csi.yaml
     sed -i "s/file.csi.azure.com/$DRIVER.csi.azure.com/g" deploy/example/storageclass-azurefile-nfs.yaml
+    # run e2e test on standard storage class since premium file share only supports volume size >= 100GiB
+    sed -i "s/Premium/Standard/g" deploy/example/storageclass-azurefile-csi.yaml
     make e2e-bootstrap
     sed -i "s/csi-azurefile-controller/csi-$DRIVER-controller/g" deploy/example/metrics/csi-azurefile-controller-svc.yaml
     make create-metrics-svc
