@@ -27,14 +27,14 @@ func SMBMount(m *mount.SafeFormatAndMount, source, target, fsType string, option
 	return m.MountSensitive(source, target, fsType, options, sensitiveMountOptions)
 }
 
-func CleanupMountPoint(m *mount.SafeFormatAndMount, target string, extensiveMountCheck bool) error {
+func CleanupMountPoint(m *mount.SafeFormatAndMount, target string, _ bool) error {
 	return mount.CleanupMountPoint(target, m.Interface, true /*extensiveMountPointCheck*/)
 }
 
-func preparePublishPath(path string, m *mount.SafeFormatAndMount) error {
+func preparePublishPath(_ string, _ *mount.SafeFormatAndMount) error {
 	return nil
 }
 
-func prepareStagePath(path string, m *mount.SafeFormatAndMount) error {
+func prepareStagePath(_ string, _ *mount.SafeFormatAndMount) error {
 	return nil
 }
