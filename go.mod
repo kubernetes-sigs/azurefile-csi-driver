@@ -1,6 +1,8 @@
 module sigs.k8s.io/azurefile-csi-driver
 
-go 1.20
+go 1.21
+
+toolchain go1.21.3
 
 require (
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
@@ -28,10 +30,10 @@ require (
 	k8s.io/client-go v0.28.4
 	k8s.io/cloud-provider v0.28.4
 	k8s.io/component-base v0.28.4
-	k8s.io/klog/v2 v2.100.1
+	k8s.io/klog/v2 v2.110.1
 	k8s.io/kubernetes v1.28.4
 	k8s.io/mount-utils v0.28.4
-	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
+	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/cloud-provider-azure v1.27.1-0.20230907063607-e9994a5f9c7a
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -72,7 +74,7 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
-	github.com/go-logr/logr v1.2.4 // indirect
+	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
@@ -186,6 +188,7 @@ replace (
 	k8s.io/kubelet => k8s.io/kubelet v0.28.4
 	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.28.4
 	k8s.io/metrics => k8s.io/metrics v0.28.4
+	k8s.io/mount-utils => k8s.io/mount-utils v0.0.0-20231116185301-00b898b94b20
 	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.28.4
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.28.4
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.28.4
