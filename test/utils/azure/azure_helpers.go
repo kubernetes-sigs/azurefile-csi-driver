@@ -65,14 +65,14 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret stri
 		return nil, err
 	}
 
-	return getClient(env, subscriptionID, tenantID, cred, env.TokenAudience), nil
+	return getClient(env, subscriptionID, cred, env.TokenAudience), nil
 }
 
 func (az *Client) GetAzureFilesClient() (storage.FileSharesClient, error) {
 	return az.filesharesClient, nil
 }
 
-func (az *Client) EnsureSSHPublicKey(ctx context.Context, subscriptionID, resourceGroupName, location, keyName string) (publicKey string, err error) {
+func (az *Client) EnsureSSHPublicKey(ctx context.Context, resourceGroupName, location, keyName string) (publicKey string, err error) {
 	_, err = az.sshPublicKeysClient.Create(ctx, resourceGroupName, keyName, compute.SSHPublicKeyResource{Location: &location})
 	if err != nil {
 		return "", err
@@ -135,7 +135,7 @@ func (az *Client) EnsureVirtualMachine(ctx context.Context, groupName, location,
 		return vm, err
 	}
 
-	publicKey, err := az.EnsureSSHPublicKey(ctx, az.subscriptionID, groupName, location, "test-key")
+	publicKey, err := az.EnsureSSHPublicKey(ctx, groupName, location, "test-key")
 	if err != nil {
 		return vm, err
 	}
@@ -313,7 +313,7 @@ func getCloudConfig(env azure.Environment) cloud.Configuration {
 	}
 }
 
-func getClient(env azure.Environment, subscriptionID, tenantID string, cred *azidentity.ClientSecretCredential, scope string) *Client {
+func getClient(env azure.Environment, subscriptionID string, cred *azidentity.ClientSecretCredential, scope string) *Client {
 	c := &Client{
 		environment:         env,
 		subscriptionID:      subscriptionID,

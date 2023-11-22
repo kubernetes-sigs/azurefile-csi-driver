@@ -1461,10 +1461,9 @@ func TestCopyVolume(t *testing.T) {
 				}
 
 				d := NewFakeDriver()
-				ctx := context.Background()
 
 				expectedErr := status.Errorf(codes.InvalidArgument, "copy volume from volumeSnapshot is not supported")
-				err := d.copyVolume(ctx, req, "", nil, "core.windows.net")
+				err := d.copyVolume(req, "", nil, "core.windows.net")
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
 				}
@@ -1494,10 +1493,9 @@ func TestCopyVolume(t *testing.T) {
 				}
 
 				d := NewFakeDriver()
-				ctx := context.Background()
 
 				expectedErr := fmt.Errorf("protocol nfs is not supported for volume cloning")
-				err := d.copyVolume(ctx, req, "", &fileclient.ShareOptions{Protocol: storage.EnabledProtocolsNFS}, "core.windows.net")
+				err := d.copyVolume(req, "", &fileclient.ShareOptions{Protocol: storage.EnabledProtocolsNFS}, "core.windows.net")
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
 				}
@@ -1527,10 +1525,9 @@ func TestCopyVolume(t *testing.T) {
 				}
 
 				d := NewFakeDriver()
-				ctx := context.Background()
 
 				expectedErr := status.Errorf(codes.NotFound, "error parsing volume id: \"unit-test\", should at least contain two #")
-				err := d.copyVolume(ctx, req, "", &fileclient.ShareOptions{Name: "dstFileshare"}, "core.windows.net")
+				err := d.copyVolume(req, "", &fileclient.ShareOptions{Name: "dstFileshare"}, "core.windows.net")
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
 				}
@@ -1560,10 +1557,9 @@ func TestCopyVolume(t *testing.T) {
 				}
 
 				d := NewFakeDriver()
-				ctx := context.Background()
 
 				expectedErr := fmt.Errorf("srcFileShareName() or dstFileShareName(dstFileshare) is empty")
-				err := d.copyVolume(ctx, req, "", &fileclient.ShareOptions{Name: "dstFileshare"}, "core.windows.net")
+				err := d.copyVolume(req, "", &fileclient.ShareOptions{Name: "dstFileshare"}, "core.windows.net")
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
 				}
@@ -1593,10 +1589,9 @@ func TestCopyVolume(t *testing.T) {
 				}
 
 				d := NewFakeDriver()
-				ctx := context.Background()
 
 				expectedErr := fmt.Errorf("srcFileShareName(fileshare) or dstFileShareName() is empty")
-				err := d.copyVolume(ctx, req, "", &fileclient.ShareOptions{}, "core.windows.net")
+				err := d.copyVolume(req, "", &fileclient.ShareOptions{}, "core.windows.net")
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
 				}

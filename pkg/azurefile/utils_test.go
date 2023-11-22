@@ -62,7 +62,7 @@ func TestConcurrentLockEntry(t *testing.T) {
 	testLockMap.UnlockEntry("entry1")
 }
 
-func (lm *lockMap) lockAndCallback(t *testing.T, entry string, callbackChan chan<- interface{}) {
+func (lm *lockMap) lockAndCallback(_ *testing.T, entry string, callbackChan chan<- interface{}) {
 	lm.LockEntry(entry)
 	callbackChan <- true
 }
@@ -643,8 +643,7 @@ func TestParseAzcopyJobList(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		dstFileShare := "dstFileShare"
-		jobid, jobState, err := parseAzcopyJobList(test.str, dstFileShare)
+		jobid, jobState, err := parseAzcopyJobList(test.str)
 		if jobid != test.expectedJobid || jobState != test.expectedJobState || !reflect.DeepEqual(err, test.expectedErr) {
 			t.Errorf("test[%s]: unexpected jobid: %v, jobState: %v, err: %v, expected jobid: %v, jobState: %v, err: %v", test.desc, jobid, jobState, err, test.expectedJobid, test.expectedJobState, test.expectedErr)
 		}
