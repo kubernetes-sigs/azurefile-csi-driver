@@ -25,8 +25,13 @@ provisioner: file.csi.azure.com
 parameters:
   protocol: nfs
   skuName: Premium_LRS  # available values: Premium_LRS, Premium_ZRS
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
 mountOptions:
   - nconnect=4
+  - noresvport
+  - actimeo=30
 ```
 
 run following commands to create a storage class:
@@ -62,5 +67,6 @@ helm install --set persistence.storageClass="azurefile-csi-nfs" --set persistenc
 ```
 
 #### Links
+ - [Azure File NFS mount options on Linux](https://learn.microsoft.com/en-us/azure/storage/files/storage-files-how-to-mount-nfs-shares#mount-options)
  - [Troubleshoot Azure NFS file shares](https://docs.microsoft.com/en-us/azure/storage/files/storage-troubleshooting-files-nfs)
  - [Mount NFS Azure file share on Linux limitations](https://learn.microsoft.com/en-us/azure/storage/files/storage-files-how-to-mount-nfs-shares#limitations)

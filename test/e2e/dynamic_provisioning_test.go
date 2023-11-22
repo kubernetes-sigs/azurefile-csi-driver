@@ -1244,6 +1244,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 							"nconnect=4",
 							"rsize=1048576",
 							"wsize=1048576",
+							"noresvport",
+							"actimeo=30",
 						},
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
@@ -1282,6 +1284,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 							"nconnect=4",
 							"rsize=1048576",
 							"wsize=1048576",
+							"noresvport",
+							"actimeo=30",
 						},
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
