@@ -1,6 +1,8 @@
 module sigs.k8s.io/azurefile-csi-driver
 
-go 1.20
+go 1.21
+
+toolchain go1.21.3
 
 require (
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
@@ -28,10 +30,10 @@ require (
 	k8s.io/client-go v0.28.4
 	k8s.io/cloud-provider v0.28.4
 	k8s.io/component-base v0.28.4
-	k8s.io/klog/v2 v2.100.1
+	k8s.io/klog/v2 v2.110.1
 	k8s.io/kubernetes v1.28.4
 	k8s.io/mount-utils v0.28.4
-	k8s.io/utils v0.0.0-20230505201702-9f6742963106
+	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/cloud-provider-azure v1.27.1-0.20231117111043-4e434a9c261f
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -173,5 +175,6 @@ replace (
 	k8s.io/kubectl => k8s.io/kubectl v0.28.4
 	k8s.io/kubelet => k8s.io/kubelet v0.28.4
 	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.28.4
+	k8s.io/mount-utils => k8s.io/mount-utils v0.0.0-20231116185301-00b898b94b20
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.28.4
 )
