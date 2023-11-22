@@ -63,6 +63,7 @@ const (
 	fileMode           = "file_mode"
 	dirMode            = "dir_mode"
 	actimeo            = "actimeo"
+	noResvPort         = "noresvport"
 	mfsymlinks         = "mfsymlinks"
 	defaultFileMode    = "0777"
 	defaultDirMode     = "0777"
@@ -212,6 +213,8 @@ type DriverOptions struct {
 	EnableWindowsHostProcess               bool
 	AppendClosetimeoOption                 bool
 	AppendNoShareSockOption                bool
+	AppendNoResvPortOption                 bool
+	AppendActimeoOption                    bool
 	SkipMatchingTagCacheExpireInMinutes    int
 	VolStatsCacheExpireInMinutes           int
 	PrintVolumeStatsCallLogs               bool
@@ -239,6 +242,8 @@ type Driver struct {
 	enableWindowsHostProcess               bool
 	appendClosetimeoOption                 bool
 	appendNoShareSockOption                bool
+	appendNoResvPortOption                 bool
+	appendActimeoOption                    bool
 	printVolumeStatsCallLogs               bool
 	fileClient                             *azureFileClient
 	mounter                                *mount.SafeFormatAndMount
@@ -295,6 +300,8 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.enableWindowsHostProcess = options.EnableWindowsHostProcess
 	driver.appendClosetimeoOption = options.AppendClosetimeoOption
 	driver.appendNoShareSockOption = options.AppendNoShareSockOption
+	driver.appendNoResvPortOption = options.AppendNoResvPortOption
+	driver.appendActimeoOption = options.AppendActimeoOption
 	driver.printVolumeStatsCallLogs = options.PrintVolumeStatsCallLogs
 	driver.sasTokenExpirationMinutes = options.SasTokenExpirationMinutes
 	driver.volLockMap = newLockMap()
@@ -470,7 +477,7 @@ func GetFileShareInfo(id string) (string, string, string, string, string, string
 }
 
 // check whether mountOptions contains file_mode, dir_mode, vers, if not, append default mode
-func appendDefaultMountOptions(mountOptions []string, appendNoShareSockOption, appendClosetimeoOption bool) []string {
+func appendDefaultCifsMountOptions(mountOptions []string, appendNoShareSockOption, appendClosetimeoOption bool) []string {
 	var defaultMountOptions = map[string]string{
 		fileMode:   defaultFileMode,
 		dirMode:    defaultDirMode,
@@ -497,6 +504,46 @@ func appendDefaultMountOptions(mountOptions []string, appendNoShareSockOption, a
 		// actimeo would set both acregmax and acdirmax, so we only need to check one of them
 		if strings.Contains(mountOption, "acregmax") || strings.Contains(mountOption, "acdirmax") {
 			included[actimeo] = true
+		}
+	}
+
+	allMountOptions := mountOptions
+
+	for k, v := range defaultMountOptions {
+		if _, isIncluded := included[k]; !isIncluded {
+			if v != "" {
+				allMountOptions = append(allMountOptions, fmt.Sprintf("%s=%s", k, v))
+			} else {
+				allMountOptions = append(allMountOptions, k)
+			}
+		}
+	}
+
+	return allMountOptions
+}
+
+// check whether mountOptions contains actimeo, if not, append default mode
+func appendDefaultNfsMountOptions(mountOptions []string, appendNoResvPortOption, appendActimeoOption bool) []string {
+	var defaultMountOptions = map[string]string{}
+	if appendNoResvPortOption {
+		defaultMountOptions[noResvPort] = ""
+	}
+	if appendActimeoOption {
+		defaultMountOptions[actimeo] = defaultActimeo
+	}
+
+	if len(defaultMountOptions) == 0 {
+		return mountOptions
+	}
+
+	// stores the mount options already included in mountOptions
+	included := make(map[string]bool)
+
+	for _, mountOption := range mountOptions {
+		for k := range defaultMountOptions {
+			if strings.HasPrefix(mountOption, k) {
+				included[k] = true
+			}
 		}
 	}
 
