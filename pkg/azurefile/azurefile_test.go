@@ -101,7 +101,7 @@ func TestNewFakeDriver(t *testing.T) {
 	assert.NotNil(t, d)
 }
 
-func TestAppendDefaultMountOptions(t *testing.T) {
+func TestAppendDefaultCifsMountOptions(t *testing.T) {
 	tests := []struct {
 		options                 []string
 		appendClosetimeoOption  bool
@@ -231,12 +231,56 @@ func TestAppendDefaultMountOptions(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		result := appendDefaultMountOptions(test.options, test.appendNoShareSockOption, test.appendClosetimeoOption)
+		result := appendDefaultCifsMountOptions(test.options, test.appendNoShareSockOption, test.appendClosetimeoOption)
 		sort.Strings(result)
 		sort.Strings(test.expected)
 
 		if !reflect.DeepEqual(result, test.expected) {
-			t.Errorf("input: %q, appendDefaultMountOptions result: %q, expected: %q", test.options, result, test.expected)
+			t.Errorf("input: %q, appendDefaultCifsMountOptions result: %q, expected: %q", test.options, result, test.expected)
+		}
+	}
+}
+
+func TestAppendDefaultNfsMountOptions(t *testing.T) {
+	tests := []struct {
+		options                []string
+		appendNoResvPortOption bool
+		appendActimeoOption    bool
+		expected               []string
+	}{
+		{
+			options:                []string{""},
+			appendNoResvPortOption: false,
+			appendActimeoOption:    false,
+			expected:               []string{""},
+		},
+		{
+			options:                []string{},
+			appendNoResvPortOption: true,
+			appendActimeoOption:    true,
+			expected:               []string{fmt.Sprintf("%s=%s", actimeo, defaultActimeo), noResvPort},
+		},
+		{
+			options:                []string{noResvPort},
+			appendNoResvPortOption: true,
+			appendActimeoOption:    true,
+			expected:               []string{fmt.Sprintf("%s=%s", actimeo, defaultActimeo), noResvPort},
+		},
+		{
+			options:                []string{fmt.Sprintf("%s=%s", actimeo, "60")},
+			appendNoResvPortOption: true,
+			appendActimeoOption:    true,
+			expected:               []string{fmt.Sprintf("%s=%s", actimeo, "60"), noResvPort},
+		},
+	}
+
+	for _, test := range tests {
+		result := appendDefaultNfsMountOptions(test.options, test.appendNoResvPortOption, test.appendActimeoOption)
+		sort.Strings(result)
+		sort.Strings(test.expected)
+
+		if !reflect.DeepEqual(result, test.expected) {
+			t.Errorf("input: %q, appendDefaultNfsMountOptions result: %q, expected: %q", test.options, result, test.expected)
 		}
 	}
 }
