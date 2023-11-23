@@ -286,6 +286,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	var mountOptions, sensitiveMountOptions []string
 	if protocol == nfs {
 		mountOptions = util.JoinMountOptions(mountFlags, []string{"vers=4,minorversion=1,sec=sys"})
+		mountOptions = appendDefaultNfsMountOptions(mountOptions, d.appendNoResvPortOption, d.appendActimeoOption)
 	} else {
 		if accountName == "" || accountKey == "" {
 			return nil, status.Errorf(codes.Internal, "accountName(%s) or accountKey is empty", accountName)
@@ -302,7 +303,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			if ephemeralVol {
 				cifsMountFlags = util.JoinMountOptions(cifsMountFlags, strings.Split(ephemeralVolMountOptions, ","))
 			}
-			mountOptions = appendDefaultMountOptions(cifsMountFlags, d.appendNoShareSockOption, d.appendClosetimeoOption)
+			mountOptions = appendDefaultCifsMountOptions(cifsMountFlags, d.appendNoShareSockOption, d.appendClosetimeoOption)
 		}
 	}
 
