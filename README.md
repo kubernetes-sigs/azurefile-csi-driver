@@ -50,8 +50,8 @@ This option does not depend on cloud provider config file, supports cross subscr
 ### Features
  - [Windows](./deploy/example/windows)
  - [NFS](./deploy/example/nfs)
- - [Snapshot](./deploy/example/snapshot)
- - [Resize](./deploy/example/resize)
+ - [Volume Snapshot](./deploy/example/snapshot)
+ - [Volume Expansion](./deploy/example/resize)
  - [Workload identity](./docs/workload-identity.md)
 
 ### Troubleshooting
