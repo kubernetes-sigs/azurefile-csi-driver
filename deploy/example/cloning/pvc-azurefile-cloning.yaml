@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: pvc-azurefile-clone
+  name: pvc-azurefile-cloning
   namespace: default
 spec:
   accessModes:
