@@ -15,6 +15,7 @@ spec:
       volumeMounts:
         - name: azurefile-cloning
           mountPath: "/mnt/azurefile"
+          readOnly: false
   volumes:
     - name: azurefile-cloning
       persistentVolumeClaim:

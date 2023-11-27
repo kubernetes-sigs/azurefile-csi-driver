@@ -16,6 +16,7 @@ spec:
       volumeMounts:
         - name: persistent-storage
           mountPath: "/mnt/azurefile"
+          readOnly: false
   volumes:
     - name: persistent-storage
       csi:
