@@ -22,7 +22,6 @@ spec:
     - nosharesock
   csi:
     driver: file.csi.azure.com
-    readOnly: false
     # make sure volumeid is unique for every identical share in the cluster
     # the # character is reserved for internal use
     volumeHandle: account-name_file-share-name
