@@ -86,7 +86,7 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 		}
 
 		if !valid {
-			klog.V(4).Infof("RemotePath %s is not valid, removing now", remotePath)
+			klog.Warningf("RemotePath %s is not valid, removing now", remotePath)
 			err := smb.RemoveSmbGlobalMapping(remotePath)
 			if err != nil {
 				klog.Errorf("RemoveSmbGlobalMapping(%s) failed with %v", remotePath, err)
@@ -97,7 +97,7 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 	}
 
 	if !isMapped {
-		klog.V(4).Infof("Remote %s not mapped. Mapping now!", remotePath)
+		klog.V(2).Infof("Remote %s not mapped. Mapping now!", remotePath)
 		username := mountOptions[0]
 		password := sensitiveMountOptions[0]
 		err := smb.NewSmbGlobalMapping(remotePath, username, password)
@@ -126,7 +126,7 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 }
 
 func (mounter *winMounter) SMBUnmount(target string) error {
-	klog.V(4).Infof("SMBUnmount: local path: %s", target)
+	klog.V(2).Infof("SMBUnmount: local path: %s", target)
 	return mounter.Rmdir(target)
 }
 
@@ -142,7 +142,7 @@ func (mounter *winMounter) Rmdir(path string) error {
 
 // Unmount - Removes the directory - equivalent to unmount on Linux.
 func (mounter *winMounter) Unmount(target string) error {
-	klog.V(4).Infof("Unmount: %s", target)
+	klog.V(2).Infof("Unmount: %s", target)
 	return mounter.Rmdir(target)
 }
 
