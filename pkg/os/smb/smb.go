@@ -38,30 +38,6 @@ func IsSmbMapped(remotePath string) (bool, error) {
 	return true, nil
 }
 
-// NewSmbLink - creates a directory symbolic link to the remote share.
-// The os.Symlink was having issue for cases where the destination was an SMB share - the container
-// runtime would complain stating "Access Denied". Because of this, we had to perform
-// this operation with powershell commandlet creating an directory softlink.
-// Since os.Symlink is currently being used in working code paths, no attempt is made in
-// alpha to merge the paths.
-// TODO (for beta release): Merge the link paths - os.Symlink and Powershell link path.
-func NewSmbLink(remotePath, localPath string) error {
-	if !strings.HasSuffix(remotePath, "\\") {
-		// Golang has issues resolving paths mapped to file shares if they do not end in a trailing \
-		// so add one if needed.
-		remotePath = remotePath + "\\"
-	}
-
-	cmdLine := `New-Item -ItemType SymbolicLink $Env:smblocalPath -Target $Env:smbremotepath`
-	klog.V(2).Infof("begin to run NewSmbLink with %s, %s", remotePath, localPath)
-	output, err := util.RunPowershellCmd(cmdLine, fmt.Sprintf("smbremotepath=%s", remotePath), fmt.Sprintf("smblocalpath=%s", localPath))
-	if err != nil {
-		return fmt.Errorf("error linking %s to %s. output: %s, err: %v", remotePath, localPath, string(output), err)
-	}
-
-	return nil
-}
-
 func NewSmbGlobalMapping(remotePath, username, password string) error {
 	// use PowerShell Environment Variables to store user input string to prevent command line injection
 	// https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_environment_variables?view=powershell-5.1
