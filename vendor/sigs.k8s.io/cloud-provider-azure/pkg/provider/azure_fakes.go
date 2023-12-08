@@ -18,8 +18,8 @@ package provider
 
 import (
 	"context"
-	"fmt"
 
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/provider/config"
 
 	"github.com/golang/mock/gomock"
@@ -41,10 +41,6 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/vmssclient/mockvmssclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/vmssvmclient/mockvmssvmclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/consts"
-)
-
-var (
-	errPreconditionFailedEtagMismatch = fmt.Errorf("PreconditionFailedEtagMismatch")
 )
 
 // NewTestScaleSet creates a fake ScaleSet for unit test
@@ -77,8 +73,11 @@ func GetTestCloud(ctrl *gomock.Controller) (az *Cloud) {
 	az = &Cloud{
 		Config: Config{
 			AzureAuthConfig: config.AzureAuthConfig{
-				TenantID:       "tenant",
-				SubscriptionID: "subscription",
+				ARMClientConfig: azclient.ARMClientConfig{
+					TenantID: "TenantID",
+				},
+				AzureAuthConfig: azclient.AzureAuthConfig{},
+				SubscriptionID:  "subscription",
 			},
 			ResourceGroup:                            "rg",
 			VnetResourceGroup:                        "rg",
