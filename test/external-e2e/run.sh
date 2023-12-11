@@ -20,12 +20,12 @@ PROJECT_ROOT=$(git rev-parse --show-toplevel)
 DRIVER="test"
 
 install_ginkgo () {
-    go install github.com/onsi/ginkgo/ginkgo@v1.14.0
+    go install github.com/onsi/ginkgo/v2/ginkgo@v2.13.2
 }
 
 setup_e2e_binaries() {
     # download k8s external e2e binary for kubernetes
-    curl -sL https://dl.k8s.io/release/v1.24.0/kubernetes-test-linux-amd64.tar.gz --output e2e-tests.tar.gz
+    curl -sL https://dl.k8s.io/release/v1.26.0/kubernetes-test-linux-amd64.tar.gz --output e2e-tests.tar.gz
     tar -xvf e2e-tests.tar.gz && rm e2e-tests.tar.gz
 
     # test on alternative driver name
