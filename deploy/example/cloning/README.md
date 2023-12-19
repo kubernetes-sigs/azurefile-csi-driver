@@ -1,7 +1,11 @@
 # Volume Cloning Example
 ## Feature Status: Beta
 
-- supported from v1.29.1
+- supported from v1.28.6, v1.29.1
+- SMB file share is supported, NFS file share is not supported
+
+## Prerequisites
+- ensure that the virtual network on which the driver controller pod is running is included in the allowed list of the storage account VNet setting.
 
 ## Create a Source PVC
 
