@@ -120,7 +120,9 @@ func handle() {
 	if driver == nil {
 		klog.Fatalln("Failed to initialize azurefile CSI Driver")
 	}
-	driver.Run(*endpoint, *kubeconfig, false)
+	if err := driver.Run(context.Background(), *endpoint, *kubeconfig); err != nil {
+		klog.Fatalln(err)
+	}
 }
 
 func exportMetrics() {
