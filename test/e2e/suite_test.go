@@ -150,7 +150,8 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		azurefileDriver = azurefile.NewDriver(&driverOptions)
 		go func() {
 			os.Setenv("AZURE_CREDENTIAL_FILE", credentials.TempAzureCredentialFilePath)
-			azurefileDriver.Run(fmt.Sprintf("unix:///tmp/csi-%s.sock", uuid.NewUUID().String()), kubeconfig, false)
+			err := azurefileDriver.Run(context.Background(), fmt.Sprintf("unix:///tmp/csi-%s.sock", uuid.NewUUID().String()), kubeconfig)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		}()
 	}
 })

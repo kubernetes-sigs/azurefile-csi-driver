@@ -18,6 +18,9 @@ package csicommon
 
 import (
 	"fmt"
+	"net"
+	"os"
+	"runtime"
 	"strings"
 
 	"golang.org/x/net/context"
@@ -28,7 +31,7 @@ import (
 	"github.com/kubernetes-csi/csi-lib-utils/protosanitizer"
 )
 
-func ParseEndpoint(ep string) (string, string, error) {
+func parseEndpoint(ep string) (string, string, error) {
 	if strings.HasPrefix(strings.ToLower(ep), "unix://") || strings.HasPrefix(strings.ToLower(ep), "tcp://") {
 		s := strings.SplitN(ep, "://", 2)
 		if s[1] != "" {
@@ -36,6 +39,27 @@ func ParseEndpoint(ep string) (string, string, error) {
 		}
 	}
 	return "", "", fmt.Errorf("Invalid endpoint: %v", ep)
+}
+func ListenEndpoint(endpoint string) (net.Listener, error) {
+	proto, addr, err := parseEndpoint(endpoint)
+	if err != nil {
+		klog.Fatal(err.Error())
+	}
+
+	if proto == "unix" {
+		if runtime.GOOS != "windows" {
+			addr = "/" + addr
+		}
+		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
+			klog.Fatalf("Failed to remove %s, error: %s", addr, err.Error())
+		}
+	}
+
+	listener, err := net.Listen(proto, addr)
+	if err != nil {
+		klog.Fatalf("Failed to listen: %v", err)
+	}
+	return listener, err
 }
 
 func NewVolumeCapabilityAccessMode(mode csi.VolumeCapability_AccessMode_Mode) *csi.VolumeCapability_AccessMode {
@@ -71,7 +95,7 @@ func getLogLevel(method string) int32 {
 	return 2
 }
 
-func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+func LogGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	level := klog.Level(getLogLevel(info.FullMethod))
 	klog.V(level).Infof("GRPC call: %s", info.FullMethod)
 	klog.V(level).Infof("GRPC request: %s", protosanitizer.StripSecrets(req))

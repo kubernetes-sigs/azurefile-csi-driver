@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net/url"
 	"os/exec"
@@ -33,11 +34,12 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/pborman/uuid"
 	"github.com/rubiojr/go-vhd/vhd"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
@@ -248,6 +250,7 @@ type Driver struct {
 	printVolumeStatsCallLogs               bool
 	fileClient                             *azureFileClient
 	mounter                                *mount.SafeFormatAndMount
+	server                                 *grpc.Server
 	// lock per volume attach (only for vhd disk feature)
 	volLockMap *lockMap
 	// only for nfs feature
@@ -353,7 +356,7 @@ func NewDriver(options *DriverOptions) *Driver {
 }
 
 // Run driver initialization
-func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
+func (d *Driver) Run(ctx context.Context, endpoint, kubeconfig string) error {
 	versionMeta, err := GetVersionYAML(d.Name)
 	if err != nil {
 		klog.Fatalf("%v", err)
@@ -407,10 +410,29 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 	}
 	d.AddNodeServiceCapabilities(nodeCap)
 
-	s := csicommon.NewNonBlockingGRPCServer()
-	// Driver d act as IdentityServer, ControllerServer and NodeServer
-	s.Start(endpoint, d, d, d, testBool)
-	s.Wait()
+	//setup grpc server
+	opts := []grpc.ServerOption{
+		grpc.UnaryInterceptor(csicommon.LogGRPC),
+	}
+	server := grpc.NewServer(opts...)
+	csi.RegisterIdentityServer(server, d)
+	csi.RegisterControllerServer(server, d)
+	csi.RegisterNodeServer(server, d)
+	d.server = server
+
+	listener, err := csicommon.ListenEndpoint(endpoint)
+	if err != nil {
+		klog.Fatalf("failed to listen endpoint: %v", err)
+	}
+	go func() {
+		<-ctx.Done()
+		d.server.GracefulStop()
+	}()
+	if err = d.server.Serve(listener); errors.Is(err, grpc.ErrServerStopped) {
+		klog.Infof("gRPC server stopped serving")
+		return nil
+	}
+	return err
 }
 
 // getFileShareQuota return (-1, nil) means file share does not exist
@@ -1160,7 +1182,7 @@ func (d *Driver) SetAzureCredentials(ctx context.Context, accountName, accountKe
 		Type: "Opaque",
 	}
 	_, err := d.cloud.KubeClient.CoreV1().Secrets(secretNamespace).Create(ctx, secret, metav1.CreateOptions{})
-	if errors.IsAlreadyExists(err) {
+	if apierrors.IsAlreadyExists(err) {
 		err = nil
 	}
 	if err != nil {

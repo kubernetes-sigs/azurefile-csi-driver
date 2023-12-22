@@ -26,6 +26,7 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
 	azure2 "github.com/Azure/go-autorest/autorest/azure"
@@ -1052,7 +1053,15 @@ func TestRun(t *testing.T) {
 				os.Setenv(DefaultAzureCredentialFileEnv, fakeCredFile)
 
 				d := NewFakeDriver()
-				d.Run("tcp://127.0.0.1:0", "", true)
+				ctx, cancelFn := context.WithCancel(context.Background())
+				go func() {
+					time.Sleep(1 * time.Second)
+					cancelFn()
+				}()
+				if err := d.Run(ctx, "tcp://127.0.0.1:0", ""); err != nil {
+					t.Error(err.Error())
+				}
+
 			},
 		},
 		{
@@ -1077,9 +1086,16 @@ func TestRun(t *testing.T) {
 				os.Setenv(DefaultAzureCredentialFileEnv, fakeCredFile)
 
 				d := NewFakeDriver()
+				ctx, cancelFn := context.WithCancel(context.Background())
+				go func() {
+					time.Sleep(1 * time.Second)
+					cancelFn()
+				}()
 				d.cloud = &azure.Cloud{}
 				d.NodeID = ""
-				d.Run("tcp://127.0.0.1:0", "", true)
+				if err := d.Run(ctx, "tcp://127.0.0.1:0", ""); err != nil {
+					t.Error(err.Error())
+				}
 			},
 		},
 	}
