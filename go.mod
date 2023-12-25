@@ -16,7 +16,7 @@ require (
 	github.com/container-storage-interface/spec v1.8.0
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.3
-	github.com/kubernetes-csi/csi-lib-utils v0.14.0
+	github.com/kubernetes-csi/csi-lib-utils v0.14.1
 	github.com/kubernetes-csi/csi-proxy/client v1.0.1
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/onsi/ginkgo/v2 v2.13.2
