@@ -55,6 +55,8 @@ func NewFakeDriver() *Driver {
 	driverOptions := DriverOptions{
 		NodeID:     fakeNodeID,
 		DriverName: DefaultDriverName,
+		KubeConfig: "",
+		Endpoint:   "tcp://127.0.0.1:0",
 	}
 	driver := NewDriver(&driverOptions)
 	driver.Name = fakeDriverName
@@ -97,6 +99,8 @@ func TestNewFakeDriver(t *testing.T) {
 	driverOptions := DriverOptions{
 		NodeID:     fakeNodeID,
 		DriverName: DefaultDriverName,
+		Endpoint:   "tcp://127.0.0.1:0",
+		KubeConfig: "",
 	}
 	d := NewDriver(&driverOptions)
 	assert.NotNil(t, d)
@@ -1058,7 +1062,7 @@ func TestRun(t *testing.T) {
 					time.Sleep(1 * time.Second)
 					cancelFn()
 				}()
-				if err := d.Run(ctx, "tcp://127.0.0.1:0", ""); err != nil {
+				if err := d.Run(ctx); err != nil {
 					t.Error(err.Error())
 				}
 
@@ -1093,7 +1097,7 @@ func TestRun(t *testing.T) {
 				}()
 				d.cloud = &azure.Cloud{}
 				d.NodeID = ""
-				if err := d.Run(ctx, "tcp://127.0.0.1:0", ""); err != nil {
+				if err := d.Run(ctx); err != nil {
 					t.Error(err.Error())
 				}
 			},

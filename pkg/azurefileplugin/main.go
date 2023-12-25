@@ -33,54 +33,26 @@ import (
 
 func init() {
 	klog.InitFlags(nil)
+	driverOptions.AddFlags().VisitAll(func(f *flag.Flag) {
+		flag.CommandLine.Var(f.Value, f.Name, f.Usage)
+	})
 }
 
 var (
-	endpoint                               = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
-	nodeID                                 = flag.String("nodeid", "", "node id")
-	version                                = flag.Bool("version", false, "Print the version and exit.")
-	metricsAddress                         = flag.String("metrics-address", "", "export the metrics")
-	kubeconfig                             = flag.String("kubeconfig", "", "Absolute path to the kubeconfig file. Required only when running out of cluster.")
-	driverName                             = flag.String("drivername", azurefile.DefaultDriverName, "name of the driver")
-	cloudConfigSecretName                  = flag.String("cloud-config-secret-name", "azure-cloud-provider", "secret name of cloud config")
-	cloudConfigSecretNamespace             = flag.String("cloud-config-secret-namespace", "kube-system", "secret namespace of cloud config")
-	customUserAgent                        = flag.String("custom-user-agent", "", "custom userAgent")
-	userAgentSuffix                        = flag.String("user-agent-suffix", "", "userAgent suffix")
-	allowEmptyCloudConfig                  = flag.Bool("allow-empty-cloud-config", true, "allow running driver without cloud config")
-	enableVolumeMountGroup                 = flag.Bool("enable-volume-mount-group", true, "indicates whether enabling VOLUME_MOUNT_GROUP")
-	enableGetVolumeStats                   = flag.Bool("enable-get-volume-stats", true, "allow GET_VOLUME_STATS on agent node")
-	mountPermissions                       = flag.Uint64("mount-permissions", 0777, "mounted folder permissions")
-	allowInlineVolumeKeyAccessWithIdentity = flag.Bool("allow-inline-volume-key-access-with-identity", false, "allow accessing storage account key using cluster identity for inline volume")
-	fsGroupChangePolicy                    = flag.String("fsgroup-change-policy", "", "indicates how the volume's ownership will be changed by the driver, OnRootMismatch is the default value")
-	enableVHDDiskFeature                   = flag.Bool("enable-vhd", true, "enable VHD disk feature (experimental)")
-	kubeAPIQPS                             = flag.Float64("kube-api-qps", 25.0, "QPS to use while communicating with the kubernetes apiserver.")
-	kubeAPIBurst                           = flag.Int("kube-api-burst", 50, "Burst to use while communicating with the kubernetes apiserver.")
-	appendMountErrorHelpLink               = flag.Bool("append-mount-error-help-link", true, "Whether to include a link for help with mount errors when a mount error occurs.")
-	enableWindowsHostProcess               = flag.Bool("enable-windows-host-process", false, "enable windows host process")
-	appendClosetimeoOption                 = flag.Bool("append-closetimeo-option", false, "Whether appending closetimeo=0 option to smb mount command")
-	appendNoShareSockOption                = flag.Bool("append-nosharesock-option", true, "Whether appending nosharesock option to smb mount command")
-	appendNoResvPortOption                 = flag.Bool("append-noresvport-option", true, "Whether appending noresvport option to nfs mount command")
-	appendActimeoOption                    = flag.Bool("append-actimeo-option", true, "Whether appending actimeo=0 option to nfs mount command")
-	skipMatchingTagCacheExpireInMinutes    = flag.Int("skip-matching-tag-cache-expire-in-minutes", 30, "The cache expire time in minutes for skipMatchingTagCache")
-	volStatsCacheExpireInMinutes           = flag.Int("vol-stats-cache-expire-in-minutes", 10, "The cache expire time in minutes for volume stats cache")
-	printVolumeStatsCallLogs               = flag.Bool("print-volume-stats-call-logs", false, "Whether to print volume statfs call logs with log level 2")
-	sasTokenExpirationMinutes              = flag.Int("sas-token-expiration-minutes", 1440, "sas token expiration minutes during volume cloning")
+	version        = flag.Bool("version", false, "Print the version and exit.")
+	metricsAddress = flag.String("metrics-address", "", "export the metrics")
+	driverOptions  azurefile.DriverOptions
 )
 
 func main() {
 	flag.Parse()
 	if *version {
-		info, err := azurefile.GetVersionYAML(*driverName)
+		info, err := azurefile.GetVersionYAML(driverOptions.DriverName)
 		if err != nil {
 			klog.Fatalln(err)
 		}
 		fmt.Println(info) // nolint
 		os.Exit(0)
-	}
-
-	if *nodeID == "" {
-		// nodeid is not needed in controller component
-		klog.Warning("nodeid is empty")
 	}
 
 	exportMetrics()
@@ -89,38 +61,11 @@ func main() {
 }
 
 func handle() {
-	driverOptions := azurefile.DriverOptions{
-		NodeID:                                 *nodeID,
-		DriverName:                             *driverName,
-		CloudConfigSecretName:                  *cloudConfigSecretName,
-		CloudConfigSecretNamespace:             *cloudConfigSecretNamespace,
-		CustomUserAgent:                        *customUserAgent,
-		UserAgentSuffix:                        *userAgentSuffix,
-		AllowEmptyCloudConfig:                  *allowEmptyCloudConfig,
-		EnableVolumeMountGroup:                 *enableVolumeMountGroup,
-		EnableGetVolumeStats:                   *enableGetVolumeStats,
-		MountPermissions:                       *mountPermissions,
-		AllowInlineVolumeKeyAccessWithIdentity: *allowInlineVolumeKeyAccessWithIdentity,
-		FSGroupChangePolicy:                    *fsGroupChangePolicy,
-		EnableVHDDiskFeature:                   *enableVHDDiskFeature,
-		AppendMountErrorHelpLink:               *appendMountErrorHelpLink,
-		KubeAPIQPS:                             *kubeAPIQPS,
-		KubeAPIBurst:                           *kubeAPIBurst,
-		EnableWindowsHostProcess:               *enableWindowsHostProcess,
-		AppendClosetimeoOption:                 *appendClosetimeoOption,
-		AppendNoShareSockOption:                *appendNoShareSockOption,
-		AppendNoResvPortOption:                 *appendNoResvPortOption,
-		AppendActimeoOption:                    *appendActimeoOption,
-		SkipMatchingTagCacheExpireInMinutes:    *skipMatchingTagCacheExpireInMinutes,
-		VolStatsCacheExpireInMinutes:           *volStatsCacheExpireInMinutes,
-		PrintVolumeStatsCallLogs:               *printVolumeStatsCallLogs,
-		SasTokenExpirationMinutes:              *sasTokenExpirationMinutes,
-	}
 	driver := azurefile.NewDriver(&driverOptions)
 	if driver == nil {
 		klog.Fatalln("Failed to initialize azurefile CSI Driver")
 	}
-	if err := driver.Run(context.Background(), *endpoint, *kubeconfig); err != nil {
+	if err := driver.Run(context.Background()); err != nil {
 		klog.Fatalln(err)
 	}
 }
