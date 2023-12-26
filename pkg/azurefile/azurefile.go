@@ -195,35 +195,6 @@ var (
 	retriableErrors = []string{accountNotProvisioned, tooManyRequests, shareBeingDeleted, clientThrottled}
 )
 
-// DriverOptions defines driver parameters specified in driver deployment
-type DriverOptions struct {
-	NodeID                                 string
-	DriverName                             string
-	CloudConfigSecretName                  string
-	CloudConfigSecretNamespace             string
-	CustomUserAgent                        string
-	UserAgentSuffix                        string
-	AllowEmptyCloudConfig                  bool
-	AllowInlineVolumeKeyAccessWithIdentity bool
-	EnableVHDDiskFeature                   bool
-	EnableVolumeMountGroup                 bool
-	EnableGetVolumeStats                   bool
-	AppendMountErrorHelpLink               bool
-	MountPermissions                       uint64
-	FSGroupChangePolicy                    string
-	KubeAPIQPS                             float64
-	KubeAPIBurst                           int
-	EnableWindowsHostProcess               bool
-	AppendClosetimeoOption                 bool
-	AppendNoShareSockOption                bool
-	AppendNoResvPortOption                 bool
-	AppendActimeoOption                    bool
-	SkipMatchingTagCacheExpireInMinutes    int
-	VolStatsCacheExpireInMinutes           int
-	PrintVolumeStatsCallLogs               bool
-	SasTokenExpirationMinutes              int
-}
-
 // Driver implements all interfaces of CSI drivers
 type Driver struct {
 	csicommon.CSIDriver
@@ -280,6 +251,9 @@ type Driver struct {
 	sasTokenExpirationMinutes int
 	// azcopy for provide exec mock for ut
 	azcopy *fileutil.Azcopy
+
+	kubeconfig string
+	endpoint   string
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -314,6 +288,8 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.subnetLockMap = newLockMap()
 	driver.volumeLocks = newVolumeLocks()
 	driver.azcopy = &fileutil.Azcopy{}
+	driver.kubeconfig = options.KubeConfig
+	driver.endpoint = options.Endpoint
 
 	var err error
 	getter := func(key string) (interface{}, error) { return nil, nil }
@@ -356,16 +332,21 @@ func NewDriver(options *DriverOptions) *Driver {
 }
 
 // Run driver initialization
-func (d *Driver) Run(ctx context.Context, endpoint, kubeconfig string) error {
+func (d *Driver) Run(ctx context.Context) error {
 	versionMeta, err := GetVersionYAML(d.Name)
 	if err != nil {
 		klog.Fatalf("%v", err)
 	}
 	klog.Infof("\nDRIVER INFORMATION:\n-------------------\n%s\n\nStreaming logs below:", versionMeta)
 
+	if *&d.NodeID == "" {
+		// nodeid is not needed in controller component
+		klog.Warning("nodeid is empty")
+	}
+
 	userAgent := GetUserAgent(d.Name, d.customUserAgent, d.userAgentSuffix)
 	klog.V(2).Infof("driver userAgent: %s", userAgent)
-	d.cloud, err = getCloudProvider(context.Background(), kubeconfig, d.NodeID, d.cloudConfigSecretName, d.cloudConfigSecretNamespace, userAgent, d.allowEmptyCloudConfig, d.enableWindowsHostProcess, d.kubeAPIQPS, d.kubeAPIBurst)
+	d.cloud, err = getCloudProvider(context.Background(), d.kubeconfig, d.NodeID, d.cloudConfigSecretName, d.cloudConfigSecretNamespace, userAgent, d.allowEmptyCloudConfig, d.enableWindowsHostProcess, d.kubeAPIQPS, d.kubeAPIBurst)
 	if err != nil {
 		klog.Fatalf("failed to get Azure Cloud Provider, error: %v", err)
 	}
@@ -420,7 +401,7 @@ func (d *Driver) Run(ctx context.Context, endpoint, kubeconfig string) error {
 	csi.RegisterNodeServer(server, d)
 	d.server = server
 
-	listener, err := csicommon.ListenEndpoint(endpoint)
+	listener, err := csicommon.ListenEndpoint(d.endpoint)
 	if err != nil {
 		klog.Fatalf("failed to listen endpoint: %v", err)
 	}
