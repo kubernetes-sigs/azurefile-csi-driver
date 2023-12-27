@@ -525,7 +525,7 @@ func TestNodeStageVolume(t *testing.T) {
 		{
 			desc: "[Error] Volume operation in progress",
 			setup: func() {
-				d.volumeLocks.TryAcquire("vol_1##")
+				d.volumeLocks.TryAcquire(fmt.Sprintf("%s-%s", "vol_1##", sourceTest))
 			},
 			req: csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
 				VolumeCapability: &stdVolCap,
@@ -535,7 +535,7 @@ func TestNodeStageVolume(t *testing.T) {
 				DefaultError: status.Error(codes.Aborted, fmt.Sprintf(volumeOperationAlreadyExistsFmt, "vol_1##")),
 			},
 			cleanup: func() {
-				d.volumeLocks.Release("vol_1##")
+				d.volumeLocks.Release(fmt.Sprintf("%s-%s", "vol_1##", sourceTest))
 			},
 		},
 		{
@@ -784,14 +784,14 @@ func TestNodeUnstageVolume(t *testing.T) {
 		{
 			desc: "[Error] Volume operation in progress",
 			setup: func() {
-				d.volumeLocks.TryAcquire("vol_1")
+				d.volumeLocks.TryAcquire(fmt.Sprintf("%s-%s", "vol_1", targetFile))
 			},
 			req: csi.NodeUnstageVolumeRequest{StagingTargetPath: targetFile, VolumeId: "vol_1"},
 			expectedErr: testutil.TestError{
 				DefaultError: status.Error(codes.Aborted, fmt.Sprintf(volumeOperationAlreadyExistsFmt, "vol_1")),
 			},
 			cleanup: func() {
-				d.volumeLocks.Release("vol_1")
+				d.volumeLocks.Release(fmt.Sprintf("%s-%s", "vol_1", targetFile))
 			},
 		},
 		{
