@@ -1,4 +1,6 @@
 ## Azure File CSI Driver VHD disk feature
+### **WARNING**: The feature code for this functionality will be removed in the near future as it has been deprecated. For disk storage solutions, it is recommended to use the Azure Disk CSI driver.
+
 Attach Azure disks in < 1 second. Attach as many as you want. VHD disk(based on azure file) feature could mount Azure disks as Linux **block device** directly on VMs without dependency on the host.
 
 ### Feature Status: Beta
