@@ -538,6 +538,52 @@ func TestSetKeyValueInMap(t *testing.T) {
 	}
 }
 
+func TestGetValueInMap(t *testing.T) {
+	tests := []struct {
+		desc     string
+		m        map[string]string
+		key      string
+		expected string
+	}{
+		{
+			desc:     "nil map",
+			key:      "key",
+			expected: "",
+		},
+		{
+			desc:     "empty map",
+			m:        map[string]string{},
+			key:      "key",
+			expected: "",
+		},
+		{
+			desc:     "non-empty map",
+			m:        map[string]string{"k": "v"},
+			key:      "key",
+			expected: "",
+		},
+		{
+			desc:     "same key already exists",
+			m:        map[string]string{"subDir": "value2"},
+			key:      "subDir",
+			expected: "value2",
+		},
+		{
+			desc:     "case insensitive key already exists",
+			m:        map[string]string{"subDir": "value2"},
+			key:      "subdir",
+			expected: "value2",
+		},
+	}
+
+	for _, test := range tests {
+		result := getValueInMap(test.m, test.key)
+		if result != test.expected {
+			t.Errorf("test[%s]: unexpected output: %v, expected result: %v", test.desc, result, test.expected)
+		}
+	}
+}
+
 func TestReplaceWithMap(t *testing.T) {
 	tests := []struct {
 		desc     string
