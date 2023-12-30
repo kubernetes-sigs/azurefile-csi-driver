@@ -256,6 +256,20 @@ func setKeyValueInMap(m map[string]string, key, value string) {
 	m[key] = value
 }
 
+// getValueInMap get value from map by key
+// key in the map is case insensitive
+func getValueInMap(m map[string]string, key string) string {
+	if m == nil {
+		return ""
+	}
+	for k, v := range m {
+		if strings.EqualFold(k, key) {
+			return v
+		}
+	}
+	return ""
+}
+
 // replaceWithMap replace key with value for str
 func replaceWithMap(str string, m map[string]string) string {
 	for k, v := range m {
