@@ -18,7 +18,7 @@ DriverInfo:
     onlineExpansion: true
     volumeLimits: false
     snapshotDataSource: true
-    volumeMountGroup: false
+    volumeMountGroup: true
   StressTestOptions:
     NumPods: 10
     NumRestarts: 10
