@@ -20,6 +20,7 @@ export REGION=<your region>
 
 Following the [documentation](https://learn.microsoft.com/en-us/azure/storage/files/storage-how-to-use-files-portal?tabs=azure-cli) to create a new storage account and fileshare or use your own. And export following environment variables:
 ```
+export STORAGE_RESOURCE_GROUP=<your storage account resource group>
 export ACCOUNT=<your storage account name>
 export SHARE=<your fileshare name>
 ```
@@ -32,6 +33,8 @@ az identity create --name $UAMI --resource-group $RESOURCE_GROUP
 export USER_ASSIGNED_CLIENT_ID="$(az identity show -g $RESOURCE_GROUP --name $UAMI --query 'clientId' -o tsv)"
 export IDENTITY_TENANT=$(az aks show --name $CLUSTER_NAME --resource-group $RESOURCE_GROUP --query identity.tenantId -o tsv)
 export ACCOUNT_SCOPE=$(az storage account show --name $ACCOUNT --query id -o tsv)
+
+# please retry if you meet `Cannot find user or service principal in graph database` error, it may take a while for the identity to propagate
 az role assignment create --role "Storage Account Contributor" --assignee $USER_ASSIGNED_CLIENT_ID --scope $ACCOUNT_SCOPE
 ```
 
@@ -94,7 +97,7 @@ spec:
       storageaccount: $ACCOUNT # required
       shareName: $SHARE  # required
       clientID: $USER_ASSIGNED_CLIENT_ID # required
-      resourcegroup: $RESOURCE_GROUP # required, please make sure your account is NOT created under AKS node resource group(prefix with `MC_`)
+      resourcegroup: $STORAGE_RESOURCE_GROUP # optional, specified when the storage account is not under AKS node resource group(which is prefixed with "MC_")
       # tenantID: $IDENTITY_TENANT  #optional, only specified when workload identity and AKS cluster are in different tenant
       # subscriptionid: $SUBSCRIPTION #optional, only specified when workload identity and AKS cluster are in different subscription
 ---
@@ -172,7 +175,7 @@ spec:
           storageaccount: $ACCOUNT # required
           shareName: $SHARE  # required
           clientID: $USER_ASSIGNED_CLIENT_ID # required
-          resourcegroup: $RESOURCE_GROUP # optional, specified when the storage account is not under AKS node resource group(which is prefixed with `MC_`)
+          resourcegroup: $STORAGE_RESOURCE_GROUP # optional, specified when the storage account is not under AKS node resource group(which is prefixed with "MC_")
           # tenantID: $IDENTITY_TENANT  # optional, only specified when workload identity and AKS cluster are in different tenant
           # subscriptionid: $SUBSCRIPTION # optional, only specified when workload identity and AKS cluster are in different subscription
 EOF
