@@ -53,7 +53,7 @@ This option does not depend on cloud provider config file, supports cross subscr
  - [Volume Snapshot](./deploy/example/snapshot)
  - [Volume Expansion](./deploy/example/resize)
  - [Volume Cloning](./deploy/example/cloning)
- - [Workload identity](./docs/workload-identity.md)
+ - [Workload identity](./docs/workload-identity-static-pv-mount.md)
 
 ### Troubleshooting
  - [CSI driver troubleshooting guide](./docs/csi-debug.md) 
