@@ -28,8 +28,6 @@ import (
 	"syscall"
 	"testing"
 
-	"sigs.k8s.io/azurefile-csi-driver/test/utils/testutil"
-
 	azure2 "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/stretchr/testify/assert"
@@ -38,7 +36,7 @@ import (
 	mount "k8s.io/mount-utils"
 	"k8s.io/utils/exec"
 	testingexec "k8s.io/utils/exec/testing"
-
+	"sigs.k8s.io/azurefile-csi-driver/test/utils/testutil"
 	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
 )
 
@@ -1067,5 +1065,58 @@ func makeFakeOutput(output string, err error) testingexec.FakeAction {
 	o := output
 	return func() ([]byte, []byte, error) {
 		return []byte(o), nil, err
+	}
+}
+
+func Test_getClientID(t *testing.T) {
+	type args struct {
+		context map[string]string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "get client id",
+			args: args{
+				context: map[string]string{
+					clientIDField: "test-client-id",
+				},
+			},
+			want: "test-client-id",
+		},
+		{
+			name: "case not sensitive client id",
+			args: args{
+				context: map[string]string{
+					"ClientId": "test-client-id",
+				},
+			},
+			want: "test-client-id",
+		},
+		{
+			name: "no client id",
+			args: args{
+				context: map[string]string{},
+			},
+			want: "",
+		},
+		{
+			name: "client id empty",
+			args: args{
+				context: map[string]string{
+					clientIDField: "",
+				},
+			},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getClientID(tt.args.context); got != tt.want {
+				t.Errorf("getClientID() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
