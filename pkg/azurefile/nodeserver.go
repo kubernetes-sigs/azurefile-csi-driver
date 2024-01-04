@@ -60,8 +60,8 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	context := req.GetVolumeContext()
 	if context != nil {
 		// token request
-		if context[serviceAccountTokenField] != "" && getClientID(context) != "" {
-			klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with service account token, clientID: %s", volumeID, target, getClientID(context))
+		if context[serviceAccountTokenField] != "" && getValueInMap(context, clientIDField) != "" {
+			klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with service account token, clientID: %s", volumeID, target, getValueInMap(context, clientIDField))
 			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
 				StagingTargetPath: target,
 				VolumeContext:     context,
@@ -169,8 +169,8 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	volumeID := req.GetVolumeId()
 	context := req.GetVolumeContext()
 
-	if getClientID(context) != "" && context[serviceAccountTokenField] == "" {
-		klog.V(2).Infof("Skip NodeStageVolume for volume(%s) since clientID %s is provided but service account token is empty", volumeID, getClientID(context))
+	if getValueInMap(context, clientIDField) != "" && context[serviceAccountTokenField] == "" {
+		klog.V(2).Infof("Skip NodeStageVolume for volume(%s) since clientID %s is provided but service account token is empty", volumeID, getValueInMap(context, clientIDField))
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
 
@@ -613,13 +613,4 @@ func checkGidPresentInMountFlags(mountFlags []string) bool {
 		}
 	}
 	return false
-}
-
-func getClientID(context map[string]string) string {
-	for k, v := range context {
-		if strings.EqualFold(k, clientIDField) && v != "" {
-			return v
-		}
-	}
-	return ""
 }
