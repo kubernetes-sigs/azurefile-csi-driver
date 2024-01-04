@@ -113,6 +113,7 @@ kubectl create secret generic azure-storage-account-{accountname}-secret --from-
   - mounting Azure NFS File share does not require account key, NFS mount access is configured by either of the following settings:
     - `Firewalls and virtual networks`: select `Enabled from selected virtual networks and IP addresses` with same vnet as agent node
     - `Private endpoint connections`
+  - If a storage account is full, the driver will add a tag `skip-matching` to the storage account to prevent the creation of new file shares in that account. This tag will only be removed after 30 minutes if a file share is deleted from that account. To use the account immediately, the user can manually remove the tag.
 
 #### `shareName` parameter supports following pv/pvc metadata conversion
 > if `shareName` value contains following strings, it would be converted into corresponding pv/pvc name or namespace
