@@ -1,7 +1,7 @@
 # workload identity support on static provisioning
  - supported from v1.29.3
 
-This feature is specifically designed for blobfuse mount and is not available for NFS mount as NFS mount does not require credentials. There is a standalone blobfuse mount for every pod, it may cause performance issues when multiple pods are present on a single node.
+This feature is specifically designed for smb mount and is not available for NFS mount as NFS mount does not require credentials. There is a standalone smb mount for every pod, it may cause performance issues when multiple pods are present on a single node.
 
 ## Prerequisites
 ### 1. Create a cluster with oidc-issuer enabled and get the credential
