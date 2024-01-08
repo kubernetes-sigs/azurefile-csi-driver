@@ -1,11 +1,8 @@
-# Example of static PV mount with workload identity
-
+# workload identity support on static provisioning
 - supported from v1.29.3
 
-## prerequisites
-
+## Prerequisites
 ### 1. Create a cluster with oidc-issuer enabled and get the credential
-
 Following the [documentation](https://learn.microsoft.com/en-us/azure/aks/use-oidc-issuer#create-an-aks-cluster-with-oidc-issuer) to create an AKS cluster with the `--enable-oidc-issuer` parameter and get the AKS credentials. And export following environment variables:
 ```
 export RESOURCE_GROUP=<your resource group name>
@@ -13,9 +10,7 @@ export CLUSTER_NAME=<your cluster name>
 export REGION=<your region>
 ```
 
-
-### 2. Create a new storage account and fileshare
-
+### 2. Create a storage account and fileshare
 Following the [documentation](https://learn.microsoft.com/en-us/azure/storage/files/storage-how-to-use-files-portal?tabs=azure-cli) to create a new storage account and fileshare or use your own. And export following environment variables:
 ```
 export STORAGE_RESOURCE_GROUP=<your storage account resource group>
@@ -62,7 +57,6 @@ az identity federated-credential create --name $FEDERATED_IDENTITY_NAME \
 --subject system:serviceaccount:${SERVICE_ACCOUNT_NAMESPACE}:${SERVICE_ACCOUNT_NAME}
 ```
 
-## option#1: static provision with PV
 ```
 cat <<EOF | kubectl apply -f -
 apiVersion: v1
@@ -141,40 +135,5 @@ spec:
         resources:
           requests:
             storage: 10Gi
-EOF
-```
-
-## option#2: Pod with ephemeral inline volume
-```
-cat <<EOF | kubectl apply -f -
-kind: Pod
-apiVersion: v1
-metadata:
-  name: nginx-azurefile-inline-volume
-spec:
-  serviceAccountName: $SERVICE_ACCOUNT_NAME #required, Pod does not use this service account has no permission to mount the volume
-  nodeSelector:
-    "kubernetes.io/os": linux
-  containers:
-    - image: mcr.microsoft.com/oss/nginx/nginx:1.19.5
-      name: nginx-azurefile
-      command:
-        - "/bin/bash"
-        - "-c"
-        - set -euo pipefail; while true; do echo $(date) >> /mnt/azurefile/outfile; sleep 1; done
-      volumeMounts:
-        - name: persistent-storage
-          mountPath: "/mnt/azurefile"
-  volumes:
-    - name: persistent-storage
-      csi:
-        driver: file.csi.azure.com
-        volumeAttributes:
-          storageaccount: $ACCOUNT # required
-          shareName: $SHARE  # required
-          clientID: $USER_ASSIGNED_CLIENT_ID # required
-          resourcegroup: $STORAGE_RESOURCE_GROUP # optional, specified when the storage account is not under AKS node resource group(which is prefixed with "MC_")
-          # tenantID: $IDENTITY_TENANT  # optional, only specified when workload identity and AKS cluster are in different tenant
-          # subscriptionid: $SUBSCRIPTION # optional, only specified when workload identity and AKS cluster are in different subscription
 EOF
 ```
