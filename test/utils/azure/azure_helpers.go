@@ -62,10 +62,7 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret stri
 	if err != nil {
 		return nil, err
 	}
-	cred, err := credProvider.GetAzIdentity()
-	if err != nil {
-		return nil, err
-	}
+	cred := credProvider.GetAzIdentity()
 	factory, err := azclient.NewClientFactory(&azclient.ClientFactoryConfig{
 		SubscriptionID: subscriptionID,
 	}, armConfig, cred)
