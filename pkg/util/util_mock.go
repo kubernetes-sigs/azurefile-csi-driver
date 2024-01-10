@@ -24,7 +24,7 @@ package util
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockEXEC is a mock of EXEC interface.

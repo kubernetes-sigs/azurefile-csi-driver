@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 
 	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
@@ -61,6 +62,6 @@ func (t *DynamicallyProvisionedReadOnlyVolumeTest) Run(ctx context.Context, clie
 		body, err := tpod.Logs(ctx)
 		framework.ExpectNoError(err, fmt.Sprintf("Error getting logs for pod %s: %v", tpod.pod.Name, err))
 		hasReadOnlyLog := strings.Contains(string(body), expectedReadOnlyLog) || strings.Contains(string(body), permissionDeniedLog)
-		framework.ExpectEqual(hasReadOnlyLog, true, fmt.Sprintf("expected substring: %s or %s, current returned logs: %s", expectedReadOnlyLog, permissionDeniedLog, string(body)))
+		gomega.Expect(hasReadOnlyLog).To(gomega.BeTrue())
 	}
 }

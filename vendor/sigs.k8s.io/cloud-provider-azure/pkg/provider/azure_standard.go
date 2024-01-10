@@ -246,10 +246,6 @@ func getIPConfigByIPFamily(nic network.Interface, IPv6 bool) (*network.Interface
 	return nil, fmt.Errorf("failed to determine the ipconfig(IPv6=%v). nicname=%q", IPv6, pointer.StringDeref(nic.Name, ""))
 }
 
-func isInternalLoadBalancer(lb *network.LoadBalancer) bool {
-	return strings.HasSuffix(*lb.Name, consts.InternalLoadBalancerNameSuffix)
-}
-
 // getBackendPoolName the LB BackendPool name for a service.
 // to ensure backward and forward compat:
 // SingleStack -v4 (pre v1.16) => BackendPool name == clusterName
@@ -342,7 +338,14 @@ func (az *Cloud) getPublicIPName(clusterName string, service *v1.Service, isIPv6
 			pipName = fmt.Sprintf("%s-%s", pipName, id)
 		}
 	}
-	return getResourceByIPFamily(pipName, isDualStack, isIPv6), nil
+
+	pipNameSegment := pipName
+	maxLength := consts.PIPPrefixNameMaxLength - consts.IPFamilySuffixLength
+	if len(pipName) > maxLength {
+		pipNameSegment = pipNameSegment[:maxLength]
+		klog.V(6).Infof("original PIP name is lengthy %q, truncate it to %q", pipName, pipNameSegment)
+	}
+	return getResourceByIPFamily(pipNameSegment, isDualStack, isIPv6), nil
 }
 
 func publicIPOwnsFrontendIP(service *v1.Service, fip *network.FrontendIPConfiguration, pip *network.PublicIPAddress) bool {

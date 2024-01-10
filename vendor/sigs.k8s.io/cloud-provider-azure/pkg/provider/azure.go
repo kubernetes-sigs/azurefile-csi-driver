@@ -27,11 +27,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/azure"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
@@ -58,7 +60,6 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/interfaceclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/loadbalancerclient"
-	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/privatednsclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/privatednszonegroupclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/privateendpointclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/privatelinkserviceclient"
@@ -69,7 +70,6 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/snapshotclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/storageaccountclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/subnetclient"
-	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/virtualnetworklinksclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/vmasclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/vmclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/vmsizeclient"
@@ -376,9 +376,7 @@ type Cloud struct {
 	AvailabilitySetsClient          vmasclient.Interface
 	ZoneClient                      zoneclient.Interface
 	privateendpointclient           privateendpointclient.Interface
-	privatednsclient                privatednsclient.Interface
 	privatednszonegroupclient       privatednszonegroupclient.Interface
-	virtualNetworkLinksClient       virtualnetworklinksclient.Interface
 	PrivateLinkServiceClient        privatelinkserviceclient.Interface
 	containerServiceClient          containerserviceclient.Interface
 	deploymentClient                deploymentclient.Interface
@@ -698,6 +696,33 @@ func (az *Cloud) InitializeCloudFromConfig(ctx context.Context, config *Config, 
 	}
 	az.configAzureClients(servicePrincipalToken, multiTenantServicePrincipalToken, networkResourceServicePrincipalToken)
 
+	if az.ComputeClientFactory == nil {
+		authProvider, err := azclient.NewAuthProvider(&az.ARMClientConfig, &az.AzureAuthConfig.AzureAuthConfig)
+		if err != nil {
+			return err
+		}
+		var cred azcore.TokenCredential
+		if authProvider.IsMultiTenantModeEnabled() {
+			multiTenantCred := authProvider.GetMultiTenantIdentity()
+			networkTenantCred := authProvider.GetNetworkAzIdentity()
+			az.NetworkClientFactory, err = azclient.NewClientFactory(&azclient.ClientFactoryConfig{
+				SubscriptionID: az.NetworkResourceSubscriptionID,
+			}, &az.ARMClientConfig, networkTenantCred)
+			if err != nil {
+				return err
+			}
+			cred = multiTenantCred
+		} else {
+			cred = authProvider.GetAzIdentity()
+		}
+		az.ComputeClientFactory, err = azclient.NewClientFactory(&azclient.ClientFactoryConfig{
+			SubscriptionID: az.SubscriptionID,
+		}, &az.ARMClientConfig, cred)
+		if err != nil {
+			return err
+		}
+	}
+
 	err = az.initCaches()
 	if err != nil {
 		return err
@@ -953,11 +978,9 @@ func (az *Cloud) configAzureClients(
 	publicIPClientConfig := azClientConfig.WithRateLimiter(az.Config.PublicIPAddressRateLimit)
 	containerServiceConfig := azClientConfig.WithRateLimiter(az.Config.ContainerServiceRateLimit)
 	deploymentConfig := azClientConfig.WithRateLimiter(az.Config.DeploymentRateLimit)
-	privateDNSConfig := azClientConfig.WithRateLimiter(az.Config.PrivateDNSRateLimit)
 	privateDNSZoenGroupConfig := azClientConfig.WithRateLimiter(az.Config.PrivateDNSZoneGroupRateLimit)
 	privateEndpointConfig := azClientConfig.WithRateLimiter(az.Config.PrivateEndpointRateLimit)
 	privateLinkServiceConfig := azClientConfig.WithRateLimiter(az.Config.PrivateLinkServiceRateLimit)
-	virtualNetworkConfig := azClientConfig.WithRateLimiter(az.Config.VirtualNetworkRateLimit)
 	// TODO(ZeroMagic): add azurefileRateLimit
 	fileClientConfig := azClientConfig.WithRateLimiter(nil)
 	blobClientConfig := azClientConfig.WithRateLimiter(nil)
@@ -1012,9 +1035,7 @@ func (az *Cloud) configAzureClients(
 	az.BlobClient = blobclient.New(blobClientConfig)
 	az.AvailabilitySetsClient = vmasclient.New(vmasClientConfig)
 	az.privateendpointclient = privateendpointclient.New(privateEndpointConfig)
-	az.privatednsclient = privatednsclient.New(privateDNSConfig)
 	az.privatednszonegroupclient = privatednszonegroupclient.New(privateDNSZoenGroupConfig)
-	az.virtualNetworkLinksClient = virtualnetworklinksclient.New(virtualNetworkConfig)
 	az.PrivateLinkServiceClient = privatelinkserviceclient.New(privateLinkServiceConfig)
 	az.containerServiceClient = containerserviceclient.New(containerServiceConfig)
 	az.deploymentClient = deploymentclient.New(deploymentConfig)
@@ -1502,4 +1523,41 @@ func isNodeReady(node *v1.Node) bool {
 		return c.Status == v1.ConditionTrue
 	}
 	return false
+}
+
+// getNodeVMSet gets the VMSet interface based on config.VMType and the real virtual machine type.
+func (az *Cloud) GetNodeVMSet(nodeName types.NodeName, crt azcache.AzureCacheReadType) (VMSet, error) {
+	// 1. vmType is standard or vmssflex, return cloud.VMSet directly.
+	// 1.1 all the nodes in the cluster are avset nodes.
+	// 1.2 all the nodes in the cluster are vmssflex nodes.
+	if az.VMType == consts.VMTypeStandard || az.VMType == consts.VMTypeVmssFlex {
+		return az.VMSet, nil
+	}
+
+	// 2. vmType is Virtual Machine Scale Set (vmss), convert vmSet to ScaleSet.
+	// 2.1 all the nodes in the cluster are vmss uniform nodes.
+	// 2.2 mix node: the nodes in the cluster can be any of avset nodes, vmss uniform nodes and vmssflex nodes.
+	ss, ok := az.VMSet.(*ScaleSet)
+	if !ok {
+		return nil, fmt.Errorf("error of converting vmSet (%q) to ScaleSet with vmType %q", az.VMSet, az.VMType)
+	}
+
+	vmManagementType, err := ss.getVMManagementTypeByNodeName(string(nodeName), crt)
+	if err != nil {
+		return nil, fmt.Errorf("getNodeVMSet: failed to check the node %s management type: %w", string(nodeName), err)
+	}
+	// 3. If the node is managed by availability set, then return ss.availabilitySet.
+	if vmManagementType == ManagedByAvSet {
+		// vm is managed by availability set.
+		return ss.availabilitySet, nil
+	}
+	if vmManagementType == ManagedByVmssFlex {
+		// 4. If the node is managed by vmss flex, then return ss.flexScaleSet.
+		// vm is managed by vmss flex.
+		return ss.flexScaleSet, nil
+	}
+
+	// 5. Node is managed by vmss
+	return ss, nil
+
 }
