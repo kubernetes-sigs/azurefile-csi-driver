@@ -17,19 +17,18 @@ limitations under the License.
 package azurefile
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
-	azs "github.com/Azure/azure-sdk-for-go/storage"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	azs "github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"k8s.io/klog/v2"
 
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
-)
-
-const (
-	useHTTPS = true
 )
 
 var (
@@ -57,80 +56,82 @@ func newAzureFileClient(env *azure.Environment, backoff *retry.Backoff) *azureFi
 	}
 }
 
-func (f *azureFileClient) CreateFileShare(accountName, accountKey string, shareOptions *fileclient.ShareOptions) error {
+func (f *azureFileClient) CreateFileShare(ctx context.Context, accountName, accountKey string, shareOptions *fileclient.ShareOptions) error {
 	if shareOptions == nil {
 		return fmt.Errorf("shareOptions of account(%s) is nil", accountName)
 	}
-	return f.createFileShare(accountName, accountKey, shareOptions.Name, shareOptions.RequestGiB)
+	return f.createFileShare(ctx, accountName, accountKey, shareOptions.Name, int32(shareOptions.RequestGiB))
 }
 
-func (f *azureFileClient) createFileShare(accountName, accountKey, name string, sizeGiB int) error {
-	fileClient, err := f.getFileSvcClient(accountName, accountKey)
+func (f *azureFileClient) createFileShare(ctx context.Context, accountName, accountKey, name string, sizeGiB int32) error {
+	fileClient, err := f.getFileSvcClient(accountName, accountKey, name)
 	if err != nil {
 		return err
 	}
-	share := fileClient.GetShareReference(name)
-	share.Properties.Quota = sizeGiB
-	newlyCreated, err := share.CreateIfNotExists(nil)
-	if err != nil {
+	if _, err := fileClient.Create(ctx, &azs.CreateOptions{
+		Quota: to.Ptr(sizeGiB),
+	}); err != nil {
 		return fmt.Errorf("failed to create file share, err: %v", err)
-	}
-	if !newlyCreated {
-		klog.V(2).Infof("file share(%s) under account(%s) already exists", name, accountName)
 	}
 	return nil
 }
 
 // delete a file share
-func (f *azureFileClient) deleteFileShare(accountName, accountKey, name string) error {
-	fileClient, err := f.getFileSvcClient(accountName, accountKey)
+func (f *azureFileClient) deleteFileShare(ctx context.Context, accountName, accountKey, name string) error {
+	fileClient, err := f.getFileSvcClient(accountName, accountKey, name)
 	if err != nil {
 		return err
 	}
-	return fileClient.GetShareReference(name).Delete(nil)
+	_, err = fileClient.Delete(ctx, nil)
+	return err
 }
 
-func (f *azureFileClient) resizeFileShare(accountName, accountKey, name string, sizeGiB int) error {
-	fileClient, err := f.getFileSvcClient(accountName, accountKey)
+func (f *azureFileClient) resizeFileShare(ctx context.Context, accountName, accountKey, name string, sizeGiB int32) error {
+	fileClient, err := f.getFileSvcClient(accountName, accountKey, name)
 	if err != nil {
 		return err
 	}
-	share := fileClient.GetShareReference(name)
-	if share.Properties.Quota >= sizeGiB {
+	share, err := fileClient.GetProperties(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to get file share %s, err: %v", name, err)
+	}
+	if share.Quota != nil && *share.Quota >= sizeGiB {
 		klog.Warningf("file share size(%dGi) is already greater or equal than requested size(%dGi), accountName: %s, shareName: %s",
-			share.Properties.Quota, sizeGiB, accountName, name)
+			share.Quota, sizeGiB, accountName, name)
 		return nil
 	}
-	share.Properties.Quota = sizeGiB
-	if err = share.SetProperties(nil); err != nil {
+	if _, err = fileClient.SetProperties(ctx, &azs.SetPropertiesOptions{
+		Quota: to.Ptr(sizeGiB),
+	}); err != nil {
 		return fmt.Errorf("failed to set quota on file share %s, err: %v", name, err)
 	}
 	klog.V(4).Infof("resize file share completed, accountName: %s, shareName: %s, sizeGiB: %d", accountName, name, sizeGiB)
 	return nil
 }
 
-func (f *azureFileClient) getFileSvcClient(accountName, accountKey string) (*azs.FileServiceClient, error) {
-	storageEndpointSuffix := f.env.StorageEndpointSuffix
-	if f.StorageEndpointSuffix != "" {
-		storageEndpointSuffix = f.StorageEndpointSuffix
-	}
-	if storageEndpointSuffix == "" {
-		storageEndpointSuffix = defaultStorageEndPointSuffix
+func (f *azureFileClient) getFileSvcClient(accountName, accountKey, shareName string) (*azs.Client, error) {
+	serviceURL := fmt.Sprintf("https://%s.file.core.windows.net/%s", accountName, shareName)
+	cred, err := azs.NewSharedKeyCredential(accountName, accountKey)
+	if err != nil {
+		return nil, fmt.Errorf("error creating azure shared key credential: %v", err)
 	}
 
-	fileClient, err := azs.NewClient(accountName, accountKey, storageEndpointSuffix, azs.DefaultAPIVersion, useHTTPS)
+	var clientOption *azs.ClientOptions
+	if f.backoff != nil {
+		clientOption = &azs.ClientOptions{
+			ClientOptions: policy.ClientOptions{
+				Retry: policy.RetryOptions{
+					MaxRetries:  int32(f.backoff.Steps),
+					StatusCodes: defaultValidStatusCodes,
+					RetryDelay:  f.backoff.Duration,
+				},
+			},
+		}
+	}
+	fileShareClient, err := azs.NewClientWithSharedKeyCredential(serviceURL, cred, clientOption)
 	if err != nil {
 		return nil, fmt.Errorf("error creating azure client: %v", err)
 	}
 
-	if f.backoff != nil {
-		fileClient.Sender = &azs.DefaultSender{
-			RetryAttempts:    f.backoff.Steps,
-			ValidStatusCodes: defaultValidStatusCodes,
-			RetryDuration:    f.backoff.Duration,
-		}
-	}
-
-	fc := fileClient.GetFileService()
-	return &fc, nil
+	return fileShareClient, nil
 }

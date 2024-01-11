@@ -351,7 +351,7 @@ func (d *Driver) Run(ctx context.Context) error {
 	}
 	klog.Infof("\nDRIVER INFORMATION:\n-------------------\n%s\n\nStreaming logs below:", versionMeta)
 
-	if *&d.NodeID == "" {
+	if d.NodeID == "" {
 		// nodeid is not needed in controller component
 		klog.Warning("nodeid is empty")
 	}
@@ -435,19 +435,15 @@ func (d *Driver) getFileShareQuota(ctx context.Context, subsID, resourceGroupNam
 		if err != nil {
 			return -1, err
 		}
-		fileClient, err := d.fileClient.getFileSvcClient(accountName, accountKey)
+		fileClient, err := d.fileClient.getFileSvcClient(accountName, accountKey, fileShareName)
 		if err != nil {
 			return -1, err
 		}
-		share := fileClient.GetShareReference(fileShareName)
-		exists, err := share.Exists()
+		share, err := fileClient.GetProperties(ctx, nil)
 		if err != nil {
 			return -1, err
 		}
-		if !exists {
-			return -1, nil
-		}
-		return share.Properties.Quota, nil
+		return int(*share.Quota), nil
 	}
 
 	fileShare, err := d.cloud.GetFileShare(ctx, subsID, resourceGroupName, accountName, fileShareName)
@@ -913,7 +909,7 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *azure.Acco
 			if rerr != nil {
 				return true, rerr
 			}
-			err = d.fileClient.CreateFileShare(accountName, accountKey, shareOptions)
+			err = d.fileClient.CreateFileShare(ctx, accountName, accountKey, shareOptions)
 		} else {
 			_, err = d.cloud.FileClient.WithSubscriptionID(accountOptions.SubscriptionID).CreateFileShare(ctx, accountOptions.ResourceGroup, accountOptions.Name, shareOptions, "")
 		}
@@ -935,7 +931,7 @@ func (d *Driver) DeleteFileShare(ctx context.Context, subsID, resourceGroup, acc
 			if rerr != nil {
 				return true, rerr
 			}
-			err = d.fileClient.deleteFileShare(accountName, accountKey, shareName)
+			err = d.fileClient.deleteFileShare(ctx, accountName, accountKey, shareName)
 		} else {
 			err = d.cloud.DeleteFileShare(ctx, subsID, resourceGroup, accountName, shareName)
 		}
@@ -972,7 +968,7 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 			if rerr != nil {
 				return true, rerr
 			}
-			err = d.fileClient.resizeFileShare(accountName, accountKey, shareName, sizeGiB)
+			err = d.fileClient.resizeFileShare(ctx, accountName, accountKey, shareName, int32(sizeGiB))
 		} else {
 			err = d.cloud.ResizeFileShare(ctx, subsID, resourceGroup, accountName, shareName, sizeGiB)
 		}
