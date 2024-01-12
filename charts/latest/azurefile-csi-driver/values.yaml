@@ -8,10 +8,6 @@ image:
     repository: /oss/kubernetes-csi/csi-provisioner
     tag: v3.6.2
     pullPolicy: IfNotPresent
-  csiAttacher:
-    repository: /oss/kubernetes-csi/csi-attacher
-    tag: v4.4.2
-    pullPolicy: IfNotPresent
   csiResizer:
     repository: /oss/kubernetes-csi/csi-resizer
     tag: v1.9.2
@@ -64,13 +60,6 @@ controller:
   podAnnotations: {}
   resources:
     csiProvisioner:
-      limits:
-        cpu: 1
-        memory: 500Mi
-      requests:
-        cpu: 10m
-        memory: 20Mi
-    csiAttacher:
       limits:
         cpu: 1
         memory: 500Mi

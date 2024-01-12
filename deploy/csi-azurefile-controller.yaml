@@ -54,28 +54,6 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
-        - name: csi-attacher
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-attacher:v4.4.2
-          args:
-            - "-v=2"
-            - "-csi-address=$(ADDRESS)"
-            - "-timeout=120s"
-            - "--leader-election"
-            - "--leader-election-namespace=kube-system"
-            - "--kube-api-qps=50"
-            - "--kube-api-burst=100"
-          env:
-            - name: ADDRESS
-              value: /csi/csi.sock
-          volumeMounts:
-            - mountPath: /csi
-              name: socket-dir
-          resources:
-            limits:
-              memory: 500Mi
-            requests:
-              cpu: 10m
-              memory: 20Mi
         - name: csi-snapshotter
           image: mcr.microsoft.com/oss/kubernetes-csi/csi-snapshotter:v6.3.2
           args:
