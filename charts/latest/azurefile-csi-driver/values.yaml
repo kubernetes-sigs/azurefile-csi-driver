@@ -8,10 +8,6 @@ image:
     repository: /oss/kubernetes-csi/csi-provisioner
     tag: v3.5.0
     pullPolicy: IfNotPresent
-  csiAttacher:
-    repository: /oss/kubernetes-csi/csi-attacher
-    tag: v4.3.0
-    pullPolicy: IfNotPresent
   csiResizer:
     repository: /oss/kubernetes-csi/csi-resizer
     tag: v1.8.0
