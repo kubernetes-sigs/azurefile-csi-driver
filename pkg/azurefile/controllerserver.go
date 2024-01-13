@@ -801,120 +801,13 @@ func (d *Driver) ListVolumes(_ context.Context, _ *csi.ListVolumesRequest) (*csi
 }
 
 // ControllerPublishVolume make a volume available on some required node
-func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
-	volumeID := req.GetVolumeId()
-	if len(volumeID) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Volume ID not provided")
-	}
-
-	volCap := req.GetVolumeCapability()
-	if volCap == nil {
-		return nil, status.Error(codes.InvalidArgument, "Volume capability not provided")
-	}
-
-	nodeID := req.GetNodeId()
-	if len(nodeID) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Node ID not provided")
-	}
-
-	volContext := req.GetVolumeContext()
-	_, accountName, accountKey, fileShareName, diskName, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), volContext)
-	// always check diskName first since if it's not vhd disk attach, ControllerPublishVolume is not necessary
-	if !strings.HasSuffix(diskName, vhdSuffix) {
-		klog.V(2).Infof("skip ControllerPublishVolume(%s) since it's not vhd disk attach", volumeID)
-		if useDataPlaneAPI(volContext) {
-			d.dataPlaneAPIVolMap.Store(volumeID, "")
-		}
-		return &csi.ControllerPublishVolumeResponse{}, nil
-	}
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("GetAccountInfo(%s) failed with error: %v", volumeID, err))
-	}
-
-	accessMode := volCap.GetAccessMode()
-	if accessMode == nil || accessMode.Mode == csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("unsupported AccessMode(%v) for volume(%s)", volCap.GetAccessMode(), volumeID))
-	}
-
-	if accessMode.Mode == csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY ||
-		accessMode.Mode == csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY {
-		// don't lock vhd disk here since it's readonly, while it's user's responsibility to make sure
-		// volume is used as ReadOnly, otherwise there would be data corruption for MULTI_NODE_MULTI_WRITER
-		klog.V(2).Infof("skip ControllerPublishVolume(%s) since volume is readonly mode", volumeID)
-		return &csi.ControllerPublishVolumeResponse{}, nil
-	}
-
-	if acquired := d.volumeLocks.TryAcquire(volumeID); !acquired {
-		return nil, status.Errorf(codes.Aborted, volumeOperationAlreadyExistsFmt, volumeID)
-	}
-	defer d.volumeLocks.Release(volumeID)
-
-	storageEndpointSuffix := d.cloud.Environment.StorageEndpointSuffix
-	fileURL, err := getFileURL(accountName, accountKey, storageEndpointSuffix, fileShareName, diskName)
-	if err != nil {
-		return nil, status.Error(codes.Internal, fmt.Sprintf("getFileURL(%s,%s,%s,%s) returned with error: %v", accountName, storageEndpointSuffix, fileShareName, diskName, err))
-	}
-	if fileURL == nil {
-		return nil, status.Error(codes.Internal, fmt.Sprintf("getFileURL(%s,%s,%s,%s) returned empty fileURL", accountName, storageEndpointSuffix, fileShareName, diskName))
-	}
-
-	properties, err := fileURL.GetProperties(ctx)
-	if err != nil {
-		return nil, status.Error(codes.Internal, fmt.Sprintf("GetProperties for volume(%s) on node(%s) returned with error: %v", volumeID, nodeID, err))
-	}
-
-	attachedNodeID, ok := properties.NewMetadata()[metaDataNode]
-	if ok && attachedNodeID != "" && !strings.EqualFold(attachedNodeID, nodeID) {
-		return nil, status.Error(codes.Internal, fmt.Sprintf("volume(%s) cannot be attached to node(%s) since it's already attached to node(%s)", volumeID, nodeID, attachedNodeID))
-	}
-	if _, err = fileURL.SetMetadata(ctx, azfile.Metadata{metaDataNode: nodeID}); err != nil {
-		return nil, status.Error(codes.Internal, fmt.Sprintf("SetMetadata for volume(%s) on node(%s) returned with error: %v", volumeID, nodeID, err))
-	}
-	klog.V(2).Infof("ControllerPublishVolume: volume(%s) attached to node(%s) successfully", volumeID, nodeID)
-	return &csi.ControllerPublishVolumeResponse{}, nil
+func (d *Driver) ControllerPublishVolume(_ context.Context, _ *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // ControllerUnpublishVolume detach the volume on a specified node
-func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
-	volumeID := req.GetVolumeId()
-	if len(volumeID) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Volume ID not provided")
-	}
-
-	nodeID := req.GetNodeId()
-	if len(nodeID) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Node ID not provided")
-	}
-
-	_, accountName, accountKey, fileShareName, diskName, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), map[string]string{})
-	// always check diskName first since if it's not vhd disk detach, ControllerUnpublishVolume is not necessary
-	if !strings.HasSuffix(diskName, vhdSuffix) {
-		klog.V(2).Infof("skip ControllerUnpublishVolume(%s) since it's not vhd disk detach", volumeID)
-		return &csi.ControllerUnpublishVolumeResponse{}, nil
-	}
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("GetAccountInfo(%s) failed with error: %v", volumeID, err))
-	}
-
-	if acquired := d.volumeLocks.TryAcquire(volumeID); !acquired {
-		return nil, status.Errorf(codes.Aborted, volumeOperationAlreadyExistsFmt, volumeID)
-	}
-	defer d.volumeLocks.Release(volumeID)
-
-	storageEndpointSuffix := d.cloud.Environment.StorageEndpointSuffix
-	fileURL, err := getFileURL(accountName, accountKey, storageEndpointSuffix, fileShareName, diskName)
-	if err != nil {
-		return nil, status.Error(codes.Internal, fmt.Sprintf("getFileURL(%s,%s,%s,%s) returned with error: %v", accountName, storageEndpointSuffix, fileShareName, diskName, err))
-	}
-	if fileURL == nil {
-		return nil, status.Error(codes.Internal, fmt.Sprintf("getFileURL(%s,%s,%s,%s) returned empty fileURL", accountName, storageEndpointSuffix, fileShareName, diskName))
-	}
-
-	if _, err = fileURL.SetMetadata(ctx, azfile.Metadata{metaDataNode: ""}); err != nil {
-		return nil, status.Error(codes.Internal, fmt.Sprintf("SetMetadata for volume(%s) on node(%s) returned with error: %v", volumeID, nodeID, err))
-	}
-	klog.V(2).Infof("ControllerUnpublishVolume: volume(%s) detached from node(%s) successfully", volumeID, nodeID)
-	return &csi.ControllerUnpublishVolumeResponse{}, nil
+func (d *Driver) ControllerUnpublishVolume(_ context.Context, _ *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // CreateSnapshot create a snapshot
