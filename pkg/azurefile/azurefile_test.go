@@ -1001,7 +1001,7 @@ func TestGetFileShareQuota(t *testing.T) {
 			mockedFileShareResp: storage.FileShare{},
 			mockedFileShareErr:  nil,
 			expectedQuota:       -1,
-			expectedError:       fmt.Errorf("error creating azure client: azure: account name is not valid: it must be between 3 and 24 characters, and only may contain numbers and lowercase letters: ut"),
+			expectedError:       fmt.Errorf("error creating azure shared key credential: decode account key: illegal base64 data at input byte 4"),
 		},
 	}
 

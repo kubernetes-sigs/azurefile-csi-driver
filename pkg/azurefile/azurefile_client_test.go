@@ -17,56 +17,17 @@ limitations under the License.
 package azurefile
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/stretchr/testify/assert"
 
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
-	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
 )
-
-func TestGetFileSvcClient(t *testing.T) {
-	accountName := "ut"
-	accountKey := "ut"
-	f := azureFileClient{
-		env: &azure.Environment{
-			StorageEndpointSuffix: "ut",
-		},
-		backoff: &retry.Backoff{
-			Steps:    1,
-			Duration: time.Second,
-		},
-	}
-	_, actualErr := f.getFileSvcClient(accountName, accountKey)
-	expectedErr := fmt.Errorf("error creating azure client: azure: account name is not valid: it must be between 3 and 24 characters, and only may contain numbers and lowercase letters: ut")
-	if !reflect.DeepEqual(actualErr, expectedErr) {
-		t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
-	}
-	accountName = "unittest"
-	accountKey = "dW5pdHRlc3Q="
-	fileserviceClient, err := f.getFileSvcClient(accountName, accountKey)
-	assert.NotNil(t, fileserviceClient)
-	assert.NoError(t, err)
-
-	//Test that the client uses defaultStorageEndpointSuffix
-	f = azureFileClient{
-		env: &azure.Environment{},
-		backoff: &retry.Backoff{
-			Steps:    1,
-			Duration: time.Second,
-		},
-	}
-	accountName = "unittest"
-	accountKey = "dW5pdHRlc3Q="
-	fileserviceClient, err = f.getFileSvcClient(accountName, accountKey)
-	assert.NotNil(t, fileserviceClient)
-	assert.NoError(t, err)
-}
 
 func TestCreateFileShare(t *testing.T) {
 
@@ -80,7 +41,7 @@ func TestCreateFileShare(t *testing.T) {
 				accountName := "unittest"
 				accountKey := "dW5pdHRlc3Q="
 				f := azureFileClient{}
-				actualErr := f.CreateFileShare(accountName, accountKey, nil)
+				actualErr := f.CreateFileShare(context.Background(), accountName, accountKey, nil)
 				expectedErr := fmt.Errorf("shareOptions of account(%s) is nil", accountName)
 				if !reflect.DeepEqual(actualErr, expectedErr) {
 					t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
@@ -100,12 +61,12 @@ func TestCreateFileShare(t *testing.T) {
 						StorageEndpointSuffix: "ut",
 					},
 				}
-				actualErr := f.CreateFileShare(accountName, accountKey, options)
+				actualErr := f.CreateFileShare(context.Background(), accountName, accountKey, options)
 				expectedErr := fmt.Errorf("error creating azure client: azure: account name is not valid: it must be between 3 and 24 characters, and only may contain numbers and lowercase letters: ut")
 				if !reflect.DeepEqual(actualErr, expectedErr) {
 					t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
 				}
-				actualErr = f.createFileShare(accountName, accountKey, "unit-test", 10)
+				actualErr = f.createFileShare(context.Background(), accountName, accountKey, "unit-test", 10)
 				if !reflect.DeepEqual(actualErr, expectedErr) {
 					t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
 				}
@@ -123,7 +84,7 @@ func TestCreateFileShare(t *testing.T) {
 				f := azureFileClient{
 					env: &azure.Environment{},
 				}
-				actualErr := f.CreateFileShare(accountName, accountKey, options)
+				actualErr := f.CreateFileShare(context.Background(), accountName, accountKey, options)
 				expectedErr := fmt.Errorf("failed to create file share, err: ")
 				if !strings.HasPrefix(actualErr.Error(), expectedErr.Error()) {
 					t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
@@ -144,7 +105,7 @@ func TestDeleteFileShare(t *testing.T) {
 			StorageEndpointSuffix: "ut",
 		},
 	}
-	actualErr := f.deleteFileShare(accountName, accountKey, "")
+	actualErr := f.deleteFileShare(context.Background(), accountName, accountKey, "")
 	expectedErr := fmt.Errorf("error creating azure client: azure: account name is not valid: it must be between 3 and 24 characters, and only may contain numbers and lowercase letters: ut")
 	if !reflect.DeepEqual(actualErr, expectedErr) {
 		t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
@@ -166,7 +127,7 @@ func TestResizeFileShare(t *testing.T) {
 						StorageEndpointSuffix: "ut",
 					},
 				}
-				actualErr := f.resizeFileShare(accountName, accountKey, "", 10)
+				actualErr := f.resizeFileShare(context.Background(), accountName, accountKey, "", 10)
 				expectedErr := fmt.Errorf("error creating azure client: azure: account name is not valid: it must be between 3 and 24 characters, and only may contain numbers and lowercase letters: ut")
 				if !reflect.DeepEqual(actualErr, expectedErr) {
 					t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
@@ -184,7 +145,7 @@ func TestResizeFileShare(t *testing.T) {
 						StorageEndpointSuffix: "ut",
 					},
 				}
-				actualErr := f.resizeFileShare(accountName, accountKey, "", -2)
+				actualErr := f.resizeFileShare(context.Background(), accountName, accountKey, "", -2)
 				assert.NoError(t, actualErr)
 			},
 		},
@@ -199,7 +160,7 @@ func TestResizeFileShare(t *testing.T) {
 						StorageEndpointSuffix: "ut",
 					},
 				}
-				actualErr := f.resizeFileShare(accountName, accountKey, "", 6000)
+				actualErr := f.resizeFileShare(context.Background(), accountName, accountKey, "", 6000)
 				expectedErr := fmt.Errorf("failed to set quota on file share , err: invalid value 6000 for quota, valid values are [1, 5120]")
 				if !reflect.DeepEqual(actualErr, expectedErr) {
 					t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
