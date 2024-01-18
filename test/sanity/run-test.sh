@@ -38,12 +38,12 @@ fi
 
 azcopyPath="/usr/local/bin/azcopy"
 if [ ! -f "$azcopyPath" ]; then
-  azcopyVersion=azcopy_linux_amd64_10.22.1
+  azcopyTarFile="azcopy.tar.gz"
   echo 'Downloading azcopy...'
-  wget -c https://azcopyvnext.azureedge.net/releases/release-10.22.1-20231220/$azcopyVersion.tar.gz
-  tar -zxvf $azcopyVersion.tar.gz
-  mv ./$azcopyVersion/azcopy /usr/local/bin/azcopy
-  rm -rf ./$azcopyVersion*
+  wget -O $azcopyTarFile azcopyvnext.azureedge.net/releases/release-10.22.2-20240110/azcopy_linux_arm64_10.22.2.tar.gz
+  tar -zxvf $azcopyTarFile
+  mv ./azcopy*/azcopy /usr/local/bin/azcopy
+  rm -rf ./$azcopyTarFile
   chmod +x /usr/local/bin/azcopy
 fi
 
