@@ -441,7 +441,6 @@ func TestCreateVolume(t *testing.T) {
 				d.cloud = fakeCloud
 				d.volMap = sync.Map{}
 				d.volMap.Store("random-vol-name-vol-cap-invalid", "account")
-				d.fileClient = &azureFileClient{}
 
 				expectedErr := status.Errorf(codes.Internal, "failed to GetStorageAccesskey on account(account) rg(), error: StorageAccountClient is nil")
 				_, err := d.CreateVolume(ctx, req)

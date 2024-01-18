@@ -423,9 +423,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			storageEndpointSuffix = defaultStorageEndPointSuffix
 		}
 	}
-	if d.fileClient != nil {
-		d.fileClient.StorageEndpointSuffix = storageEndpointSuffix
-	}
 
 	accountOptions := &azure.AccountOptions{
 		Name:                                    account,
