@@ -17,7 +17,7 @@ GIT_COMMIT ?= $(shell git rev-parse HEAD)
 REGISTRY ?= andyzhangx
 REGISTRY_NAME ?= $(shell echo $(REGISTRY) | sed "s/.azurecr.io//g")
 IMAGE_NAME ?= azurefile-csi
-IMAGE_VERSION ?= v1.29.2
+IMAGE_VERSION ?= v1.29.3
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
 ifndef PUBLISH
