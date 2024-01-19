@@ -47,6 +47,7 @@ type DriverOptions struct {
 	SasTokenExpirationMinutes              int
 	KubeConfig                             string
 	Endpoint                               string
+	AzcopyUseSasToken                      bool
 }
 
 func (o *DriverOptions) AddFlags() *flag.FlagSet {
@@ -81,6 +82,7 @@ func (o *DriverOptions) AddFlags() *flag.FlagSet {
 	fs.IntVar(&o.SasTokenExpirationMinutes, "sas-token-expiration-minutes", 1440, "sas token expiration minutes during volume cloning")
 	fs.StringVar(&o.KubeConfig, "kubeconfig", "", "Absolute path to the kubeconfig file. Required only when running out of cluster.")
 	fs.StringVar(&o.Endpoint, "endpoint", "unix://tmp/csi.sock", "CSI endpoint")
+	fs.BoolVar(&o.AzcopyUseSasToken, "azcopy-use-sas-token", true, "Whether SAS token should be used in azcopy based on volume clone and snapshot restore")
 
 	return fs
 }
