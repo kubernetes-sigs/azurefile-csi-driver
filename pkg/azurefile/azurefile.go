@@ -261,6 +261,9 @@ type Driver struct {
 
 	kubeconfig string
 	endpoint   string
+
+	// azcopy use sas token by default
+	azcopyUseSasToken bool
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -297,6 +300,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.azcopy = &fileutil.Azcopy{}
 	driver.kubeconfig = options.KubeConfig
 	driver.endpoint = options.Endpoint
+	driver.azcopyUseSasToken = options.AzcopyUseSasToken
 
 	var err error
 	getter := func(key string) (interface{}, error) { return nil, nil }
