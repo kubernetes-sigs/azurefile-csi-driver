@@ -942,7 +942,6 @@ func TestCreateDisk(t *testing.T) {
 func TestGetFileShareQuota(t *testing.T) {
 	d := NewFakeDriver()
 	d.cloud = &azure.Cloud{}
-	d.fileClient = &azureFileClient{env: &azure2.Environment{}}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	shareQuota := int32(10)

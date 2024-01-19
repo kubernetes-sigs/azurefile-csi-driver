@@ -225,7 +225,6 @@ type Driver struct {
 	appendNoResvPortOption                 bool
 	appendActimeoOption                    bool
 	printVolumeStatsCallLogs               bool
-	fileClient                             *azureFileClient
 	mounter                                *mount.SafeFormatAndMount
 	server                                 *grpc.Server
 	// lock per volume attach (only for vhd disk feature)
@@ -351,7 +350,7 @@ func (d *Driver) Run(ctx context.Context) error {
 	}
 	klog.Infof("\nDRIVER INFORMATION:\n-------------------\n%s\n\nStreaming logs below:", versionMeta)
 
-	if *&d.NodeID == "" {
+	if d.NodeID == "" {
 		// nodeid is not needed in controller component
 		klog.Warning("nodeid is empty")
 	}
@@ -363,9 +362,6 @@ func (d *Driver) Run(ctx context.Context) error {
 		klog.Fatalf("failed to get Azure Cloud Provider, error: %v", err)
 	}
 	klog.V(2).Infof("cloud: %s, location: %s, rg: %s, VnetName: %s, VnetResourceGroup: %s, SubnetName: %s", d.cloud.Cloud, d.cloud.Location, d.cloud.ResourceGroup, d.cloud.VnetName, d.cloud.VnetResourceGroup, d.cloud.SubnetName)
-
-	// todo: set backoff from cloud provider config
-	d.fileClient = newAzureFileClient(&d.cloud.Environment, &retry.Backoff{Steps: 1})
 
 	d.mounter, err = mounter.NewSafeMounter(d.enableWindowsHostProcess)
 	if err != nil {
@@ -435,19 +431,11 @@ func (d *Driver) getFileShareQuota(ctx context.Context, subsID, resourceGroupNam
 		if err != nil {
 			return -1, err
 		}
-		fileClient, err := d.fileClient.getFileSvcClient(accountName, accountKey)
+		fileClient, err := newAzureFileClient(&d.cloud.Environment, &retry.Backoff{Steps: 1}, accountName, accountKey)
 		if err != nil {
 			return -1, err
 		}
-		share := fileClient.GetShareReference(fileShareName)
-		exists, err := share.Exists()
-		if err != nil {
-			return -1, err
-		}
-		if !exists {
-			return -1, nil
-		}
-		return share.Properties.Quota, nil
+		return fileClient.GetFileShareQuota(ctx, fileShareName)
 	}
 
 	fileShare, err := d.cloud.GetFileShare(ctx, subsID, resourceGroupName, accountName, fileShareName)
@@ -913,7 +901,11 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *azure.Acco
 			if rerr != nil {
 				return true, rerr
 			}
-			err = d.fileClient.CreateFileShare(accountName, accountKey, shareOptions)
+			fileClient, rerr := newAzureFileClient(&d.cloud.Environment, &retry.Backoff{Steps: 1}, accountName, accountKey)
+			if rerr != nil {
+				return true, rerr
+			}
+			err = fileClient.CreateFileShare(ctx, shareOptions)
 		} else {
 			_, err = d.cloud.FileClient.WithSubscriptionID(accountOptions.SubscriptionID).CreateFileShare(ctx, accountOptions.ResourceGroup, accountOptions.Name, shareOptions, "")
 		}
@@ -935,7 +927,11 @@ func (d *Driver) DeleteFileShare(ctx context.Context, subsID, resourceGroup, acc
 			if rerr != nil {
 				return true, rerr
 			}
-			err = d.fileClient.deleteFileShare(accountName, accountKey, shareName)
+			fileClient, rerr := newAzureFileClient(&d.cloud.Environment, &retry.Backoff{Steps: 1}, accountName, accountKey)
+			if rerr != nil {
+				return true, rerr
+			}
+			err = fileClient.DeleteFileShare(ctx, shareName)
 		} else {
 			err = d.cloud.DeleteFileShare(ctx, subsID, resourceGroup, accountName, shareName)
 		}
@@ -972,7 +968,11 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 			if rerr != nil {
 				return true, rerr
 			}
-			err = d.fileClient.resizeFileShare(accountName, accountKey, shareName, sizeGiB)
+			fileClient, rerr := newAzureFileClient(&d.cloud.Environment, &retry.Backoff{Steps: 1}, accountName, accountKey)
+			if rerr != nil {
+				return true, rerr
+			}
+			err = fileClient.ResizeFileShare(ctx, shareName, sizeGiB)
 		} else {
 			err = d.cloud.ResizeFileShare(ctx, subsID, resourceGroup, accountName, shareName, sizeGiB)
 		}
