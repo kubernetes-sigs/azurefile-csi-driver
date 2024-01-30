@@ -51,16 +51,16 @@ func (m *MockEXEC) EXPECT() *MockEXECMockRecorder {
 }
 
 // RunCommand mocks base method.
-func (m *MockEXEC) RunCommand(arg0 string) (string, error) {
+func (m *MockEXEC) RunCommand(arg0 string, arg1 []string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RunCommand", arg0)
+	ret := m.ctrl.Call(m, "RunCommand", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RunCommand indicates an expected call of RunCommand.
-func (mr *MockEXECMockRecorder) RunCommand(arg0 interface{}) *gomock.Call {
+func (mr *MockEXECMockRecorder) RunCommand(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunCommand", reflect.TypeOf((*MockEXEC)(nil).RunCommand), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunCommand", reflect.TypeOf((*MockEXEC)(nil).RunCommand), arg0, arg1)
 }
