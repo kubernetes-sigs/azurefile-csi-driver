@@ -53,10 +53,11 @@ var (
 
 func NewFakeDriver() *Driver {
 	driverOptions := DriverOptions{
-		NodeID:     fakeNodeID,
-		DriverName: DefaultDriverName,
-		KubeConfig: "",
-		Endpoint:   "tcp://127.0.0.1:0",
+		NodeID:                      fakeNodeID,
+		DriverName:                  DefaultDriverName,
+		KubeConfig:                  "",
+		Endpoint:                    "tcp://127.0.0.1:0",
+		WaitForAzCopyTimeoutMinutes: 1,
 	}
 	driver := NewDriver(&driverOptions)
 	driver.Name = fakeDriverName
