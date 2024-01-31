@@ -183,8 +183,7 @@ const (
 
 	FSGroupChangeNone = "None"
 
-	waitForCopyInterval = 5 * time.Second
-	waitForCopyTimeout  = 3 * time.Minute
+	waitForAzCopyInterval = 2 * time.Second
 )
 
 var (
@@ -223,6 +222,7 @@ type DriverOptions struct {
 	VolStatsCacheExpireInMinutes           int
 	PrintVolumeStatsCallLogs               bool
 	SasTokenExpirationMinutes              int
+	WaitForAzCopyTimeoutMinutes            int
 }
 
 // Driver implements all interfaces of CSI drivers
@@ -278,6 +278,8 @@ type Driver struct {
 	volStatsCache azcache.Resource
 	// sas expiry time for azcopy in volume clone
 	sasTokenExpirationMinutes int
+	// azcopy timeout for volume clone and snapshot restore
+	waitForAzCopyTimeoutMinutes int
 	// azcopy for provide exec mock for ut
 	azcopy *fileutil.Azcopy
 }
@@ -310,6 +312,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.appendActimeoOption = options.AppendActimeoOption
 	driver.printVolumeStatsCallLogs = options.PrintVolumeStatsCallLogs
 	driver.sasTokenExpirationMinutes = options.SasTokenExpirationMinutes
+	driver.waitForAzCopyTimeoutMinutes = options.WaitForAzCopyTimeoutMinutes
 	driver.volLockMap = newLockMap()
 	driver.subnetLockMap = newLockMap()
 	driver.volumeLocks = newVolumeLocks()
@@ -997,8 +1000,8 @@ func (d *Driver) copyFileShare(req *csi.CreateVolumeRequest, accountKey string, 
 		return genErr
 	}
 
-	timeAfter := time.After(waitForCopyTimeout)
-	timeTick := time.Tick(waitForCopyInterval)
+	timeAfter := time.After(time.Duration(d.waitForAzCopyTimeoutMinutes) * time.Minute)
+	timeTick := time.Tick(waitForAzCopyInterval)
 	srcPath := fmt.Sprintf("https://%s.file.%s/%s%s", accountName, storageEndpointSuffix, srcFileShareName, accountSasToken)
 	dstPath := fmt.Sprintf("https://%s.file.%s/%s%s", accountName, storageEndpointSuffix, dstFileShareName, accountSasToken)
 

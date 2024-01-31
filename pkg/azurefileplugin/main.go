@@ -65,6 +65,7 @@ var (
 	volStatsCacheExpireInMinutes           = flag.Int("vol-stats-cache-expire-in-minutes", 10, "The cache expire time in minutes for volume stats cache")
 	printVolumeStatsCallLogs               = flag.Bool("print-volume-stats-call-logs", false, "Whether to print volume statfs call logs with log level 2")
 	sasTokenExpirationMinutes              = flag.Int("sas-token-expiration-minutes", 1440, "sas token expiration minutes during volume cloning")
+	waitForAzCopyTimeoutMinutes            = flag.Int("wait-for-azcopy-timeout-minutes", 18, "timeout in minutes for waiting for azcopy to finish")
 )
 
 func main() {
@@ -115,6 +116,7 @@ func handle() {
 		VolStatsCacheExpireInMinutes:           *volStatsCacheExpireInMinutes,
 		PrintVolumeStatsCallLogs:               *printVolumeStatsCallLogs,
 		SasTokenExpirationMinutes:              *sasTokenExpirationMinutes,
+		WaitForAzCopyTimeoutMinutes:            *waitForAzCopyTimeoutMinutes,
 	}
 	driver := azurefile.NewDriver(&driverOptions)
 	if driver == nil {
