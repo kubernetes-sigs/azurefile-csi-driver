@@ -167,10 +167,10 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 
 	volumeID := req.GetVolumeId()
-	context := req.GetVolumeContext()
+	volContext := req.GetVolumeContext()
 
-	if getValueInMap(context, clientIDField) != "" && context[serviceAccountTokenField] == "" {
-		klog.V(2).Infof("Skip NodeStageVolume for volume(%s) since clientID %s is provided but service account token is empty", volumeID, getValueInMap(context, clientIDField))
+	if getValueInMap(volContext, clientIDField) != "" && volContext[serviceAccountTokenField] == "" {
+		klog.V(2).Infof("Skip NodeStageVolume for volume(%s) since clientID %s is provided but service account token is empty", volumeID, getValueInMap(volContext, clientIDField))
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
 
@@ -184,7 +184,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
 	}()
 
-	_, accountName, accountKey, fileShareName, diskName, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), context)
+	_, accountName, accountKey, fileShareName, diskName, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), volContext)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("GetAccountInfo(%s) failed with error: %v", volumeID, err))
 	}
@@ -201,7 +201,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	performChmodOp := (mountPermissions > 0)
 	fsGroupChangePolicy := d.fsGroupChangePolicy
 
-	for k, v := range context {
+	for k, v := range volContext {
 		switch strings.ToLower(k) {
 		case fsTypeField:
 			fsType = v
@@ -327,7 +327,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}
 	}
 
-	klog.V(2).Infof("cifsMountPath(%v) fstype(%v) volumeID(%v) context(%v) mountflags(%v) mountOptions(%v) volumeMountGroup(%s)", cifsMountPath, fsType, volumeID, context, mountFlags, mountOptions, volumeMountGroup)
+	klog.V(2).Infof("cifsMountPath(%v) fstype(%v) volumeID(%v) context(%v) mountflags(%v) mountOptions(%v) volumeMountGroup(%s)", cifsMountPath, fsType, volumeID, volContext, mountFlags, mountOptions, volumeMountGroup)
 
 	isDirMounted, err := d.ensureMountPoint(cifsMountPath, os.FileMode(mountPermissions))
 	if err != nil {
@@ -343,7 +343,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		if err := prepareStagePath(cifsMountPath, d.mounter); err != nil {
 			return nil, status.Errorf(codes.Internal, "prepare stage path failed for %s with error: %v", cifsMountPath, err)
 		}
-		if err := wait.PollImmediate(1*time.Second, 2*time.Minute, func() (bool, error) {
+		if err := wait.PollImmediateWithContext(ctx, 1*time.Second, 2*time.Minute, func(ctx context.Context) (bool, error) {
 			return true, SMBMount(d.mounter, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions)
 		}); err != nil {
 			var helpLinkMsg string
