@@ -408,12 +408,13 @@ func TestNodeStageVolume(t *testing.T) {
 	}
 
 	tests := []struct {
-		desc         string
-		setup        func()
-		req          csi.NodeStageVolumeRequest
-		execScripts  []ExecArgs
-		skipOnDarwin bool
-		expectedErr  testutil.TestError
+		desc          string
+		setup         func()
+		req           csi.NodeStageVolumeRequest
+		execScripts   []ExecArgs
+		skipOnDarwin  bool
+		skipOnWindows bool
+		expectedErr   testutil.TestError
 		// use this field only when Windows
 		// gives flaky error messages due
 		// to CSI proxy
@@ -589,7 +590,8 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContext,
 				Secrets:          secrets},
-			skipOnDarwin: true,
+			skipOnDarwin:  true,
+			skipOnWindows: true,
 			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount %s on %v failed "+
 				"with smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
 				errorSource, errorMountSensSource),
@@ -607,7 +609,8 @@ func TestNodeStageVolume(t *testing.T) {
 				{"blkid", []string{"-p", "-s", "TYPE", "-s", "PTTYPE", "-o", "export", testDiskPath}, "", &testingexec.FakeExitError{Status: 2}},
 				{"mkfs.ext4", []string{"-F", "-m0", testDiskPath}, "", fmt.Errorf("formatting failed")},
 			},
-			skipOnDarwin: true,
+			skipOnDarwin:  true,
+			skipOnWindows: true,
 			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount %s on %v failed with "+
 				"smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
 				errorSource, proxyMountPath),
@@ -621,6 +624,7 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContext,
 				Secrets:          secrets},
+			skipOnWindows: true,
 			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount %s on %v failed with "+
 				"smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
 				errorSource, sourceTest),
@@ -632,6 +636,7 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContextEmptyShareName,
 				Secrets:          secrets},
+			skipOnWindows: true,
 			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount \\\\k8s.file.test_suffix\\test_sharename on %v failed with "+
 				"smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
 				sourceTest),
@@ -643,6 +648,7 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContextNfs,
 				Secrets:          secrets},
+			skipOnWindows: true,
 			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount %s on %v failed with "+
 				"smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
 				errorSource, sourceTest),
@@ -654,6 +660,7 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContextFsType,
 				Secrets:          secrets},
+			skipOnWindows: true,
 			execScripts: []ExecArgs{
 				{"blkid", []string{"-p", "-s", "TYPE", "-s", "PTTYPE", "-o", "export", testDiskPath}, "", nil},
 				{"mkfs.ext4", []string{"-F", "-m0", testDiskPath}, "", nil},
@@ -669,6 +676,7 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &groupVolCap,
 				VolumeContext:    volContextFsType,
 				Secrets:          secrets},
+			skipOnWindows: true,
 			execScripts: []ExecArgs{
 				{"blkid", []string{"-p", "-s", "TYPE", "-s", "PTTYPE", "-o", "export", testDiskPath}, "", nil},
 				{"mkfs.ext4", []string{"-F", "-m0", testDiskPath}, "", nil},
@@ -701,6 +709,9 @@ func TestNodeStageVolume(t *testing.T) {
 			test.setup()
 		}
 		if test.skipOnDarwin && runtime.GOOS == "darwin" {
+			continue
+		}
+		if test.skipOnWindows && runtime.GOOS == "windows" {
 			continue
 		}
 		mounter, err := NewFakeMounter()

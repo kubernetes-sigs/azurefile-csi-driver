@@ -52,8 +52,9 @@ var (
 
 func NewFakeDriver() *Driver {
 	driverOptions := DriverOptions{
-		NodeID:     fakeNodeID,
-		DriverName: DefaultDriverName,
+		NodeID:                      fakeNodeID,
+		DriverName:                  DefaultDriverName,
+		WaitForAzCopyTimeoutMinutes: 1,
 	}
 	driver := NewDriver(&driverOptions)
 	driver.Name = fakeDriverName
