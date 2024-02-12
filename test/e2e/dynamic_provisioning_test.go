@@ -720,7 +720,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(ctx, cs, ns)
 	})
 
-	ginkgo.It("should create a pod, write and read to it, take a smb volume snapshot, and validate whether it is ready to use [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+	ginkgo.It("should create a pod, write and read to it, take a standard smb volume snapshot, and validate whether it is ready to use [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
 		skipIfTestingInWindowsCluster()
 		skipIfUsingInTreeVolumePlugin()
 
@@ -745,6 +745,37 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			PodWithSnapshot: podWithSnapshot,
 			StorageClassParameters: map[string]string{
 				"skuName":                     "Standard_LRS",
+				"selectRandomMatchingAccount": "true",
+			},
+		}
+		test.Run(ctx, cs, snapshotrcs, ns)
+	})
+
+	ginkgo.It("should create a pod, write and read to it, take a premium smb volume snapshot, and validate whether it is ready to use [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+		skipIfTestingInWindowsCluster()
+		skipIfUsingInTreeVolumePlugin()
+
+		pod := testsuites.PodDetails{
+			Cmd: "echo 'hello world' > /mnt/test-1/data",
+			Volumes: []testsuites.VolumeDetails{
+				{
+					ClaimSize: "10Gi",
+					VolumeMount: testsuites.VolumeMountDetails{
+						NameGenerate:      "test-volume-",
+						MountPathGenerate: "/mnt/test-",
+					},
+				},
+			},
+		}
+		podWithSnapshot := testsuites.PodDetails{
+			Cmd: "grep 'hello world' /mnt/test-1/data",
+		}
+		test := testsuites.DynamicallyProvisionedVolumeSnapshotTest{
+			CSIDriver:       testDriver,
+			Pod:             pod,
+			PodWithSnapshot: podWithSnapshot,
+			StorageClassParameters: map[string]string{
+				"skuName":                     "Premium_LRS",
 				"selectRandomMatchingAccount": "true",
 			},
 		}
