@@ -23,6 +23,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v5"
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2022-08-01/compute"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,16 +36,16 @@ import (
 )
 
 // AttachDisk attaches a disk to vm
-func (fs *FlexScaleSet) AttachDisk(ctx context.Context, nodeName types.NodeName, diskMap map[string]*AttachDiskOptions) (*azure.Future, error) {
+func (fs *FlexScaleSet) AttachDisk(ctx context.Context, nodeName types.NodeName, diskMap map[string]*AttachDiskOptions) error {
 	vmName := mapNodeNameToVMName(nodeName)
 	vm, err := fs.getVmssFlexVM(vmName, azcache.CacheReadTypeDefault)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	nodeResourceGroup, err := fs.GetNodeResourceGroup(vmName)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	disks := make([]compute.DataDisk, len(*vm.StorageProfile.DataDisks))
@@ -60,7 +61,7 @@ func (fs *FlexScaleSet) AttachDisk(ctx context.Context, nodeName types.NodeName,
 					attached = true
 					break
 				}
-				return nil, fmt.Errorf("disk(%s) already attached to node(%s) on LUN(%d), but target LUN is %d", diskURI, nodeName, *disk.Lun, opt.Lun)
+				return fmt.Errorf("disk(%s) already attached to node(%s) on LUN(%d), but target LUN is %d", diskURI, nodeName, *disk.Lun, opt.Lun)
 			}
 		}
 		if attached {
@@ -107,7 +108,7 @@ func (fs *FlexScaleSet) AttachDisk(ctx context.Context, nodeName types.NodeName,
 		klog.Errorf("azureDisk - attach disk list(%+v) on rg(%s) vm(%s) failed, err: %v", diskMap, nodeResourceGroup, vmName, rerr)
 		if rerr.HTTPStatusCode == http.StatusNotFound {
 			klog.Errorf("azureDisk - begin to filterNonExistingDisks(%v) on rg(%s) vm(%s)", diskMap, nodeResourceGroup, vmName)
-			disks := fs.filterNonExistingDisks(ctx, *newVM.VirtualMachineProperties.StorageProfile.DataDisks)
+			disks := FilterNonExistingDisks(ctx, fs.DisksClient, *newVM.VirtualMachineProperties.StorageProfile.DataDisks)
 			newVM.VirtualMachineProperties.StorageProfile.DataDisks = &disks
 			future, rerr = fs.VirtualMachinesClient.UpdateAsync(ctx, nodeResourceGroup, *vm.Name, newVM, "attach_disk")
 		}
@@ -115,9 +116,9 @@ func (fs *FlexScaleSet) AttachDisk(ctx context.Context, nodeName types.NodeName,
 
 	klog.V(2).Infof("azureDisk - update(%s): vm(%s) - attach disk list(%+v) returned with %v", nodeResourceGroup, vmName, diskMap, rerr)
 	if rerr != nil {
-		return future, rerr.Error()
+		return rerr.Error()
 	}
-	return future, nil
+	return fs.WaitForUpdateResult(ctx, future, nodeName, "attach_disk")
 }
 
 // DetachDisk detaches a disk from VM
@@ -156,7 +157,7 @@ func (fs *FlexScaleSet) DetachDisk(ctx context.Context, nodeName types.NodeName,
 		// only log here, next action is to update VM status with original meta data
 		klog.Warningf("detach azure disk on node(%s): disk list(%s) not found", nodeName, diskMap)
 	} else {
-		if strings.EqualFold(fs.cloud.Environment.Name, consts.AzureStackCloudName) && !fs.Config.DisableAzureStackCloud {
+		if strings.EqualFold(fs.Environment.Name, consts.AzureStackCloudName) && !fs.Config.DisableAzureStackCloud {
 			// Azure stack does not support ToBeDetached flag, use original way to detach disk
 			newDisks := []compute.DataDisk{}
 			for _, disk := range disks {
@@ -197,7 +198,7 @@ func (fs *FlexScaleSet) DetachDisk(ctx context.Context, nodeName types.NodeName,
 		klog.Errorf("azureDisk - detach disk list(%s) on rg(%s) vm(%s) failed, err: %v", diskMap, nodeResourceGroup, vmName, rerr)
 		if rerr.HTTPStatusCode == http.StatusNotFound {
 			klog.Errorf("azureDisk - begin to filterNonExistingDisks(%v) on rg(%s) vm(%s)", diskMap, nodeResourceGroup, vmName)
-			disks := fs.filterNonExistingDisks(ctx, *vm.StorageProfile.DataDisks)
+			disks := FilterNonExistingDisks(ctx, fs.DisksClient, *vm.StorageProfile.DataDisks)
 			newVM.VirtualMachineProperties.StorageProfile.DataDisks = &disks
 			result, rerr = fs.VirtualMachinesClient.Update(ctx, nodeResourceGroup, *vm.Name, newVM, "detach_disk")
 		}
@@ -263,9 +264,6 @@ func (fs *FlexScaleSet) UpdateVMAsync(ctx context.Context, nodeName types.NodeNa
 }
 
 func (fs *FlexScaleSet) updateCache(nodeName string, vm *compute.VirtualMachine) error {
-	if fs.ManagedDiskController.DisableUpdateCache {
-		return nil
-	}
 	if vm == nil {
 		return fmt.Errorf("vm is nil")
 	}
@@ -300,7 +298,7 @@ func (fs *FlexScaleSet) updateCache(nodeName string, vm *compute.VirtualMachine)
 }
 
 // GetDataDisks gets a list of data disks attached to the node.
-func (fs *FlexScaleSet) GetDataDisks(nodeName types.NodeName, crt azcache.AzureCacheReadType) ([]compute.DataDisk, *string, error) {
+func (fs *FlexScaleSet) GetDataDisks(nodeName types.NodeName, crt azcache.AzureCacheReadType) ([]*armcompute.DataDisk, *string, error) {
 	vm, err := fs.getVmssFlexVM(string(nodeName), crt)
 	if err != nil {
 		return nil, nil, err
@@ -309,6 +307,9 @@ func (fs *FlexScaleSet) GetDataDisks(nodeName types.NodeName, crt azcache.AzureC
 	if vm.StorageProfile.DataDisks == nil {
 		return nil, nil, nil
 	}
-
-	return *vm.StorageProfile.DataDisks, vm.ProvisioningState, nil
+	result, err := ToArmcomputeDisk(*vm.StorageProfile.DataDisks)
+	if err != nil {
+		return nil, nil, err
+	}
+	return result, vm.ProvisioningState, nil
 }
