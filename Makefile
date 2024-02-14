@@ -82,10 +82,6 @@ unit-test:
 sanity-test: azurefile
 	go test -v -timeout=10m ./test/sanity
 
-.PHONY: integration-test
-integration-test: azurefile
-	go test -v -timeout=10m ./test/integration
-
 .PHONY: e2e-test
 e2e-test:
 	if [ ! -z "$(EXTERNAL_E2E_TEST_SMB)" ] || [ ! -z "$(EXTERNAL_E2E_TEST_NFS)" ]; then \
