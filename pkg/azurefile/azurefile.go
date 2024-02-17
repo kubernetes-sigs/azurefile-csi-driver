@@ -165,6 +165,7 @@ const (
 	// define different sleep time when hit throttling
 	accountOpThrottlingSleepSec = 16
 	fileOpThrottlingSleepSec    = 180
+	maxThrottlingSleepSec       = 1200
 
 	defaultAccountNamePrefix = "f"
 

@@ -19,6 +19,7 @@ package azurefile
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -134,11 +135,36 @@ func isRetriableError(err error) bool {
 	return false
 }
 
-func sleepIfThrottled(err error, sleepSec int) {
-	if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tooManyRequests)) || strings.Contains(strings.ToLower(err.Error()), clientThrottled) {
-		klog.Warningf("sleep %d more seconds, waiting for throttling complete", sleepSec)
-		time.Sleep(time.Duration(sleepSec) * time.Second)
+func sleepIfThrottled(err error, defaultSleepSec int) {
+	if err == nil {
+		return
 	}
+	if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tooManyRequests)) || strings.Contains(strings.ToLower(err.Error()), clientThrottled) {
+		retryAfter := getRetryAfterSeconds(err)
+		if retryAfter == 0 {
+			retryAfter = defaultSleepSec
+		}
+		klog.Warningf("sleep %d more seconds, waiting for throttling complete", retryAfter)
+		time.Sleep(time.Duration(retryAfter) * time.Second)
+	}
+}
+
+// getRetryAfterSeconds returns the number of seconds to wait from the error message
+func getRetryAfterSeconds(err error) int {
+	if err == nil {
+		return 0
+	}
+	re := regexp.MustCompile(`RetryAfter: (\d+)s`)
+	match := re.FindStringSubmatch(err.Error())
+	if len(match) > 1 {
+		if retryAfter, err := strconv.Atoi(match[1]); err == nil {
+			if retryAfter > maxThrottlingSleepSec {
+				return maxThrottlingSleepSec
+			}
+			return retryAfter
+		}
+	}
+	return 0
 }
 
 func useDataPlaneAPI(volContext map[string]string) bool {
