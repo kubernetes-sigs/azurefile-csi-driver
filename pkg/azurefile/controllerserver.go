@@ -36,7 +36,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 
@@ -480,16 +479,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				accountName = cache.(string)
 			} else {
 				d.volLockMap.LockEntry(lockKey)
-				err = wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
-					var retErr error
-					accountName, accountKey, retErr = d.cloud.EnsureStorageAccount(ctx, accountOptions, defaultAccountNamePrefix)
-					if isRetriableError(retErr) {
-						klog.Warningf("EnsureStorageAccount(%s) failed with error(%v), waiting for retrying", account, retErr)
-						sleepIfThrottled(retErr, accountOpThrottlingSleepSec)
-						return false, nil
-					}
-					return true, retErr
-				})
+				accountName, accountKey, err = d.cloud.EnsureStorageAccount(ctx, accountOptions, defaultAccountNamePrefix)
+				if isRetriableError(err) {
+					klog.Warningf("EnsureStorageAccount(%s) failed with error(%v), waiting for retrying", account, err)
+					sleepIfThrottled(err, accountOpThrottlingSleepSec)
+				}
 				d.volLockMap.UnlockEntry(lockKey)
 				if err != nil {
 					return nil, status.Errorf(codes.Internal, "failed to ensure storage account: %v", err)
