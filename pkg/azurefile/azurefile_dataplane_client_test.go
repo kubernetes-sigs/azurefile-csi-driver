@@ -23,8 +23,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Azure/go-autorest/autorest/azure"
-
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
 )
 
@@ -41,9 +39,7 @@ func TestCreateFileShare(t *testing.T) {
 					Name:       "devstoreaccount1",
 					RequestGiB: 10,
 				}
-				f, err := newAzureFileClient(&azure.Environment{
-					StorageEndpointSuffix: "ut",
-				}, nil, "test", "dW5pdHRlc3Q=")
+				f, err := newAzureFileClient("test", "dW5pdHRlc3Q=", "ut", nil)
 				if err != nil {
 					t.Errorf("error creating azure client: %v", err)
 				}
@@ -61,9 +57,7 @@ func TestCreateFileShare(t *testing.T) {
 }
 
 func TestNewAzureFileClient(t *testing.T) {
-	_, actualErr := newAzureFileClient(&azure.Environment{
-		StorageEndpointSuffix: "ut",
-	}, nil, "ut", "ut")
+	_, actualErr := newAzureFileClient("ut", "ut", "ut", nil)
 	if actualErr != nil {
 		expectedErr := fmt.Errorf("error creating azure client: azure: account name is not valid: it must be between 3 and 24 characters, and only may contain numbers and lowercase letters: ut")
 		if !reflect.DeepEqual(actualErr, expectedErr) {

@@ -416,11 +416,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	if strings.TrimSpace(storageEndpointSuffix) == "" {
-		if d.cloud.Environment.StorageEndpointSuffix != "" {
-			storageEndpointSuffix = d.cloud.Environment.StorageEndpointSuffix
-		} else {
-			storageEndpointSuffix = defaultStorageEndPointSuffix
-		}
+		storageEndpointSuffix = d.getStorageEndPointSuffix()
 	}
 
 	accountOptions := &azure.AccountOptions{
@@ -599,7 +595,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		diskSizeBytes := volumehelper.GiBToBytes(requestGiB)
 		klog.V(2).Infof("begin to create vhd file(%s) size(%d) on share(%s) on account(%s) type(%s) rg(%s) location(%s)",
 			diskName, diskSizeBytes, validFileShareName, account, sku, resourceGroup, location)
-		if err := createDisk(ctx, accountName, accountKey, d.cloud.Environment.StorageEndpointSuffix, validFileShareName, diskName, diskSizeBytes); err != nil {
+		if err := createDisk(ctx, accountName, accountKey, d.getStorageEndPointSuffix(), validFileShareName, diskName, diskSizeBytes); err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to create VHD disk: %v", err)
 		}
 		klog.V(2).Infof("create vhd file(%s) size(%d) on share(%s) on account(%s) type(%s) rg(%s) location(%s) successfully",
@@ -1082,7 +1078,7 @@ func (d *Driver) getServiceURL(ctx context.Context, sourceVolumeID string, secre
 		return azfile.ServiceURL{}, "", err
 	}
 
-	u, err := url.Parse(fmt.Sprintf(serviceURLTemplate, accountName, d.cloud.Environment.StorageEndpointSuffix))
+	u, err := url.Parse(fmt.Sprintf(serviceURLTemplate, accountName, d.getStorageEndPointSuffix()))
 	if err != nil {
 		klog.Errorf("parse serviceURLTemplate error: %v", err)
 		return azfile.ServiceURL{}, "", err
@@ -1092,7 +1088,6 @@ func (d *Driver) getServiceURL(ctx context.Context, sourceVolumeID string, secre
 	}
 
 	serviceURL := azfile.NewServiceURL(*u, azfile.NewPipeline(credential, azfile.PipelineOptions{}))
-
 	return serviceURL, fileShareName, nil
 }
 

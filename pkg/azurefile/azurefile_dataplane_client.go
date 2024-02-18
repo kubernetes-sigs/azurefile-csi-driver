@@ -23,7 +23,6 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	azs "github.com/Azure/azure-sdk-for-go/storage"
-	"github.com/Azure/go-autorest/autorest/azure"
 	"k8s.io/klog/v2"
 
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
@@ -51,9 +50,8 @@ type azureFileDataplaneClient struct {
 	*azs.FileServiceClient
 }
 
-func newAzureFileClient(env *azure.Environment, backoff *retry.Backoff, accountName, accountKey string) (azureFileClient, error) {
-	storageEndpointSuffix := env.StorageEndpointSuffix
-	if storageEndpointSuffix != "" {
+func newAzureFileClient(accountName, accountKey, storageEndpointSuffix string, backoff *retry.Backoff) (azureFileClient, error) {
+	if storageEndpointSuffix == "" {
 		storageEndpointSuffix = defaultStorageEndPointSuffix
 	}
 

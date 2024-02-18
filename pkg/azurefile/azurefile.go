@@ -438,7 +438,7 @@ func (d *Driver) getFileShareQuota(ctx context.Context, subsID, resourceGroupNam
 		if err != nil {
 			return -1, err
 		}
-		fileClient, err := newAzureFileClient(&d.cloud.Environment, &retry.Backoff{Steps: 1}, accountName, accountKey)
+		fileClient, err := newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix(), &retry.Backoff{Steps: 1})
 		if err != nil {
 			return -1, err
 		}
@@ -908,7 +908,7 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *azure.Acco
 			if rerr != nil {
 				return true, rerr
 			}
-			fileClient, rerr := newAzureFileClient(&d.cloud.Environment, &retry.Backoff{Steps: 1}, accountName, accountKey)
+			fileClient, rerr := newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix(), &retry.Backoff{Steps: 1})
 			if rerr != nil {
 				return true, rerr
 			}
@@ -934,7 +934,7 @@ func (d *Driver) DeleteFileShare(ctx context.Context, subsID, resourceGroup, acc
 			if rerr != nil {
 				return true, rerr
 			}
-			fileClient, rerr := newAzureFileClient(&d.cloud.Environment, &retry.Backoff{Steps: 1}, accountName, accountKey)
+			fileClient, rerr := newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix(), &retry.Backoff{Steps: 1})
 			if rerr != nil {
 				return true, rerr
 			}
@@ -975,7 +975,7 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 			if rerr != nil {
 				return true, rerr
 			}
-			fileClient, rerr := newAzureFileClient(&d.cloud.Environment, &retry.Backoff{Steps: 1}, accountName, accountKey)
+			fileClient, rerr := newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix(), &retry.Backoff{Steps: 1})
 			if rerr != nil {
 				return true, rerr
 			}
@@ -1078,6 +1078,9 @@ func (d *Driver) GetTotalAccountQuota(ctx context.Context, subsID, resourceGroup
 
 // RemoveStorageAccountTag remove tag from storage account
 func (d *Driver) RemoveStorageAccountTag(ctx context.Context, subsID, resourceGroup, account, key string) error {
+	if d.cloud == nil {
+		return fmt.Errorf("cloud is nil")
+	}
 	// search in cache first
 	cache, err := d.skipMatchingTagCache.Get(account, azcache.CacheReadTypeDefault)
 	if err != nil {
@@ -1219,4 +1222,11 @@ func (d *Driver) SetAzureCredentials(ctx context.Context, accountName, accountKe
 		return "", fmt.Errorf("couldn't create secret %v", err)
 	}
 	return secretName, err
+}
+
+func (d *Driver) getStorageEndPointSuffix() string {
+	if d.cloud == nil || d.cloud.Environment.StorageEndpointSuffix == "" {
+		return defaultStorageEndPointSuffix
+	}
+	return d.cloud.Environment.StorageEndpointSuffix
 }
