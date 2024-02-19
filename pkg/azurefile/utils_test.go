@@ -325,7 +325,48 @@ func TestSleepIfThrottled(t *testing.T) {
 	if elapsed.Seconds() < 10 {
 		t.Errorf("Expected sleep time(%d), Actual sleep time(%f)", 10, elapsed.Seconds())
 	}
+}
 
+func TestGetRetryAfterSeconds(t *testing.T) {
+	tests := []struct {
+		desc     string
+		err      error
+		expected int
+	}{
+		{
+			desc:     "nil error",
+			err:      nil,
+			expected: 0,
+		},
+		{
+			desc:     "no match",
+			err:      errors.New("no match"),
+			expected: 0,
+		},
+		{
+			desc:     "match",
+			err:      errors.New("RetryAfter: 10s"),
+			expected: 10,
+		},
+		{
+			desc:     "match error message",
+			err:      errors.New("could not list storage accounts for account type Premium_LRS: Retriable: true, RetryAfter: 217s, HTTPStatusCode: 0, RawError: azure cloud provider throttled for operation StorageAccountListByResourceGroup with reason \"client throttled\""),
+			expected: 217,
+		},
+		{
+			desc:     "match error message exceeds 1200s",
+			err:      errors.New("could not list storage accounts for account type Premium_LRS: Retriable: true, RetryAfter: 2170s, HTTPStatusCode: 0, RawError: azure cloud provider throttled for operation StorageAccountListByResourceGroup with reason \"client throttled\""),
+			expected: maxThrottlingSleepSec,
+		},
+	}
+
+	for _, test := range tests {
+		result := getRetryAfterSeconds(test.err)
+		if result != test.expected {
+			t.Errorf("desc: (%s), input: err(%v), getRetryAfterSeconds returned with int(%d), not equal to expected(%d)",
+				test.desc, test.err, result, test.expected)
+		}
+	}
 }
 
 func TestUseDataPlaneAPI(t *testing.T) {
