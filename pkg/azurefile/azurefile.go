@@ -30,6 +30,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
 	"github.com/Azure/azure-storage-file-go/azfile"
+	azure2 "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/pborman/uuid"
 	"github.com/rubiojr/go-vhd/vhd"
@@ -366,7 +367,8 @@ func (d *Driver) Run(endpoint, kubeconfig string, testBool bool) {
 	klog.V(2).Infof("cloud: %s, location: %s, rg: %s, VnetName: %s, VnetResourceGroup: %s, SubnetName: %s", d.cloud.Cloud, d.cloud.Location, d.cloud.ResourceGroup, d.cloud.VnetName, d.cloud.VnetResourceGroup, d.cloud.SubnetName)
 
 	// todo: set backoff from cloud provider config
-	d.fileClient = newAzureFileClient(&d.cloud.Environment, &retry.Backoff{Steps: 1})
+	env := d.getCloudEnvironment()
+	d.fileClient = newAzureFileClient(&env, &retry.Backoff{Steps: 1})
 
 	d.mounter, err = mounter.NewSafeMounter(d.enableWindowsHostProcess)
 	if err != nil {
@@ -1024,6 +1026,9 @@ func (d *Driver) GetTotalAccountQuota(ctx context.Context, subsID, resourceGroup
 
 // RemoveStorageAccountTag remove tag from storage account
 func (d *Driver) RemoveStorageAccountTag(ctx context.Context, subsID, resourceGroup, account, key string) error {
+	if d.cloud == nil {
+		return fmt.Errorf("cloud is nil")
+	}
 	// search in cache first
 	cache, err := d.skipMatchingTagCache.Get(account, azcache.CacheReadTypeDefault)
 	if err != nil {
@@ -1165,4 +1170,18 @@ func (d *Driver) SetAzureCredentials(ctx context.Context, accountName, accountKe
 		return "", fmt.Errorf("couldn't create secret %v", err)
 	}
 	return secretName, err
+}
+
+func (d *Driver) getStorageEndPointSuffix() string {
+	if d.cloud == nil || d.cloud.Environment.StorageEndpointSuffix == "" {
+		return defaultStorageEndPointSuffix
+	}
+	return d.cloud.Environment.StorageEndpointSuffix
+}
+
+func (d *Driver) getCloudEnvironment() azure2.Environment {
+	if d.cloud == nil {
+		return azure2.PublicCloud
+	}
+	return d.cloud.Environment
 }
