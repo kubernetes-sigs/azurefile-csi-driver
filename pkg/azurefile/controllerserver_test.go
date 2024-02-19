@@ -1239,11 +1239,10 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				d := NewFakeDriver()
-				d.cloud = &azure.Cloud{}
-				_ = azure.InitDiskControllers(d.cloud)
 				d.cloud.KubeClient = fake.NewSimpleClientset()
 				ctrl := gomock.NewController(t)
 				defer ctrl.Finish()
+				d.cloud = azure.GetTestCloud(ctrl)
 
 				mockFileClient := mockfileclient.NewMockInterface(ctrl)
 				d.cloud.FileClient = mockFileClient
@@ -1584,8 +1583,7 @@ func TestDeleteVolume(t *testing.T) {
 				ctrl := gomock.NewController(t)
 				defer ctrl.Finish()
 				mockFileClient := mockfileclient.NewMockInterface(ctrl)
-				d.cloud = &azure.Cloud{}
-				_ = azure.InitDiskControllers(d.cloud)
+				d.cloud = azure.GetTestCloud(ctrl)
 				d.cloud.FileClient = mockFileClient
 				mockFileClient.EXPECT().WithSubscriptionID(gomock.Any()).Return(mockFileClient).AnyTimes()
 				mockFileClient.EXPECT().DeleteFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
