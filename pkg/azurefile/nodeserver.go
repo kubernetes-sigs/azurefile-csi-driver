@@ -266,11 +266,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	defer d.volumeLocks.Release(lockKey)
 
 	if strings.TrimSpace(storageEndpointSuffix) == "" {
-		if d.cloud.Environment.StorageEndpointSuffix != "" {
-			storageEndpointSuffix = d.cloud.Environment.StorageEndpointSuffix
-		} else {
-			storageEndpointSuffix = defaultStorageEndPointSuffix
-		}
+		storageEndpointSuffix = d.getStorageEndPointSuffix()
 	}
 
 	// replace pv/pvc name namespace metadata in fileShareName
