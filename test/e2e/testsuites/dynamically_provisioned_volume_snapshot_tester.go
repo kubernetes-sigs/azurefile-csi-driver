@@ -18,6 +18,7 @@ package testsuites
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
@@ -62,10 +63,16 @@ func (t *DynamicallyProvisionedVolumeSnapshotTest) Run(ctx context.Context, clie
 	ginkgo.By("sleeping for 5 seconds to wait for data to be written to the volume")
 	time.Sleep(5 * time.Second)
 
-	ginkgo.By("taking snapshots")
-	snapshot := tvsc.CreateSnapshot(ctx, tpvc.persistentVolumeClaim)
-	defer tvsc.DeleteSnapshot(ctx, snapshot)
+	for i := 0; i < 5; i++ {
+		ginkgo.By("taking snapshot# " + strconv.Itoa(i+1))
+		snapshot := tvsc.CreateSnapshot(ctx, tpvc.persistentVolumeClaim)
+		defer tvsc.DeleteSnapshot(ctx, snapshot)
 
-	// If the field ReadyToUse is still false, there will be a timeout error.
-	tvsc.ReadyToUse(ctx, snapshot)
+		ginkgo.By("sleeping for 3 seconds to wait for snapshot to be ready")
+		time.Sleep(3 * time.Second)
+
+		// If the field ReadyToUse is still false, there will be a timeout error.
+		tvsc.ReadyToUse(ctx, snapshot)
+	}
+
 }
