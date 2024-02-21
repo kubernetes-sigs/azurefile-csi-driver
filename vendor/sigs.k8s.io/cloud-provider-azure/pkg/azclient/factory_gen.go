@@ -56,6 +56,7 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/virtualmachinescalesetclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/virtualmachinescalesetvmclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/virtualnetworkclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/virtualnetworklinkclient"
 )
 
 type ClientFactoryImpl struct {
@@ -85,7 +86,7 @@ type ClientFactoryImpl struct {
 	routetableclientInterface               routetableclient.Interface
 	secretclientInterface                   secretclient.Interface
 	securitygroupclientInterface            securitygroupclient.Interface
-	snapshotclientInterface                 snapshotclient.Interface
+	snapshotclientInterface                 sync.Map
 	sshpublickeyresourceclientInterface     sshpublickeyresourceclient.Interface
 	subnetclientInterface                   subnetclient.Interface
 	vaultclientInterface                    vaultclient.Interface
@@ -93,6 +94,7 @@ type ClientFactoryImpl struct {
 	virtualmachinescalesetclientInterface   virtualmachinescalesetclient.Interface
 	virtualmachinescalesetvmclientInterface virtualmachinescalesetvmclient.Interface
 	virtualnetworkclientInterface           virtualnetworkclient.Interface
+	virtualnetworklinkclientInterface       virtualnetworklinkclient.Interface
 }
 
 func NewClientFactory(config *ClientFactoryConfig, armConfig *ARMClientConfig, cred azcore.TokenCredential, clientOptionsMutFn ...func(option *arm.ClientOptions)) (ClientFactory, error) {
@@ -245,7 +247,7 @@ func NewClientFactory(config *ClientFactoryConfig, armConfig *ARMClientConfig, c
 	}
 
 	//initialize snapshotclient
-	factory.snapshotclientInterface, err = factory.createSnapshotClient(config.SubscriptionID)
+	_, err = factory.GetSnapshotClientForSub(config.SubscriptionID)
 	if err != nil {
 		return nil, err
 	}
@@ -288,6 +290,12 @@ func NewClientFactory(config *ClientFactoryConfig, armConfig *ARMClientConfig, c
 
 	//initialize virtualnetworkclient
 	factory.virtualnetworkclientInterface, err = factory.createVirtualNetworkClient(config.SubscriptionID)
+	if err != nil {
+		return nil, err
+	}
+
+	//initialize virtualnetworklinkclient
+	factory.virtualnetworklinkclientInterface, err = factory.createVirtualNetworkLinkClient(config.SubscriptionID)
 	if err != nil {
 		return nil, err
 	}
@@ -880,7 +888,24 @@ func (factory *ClientFactoryImpl) createSnapshotClient(subscription string) (sna
 }
 
 func (factory *ClientFactoryImpl) GetSnapshotClient() snapshotclient.Interface {
-	return factory.snapshotclientInterface
+	clientImp, _ := factory.snapshotclientInterface.Load(strings.ToLower(factory.facotryConfig.SubscriptionID))
+	return clientImp.(snapshotclient.Interface)
+}
+func (factory *ClientFactoryImpl) GetSnapshotClientForSub(subscriptionID string) (snapshotclient.Interface, error) {
+	if subscriptionID == "" {
+		subscriptionID = factory.facotryConfig.SubscriptionID
+	}
+	clientImp, loaded := factory.snapshotclientInterface.Load(strings.ToLower(subscriptionID))
+	if loaded {
+		return clientImp.(snapshotclient.Interface), nil
+	}
+	//It's not thread safe, but it's ok for now. because it will be called once.
+	clientImp, err := factory.createSnapshotClient(subscriptionID)
+	if err != nil {
+		return nil, err
+	}
+	factory.snapshotclientInterface.Store(strings.ToLower(subscriptionID), clientImp)
+	return clientImp.(snapshotclient.Interface), nil
 }
 
 func (factory *ClientFactoryImpl) createSSHPublicKeyResourceClient(subscription string) (sshpublickeyresourceclient.Interface, error) {
@@ -1032,4 +1057,29 @@ func (factory *ClientFactoryImpl) createVirtualNetworkClient(subscription string
 
 func (factory *ClientFactoryImpl) GetVirtualNetworkClient() virtualnetworkclient.Interface {
 	return factory.virtualnetworkclientInterface
+}
+
+func (factory *ClientFactoryImpl) createVirtualNetworkLinkClient(subscription string) (virtualnetworklinkclient.Interface, error) {
+	//initialize virtualnetworklinkclient
+	options, err := GetDefaultResourceClientOption(factory.armConfig, factory.facotryConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	//add ratelimit policy
+	ratelimitOption := factory.facotryConfig.GetRateLimitConfig("virtualNetworkRateLimit")
+	rateLimitPolicy := ratelimit.NewRateLimitPolicy(ratelimitOption)
+	if rateLimitPolicy != nil {
+		options.ClientOptions.PerCallPolicies = append(options.ClientOptions.PerCallPolicies, rateLimitPolicy)
+	}
+	for _, optionMutFn := range factory.clientOptionsMutFn {
+		if optionMutFn != nil {
+			optionMutFn(options)
+		}
+	}
+	return virtualnetworklinkclient.New(subscription, factory.cred, options)
+}
+
+func (factory *ClientFactoryImpl) GetVirtualNetworkLinkClient() virtualnetworklinkclient.Interface {
+	return factory.virtualnetworklinkclientInterface
 }
