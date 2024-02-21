@@ -879,11 +879,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		itemSnapshotTime = properties.LastModified()
 		itemSnapshotQuota = properties.Quota()
 	} else {
-		fileshare, err := d.cloud.FileClient.WithSubscriptionID(subsID).GetFileShare(ctx, rgName, accountName, fileShareName, "")
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "get fileshare from(%s) failed with %v, accountName: %q", sourceVolumeID, err, accountName)
-		}
-		snapshotShare, err := d.cloud.FileClient.WithSubscriptionID(subsID).CreateFileShare(ctx, rgName, accountName, &fileclient.ShareOptions{Name: fileShareName, RequestGiB: int(pointer.Int32Deref(fileshare.ShareQuota, defaultAzureFileQuota)), Metadata: map[string]*string{snapshotNameKey: &snapshotName}}, snapshotsExpand)
+		snapshotShare, err := d.cloud.FileClient.WithSubscriptionID(subsID).CreateFileShare(ctx, rgName, accountName, &fileclient.ShareOptions{Name: fileShareName, Metadata: map[string]*string{snapshotNameKey: &snapshotName}}, snapshotsExpand)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "create snapshot from(%s) failed with %v, accountName: %q", sourceVolumeID, err, accountName)
 		}
@@ -897,7 +893,10 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		itemSnapshotQuota = pointer.Int32Deref(snapshotShare.ShareQuota, 0)
 	}
 
-	klog.V(2).Infof("Created share snapshot: %s", itemSnapshot)
+	klog.V(2).Infof("created share snapshot: %s, time: %v, quota: %dGiB", itemSnapshot, itemSnapshotTime, itemSnapshotQuota)
+	if itemSnapshotQuota == 0 {
+		itemSnapshotQuota = defaultAzureFileQuota
+	}
 	createResp := &csi.CreateSnapshotResponse{
 		Snapshot: &csi.Snapshot{
 			SizeBytes:      volumehelper.GiBToBytes(int64(itemSnapshotQuota)),
@@ -1130,11 +1129,8 @@ func (d *Driver) snapshotExists(ctx context.Context, sourceVolumeID, snapshotNam
 
 		// List share snapshots.
 		listSnapshot, err := d.cloud.FileClient.WithSubscriptionID(subsID).ListFileShare(ctx, rgName, accountName, "", snapshotsExpand)
-		if err != nil {
+		if err != nil || listSnapshot == nil {
 			return false, "", time.Time{}, 0, err
-		}
-		if listSnapshot == nil {
-			return false, "", time.Time{}, 0, nil
 		}
 		for _, share := range listSnapshot {
 			if share.SnapshotTime == nil { //the fileshare is not a snapshot

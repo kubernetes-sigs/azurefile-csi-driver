@@ -38,8 +38,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
 	azure2 "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -1238,11 +1238,10 @@ func TestCreateVolume(t *testing.T) {
 				}
 
 				d := NewFakeDriver()
-				d.cloud = &azure.Cloud{}
-				_ = azure.InitDiskControllers(d.cloud)
 				d.cloud.KubeClient = fake.NewSimpleClientset()
 				ctrl := gomock.NewController(t)
 				defer ctrl.Finish()
+				d.cloud = azure.GetTestCloud(ctrl)
 
 				mockFileClient := mockfileclient.NewMockInterface(ctrl)
 				d.cloud.FileClient = mockFileClient
@@ -1583,8 +1582,7 @@ func TestDeleteVolume(t *testing.T) {
 				ctrl := gomock.NewController(t)
 				defer ctrl.Finish()
 				mockFileClient := mockfileclient.NewMockInterface(ctrl)
-				d.cloud = &azure.Cloud{}
-				_ = azure.InitDiskControllers(d.cloud)
+				d.cloud = azure.GetTestCloud(ctrl)
 				d.cloud.FileClient = mockFileClient
 				mockFileClient.EXPECT().WithSubscriptionID(gomock.Any()).Return(mockFileClient).AnyTimes()
 				mockFileClient.EXPECT().DeleteFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
