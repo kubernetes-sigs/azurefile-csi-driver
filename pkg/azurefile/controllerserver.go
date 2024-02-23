@@ -331,6 +331,9 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	shareProtocol := storage.EnabledProtocolsSMB
 	var createPrivateEndpoint *bool
 	if strings.EqualFold(networkEndpointType, privateEndpoint) {
+		if strings.Contains(subnetName, ",") {
+			return nil, status.Errorf(codes.InvalidArgument, "subnetName(%s) can only contain one subnet for private endpoint", subnetName)
+		}
 		createPrivateEndpoint = pointer.BoolPtr(true)
 	}
 	var vnetResourceIDs []string
@@ -349,11 +352,15 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 		if !pointer.BoolDeref(createPrivateEndpoint, false) {
 			// set VirtualNetworkResourceIDs for storage account firewall setting
-			vnetResourceID := d.getSubnetResourceID(vnetResourceGroup, vnetName, subnetName)
-			klog.V(2).Infof("set vnetResourceID(%s) for NFS protocol", vnetResourceID)
-			vnetResourceIDs = []string{vnetResourceID}
-			if err := d.updateSubnetServiceEndpoints(ctx, vnetResourceGroup, vnetName, subnetName); err != nil {
-				return nil, status.Errorf(codes.Internal, "update service endpoints failed with error: %v", err)
+			subnets := strings.Split(subnetName, ",")
+			for _, subnet := range subnets {
+				subnet = strings.TrimSpace(subnet)
+				vnetResourceID := d.getSubnetResourceID(vnetResourceGroup, vnetName, subnet)
+				klog.V(2).Infof("set vnetResourceID(%s) for NFS protocol", vnetResourceID)
+				vnetResourceIDs = []string{vnetResourceID}
+				if err := d.updateSubnetServiceEndpoints(ctx, vnetResourceGroup, vnetName, subnet); err != nil {
+					return nil, status.Errorf(codes.Internal, "update service endpoints failed with error: %v", err)
+				}
 			}
 		}
 	}
