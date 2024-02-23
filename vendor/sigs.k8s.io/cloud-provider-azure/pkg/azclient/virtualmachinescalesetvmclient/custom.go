@@ -21,6 +21,7 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	armcompute "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v5"
 
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/utils"
@@ -28,7 +29,7 @@ import (
 
 // Update updates a VirtualMachine.
 func (client *Client) Update(ctx context.Context, resourceGroupName string, VMScaleSetName string, instanceID string, parameters armcompute.VirtualMachineScaleSetVM) (*armcompute.VirtualMachineScaleSetVM, error) {
-	resp, err := client.UpdateAsync(ctx, resourceGroupName, VMScaleSetName, instanceID, parameters).WaitforPollerResp(ctx)
+	resp, err := utils.NewPollerWrapper(client.VirtualMachineScaleSetVMsClient.BeginUpdate(ctx, resourceGroupName, VMScaleSetName, instanceID, parameters, nil)).WaitforPollerResp(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -36,10 +37,6 @@ func (client *Client) Update(ctx context.Context, resourceGroupName string, VMSc
 		return &resp.VirtualMachineScaleSetVM, nil
 	}
 	return nil, nil
-}
-
-func (client *Client) UpdateAsync(ctx context.Context, resourceGroupName string, VMScaleSetName string, instanceID string, parameters armcompute.VirtualMachineScaleSetVM) *utils.PollerWrapper[armcompute.VirtualMachineScaleSetVMsClientUpdateResponse] {
-	return utils.NewPollerWrapper(client.VirtualMachineScaleSetVMsClient.BeginUpdate(ctx, resourceGroupName, VMScaleSetName, instanceID, parameters, nil))
 }
 
 func UpdateVMsInBatch(ctx context.Context, client *Client, resourceGroupName string, VMScaleSetName string, instances map[string]armcompute.VirtualMachineScaleSetVM, batchSize int) error {
@@ -88,6 +85,30 @@ func UpdateVMsInBatch(ctx context.Context, client *Client, resourceGroupName str
 // List gets a list of VirtualMachineScaleSetVM in the resource group.
 func (client *Client) List(ctx context.Context, resourceGroupName string, parentResourceName string) (result []*armcompute.VirtualMachineScaleSetVM, rerr error) {
 	pager := client.VirtualMachineScaleSetVMsClient.NewListPager(resourceGroupName, parentResourceName, nil)
+	for pager.More() {
+		nextResult, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, nextResult.Value...)
+	}
+	return result, nil
+}
+
+// GetInstanceView gets the instance view of the VirtualMachineScaleSetVM.
+func (client *Client) GetInstanceView(ctx context.Context, resourceGroupName string, vmScaleSetName string, instanceID string) (*armcompute.VirtualMachineScaleSetVMInstanceView, error) {
+	resp, err := client.VirtualMachineScaleSetVMsClient.GetInstanceView(ctx, resourceGroupName, vmScaleSetName, instanceID, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.VirtualMachineScaleSetVMInstanceView, nil
+}
+
+// List gets a list of VirtualMachineScaleSetVM in the resource group.
+func (client *Client) ListVMInstanceView(ctx context.Context, resourceGroupName string, parentResourceName string) (result []*armcompute.VirtualMachineScaleSetVM, rerr error) {
+	pager := client.VirtualMachineScaleSetVMsClient.NewListPager(resourceGroupName, parentResourceName, &armcompute.VirtualMachineScaleSetVMsClientListOptions{
+		Expand: to.Ptr(string(armcompute.InstanceViewTypesInstanceView)),
+	})
 	for pager.More() {
 		nextResult, err := pager.NextPage(ctx)
 		if err != nil {

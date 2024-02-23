@@ -85,8 +85,6 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
 		os.Setenv(kubeconfigEnvVar, kubeconfig)
 	}
-	handleFlags()
-	framework.AfterReadingAllFlags(&framework.TestContext)
 
 	// Default storage driver configuration is CSI. Freshly built
 	// CSI driver is installed for that case.
@@ -281,7 +279,7 @@ func checkAccountCreationLeak(ctx context.Context) {
 	ginkgo.By(fmt.Sprintf("GetAccountNumByResourceGroup(%s) returns %d accounts", creds.ResourceGroup, accountNum))
 
 	accountLimitInTest := 15
-	framework.ExpectEqual(accountNum >= accountLimitInTest, false, fmt.Sprintf("current account num %d should not exceed %d", accountNum, accountLimitInTest))
+	gomega.Expect(accountNum >= accountLimitInTest).To(gomega.BeFalse())
 }
 
 func skipIfTestingInWindowsCluster() {
@@ -325,9 +323,11 @@ func convertToPowershellCommandIfNecessary(command string) string {
 }
 
 // handleFlags sets up all flags and parses the command line.
-func handleFlags() {
+func TestMain(m *testing.M) {
 	config.CopyFlags(config.Flags, flag.CommandLine)
 	framework.RegisterCommonFlags(flag.CommandLine)
 	framework.RegisterClusterFlags(flag.CommandLine)
+	framework.AfterReadingAllFlags(&framework.TestContext)
 	flag.Parse()
+	os.Exit(m.Run())
 }
