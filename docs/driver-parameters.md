@@ -1,19 +1,24 @@
 ## Driver Parameters
 `file.csi.azure.com` driver parameters
 
-<details><summary>required permissions for CSI driver</summary>
+<details><summary>required permissions for CSI driver controller</summary>
 <pre>
-    - Microsoft.Storage/storageAccounts/fileServices/read
-    - Microsoft.Storage/storageAccounts/fileServices/shares/read
-    - Microsoft.Storage/storageAccounts/fileServices/shares/write
-    - Microsoft.Storage/storageAccounts/fileServices/shares/delete
-    - Microsoft.Storage/storageAccounts/listKeys/action
-    - Microsoft.Storage/storageAccounts/read
-    - Microsoft.Storage/storageAccounts/write
-    - Microsoft.Storage/storageAccounts/delete
-    - Microsoft.Network/networkSecurityGroups/join/action
-    - Microsoft.Network/virtualNetworks/subnets/read
-    - Microsoft.Network/virtualNetworks/subnets/write
+Microsoft.Storage/storageAccounts/read
+Microsoft.Storage/storageAccounts/write
+Microsoft.Storage/storageAccounts/listKeys/action
+Microsoft.Storage/operations/read
+Microsoft.Network/virtualNetworks/subnets/write
+Microsoft.Network/virtualNetworks/subnets/read
+Microsoft.Network/virtualNetworks/subnets/*/read
+Microsoft.Network/privateEndpoints/write
+Microsoft.Network/privateEndpoints/read
+Microsoft.Network/privateEndpoints/privateDnsZoneGroups/write
+Microsoft.Network/privateDnsZones/write
+Microsoft.Network/privateDnsZones/virtualNetworkLinks/write
+Microsoft.Network/privateDnsZones/virtualNetworkLinks/read
+Microsoft.Network/privateDnsZones/read
+Microsoft.Network/privateDnsOperationStatuses/read
+Microsoft.Network/locations/operations/read
 </pre>
 </details>
 
