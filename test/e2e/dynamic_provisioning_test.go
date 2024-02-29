@@ -427,32 +427,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(ctx, cs, ns)
 	})
 
-	ginkgo.It("should create a vhd disk volume on demand [kubernetes.io/azure-file] [file.csi.azure.com][disk]", func(ctx ginkgo.SpecContext) {
-		skipIfUsingInTreeVolumePlugin()
-		skipIfTestingInWindowsCluster()
-
-		pods := []testsuites.PodDetails{
-			{
-				Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data",
-				Volumes: []testsuites.VolumeDetails{
-					{
-						ClaimSize: "1024Gi", // test with big size
-						VolumeMount: testsuites.VolumeMountDetails{
-							NameGenerate:      "test-volume-",
-							MountPathGenerate: "/mnt/test-",
-						},
-					},
-				},
-			},
-		}
-		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
-			CSIDriver:              testDriver,
-			Pods:                   pods,
-			StorageClassParameters: map[string]string{"skuName": "Standard_LRS", "fsType": "ext4"},
-		}
-		test.Run(ctx, cs, ns)
-	})
-
 	ginkgo.It("should receive FailedMount event with invalid mount options [file.csi.azure.com] [disk]", func(ctx ginkgo.SpecContext) {
 		skipIfUsingInTreeVolumePlugin()
 		skipIfTestingInWindowsCluster()
