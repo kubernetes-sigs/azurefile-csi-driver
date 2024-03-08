@@ -139,6 +139,7 @@ const (
 	shareNamePrefixField              = "sharenameprefix"
 	requireInfraEncryptionField       = "requireinfraencryption"
 	enableMultichannelField           = "enablemultichannel"
+	standard                          = "standard"
 	premium                           = "premium"
 	selectRandomMatchingAccountField  = "selectrandommatchingaccount"
 	accountQuotaField                 = "accountquota"

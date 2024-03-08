@@ -326,12 +326,15 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 	var vnetResourceIDs []string
 	if fsType == nfs || protocol == nfs {
-		protocol = nfs
-		enableHTTPSTrafficOnly = false
-		if !strings.HasPrefix(strings.ToLower(sku), premium) {
+		if sku == "" {
 			// NFS protocol only supports Premium storage
 			sku = string(storage.SkuNamePremiumLRS)
+		} else if strings.HasPrefix(strings.ToLower(sku), standard) {
+			return nil, status.Errorf(codes.InvalidArgument, "nfs protocol only supports premium storage, current account type: %s", sku)
 		}
+
+		protocol = nfs
+		enableHTTPSTrafficOnly = false
 		shareProtocol = storage.EnabledProtocolsNFS
 		// NFS protocol does not need account key
 		storeAccountKey = false
