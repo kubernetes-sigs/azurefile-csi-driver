@@ -266,6 +266,29 @@ func TestCreateVolume(t *testing.T) {
 			},
 		},
 		{
+			name: "nfs protocol only supports premium storage",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{
+					protocolField: "nfs",
+					skuNameField:  "Standard_LRS",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name-nfs-protocol-standard-sku",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         allParam,
+				}
+
+				d := NewFakeDriver()
+				expectedErr := status.Errorf(codes.InvalidArgument, "nfs protocol only supports premium storage, current account type: Standard_LRS")
+				_, err := d.CreateVolume(ctx, req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
 			name: "Invalid accessTier",
 			testFunc: func(t *testing.T) {
 				allParam := map[string]string{
