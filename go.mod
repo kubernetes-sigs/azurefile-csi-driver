@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.9.2
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.10.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v5 v5.5.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4 v4.3.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0
@@ -18,7 +18,7 @@ require (
 	github.com/kubernetes-csi/csi-lib-utils v0.14.1
 	github.com/kubernetes-csi/csi-proxy/client v1.0.1
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
-	github.com/onsi/ginkgo/v2 v2.15.0
+	github.com/onsi/ginkgo/v2 v2.16.0
 	github.com/onsi/gomega v1.31.1
 	github.com/pborman/uuid v1.2.0
 	github.com/pelletier/go-toml v1.9.4
@@ -26,7 +26,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/mock v0.4.0
 	golang.org/x/net v0.21.0
-	golang.org/x/sys v0.17.0
+	golang.org/x/sys v0.18.0
 	google.golang.org/grpc v1.62.0
 	google.golang.org/protobuf v1.32.0
 	k8s.io/api v0.29.2
@@ -39,9 +39,9 @@ require (
 	k8s.io/mount-utils v0.29.0
 	k8s.io/pod-security-admission v0.27.4
 	k8s.io/utils v0.0.0-20231127182322-b307cd553661
-	sigs.k8s.io/cloud-provider-azure v1.27.1-0.20240228053348-6dcfdf82c94f
-	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.0.0-20240228053348-6dcfdf82c94f
-	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.0.0-20240228053348-6dcfdf82c94f
+	sigs.k8s.io/cloud-provider-azure v1.27.1-0.20240308123135-28150a3f23d8
+	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.0.0-20240308123135-28150a3f23d8
+	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.0.0-20240308123135-28150a3f23d8
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -138,15 +138,15 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.19.0 // indirect
-	golang.org/x/crypto v0.20.0 // indirect
+	golang.org/x/crypto v0.21.0 // indirect
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/oauth2 v0.16.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect
-	golang.org/x/term v0.17.0 // indirect
+	golang.org/x/term v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	golang.org/x/tools v0.16.1 // indirect
+	golang.org/x/tools v0.17.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20240123012728-ef4313101c80 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240123012728-ef4313101c80 // indirect
