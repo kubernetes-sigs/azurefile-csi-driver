@@ -346,12 +346,7 @@ func (az *Cloud) EnsureStorageAccount(ctx context.Context, accountOptions *Accou
 	}
 
 	if pointer.BoolDeref(accountOptions.CreatePrivateEndpoint, false) {
-		clientFactory := az.NetworkClientFactory
-		if clientFactory == nil {
-			clientFactory = az.ComputeClientFactory
-		}
-		if _, err := clientFactory.GetPrivateZoneClient().Get(ctx, vnetResourceGroup, privateDNSZoneName); err != nil {
-			klog.V(2).Infof("get private dns zone %s returned with %v", privateDNSZoneName, err.Error())
+		if _, err := az.NetworkClientFactory.GetPrivateZoneClient().Get(ctx, vnetResourceGroup, privateDNSZoneName); err != nil && strings.Contains(err.Error(), "ResourceNotFound") {
 			// Create DNS zone first, this could make sure driver has write permission on vnetResourceGroup
 			if err := az.createPrivateDNSZone(ctx, vnetResourceGroup, privateDNSZoneName); err != nil {
 				return "", "", fmt.Errorf("create private DNS zone(%s) in resourceGroup(%s): %w", privateDNSZoneName, vnetResourceGroup, err)
@@ -360,8 +355,7 @@ func (az *Cloud) EnsureStorageAccount(ctx context.Context, accountOptions *Accou
 
 		// Create virtual link to the private DNS zone
 		vNetLinkName := vnetName + "-vnetlink"
-		if _, err := clientFactory.GetVirtualNetworkLinkClient().Get(ctx, vnetResourceGroup, privateDNSZoneName, vNetLinkName); err != nil {
-			klog.V(2).Infof("get virtual link for vnet(%s) and DNS Zone(%s) returned with %v", vnetName, privateDNSZoneName, err.Error())
+		if _, err := az.NetworkClientFactory.GetVirtualNetworkLinkClient().Get(ctx, vnetResourceGroup, privateDNSZoneName, vNetLinkName); err != nil && strings.Contains(err.Error(), "ResourceNotFound") {
 			if err := az.createVNetLink(ctx, vNetLinkName, vnetResourceGroup, vnetName, privateDNSZoneName); err != nil {
 				return "", "", fmt.Errorf("create virtual link for vnet(%s) and DNS Zone(%s) in resourceGroup(%s): %w", vnetName, privateDNSZoneName, vnetResourceGroup, err)
 			}
