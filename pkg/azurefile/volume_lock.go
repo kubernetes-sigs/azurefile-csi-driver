@@ -23,7 +23,8 @@ import (
 )
 
 const (
-	volumeOperationAlreadyExistsFmt = "An operation with the given Volume ID %s already exists"
+	volumeOperationAlreadyExistsFmt           = "An operation with the given Volume ID %s already exists"
+	volumeOperationAlreadyExistsWithAzcopyFmt = "An operation using azcopy with the given Volume ID %s already exists. Azcopy job status: %s, copy percent: %s%%, error: %v"
 )
 
 // VolumeLocks implements a map with atomic operations. It stores a set of all volume IDs
