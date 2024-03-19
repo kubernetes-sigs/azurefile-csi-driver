@@ -1036,7 +1036,7 @@ func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest
 			_, percent, _ := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
 			return fmt.Errorf("timeout waiting for copy blob container %s to %s complete, current copy percent: %s%%", srcFileShareName, dstFileShareName, percent)
 		}
-		copyErr := fileutil.WaitForExecCompletion(time.Duration(d.waitForAzCopyTimeoutMinutes)*time.Minute, execFuncWithAuth, timeoutFunc)
+		copyErr := fileutil.WaitUntilTimeout(time.Duration(d.waitForAzCopyTimeoutMinutes)*time.Minute, execFuncWithAuth, timeoutFunc)
 		if accountSASToken == "" && copyErr != nil && strings.Contains(copyErr.Error(), authorizationPermissionMismatch) {
 			klog.Warningf("azcopy list failed with AuthorizationPermissionMismatch error, should assign \"Storage File Data SMB Share Elevated Contributor\" role to controller identity, fall back to use sas token, original error: %v", copyErr)
 			d.azcopySasTokenCache.Set(accountName, "")
@@ -1052,7 +1052,7 @@ func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest
 				}
 				return nil
 			}
-			copyErr = fileutil.WaitForExecCompletion(time.Duration(d.waitForAzCopyTimeoutMinutes)*time.Minute, execFuncWithSasToken, timeoutFunc)
+			copyErr = fileutil.WaitUntilTimeout(time.Duration(d.waitForAzCopyTimeoutMinutes)*time.Minute, execFuncWithSasToken, timeoutFunc)
 		}
 		if copyErr != nil {
 			klog.Warningf("CopyFileShare(%s, %s, %s) failed with error: %v", resourceGroupName, accountName, dstFileShareName, copyErr)
