@@ -213,8 +213,8 @@ type ExecFunc func() (err error)
 // TimeoutFunc returns output and error if an ExecFunc timeout
 type TimeoutFunc func() (err error)
 
-// WaitForExecCompletion waits for the exec function to complete or return timeout error
-func WaitForExecCompletion(timeout time.Duration, execFunc ExecFunc, timeoutFunc TimeoutFunc) error {
+// WaitUntilTimeout waits for the exec function to complete or return timeout error
+func WaitUntilTimeout(timeout time.Duration, execFunc ExecFunc, timeoutFunc TimeoutFunc) error {
 	// Create a channel to receive the result of the azcopy exec function
 	done := make(chan bool)
 	var err error

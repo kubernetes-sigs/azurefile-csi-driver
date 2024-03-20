@@ -262,7 +262,7 @@ func TestParseAzcopyJobShow(t *testing.T) {
 	}
 }
 
-func TestWaitForExecCompletion(t *testing.T) {
+func TestWaitUntilTimeout(t *testing.T) {
 	tests := []struct {
 		desc        string
 		timeout     time.Duration
@@ -307,7 +307,7 @@ func TestWaitForExecCompletion(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		err := WaitForExecCompletion(test.timeout, test.execFunc, test.timeoutFunc)
+		err := WaitUntilTimeout(test.timeout, test.execFunc, test.timeoutFunc)
 		if err != nil && (err.Error() != test.expectedErr.Error()) {
 			t.Errorf("unexpected error: %v, expected error: %v", err, test.expectedErr)
 		}
