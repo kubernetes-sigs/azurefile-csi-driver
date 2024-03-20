@@ -14,24 +14,24 @@ require (
 	github.com/Azure/go-autorest/autorest v0.11.29
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/container-storage-interface/spec v1.8.0
-	github.com/golang/protobuf v1.5.3
+	github.com/golang/protobuf v1.5.4
 	github.com/kubernetes-csi/csi-lib-utils v0.14.1
 	github.com/kubernetes-csi/csi-proxy/client v1.0.1
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
-	github.com/onsi/ginkgo/v2 v2.16.0
-	github.com/onsi/gomega v1.31.1
+	github.com/onsi/ginkgo/v2 v2.17.0
+	github.com/onsi/gomega v1.32.0
 	github.com/pborman/uuid v1.2.0
 	github.com/pelletier/go-toml v1.9.4
 	github.com/rubiojr/go-vhd v0.0.0-20200706105327-02e210299021
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	go.uber.org/mock v0.4.0
 	golang.org/x/net v0.21.0
 	golang.org/x/sys v0.18.0
 	google.golang.org/grpc v1.62.0
-	google.golang.org/protobuf v1.32.0
-	k8s.io/api v0.29.2
-	k8s.io/apimachinery v0.29.2
-	k8s.io/client-go v0.29.2
+	google.golang.org/protobuf v1.33.0
+	k8s.io/api v0.29.3
+	k8s.io/apimachinery v0.29.3
+	k8s.io/client-go v0.29.3
 	k8s.io/cloud-provider v0.29.2
 	k8s.io/component-base v0.29.2
 	k8s.io/klog/v2 v2.120.1
@@ -39,9 +39,9 @@ require (
 	k8s.io/mount-utils v0.29.0
 	k8s.io/pod-security-admission v0.27.4
 	k8s.io/utils v0.0.0-20231127182322-b307cd553661
-	sigs.k8s.io/cloud-provider-azure v1.27.1-0.20240308123135-28150a3f23d8
-	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.0.0-20240308123135-28150a3f23d8
-	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.0.0-20240308123135-28150a3f23d8
+	sigs.k8s.io/cloud-provider-azure v1.27.1-0.20240319093822-58cad130d9dc
+	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.0.0-20240319093822-58cad130d9dc
+	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.0.0-20240319093822-58cad130d9dc
 	sigs.k8s.io/yaml v1.4.0
 )
 
