@@ -1230,42 +1230,44 @@ func (d *Driver) authorizeAzcopyWithIdentity() ([]string, error) {
 // 4. parameter useSasToken is true
 func (d *Driver) getAzcopyAuth(ctx context.Context, accountName, accountKey, storageEndpointSuffix string, accountOptions *azure.AccountOptions, secrets map[string]string, secretName, secretNamespace string, useSasToken bool) (string, []string, error) {
 	var authAzcopyEnv []string
+	var err error
 	if !useSasToken && len(secrets) == 0 && len(secretName) == 0 {
-		var err error
+		// search in cache first
+		if cache, err := d.azcopySasTokenCache.Get(accountName, azcache.CacheReadTypeDefault); err == nil && cache != nil {
+			klog.V(2).Infof("use sas token for account(%s) since this account is found in azcopySasTokenCache", accountName)
+			return cache.(string), nil, nil
+		}
 		authAzcopyEnv, err = d.authorizeAzcopyWithIdentity()
 		if err != nil {
 			klog.Warningf("failed to authorize azcopy with identity, error: %v", err)
-		} else {
-			if len(authAzcopyEnv) > 0 {
-				// search in cache first
-				cache, err := d.azcopySasTokenCache.Get(accountName, azcache.CacheReadTypeDefault)
-				if err != nil {
-					return "", nil, fmt.Errorf("get(%s) from azcopySasTokenCache failed with error: %v", accountName, err)
-				}
-				if cache != nil {
-					klog.V(2).Infof("use sas token for account(%s) since this account is found in azcopySasTokenCache", accountName)
-					useSasToken = true
-				}
-			}
 		}
 	}
 
 	if len(secrets) > 0 || len(secretName) > 0 || len(authAzcopyEnv) == 0 || useSasToken {
-		var err error
 		if accountKey == "" {
 			if accountKey, err = d.GetStorageAccesskey(ctx, accountOptions, secrets, secretName, secretNamespace); err != nil {
 				return "", nil, err
 			}
 		}
 		klog.V(2).Infof("generate sas token for account(%s)", accountName)
-		sasToken, err := generateSASToken(accountName, accountKey, storageEndpointSuffix, d.sasTokenExpirationMinutes)
+		sasToken, err := d.generateSASToken(accountName, accountKey, storageEndpointSuffix, d.sasTokenExpirationMinutes)
 		return sasToken, nil, err
 	}
 	return "", authAzcopyEnv, nil
 }
 
 // generateSASToken generate a sas token for storage account
-func generateSASToken(accountName, accountKey, storageEndpointSuffix string, expiryTime int) (string, error) {
+func (d *Driver) generateSASToken(accountName, accountKey, storageEndpointSuffix string, expiryTime int) (string, error) {
+	// search in cache first
+	cache, err := d.azcopySasTokenCache.Get(accountName, azcache.CacheReadTypeDefault)
+	if err != nil {
+		return "", fmt.Errorf("get(%s) from azcopySasTokenCache failed with error: %v", accountName, err)
+	}
+	if cache != nil {
+		klog.V(2).Infof("use sas token for account(%s) since this account is found in azcopySasTokenCache", accountName)
+		return cache.(string), nil
+	}
+
 	credential, err := service.NewSharedKeyCredential(accountName, accountKey)
 	if err != nil {
 		return "", status.Errorf(codes.Internal, fmt.Sprintf("failed to generate sas token in creating new shared key credential, accountName: %s, err: %s", accountName, err.Error()))
@@ -1286,5 +1288,7 @@ func generateSASToken(accountName, accountKey, storageEndpointSuffix string, exp
 	if err != nil {
 		return "", err
 	}
-	return "?" + u.RawQuery, nil
+	sasToken := "?" + u.RawQuery
+	d.azcopySasTokenCache.Set(accountName, sasToken)
+	return sasToken, nil
 }
