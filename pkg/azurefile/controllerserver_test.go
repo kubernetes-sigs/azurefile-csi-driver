@@ -2713,6 +2713,7 @@ func TestSetAzureCredentials(t *testing.T) {
 }
 
 func TestGenerateSASToken(t *testing.T) {
+	d := NewFakeDriver()
 	storageEndpointSuffix := "core.windows.net"
 	tests := []struct {
 		name        string
@@ -2738,7 +2739,7 @@ func TestGenerateSASToken(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sas, err := generateSASToken(tt.accountName, tt.accountKey, storageEndpointSuffix, 30)
+			sas, err := d.generateSASToken(tt.accountName, tt.accountKey, storageEndpointSuffix, 30)
 			if !reflect.DeepEqual(err, tt.expectedErr) {
 				t.Errorf("generateSASToken error = %v, expectedErr %v, sas token = %v, want %v", err, tt.expectedErr, sas, tt.want)
 				return
