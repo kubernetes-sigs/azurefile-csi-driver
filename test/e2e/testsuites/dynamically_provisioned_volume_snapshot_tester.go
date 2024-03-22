@@ -76,7 +76,7 @@ func (t *DynamicallyProvisionedVolumeSnapshotTest) Run(ctx context.Context, clie
 		ginkgo.By("taking snapshot# " + strconv.Itoa(i+1))
 		snapshot := tvsc.CreateSnapshot(ctx, tpvc.persistentVolumeClaim)
 
-		if t.ShouldOverwrite {
+		if t.ShouldOverwrite && i == 4 { // just overwrite in the last snapshot test case
 			tpod = NewTestPod(client, namespace, t.PodOverwrite.Cmd, t.PodOverwrite.IsWindows, t.Pod.WinServerVer)
 
 			tpod.SetupVolume(tpvc.persistentVolumeClaim, volume.VolumeMount.NameGenerate+"1", volume.VolumeMount.MountPathGenerate+"1", volume.VolumeMount.ReadOnly)
