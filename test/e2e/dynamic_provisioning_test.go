@@ -71,6 +71,185 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 	testDriver = driver.InitAzureFileDriver()
 
+	ginkgo.It("should clone a volume from an existing volume [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+		skipIfTestingInWindowsCluster()
+		skipIfTestingInMigrationCluster()
+		skipIfUsingInTreeVolumePlugin()
+
+		pod := testsuites.PodDetails{
+			Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data",
+			Volumes: []testsuites.VolumeDetails{
+				{
+					ClaimSize: "10Gi",
+					VolumeMount: testsuites.VolumeMountDetails{
+						NameGenerate:      "test-volume-",
+						MountPathGenerate: "/mnt/test-",
+					},
+				},
+			},
+		}
+		podWithClonedVolume := testsuites.PodDetails{
+			Cmd: "grep 'hello world' /mnt/test-1/data",
+		}
+		test := testsuites.DynamicallyProvisionedVolumeCloningTest{
+			CSIDriver:           testDriver,
+			Pod:                 pod,
+			PodWithClonedVolume: podWithClonedVolume,
+			StorageClassParameters: map[string]string{
+				"skuName": "Standard_LRS",
+			},
+		}
+		test.Run(ctx, cs, ns)
+	})
+
+	ginkgo.It("should clone a large size volume from an existing volume [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+		skipIfTestingInWindowsCluster()
+		skipIfTestingInMigrationCluster()
+		skipIfUsingInTreeVolumePlugin()
+
+		pod := testsuites.PodDetails{
+			Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data && dd if=/dev/zero of=/mnt/test-1/test bs=19G count=5",
+			Volumes: []testsuites.VolumeDetails{
+				{
+					ClaimSize: "100Gi",
+					VolumeMount: testsuites.VolumeMountDetails{
+						NameGenerate:      "test-volume-",
+						MountPathGenerate: "/mnt/test-",
+					},
+				},
+			},
+		}
+		podWithClonedVolume := testsuites.PodDetails{
+			Cmd: "grep 'hello world' /mnt/test-1/data",
+		}
+		test := testsuites.DynamicallyProvisionedVolumeCloningTest{
+			CSIDriver:           testDriver,
+			Pod:                 pod,
+			PodWithClonedVolume: podWithClonedVolume,
+			StorageClassParameters: map[string]string{
+				"skuName": "Standard_LRS",
+			},
+		}
+		test.Run(ctx, cs, ns)
+	})
+
+	ginkgo.It("should create a pod, write and read to it, take a volume snapshot, and create another pod from the snapshot [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+		skipIfUsingInTreeVolumePlugin()
+		skipIfTestingInWindowsCluster()
+
+		pod := testsuites.PodDetails{
+			Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data",
+			Volumes: []testsuites.VolumeDetails{
+				{
+					ClaimSize: "100Gi",
+					VolumeMount: testsuites.VolumeMountDetails{
+						NameGenerate:      "test-volume-",
+						MountPathGenerate: "/mnt/test-",
+					},
+				},
+			},
+		}
+		podWithSnapshot := testsuites.PodDetails{
+			Cmd: "grep 'hello world' /mnt/test-1/data",
+		}
+		test := testsuites.DynamicallyProvisionedVolumeSnapshotTest{
+			CSIDriver:              testDriver,
+			Pod:                    pod,
+			ShouldOverwrite:        false,
+			ShouldRestore:          true,
+			PodWithSnapshot:        podWithSnapshot,
+			StorageClassParameters: map[string]string{"skuName": "Standard_LRS"},
+		}
+		test.Run(ctx, cs, snapshotrcs, ns)
+	})
+
+	ginkgo.It("should create a pod, write to its pv, take a volume snapshot, overwrite data in original pv, create another pod from the snapshot, and read unaltered original data from original pv[file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+		skipIfUsingInTreeVolumePlugin()
+		skipIfTestingInWindowsCluster()
+
+		pod := testsuites.PodDetails{
+			IsWindows:    isWindowsCluster,
+			WinServerVer: winServerVer,
+			Cmd:          "echo 'hello world' > /mnt/test-1/data",
+			Volumes: []testsuites.VolumeDetails{
+				{
+					ClaimSize: "100Gi",
+					VolumeMount: testsuites.VolumeMountDetails{
+						NameGenerate:      "test-volume-",
+						MountPathGenerate: "/mnt/test-",
+					},
+				},
+			},
+		}
+
+		podOverwrite := testsuites.PodDetails{
+			IsWindows:    isWindowsCluster,
+			WinServerVer: winServerVer,
+			Cmd:          "echo 'overwrite' > /mnt/test-1/data; sleep 3600",
+		}
+
+		podWithSnapshot := testsuites.PodDetails{
+			IsWindows:    isWindowsCluster,
+			WinServerVer: winServerVer,
+			Cmd:          "grep 'hello world' /mnt/test-1/data",
+		}
+
+		test := testsuites.DynamicallyProvisionedVolumeSnapshotTest{
+			CSIDriver:              testDriver,
+			Pod:                    pod,
+			ShouldOverwrite:        true,
+			ShouldRestore:          true,
+			PodOverwrite:           podOverwrite,
+			PodWithSnapshot:        podWithSnapshot,
+			StorageClassParameters: map[string]string{"skuName": "Standard_LRS"},
+		}
+		test.Run(ctx, cs, snapshotrcs, ns)
+	})
+
+	ginkgo.It("should create a pod, write to its pv, take a volume snapshot, overwrite data in original pv, create another pod from the snapshot, use another storage class, and read unaltered original data from original pv[file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+		skipIfUsingInTreeVolumePlugin()
+		skipIfTestingInWindowsCluster()
+
+		pod := testsuites.PodDetails{
+			IsWindows:    isWindowsCluster,
+			WinServerVer: winServerVer,
+			Cmd:          "echo 'hello world' > /mnt/test-1/data",
+			Volumes: []testsuites.VolumeDetails{
+				{
+					ClaimSize: "100Gi",
+					VolumeMount: testsuites.VolumeMountDetails{
+						NameGenerate:      "test-volume-",
+						MountPathGenerate: "/mnt/test-",
+					},
+				},
+			},
+		}
+
+		podOverwrite := testsuites.PodDetails{
+			IsWindows:    isWindowsCluster,
+			WinServerVer: winServerVer,
+			Cmd:          "echo 'overwrite' > /mnt/test-1/data; sleep 3600",
+		}
+
+		podWithSnapshot := testsuites.PodDetails{
+			IsWindows:    isWindowsCluster,
+			WinServerVer: winServerVer,
+			Cmd:          "grep 'hello world' /mnt/test-1/data",
+		}
+
+		test := testsuites.DynamicallyProvisionedVolumeSnapshotTest{
+			CSIDriver:                      testDriver,
+			Pod:                            pod,
+			ShouldOverwrite:                true,
+			ShouldRestore:                  true,
+			PodOverwrite:                   podOverwrite,
+			PodWithSnapshot:                podWithSnapshot,
+			StorageClassParameters:         map[string]string{"skuName": "Standard_LRS"},
+			SnapshotStorageClassParameters: map[string]string{"skuName": "Premium_LRS"},
+		}
+		test.Run(ctx, cs, snapshotrcs, ns)
+	})
+
 	ginkgo.It("should create a storage account with tags [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
 		// Because the pv object created by kubernetes.io/azure-file does not contain storage account name, skip the test with in-tree volume plugin.
 		skipIfUsingInTreeVolumePlugin()
@@ -1490,185 +1669,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			},
 		}
 		test.Run(ctx, cs, ns)
-	})
-
-	ginkgo.It("should clone a volume from an existing volume [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
-		skipIfTestingInWindowsCluster()
-		skipIfTestingInMigrationCluster()
-		skipIfUsingInTreeVolumePlugin()
-
-		pod := testsuites.PodDetails{
-			Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data",
-			Volumes: []testsuites.VolumeDetails{
-				{
-					ClaimSize: "10Gi",
-					VolumeMount: testsuites.VolumeMountDetails{
-						NameGenerate:      "test-volume-",
-						MountPathGenerate: "/mnt/test-",
-					},
-				},
-			},
-		}
-		podWithClonedVolume := testsuites.PodDetails{
-			Cmd: "grep 'hello world' /mnt/test-1/data",
-		}
-		test := testsuites.DynamicallyProvisionedVolumeCloningTest{
-			CSIDriver:           testDriver,
-			Pod:                 pod,
-			PodWithClonedVolume: podWithClonedVolume,
-			StorageClassParameters: map[string]string{
-				"skuName": "Standard_LRS",
-			},
-		}
-		test.Run(ctx, cs, ns)
-	})
-
-	ginkgo.It("should clone a large size volume from an existing volume [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
-		skipIfTestingInWindowsCluster()
-		skipIfTestingInMigrationCluster()
-		skipIfUsingInTreeVolumePlugin()
-
-		pod := testsuites.PodDetails{
-			Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data && dd if=/dev/zero of=/mnt/test-1/test bs=19G count=5",
-			Volumes: []testsuites.VolumeDetails{
-				{
-					ClaimSize: "100Gi",
-					VolumeMount: testsuites.VolumeMountDetails{
-						NameGenerate:      "test-volume-",
-						MountPathGenerate: "/mnt/test-",
-					},
-				},
-			},
-		}
-		podWithClonedVolume := testsuites.PodDetails{
-			Cmd: "grep 'hello world' /mnt/test-1/data",
-		}
-		test := testsuites.DynamicallyProvisionedVolumeCloningTest{
-			CSIDriver:           testDriver,
-			Pod:                 pod,
-			PodWithClonedVolume: podWithClonedVolume,
-			StorageClassParameters: map[string]string{
-				"skuName": "Standard_LRS",
-			},
-		}
-		test.Run(ctx, cs, ns)
-	})
-
-	ginkgo.It("should create a pod, write and read to it, take a volume snapshot, and create another pod from the snapshot [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
-		skipIfUsingInTreeVolumePlugin()
-		skipIfTestingInWindowsCluster()
-
-		pod := testsuites.PodDetails{
-			Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data",
-			Volumes: []testsuites.VolumeDetails{
-				{
-					ClaimSize: "100Gi",
-					VolumeMount: testsuites.VolumeMountDetails{
-						NameGenerate:      "test-volume-",
-						MountPathGenerate: "/mnt/test-",
-					},
-				},
-			},
-		}
-		podWithSnapshot := testsuites.PodDetails{
-			Cmd: "grep 'hello world' /mnt/test-1/data",
-		}
-		test := testsuites.DynamicallyProvisionedVolumeSnapshotTest{
-			CSIDriver:              testDriver,
-			Pod:                    pod,
-			ShouldOverwrite:        false,
-			ShouldRestore:          true,
-			PodWithSnapshot:        podWithSnapshot,
-			StorageClassParameters: map[string]string{"skuName": "Standard_LRS"},
-		}
-		test.Run(ctx, cs, snapshotrcs, ns)
-	})
-
-	ginkgo.It("should create a pod, write to its pv, take a volume snapshot, overwrite data in original pv, create another pod from the snapshot, and read unaltered original data from original pv[file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
-		skipIfUsingInTreeVolumePlugin()
-		skipIfTestingInWindowsCluster()
-
-		pod := testsuites.PodDetails{
-			IsWindows:    isWindowsCluster,
-			WinServerVer: winServerVer,
-			Cmd:          "echo 'hello world' > /mnt/test-1/data",
-			Volumes: []testsuites.VolumeDetails{
-				{
-					ClaimSize: "100Gi",
-					VolumeMount: testsuites.VolumeMountDetails{
-						NameGenerate:      "test-volume-",
-						MountPathGenerate: "/mnt/test-",
-					},
-				},
-			},
-		}
-
-		podOverwrite := testsuites.PodDetails{
-			IsWindows:    isWindowsCluster,
-			WinServerVer: winServerVer,
-			Cmd:          "echo 'overwrite' > /mnt/test-1/data; sleep 3600",
-		}
-
-		podWithSnapshot := testsuites.PodDetails{
-			IsWindows:    isWindowsCluster,
-			WinServerVer: winServerVer,
-			Cmd:          "grep 'hello world' /mnt/test-1/data",
-		}
-
-		test := testsuites.DynamicallyProvisionedVolumeSnapshotTest{
-			CSIDriver:              testDriver,
-			Pod:                    pod,
-			ShouldOverwrite:        true,
-			ShouldRestore:          true,
-			PodOverwrite:           podOverwrite,
-			PodWithSnapshot:        podWithSnapshot,
-			StorageClassParameters: map[string]string{"skuName": "Standard_LRS"},
-		}
-		test.Run(ctx, cs, snapshotrcs, ns)
-	})
-
-	ginkgo.It("should create a pod, write to its pv, take a volume snapshot, overwrite data in original pv, create another pod from the snapshot, use another storage class, and read unaltered original data from original pv[file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
-		skipIfUsingInTreeVolumePlugin()
-		skipIfTestingInWindowsCluster()
-
-		pod := testsuites.PodDetails{
-			IsWindows:    isWindowsCluster,
-			WinServerVer: winServerVer,
-			Cmd:          "echo 'hello world' > /mnt/test-1/data",
-			Volumes: []testsuites.VolumeDetails{
-				{
-					ClaimSize: "100Gi",
-					VolumeMount: testsuites.VolumeMountDetails{
-						NameGenerate:      "test-volume-",
-						MountPathGenerate: "/mnt/test-",
-					},
-				},
-			},
-		}
-
-		podOverwrite := testsuites.PodDetails{
-			IsWindows:    isWindowsCluster,
-			WinServerVer: winServerVer,
-			Cmd:          "echo 'overwrite' > /mnt/test-1/data; sleep 3600",
-		}
-
-		podWithSnapshot := testsuites.PodDetails{
-			IsWindows:    isWindowsCluster,
-			WinServerVer: winServerVer,
-			Cmd:          "grep 'hello world' /mnt/test-1/data",
-		}
-
-		test := testsuites.DynamicallyProvisionedVolumeSnapshotTest{
-			CSIDriver:                      testDriver,
-			Pod:                            pod,
-			ShouldOverwrite:                true,
-			ShouldRestore:                  true,
-			PodOverwrite:                   podOverwrite,
-			PodWithSnapshot:                podWithSnapshot,
-			StorageClassParameters:         map[string]string{"skuName": "Standard_LRS"},
-			SnapshotStorageClassParameters: map[string]string{"skuName": "Premium_LRS"},
-		}
-		test.Run(ctx, cs, snapshotrcs, ns)
 	})
 })
 
