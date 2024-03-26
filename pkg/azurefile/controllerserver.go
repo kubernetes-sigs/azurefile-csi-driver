@@ -1020,6 +1020,12 @@ func (d *Driver) restoreSnapshot(ctx context.Context, req *csi.CreateVolumeReque
 		if srcAccountSasToken, err = d.generateSASToken(srcAccountName, srcAccountKey, storageEndpointSuffix, d.sasTokenExpirationMinutes); err != nil {
 			return err
 		}
+		if dstAccountSasToken == "" {
+			klog.V(2).Infof("generate sas token for resource group(%s) dst account(%s) instead of identity", resourceGroupName, dstAccountName)
+			if dstAccountSasToken, _, err = d.getAzcopyAuth(ctx, dstAccountName, "", storageEndpointSuffix, accountOptions, secrets, secretName, secretNamespace, true); err != nil {
+				return err
+			}
+		}
 	}
 
 	srcPath := fmt.Sprintf("https://%s.file.%s/%s%s", srcAccountName, storageEndpointSuffix, srcFileShareName, srcAccountSasToken)
