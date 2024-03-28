@@ -218,6 +218,13 @@ Update your container spec to reference your *PersistentVolumeClaim* and update 
       claimName: azurefile
 ```
 
+### Tips
+ - The commands below can be used to verify the presence of in-tree volumes in the cluster:
+```console
+kubectl get pod -o yaml -A | grep azureFile: | wc -l  # get in-tree inline volume number in pods
+kubectl get pv -o yaml | grep azureFile: | wc -l  # get in-tree volume number in pv
+```
+
 ## Next steps
 
 For associated best practices, see [Best practices for storage and backups in AKS][operator-best-practices-storage].
