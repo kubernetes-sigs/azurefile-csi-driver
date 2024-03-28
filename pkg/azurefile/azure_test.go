@@ -86,13 +86,18 @@ users:
 	}()
 
 	tests := []struct {
-		desc                  string
-		createFakeCredFile    bool
-		createFakeKubeConfig  bool
-		kubeconfig            string
-		userAgent             string
-		allowEmptyCloudConfig bool
-		expectedErr           testutil.TestError
+		desc                                  string
+		createFakeCredFile                    bool
+		createFakeKubeConfig                  bool
+		setFederatedWorkloadIdentityEnv       bool
+		kubeconfig                            string
+		userAgent                             string
+		allowEmptyCloudConfig                 bool
+		aadFederatedTokenFile                 string
+		useFederatedWorkloadIdentityExtension bool
+		aadClientID                           string
+		tenantID                              string
+		expectedErr                           testutil.TestError
 	}{
 		{
 			desc:                  "out of cluster, no kubeconfig, no credential file",
@@ -137,6 +142,19 @@ users:
 			allowEmptyCloudConfig: true,
 			expectedErr:           testutil.TestError{},
 		},
+		{
+			desc:                                  "[success] get azure client with workload identity",
+			createFakeKubeConfig:                  true,
+			createFakeCredFile:                    true,
+			setFederatedWorkloadIdentityEnv:       true,
+			kubeconfig:                            fakeKubeConfig,
+			userAgent:                             "useragent",
+			useFederatedWorkloadIdentityExtension: true,
+			aadFederatedTokenFile:                 "fake-token-file",
+			aadClientID:                           "fake-client-id",
+			tenantID:                              "fake-tenant-id",
+			expectedErr:                           testutil.TestError{},
+		},
 	}
 
 	for _, test := range tests {
@@ -145,7 +163,7 @@ users:
 				t.Error(err)
 			}
 			defer func() {
-				if err := os.Remove(fakeKubeConfig); err != nil {
+				if err := os.Remove(fakeKubeConfig); err != nil && !os.IsNotExist(err) {
 					t.Error(err)
 				}
 			}()
@@ -159,7 +177,7 @@ users:
 				t.Error(err)
 			}
 			defer func() {
-				if err := os.Remove(fakeCredFile); err != nil {
+				if err := os.Remove(fakeCredFile); err != nil && !os.IsNotExist(err) {
 					t.Error(err)
 				}
 			}()
@@ -172,6 +190,12 @@ users:
 			}
 			os.Setenv(DefaultAzureCredentialFileEnv, fakeCredFile)
 		}
+		if test.setFederatedWorkloadIdentityEnv {
+			t.Setenv("AZURE_TENANT_ID", test.tenantID)
+			t.Setenv("AZURE_CLIENT_ID", test.aadClientID)
+			t.Setenv("AZURE_FEDERATED_TOKEN_FILE", test.aadFederatedTokenFile)
+		}
+
 		cloud, err := getCloudProvider(context.Background(), test.kubeconfig, "", "", "", test.userAgent, test.allowEmptyCloudConfig, false, 5, 10)
 		if !testutil.AssertError(err, &test.expectedErr) && !strings.Contains(err.Error(), test.expectedErr.DefaultError.Error()) {
 			t.Errorf("desc: %s,\n input: %q, getCloudProvider err: %v, expectedErr: %v", test.desc, test.kubeconfig, err, test.expectedErr)
@@ -180,6 +204,10 @@ users:
 			t.Errorf("return value of getCloudProvider should not be nil even there is error")
 		} else {
 			assert.Equal(t, cloud.UserAgent, test.userAgent)
+			assert.Equal(t, cloud.AADFederatedTokenFile, test.aadFederatedTokenFile)
+			assert.Equal(t, cloud.UseFederatedWorkloadIdentityExtension, test.useFederatedWorkloadIdentityExtension)
+			assert.Equal(t, cloud.AADClientID, test.aadClientID)
+			assert.Equal(t, cloud.TenantID, test.tenantID)
 		}
 	}
 }
