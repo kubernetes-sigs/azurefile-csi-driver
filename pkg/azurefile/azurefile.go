@@ -1056,8 +1056,8 @@ func (d *Driver) GetTotalAccountQuota(ctx context.Context, subsID, resourceGroup
 
 // RemoveStorageAccountTag remove tag from storage account
 func (d *Driver) RemoveStorageAccountTag(ctx context.Context, subsID, resourceGroup, account, key string) error {
-	if d.cloud == nil {
-		return fmt.Errorf("cloud is nil")
+	if d.cloud == nil || d.cloud.StorageAccountClient == nil {
+		return fmt.Errorf("cloud or StorageAccountClient is nil")
 	}
 	// search in cache first
 	cache, err := d.skipMatchingTagCache.Get(account, azcache.CacheReadTypeDefault)
