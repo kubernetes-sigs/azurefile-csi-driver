@@ -46,7 +46,7 @@ spec:
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
-            - --health-port=29613
+            - --http-endpoint=localhost:29613
             - --v=2
           resources:
             limits:
@@ -92,15 +92,12 @@ spec:
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
             - "--metrics-address=0.0.0.0:29615"
-          ports:
-            - containerPort: 29613
-              name: healthz
-              protocol: TCP
           livenessProbe:
             failureThreshold: 5
             httpGet:
+              host: localhost
               path: /healthz
-              port: healthz
+              port: 29613
             initialDelaySeconds: 30
             timeoutSeconds: 10
             periodSeconds: 30
