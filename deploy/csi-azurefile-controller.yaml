@@ -100,7 +100,7 @@ spec:
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
-            - --health-port=29612
+            - --http-endpoint=localhost:29612
             - --v=2
           volumeMounts:
             - name: socket-dir
@@ -120,17 +120,15 @@ spec:
             - "--metrics-address=0.0.0.0:29614"
             - "--user-agent-suffix=OSS-kubectl"
           ports:
-            - containerPort: 29612
-              name: healthz
-              protocol: TCP
             - containerPort: 29614
               name: metrics
               protocol: TCP
           livenessProbe:
             failureThreshold: 5
             httpGet:
+              host: localhost
               path: /healthz
-              port: healthz
+              port: 29612
             initialDelaySeconds: 30
             timeoutSeconds: 10
             periodSeconds: 30
