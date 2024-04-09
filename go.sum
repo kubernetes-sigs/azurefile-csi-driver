@@ -767,8 +767,8 @@ sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.28.0 h1:TgtAeesdhpm2S
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.28.0/go.mod h1:VHVDI/KrK4fjnV61bE2g3sA7tiETLn8sooImelsCx3Y=
 sigs.k8s.io/cloud-provider-azure v1.27.1-0.20240319093822-58cad130d9dc h1:y/jDBU+4EcPiHGPMQeK6B4IKEhOp3CCts/ZaRH1sa3w=
 sigs.k8s.io/cloud-provider-azure v1.27.1-0.20240319093822-58cad130d9dc/go.mod h1:nS6tUQgopFVyqFQW1P/luDXNNQfsQOg3WFs9GhzNjm8=
-sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.0.10 h1:bI+ZLfnsvExyxk/mmwmOnFHbfRyv0kc0Zk5sVh+w75A=
-sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.0.10/go.mod h1:WxbuPyPqXd+yNIkWNJ/gyjAZp/DXKGHDOdZH6DXsKRs=
+sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.0.12 h1:hZAEae4yxdVjoRbntb2GjJKtE/ZFqAjb6bvqnsOpRZ0=
+sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.0.12/go.mod h1:u336a/gqvvV5G8DXJNHyN6cRHPOzsvwvNmmBWYSrpI0=
 sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.0.4 h1:CFMHYo6/OQpLTycJGQIze2pchNeJQ7L2TQC6fDo4JGY=
 sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.0.4/go.mod h1:PvXgFxPcfve6yBiWNIO/fqAMvGVC9W7qN6M2vIj4zmY=
 sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd h1:EDPBXCAspyGV4jQlpZSudPeMmr1bNJefnuqLsRAsHZo=
