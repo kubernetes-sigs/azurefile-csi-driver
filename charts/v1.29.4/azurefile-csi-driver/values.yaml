@@ -1,0 +1,263 @@
+image:
+  baseRepo: mcr.microsoft.com
+  azurefile:
+    repository: /oss/kubernetes-csi/azurefile-csi
+    tag: v1.29.4
+    pullPolicy: IfNotPresent
+  csiProvisioner:
+    repository: /oss/kubernetes-csi/csi-provisioner
+    tag: v3.5.0
+    pullPolicy: IfNotPresent
+  csiResizer:
+    repository: /oss/kubernetes-csi/csi-resizer
+    tag: v1.8.0
+    pullPolicy: IfNotPresent
+  livenessProbe:
+    repository: /oss/kubernetes-csi/livenessprobe
+    tag: v2.10.0
+    pullPolicy: IfNotPresent
+  nodeDriverRegistrar:
+    repository: /oss/kubernetes-csi/csi-node-driver-registrar
+    tag: v2.8.0
+    pullPolicy: IfNotPresent
+
+## Reference to one or more secrets to be used when pulling images
+## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+imagePullSecrets: []
+# - name: myRegistryKeySecretName
+
+# -- Custom labels to add into metadata
+customLabels: {}
+  # k8s-app: azurefile-csi-driver
+
+serviceAccount:
+  create: true # When true, service accounts will be created for you. Set to false if you want to use your own.
+  controller: csi-azurefile-controller-sa # Name of Service Account to be created or used
+  node: csi-azurefile-node-sa # Name of Service Account to be created or used
+  snapshotController: csi-snapshot-controller-sa # Name of Service Account to be created or used
+
+rbac:
+  create: true
+  name: azurefile
+
+controller:
+  name: csi-azurefile-controller
+  cloudConfigSecretName: azure-cloud-provider
+  cloudConfigSecretNamespace: kube-system
+  allowEmptyCloudConfig: true
+  replicas: 2
+  hostNetwork: true # this setting could be disabled if controller does not depend on MSI setting
+  metricsPort: 29614
+  livenessProbe:
+    healthPort: 29612
+  runOnMaster: false
+  runOnControlPlane: false
+  attachRequired: false
+  logLevel: 5
+  labels: {}
+  annotations: {}
+  podLabels: {}
+  podAnnotations: {}
+  resources:
+    csiProvisioner:
+      limits:
+        cpu: 1
+        memory: 500Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    csiAttacher:
+      limits:
+        cpu: 1
+        memory: 500Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    csiResizer:
+      limits:
+        cpu: 1
+        memory: 500Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    csiSnapshotter:
+      limits:
+        cpu: 1
+        memory: 200Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    livenessProbe:
+      limits:
+        cpu: 1
+        memory: 100Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    azurefile:
+      limits:
+        cpu: 1
+        memory: 200Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+  kubeconfig: ""
+  affinity: {}
+  nodeSelector: {}
+  tolerations:
+    - key: "node-role.kubernetes.io/master"
+      operator: "Exists"
+      effect: "NoSchedule"
+    - key: "node-role.kubernetes.io/controlplane"
+      operator: "Exists"
+      effect: "NoSchedule"
+    - key: "node-role.kubernetes.io/control-plane"
+      operator: "Exists"
+      effect: "NoSchedule"
+
+node:
+  cloudConfigSecretName: azure-cloud-provider
+  cloudConfigSecretNamespace: kube-system
+  allowEmptyCloudConfig: true
+  allowInlineVolumeKeyAccessWithIdentity: false
+  metricsPort: 29615
+  livenessProbe:
+    healthPort: 29613
+  logLevel: 5
+
+snapshot:
+  enabled: false
+  image:
+    csiSnapshotter:
+      repository: /oss/kubernetes-csi/csi-snapshotter
+      tag: v6.3.1
+      pullPolicy: IfNotPresent
+    csiSnapshotController:
+      repository: /oss/kubernetes-csi/snapshot-controller
+      tag: v6.3.1
+      pullPolicy: IfNotPresent
+  snapshotController:
+    name: csi-snapshot-controller
+    replicas: 2
+    labels: {}
+    annotations: {}
+    podLabels: {}
+    podAnnotations: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 300Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+
+feature:
+  enableGetVolumeStats: true
+  enableVolumeMountGroup: true
+  fsGroupPolicy: ReadWriteOnceWithFSType
+
+driver:
+  name: file.csi.azure.com
+  customUserAgent: ""
+  userAgentSuffix: "OSS-helm"
+  azureGoSDKLogLevel: "" # available values: ""(no logs), DEBUG, INFO, WARNING, ERROR
+  httpsProxy: ""
+  httpProxy: ""
+
+linux:
+  enabled: true
+  dsName: csi-azurefile-node # daemonset name
+  dnsPolicy: Default # available values: Default, ClusterFirst, ClusterFirstWithHostNet, None
+  kubelet: /var/lib/kubelet
+  kubeconfig: ""
+  distro: debian # available values: debian, fedora
+  mountPermissions: 0777
+  enableRegistrationProbe: true
+  labels: {}
+  annotations: {}
+  podLabels: {}
+  podAnnotations: {}
+  resources:
+    livenessProbe:
+      limits:
+        memory: 100Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    nodeDriverRegistrar:
+      limits:
+        memory: 100Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    azurefile:
+      limits:
+        memory: 400Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+  tolerations:
+    - operator: "Exists"
+  nodeSelector: {}
+  affinity: {}
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: type
+              operator: NotIn
+              values:
+                - virtual-kubelet
+
+windows:
+  enabled: true
+  useHostProcessContainers: false
+  dsName: csi-azurefile-node-win # daemonset name
+  kubelet: 'C:\var\lib\kubelet'
+  kubeconfig: ""
+  enableRegistrationProbe: true
+  labels: {}
+  annotations: {}
+  podLabels: {}
+  podAnnotations: {}
+  resources:
+    livenessProbe:
+      limits:
+        memory: 150Mi
+      requests:
+        cpu: 10m
+        memory: 40Mi
+    nodeDriverRegistrar:
+      limits:
+        memory: 150Mi
+      requests:
+        cpu: 30m
+        memory: 40Mi
+    azurefile:
+      limits:
+        memory: 200Mi
+      requests:
+        cpu: 10m
+        memory: 40Mi
+  tolerations:
+    - key: "node.kubernetes.io/os"
+      operator: "Exists"
+      effect: "NoSchedule"
+  nodeSelector: {}
+  affinity: {}
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: type
+              operator: NotIn
+              values:
+                - virtual-kubelet
+
+workloadIdentity:
+  clientID: ""
+  # [optional] If the AAD application or user-assigned managed identity is not in the same tenant as the cluster
+  # then set tenantID with the application or user-assigned managed identity tenant ID
+  tenantID: ""
+
+azureCredentialFileConfigMap: azure-cred-file
