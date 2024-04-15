@@ -23,8 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
@@ -197,7 +195,10 @@ var (
 
 	retriableErrors = []string{accountNotProvisioned, tooManyRequests, shareBeingDeleted, clientThrottled}
 
-	defaultAzcopyCopyOptions = []string{"--recursive", "--check-length=false"}
+	// azcopyCloneVolumeOptions used in volume cloning and set --check-length to false because volume data may be in changing state, copy volume is not same as current source volume
+	azcopyCloneVolumeOptions = []string{"--recursive", "--check-length=false"}
+	// azcopySnapshotRestoreOptions used in smb snapshot restore and set --check-length to true because snapshot data is changeless
+	azcopySnapshotRestoreOptions = []string{"--recursive", "--check-length=true"}
 )
 
 // Driver implements all interfaces of CSI drivers
@@ -262,9 +263,6 @@ type Driver struct {
 
 	kubeconfig string
 	endpoint   string
-
-	// azcopy use sas token by default
-	azcopyUseSasToken bool
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -302,7 +300,6 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.azcopy = &fileutil.Azcopy{}
 	driver.kubeconfig = options.KubeConfig
 	driver.endpoint = options.Endpoint
-	driver.azcopyUseSasToken = options.AzcopyUseSasToken
 
 	var err error
 	getter := func(key string) (interface{}, error) { return nil, nil }
@@ -1012,55 +1009,7 @@ func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest
 	srcPath := fmt.Sprintf("https://%s.file.%s/%s%s", accountName, storageEndpointSuffix, srcFileShareName, accountSASToken)
 	dstPath := fmt.Sprintf("https://%s.file.%s/%s%s", accountName, storageEndpointSuffix, dstFileShareName, accountSASToken)
 
-	jobState, percent, err := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
-	klog.V(2).Infof("azcopy job status: %s, copy percent: %s%%, error: %v", jobState, percent, err)
-	switch jobState {
-	case fileutil.AzcopyJobError, fileutil.AzcopyJobCompleted:
-		return err
-	case fileutil.AzcopyJobRunning:
-		return fmt.Errorf("wait for the existing AzCopy job to complete, current copy percentage is %s%%", percent)
-	case fileutil.AzcopyJobNotFound:
-		klog.V(2).Infof("copy fileshare %s to %s", srcFileShareName, dstFileShareName)
-		execFuncWithAuth := func() error {
-			cmd := exec.Command("azcopy", "copy", srcPath, dstPath)
-			cmd.Args = append(cmd.Args, defaultAzcopyCopyOptions...)
-			if len(authAzcopyEnv) > 0 {
-				cmd.Env = append(os.Environ(), authAzcopyEnv...)
-			}
-			if out, err := cmd.CombinedOutput(); err != nil {
-				return fmt.Errorf("exec error: %v, output: %v", err, string(out))
-			}
-			return nil
-		}
-		timeoutFunc := func() error {
-			_, percent, _ := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
-			return fmt.Errorf("timeout waiting for copy blob container %s to %s complete, current copy percent: %s%%", srcFileShareName, dstFileShareName, percent)
-		}
-		copyErr := fileutil.WaitUntilTimeout(time.Duration(d.waitForAzCopyTimeoutMinutes)*time.Minute, execFuncWithAuth, timeoutFunc)
-		if accountSASToken == "" && copyErr != nil && strings.Contains(copyErr.Error(), authorizationPermissionMismatch) {
-			klog.Warningf("azcopy list failed with AuthorizationPermissionMismatch error, should assign \"Storage File Data SMB Share Elevated Contributor\" role to controller identity, fall back to use sas token, original error: %v", copyErr)
-			var sasToken string
-			if sasToken, _, err = d.getAzcopyAuth(ctx, accountName, "", storageEndpointSuffix, accountOptions, secrets, secretName, secretNamespace, true); err != nil {
-				return err
-			}
-			execFuncWithSasToken := func() error {
-				cmd := exec.Command("azcopy", "copy", srcPath+sasToken, dstPath+sasToken)
-				cmd.Args = append(cmd.Args, defaultAzcopyCopyOptions...)
-				if out, err := cmd.CombinedOutput(); err != nil {
-					return fmt.Errorf("exec error: %v, output: %v", err, string(out))
-				}
-				return nil
-			}
-			copyErr = fileutil.WaitUntilTimeout(time.Duration(d.waitForAzCopyTimeoutMinutes)*time.Minute, execFuncWithSasToken, timeoutFunc)
-		}
-		if copyErr != nil {
-			klog.Warningf("CopyFileShare(%s, %s, %s) failed with error: %v", resourceGroupName, accountName, dstFileShareName, copyErr)
-		} else {
-			klog.V(2).Infof("copied fileshare %s to %s successfully", srcFileShareName, dstFileShareName)
-		}
-		return copyErr
-	}
-	return err
+	return d.copyFileShareByAzcopy(ctx, srcFileShareName, dstFileShareName, srcPath, dstPath, "", accountName, accountName, resourceGroupName, accountSASToken, authAzcopyEnv, secretName, secretNamespace, secrets, accountOptions, storageEndpointSuffix)
 }
 
 // GetTotalAccountQuota returns the total quota in GB of all file shares in the storage account and the number of file shares

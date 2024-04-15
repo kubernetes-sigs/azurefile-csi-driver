@@ -90,7 +90,6 @@ func getVolumeSnapshotClass(generateName string, provisioner string) *snapshotv1
 			Kind:       VolumeSnapshotClassKind,
 			APIVersion: SnapshotAPIVersion,
 		},
-
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: generateName,
 		},
