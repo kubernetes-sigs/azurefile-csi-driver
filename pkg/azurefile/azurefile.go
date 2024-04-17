@@ -1036,7 +1036,6 @@ func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest
 				out, copyErr := cmd.CombinedOutput()
 				if accountSASToken == "" && strings.Contains(string(out), authorizationPermissionMismatch) && copyErr != nil {
 					klog.Warningf("azcopy list failed with AuthorizationPermissionMismatch error, should assign \"Storage File Data SMB Share Elevated Contributor\" role to controller identity, fall back to use sas token, original output: %v", string(out))
-					d.azcopySasTokenCache.Set(accountName, "")
 					var sasToken string
 					if sasToken, _, err = d.getAzcopyAuth(ctx, accountName, "", storageEndpointSuffix, accountOptions, secrets, secretName, secretNamespace, true); err != nil {
 						return err
