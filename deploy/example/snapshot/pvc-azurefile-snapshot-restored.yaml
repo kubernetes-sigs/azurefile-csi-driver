@@ -1,0 +1,16 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-azurefile-snapshot-restored
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: azurefile-csi
+  resources:
+    requests:
+      storage: 100Gi
+  dataSource:
+    name: azurefile-volume-snapshot
+    kind: VolumeSnapshot
+    apiGroup: snapshot.storage.k8s.io

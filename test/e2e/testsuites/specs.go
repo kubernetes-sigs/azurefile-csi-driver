@@ -236,6 +236,9 @@ func (volume *VolumeDetails) SetupDynamicPersistentVolumeClaim(ctx context.Conte
 			Name: volume.DataSource.Name,
 			Kind: volume.DataSource.Kind,
 		}
+		if volume.DataSource.Kind == VolumeSnapshotKind {
+			dataSource.APIGroup = &SnapshotAPIGroup
+		}
 		tpvc = NewTestPersistentVolumeClaimWithDataSource(client, namespace, volume.ClaimSize, volume.VolumeMode, &createdStorageClass, dataSource)
 	} else {
 		tpvc = NewTestPersistentVolumeClaim(client, namespace, volume.ClaimSize, volume.VolumeMode, &createdStorageClass)
