@@ -155,14 +155,14 @@ func TestGetAzcopyJob(t *testing.T) {
 		defer ctrl.Finish()
 
 		m := NewMockEXEC(ctrl)
-		m.EXPECT().RunCommand(gomock.Eq("azcopy jobs list | grep dstFileshare -B 3")).Return(test.listStr, test.listErr)
+		m.EXPECT().RunCommand(gomock.Eq("azcopy jobs list | grep dstFileshare -B 3"), []string{}).Return(test.listStr, test.listErr)
 		if test.enableShow {
-			m.EXPECT().RunCommand(gomock.Not("azcopy jobs list | grep dstFileshare -B 3")).Return(test.showStr, test.showErr)
+			m.EXPECT().RunCommand(gomock.Not("azcopy jobs list | grep dstFileshare -B 3"), []string{}).Return(test.showStr, test.showErr)
 		}
 
 		azcopyFunc := &Azcopy{}
 		azcopyFunc.ExecCmd = m
-		jobState, percent, err := azcopyFunc.GetAzcopyJob(dstFileshare)
+		jobState, percent, err := azcopyFunc.GetAzcopyJob(dstFileshare, []string{})
 		if jobState != test.expectedJobState || percent != test.expectedPercent || !reflect.DeepEqual(err, test.expectedErr) {
 			t.Errorf("test[%s]: unexpected jobState: %v, percent: %v, err: %v, expected jobState: %v, percent: %v, err: %v", test.desc, jobState, percent, err, test.expectedJobState, test.expectedPercent, test.expectedErr)
 		}

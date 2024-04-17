@@ -89,14 +89,18 @@ func RunPowershellCmd(command string, envs ...string) ([]byte, error) {
 }
 
 type EXEC interface {
-	RunCommand(string) (string, error)
+	RunCommand(string, []string) (string, error)
 }
 
 type ExecCommand struct {
 }
 
-func (ec *ExecCommand) RunCommand(cmd string) (string, error) {
-	out, err := exec.Command("sh", "-c", cmd).CombinedOutput()
+func (ec *ExecCommand) RunCommand(cmdStr string, authEnv []string) (string, error) {
+	cmd := exec.Command("sh", "-c", cmdStr)
+	if len(authEnv) > 0 {
+		cmd.Env = append(os.Environ(), authEnv...)
+	}
+	out, err := cmd.CombinedOutput()
 	return string(out), err
 }
 
@@ -105,7 +109,7 @@ type Azcopy struct {
 }
 
 // GetAzcopyJob get the azcopy job status if job existed
-func (ac *Azcopy) GetAzcopyJob(dstFileshare string) (AzcopyJobState, string, error) {
+func (ac *Azcopy) GetAzcopyJob(dstFileshare string, authAzcopyEnv []string) (AzcopyJobState, string, error) {
 	cmdStr := fmt.Sprintf("azcopy jobs list | grep %s -B 3", dstFileshare)
 	// cmd output example:
 	// JobId: ed1c3833-eaff-fe42-71d7-513fb065a9d9
@@ -120,7 +124,7 @@ func (ac *Azcopy) GetAzcopyJob(dstFileshare string) (AzcopyJobState, string, err
 	if ac.ExecCmd == nil {
 		ac.ExecCmd = &ExecCommand{}
 	}
-	out, err := ac.ExecCmd.RunCommand(cmdStr)
+	out, err := ac.ExecCmd.RunCommand(cmdStr, authAzcopyEnv)
 	// if grep command returns nothing, the exec will return exit status 1 error, so filter this error
 	if err != nil && err.Error() != "exit status 1" {
 		klog.Warningf("failed to get azcopy job with error: %v, jobState: %v", err, AzcopyJobError)
@@ -140,7 +144,7 @@ func (ac *Azcopy) GetAzcopyJob(dstFileshare string) (AzcopyJobState, string, err
 	cmdPercentStr := fmt.Sprintf("azcopy jobs show %s | grep Percent", jobid)
 	// cmd out example:
 	// Percent Complete (approx): 100.0
-	summary, err := ac.ExecCmd.RunCommand(cmdPercentStr)
+	summary, err := ac.ExecCmd.RunCommand(cmdPercentStr, authAzcopyEnv)
 	if err != nil {
 		klog.Warningf("failed to get azcopy job with error: %v, jobState: %v", err, AzcopyJobError)
 		return AzcopyJobError, "", fmt.Errorf("couldn't show jobs summary in azcopy %v", err)
@@ -151,6 +155,15 @@ func (ac *Azcopy) GetAzcopyJob(dstFileshare string) (AzcopyJobState, string, err
 		return AzcopyJobError, "", fmt.Errorf("couldn't parse azcopy job show in azcopy %v", err)
 	}
 	return jobState, percent, nil
+}
+
+// TestListJobs test azcopy jobs list command with authAzcopyEnv
+func (ac *Azcopy) TestListJobs(accountName, storageEndpointSuffix string, authAzcopyEnv []string) (string, error) {
+	cmdStr := fmt.Sprintf("azcopy list %s", fmt.Sprintf("https://%s.file.%s", accountName, storageEndpointSuffix))
+	if ac.ExecCmd == nil {
+		ac.ExecCmd = &ExecCommand{}
+	}
+	return ac.ExecCmd.RunCommand(cmdStr, authAzcopyEnv)
 }
 
 // parseAzcopyJobList parse command azcopy jobs list, get jobid and state from joblist
