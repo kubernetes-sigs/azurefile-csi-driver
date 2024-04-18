@@ -39,6 +39,16 @@ func SMBMount(m *mount.SafeFormatAndMount, source, target, fsType string, mountO
 	return fmt.Errorf("could not cast to csi proxy class")
 }
 
+func SMBUnmount(m *mount.SafeFormatAndMount, target string, extensiveMountCheck, removeSMBMountOnWindows bool) error {
+	if proxy, ok := m.Interface.(mounter.CSIProxyMounter); ok {
+		if removeSMBMountOnWindows {
+			return proxy.Unmount(target)
+		}
+		return proxy.Rmdir(target)
+	}
+	return fmt.Errorf("could not cast to csi proxy class")
+}
+
 func CleanupMountPoint(m *mount.SafeFormatAndMount, target string, extensiveMountCheck bool) error {
 	if proxy, ok := m.Interface.(mounter.CSIProxyMounter); ok {
 		return proxy.Rmdir(target)

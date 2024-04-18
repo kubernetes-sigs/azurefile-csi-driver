@@ -220,6 +220,7 @@ type Driver struct {
 	kubeAPIQPS                             float64
 	kubeAPIBurst                           int
 	enableWindowsHostProcess               bool
+	removeSMBMountOnWindows                bool
 	appendClosetimeoOption                 bool
 	appendNoShareSockOption                bool
 	appendNoResvPortOption                 bool
@@ -287,6 +288,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.kubeAPIQPS = options.KubeAPIQPS
 	driver.kubeAPIBurst = options.KubeAPIBurst
 	driver.enableWindowsHostProcess = options.EnableWindowsHostProcess
+	driver.removeSMBMountOnWindows = options.RemoveSMBMountOnWindows
 	driver.appendClosetimeoOption = options.AppendClosetimeoOption
 	driver.appendNoShareSockOption = options.AppendNoShareSockOption
 	driver.appendNoResvPortOption = options.AppendNoResvPortOption
