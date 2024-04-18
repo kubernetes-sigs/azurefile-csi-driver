@@ -32,23 +32,25 @@ require (
 	k8s.io/api v0.29.3
 	k8s.io/apimachinery v0.29.3
 	k8s.io/client-go v0.29.3
-	k8s.io/cloud-provider v0.29.2
-	k8s.io/component-base v0.29.2
+	k8s.io/cloud-provider v0.29.3
+	k8s.io/component-base v0.29.3
 	k8s.io/klog/v2 v2.120.1
 	k8s.io/kubernetes v1.29.0
 	k8s.io/mount-utils v0.29.0
 	k8s.io/pod-security-admission v0.27.4
 	k8s.io/utils v0.0.0-20231127182322-b307cd553661
-	sigs.k8s.io/cloud-provider-azure v1.27.1-0.20240319093822-58cad130d9dc
-	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.0.7
-	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.0.0-20240319093822-58cad130d9dc
+	sigs.k8s.io/cloud-provider-azure v1.27.1-0.20240418020948-86cfc443b48c
+	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.0.13
+	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.0.4
 	sigs.k8s.io/yaml v1.4.0
 )
 
 require (
 	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.5.1 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.5.2 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.5.2 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azsecrets v0.12.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/keyvault/internal v0.7.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry v1.2.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4 v4.8.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault v1.4.0 // indirect
@@ -142,7 +144,7 @@ require (
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/oauth2 v0.16.0 // indirect
-	golang.org/x/sync v0.6.0 // indirect
+	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/term v0.19.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
@@ -156,13 +158,13 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.0.0 // indirect
-	k8s.io/apiserver v0.29.2 // indirect
-	k8s.io/component-helpers v0.29.2 // indirect
-	k8s.io/controller-manager v0.29.2 // indirect
-	k8s.io/kms v0.29.2 // indirect
+	k8s.io/apiserver v0.29.3 // indirect
+	k8s.io/component-helpers v0.29.3 // indirect
+	k8s.io/controller-manager v0.29.3 // indirect
+	k8s.io/kms v0.29.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
 	k8s.io/kubectl v0.0.0 // indirect
-	k8s.io/kubelet v0.29.2 // indirect
+	k8s.io/kubelet v0.29.3 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.28.0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
