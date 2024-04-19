@@ -57,6 +57,7 @@ var (
 	kubeAPIBurst                           = flag.Int("kube-api-burst", 50, "Burst to use while communicating with the kubernetes apiserver.")
 	appendMountErrorHelpLink               = flag.Bool("append-mount-error-help-link", true, "Whether to include a link for help with mount errors when a mount error occurs.")
 	enableWindowsHostProcess               = flag.Bool("enable-windows-host-process", false, "enable windows host process")
+	removeSMBMountOnWindows                = flag.Bool("remove-smb-mount-on-windows", true, "remove smb global mapping on windows during unmount")
 	appendClosetimeoOption                 = flag.Bool("append-closetimeo-option", false, "Whether appending closetimeo=0 option to smb mount command")
 	appendNoShareSockOption                = flag.Bool("append-nosharesock-option", true, "Whether appending nosharesock option to smb mount command")
 	appendNoResvPortOption                 = flag.Bool("append-noresvport-option", true, "Whether appending noresvport option to nfs mount command")
@@ -107,6 +108,7 @@ func handle() {
 		KubeAPIQPS:                             *kubeAPIQPS,
 		KubeAPIBurst:                           *kubeAPIBurst,
 		EnableWindowsHostProcess:               *enableWindowsHostProcess,
+		RemoveSMBMountOnWindows:                *removeSMBMountOnWindows,
 		AppendClosetimeoOption:                 *appendClosetimeoOption,
 		AppendNoShareSockOption:                *appendNoShareSockOption,
 		AppendNoResvPortOption:                 *appendNoResvPortOption,
