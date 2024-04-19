@@ -18,6 +18,8 @@ package smb
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"k8s.io/klog/v2"
@@ -55,10 +57,54 @@ func NewSmbGlobalMapping(remotePath, username, password string) error {
 }
 
 func RemoveSmbGlobalMapping(remotePath string) error {
+	remotePath = strings.TrimSuffix(remotePath, `\`)
 	cmd := `Remove-SmbGlobalMapping -RemotePath $Env:smbremotepath -Force`
 	klog.V(2).Infof("begin to run RemoveSmbGlobalMapping with %s", remotePath)
 	if output, err := util.RunPowershellCmd(cmd, fmt.Sprintf("smbremotepath=%s", remotePath)); err != nil {
 		return fmt.Errorf("UnmountSmbShare failed. output: %q, err: %v", string(output), err)
 	}
 	return nil
+}
+
+// GetRemoteServerFromTarget- gets the remote server path given a mount point, the function is recursive until it find the remote server or errors out
+func GetRemoteServerFromTarget(mount string) (string, error) {
+	cmd := "(Get-Item -Path $Env:mount).Target"
+	out, err := util.RunPowershellCmd(cmd, fmt.Sprintf("mount=%s", mount))
+	if err != nil || len(out) == 0 {
+		return "", fmt.Errorf("error getting volume from mount. cmd: %s, output: %s, error: %v", cmd, string(out), err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// CheckForDuplicateSMBMounts checks if there is any other SMB mount exists on the same remote server
+func CheckForDuplicateSMBMounts(dir, mount, remoteServer string) (bool, error) {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return false, err
+	}
+
+	for _, file := range files {
+		klog.V(6).Infof("checking file %s", file.Name())
+		if file.IsDir() {
+			globalMountPath := filepath.Join(dir, file.Name(), "globalmount")
+			if strings.EqualFold(filepath.Clean(globalMountPath), filepath.Clean(mount)) {
+				klog.V(2).Infof("skip current mount path %s", mount)
+			} else {
+				fileInfo, err := os.Lstat(globalMountPath)
+				// check if the file is a symlink, if yes, check if it is pointing to the same remote server
+				if err == nil && fileInfo.Mode()&os.ModeSymlink != 0 {
+					remoteServerPath, err := GetRemoteServerFromTarget(globalMountPath)
+					klog.V(2).Infof("checking remote server path %s on local path %s", remoteServerPath, globalMountPath)
+					if err == nil {
+						if remoteServerPath == remoteServer {
+							return true, nil
+						}
+					} else {
+						klog.Errorf("GetRemoteServerFromTarget(%s) failed with %v", globalMountPath, err)
+					}
+				}
+			}
+		}
+	}
+	return false, err
 }
