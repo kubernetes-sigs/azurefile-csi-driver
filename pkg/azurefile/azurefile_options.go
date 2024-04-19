@@ -37,6 +37,7 @@ type DriverOptions struct {
 	KubeAPIQPS                             float64
 	KubeAPIBurst                           int
 	EnableWindowsHostProcess               bool
+	RemoveSMBMountOnWindows                bool
 	AppendClosetimeoOption                 bool
 	AppendNoShareSockOption                bool
 	AppendNoResvPortOption                 bool
@@ -72,6 +73,7 @@ func (o *DriverOptions) AddFlags() *flag.FlagSet {
 	fs.Float64Var(&o.KubeAPIQPS, "kube-api-qps", 25.0, "QPS to use while communicating with the kubernetes apiserver.")
 	fs.IntVar(&o.KubeAPIBurst, "kube-api-burst", 50, "Burst to use while communicating with the kubernetes apiserver.")
 	fs.BoolVar(&o.EnableWindowsHostProcess, "enable-windows-host-process", false, "enable windows host process")
+	fs.BoolVar(&o.RemoveSMBMountOnWindows, "remove-smb-mount-on-windows", true, "remove smb global mapping on windows during unmount")
 	fs.BoolVar(&o.AppendClosetimeoOption, "append-closetimeo-option", false, "Whether appending closetimeo=0 option to smb mount command")
 	fs.BoolVar(&o.AppendNoShareSockOption, "append-nosharesock-option", true, "Whether appending nosharesock option to smb mount command")
 	fs.BoolVar(&o.AppendNoResvPortOption, "append-noresvport-option", true, "Whether appending noresvport option to nfs mount command")
