@@ -33,12 +33,12 @@ func SMBMount(m *mount.SafeFormatAndMount, source, target, fsType string, option
 	return m.MountSensitive(source, target, fsType, options, sensitiveMountOptions)
 }
 
-func SMBUnmount(m *mount.SafeFormatAndMount, target string, _, _ bool) error {
-	return mount.CleanupMountPoint(target, m.Interface, true /*extensiveMountPointCheck*/)
+func SMBUnmount(m *mount.SafeFormatAndMount, target string, extensiveMountCheck, _ bool) error {
+	return mount.CleanupMountPoint(target, m.Interface, extensiveMountCheck)
 }
 
-func CleanupMountPoint(m *mount.SafeFormatAndMount, target string, _ bool) error {
-	return mount.CleanupMountPoint(target, m.Interface, true /*extensiveMountPointCheck*/)
+func CleanupMountPoint(m *mount.SafeFormatAndMount, target string, extensiveMountCheck bool) error {
+	return mount.CleanupMountPoint(target, m.Interface, extensiveMountCheck)
 }
 
 func preparePublishPath(_ string, _ *mount.SafeFormatAndMount) error {
