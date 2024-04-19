@@ -81,6 +81,7 @@ func NewSmbGlobalMapping(remotePath, username, password string) error {
 }
 
 func RemoveSmbGlobalMapping(remotePath string) error {
+	remotePath = strings.TrimSuffix(remotePath, `\`)
 	cmd := `Remove-SmbGlobalMapping -RemotePath $Env:smbremotepath -Force`
 	klog.V(2).Infof("begin to run RemoveSmbGlobalMapping with %s", remotePath)
 	if output, err := util.RunPowershellCmd(cmd, fmt.Sprintf("smbremotepath=%s", remotePath)); err != nil {
