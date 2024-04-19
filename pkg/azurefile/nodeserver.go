@@ -402,15 +402,17 @@ func (d *Driver) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolume
 		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
 	}()
 
-	klog.V(2).Infof("NodeUnstageVolume: CleanupMountPoint volume %s on %s", volumeID, stagingTargetPath)
-	if err := CleanupMountPoint(d.mounter, stagingTargetPath, true /*extensiveMountPointCheck*/); err != nil {
+	klog.V(2).Infof("NodeUnstageVolume: unmount volume %s on %s", volumeID, stagingTargetPath)
+	if err := SMBUnmount(d.mounter, stagingTargetPath, true /*extensiveMountPointCheck*/, d.removeSMBMountOnWindows); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to unmount staging target %s: %v", stagingTargetPath, err)
 	}
 
-	targetPath := filepath.Join(filepath.Dir(stagingTargetPath), proxyMount)
-	klog.V(2).Infof("NodeUnstageVolume: CleanupMountPoint volume %s on %s", volumeID, targetPath)
-	if err := CleanupMountPoint(d.mounter, targetPath, false); err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to unmount staging target %s: %v", targetPath, err)
+	if runtime.GOOS != "windows" {
+		targetPath := filepath.Join(filepath.Dir(stagingTargetPath), proxyMount)
+		klog.V(2).Infof("NodeUnstageVolume: CleanupMountPoint volume %s on %s", volumeID, targetPath)
+		if err := CleanupMountPoint(d.mounter, targetPath, false); err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to unmount staging target %s: %v", targetPath, err)
+		}
 	}
 	klog.V(2).Infof("NodeUnstageVolume: unmount volume %s on %s successfully", volumeID, stagingTargetPath)
 

@@ -33,6 +33,8 @@ import (
 	"sigs.k8s.io/azurefile-csi-driver/pkg/os/smb"
 )
 
+var driverGlobalMountPath = "C:\\var\\lib\\kubelet\\plugins\\kubernetes.io\\csi\\file.csi.azure.com"
+
 var _ CSIProxyMounter = &winMounter{}
 
 type winMounter struct{}
@@ -125,11 +127,6 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 	return nil
 }
 
-func (mounter *winMounter) SMBUnmount(target string) error {
-	klog.V(4).Infof("SMBUnmount: local path: %s", target)
-	return mounter.Rmdir(target)
-}
-
 // Mount just creates a soft link at target pointing to source.
 func (mounter *winMounter) Mount(source, target, fstype string, options []string) error {
 	return filesystem.LinkPath(normalizeWindowsPath(source), normalizeWindowsPath(target))
@@ -142,7 +139,28 @@ func (mounter *winMounter) Rmdir(path string) error {
 
 // Unmount - Removes the directory - equivalent to unmount on Linux.
 func (mounter *winMounter) Unmount(target string) error {
-	klog.V(4).Infof("Unmount: %s", target)
+	target = normalizeWindowsPath(target)
+	remoteServer, err := smb.GetRemoteServerFromTarget(target)
+	if err == nil {
+		klog.V(2).Infof("remote server path: %s, local path: %s", remoteServer, target)
+		hasDupSMBMount, err := smb.CheckForDuplicateSMBMounts(driverGlobalMountPath, target, remoteServer)
+		if err == nil {
+			if !hasDupSMBMount {
+				remoteServer = strings.Replace(remoteServer, "UNC\\", "\\\\", 1)
+				if err := smb.RemoveSmbGlobalMapping(remoteServer); err != nil {
+					klog.Errorf("RemoveSmbGlobalMapping(%s) failed with %v", target, err)
+				}
+			} else {
+				klog.V(2).Infof("skip unmount as there are other SMB mounts on the same remote server %s", remoteServer)
+			}
+		} else {
+			klog.Errorf("CheckForDuplicateSMBMounts(%s, %s) failed with %v", target, remoteServer, err)
+		}
+	} else {
+		klog.Errorf("GetRemoteServerFromTarget(%s) failed with %v", target, err)
+	}
+
+	klog.V(2).Infof("Unmount: remote path: %s local path: %s", remoteServer, target)
 	return mounter.Rmdir(target)
 }
 
