@@ -24,14 +24,14 @@ require (
 	golang.org/x/net v0.24.0
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.33.0
-	k8s.io/api v0.29.3
-	k8s.io/apimachinery v0.29.3
-	k8s.io/client-go v0.29.3
+	k8s.io/api v0.29.4
+	k8s.io/apimachinery v0.29.4
+	k8s.io/client-go v0.29.4
 	k8s.io/cloud-provider v0.29.3
-	k8s.io/component-base v0.29.3
+	k8s.io/component-base v0.29.4
 	k8s.io/klog/v2 v2.120.1
-	k8s.io/kubernetes v1.29.0
-	k8s.io/mount-utils v0.29.0
+	k8s.io/kubernetes v1.29.4
+	k8s.io/mount-utils v0.29.4
 	k8s.io/utils v0.0.0-20231127182322-b307cd553661
 	sigs.k8s.io/cloud-provider-azure v1.27.1-0.20240418020948-86cfc443b48c
 	sigs.k8s.io/yaml v1.4.0
@@ -164,10 +164,10 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.0.0 // indirect
-	k8s.io/apiserver v0.29.3 // indirect
-	k8s.io/component-helpers v0.29.3 // indirect
+	k8s.io/apiserver v0.29.4 // indirect
+	k8s.io/component-helpers v0.29.4 // indirect
 	k8s.io/controller-manager v0.29.3 // indirect
-	k8s.io/kms v0.29.3 // indirect
+	k8s.io/kms v0.29.4 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
 	k8s.io/kubectl v0.0.0 // indirect
 	k8s.io/kubelet v0.29.3 // indirect
@@ -177,18 +177,18 @@ require (
 )
 
 replace (
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.29.0
-	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.29.0
-	k8s.io/cri-api => k8s.io/cri-api v0.29.0
-	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.29.0
-	k8s.io/dynamic-resource-allocation => k8s.io/dynamic-resource-allocation v0.29.0
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.29.0
-	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.29.0
-	k8s.io/kube-proxy => k8s.io/kube-proxy v0.29.0
-	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.29.0
-	k8s.io/kubectl => k8s.io/kubectl v0.29.0
-	k8s.io/kubelet => k8s.io/kubelet v0.29.0
-	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.29.0
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.29.4
+	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.29.4
+	k8s.io/cri-api => k8s.io/cri-api v0.29.4
+	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.29.4
+	k8s.io/dynamic-resource-allocation => k8s.io/dynamic-resource-allocation v0.29.4
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.29.4
+	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.29.4
+	k8s.io/kube-proxy => k8s.io/kube-proxy v0.29.4
+	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.29.4
+	k8s.io/kubectl => k8s.io/kubectl v0.29.4
+	k8s.io/kubelet => k8s.io/kubelet v0.29.4
+	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.29.4
 	k8s.io/mount-utils => k8s.io/mount-utils v0.0.0-20231116185301-00b898b94b20
-	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.29.0
+	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.29.4
 )
