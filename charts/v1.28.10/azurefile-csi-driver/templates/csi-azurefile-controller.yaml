@@ -73,11 +73,10 @@ spec:
             - "--csi-address=$(ADDRESS)"
             - "--leader-election"
             - "--leader-election-namespace={{ .Release.Namespace }}"
-            - "--timeout=1200s"
+            - "--timeout=300s"
             - "--extra-create-metadata=true"
             - "--kube-api-qps=50"
             - "--kube-api-burst=100"
-            - "--feature-gates=HonorPVReclaimPolicy=true"
           env:
             - name: ADDRESS
               value: /csi/csi.sock
@@ -86,6 +85,28 @@ spec:
             - mountPath: /csi
               name: socket-dir
           resources: {{- toYaml .Values.controller.resources.csiProvisioner | nindent 12 }}
+        - name: csi-attacher
+{{- if hasPrefix "/" .Values.image.csiAttacher.repository }}
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.csiAttacher.repository }}:{{ .Values.image.csiAttacher.tag }}"
+{{- else }}
+          image: "{{ .Values.image.csiAttacher.repository }}:{{ .Values.image.csiAttacher.tag }}"
+{{- end }}
+          args:
+            - "-v=2"
+            - "-csi-address=$(ADDRESS)"
+            - "-timeout=120s"
+            - "-leader-election"
+            - "--leader-election-namespace={{ .Release.Namespace }}"
+            - "--kube-api-qps=50"
+            - "--kube-api-burst=100"
+          env:
+            - name: ADDRESS
+              value: /csi/csi.sock
+          imagePullPolicy: {{ .Values.image.csiAttacher.pullPolicy }}
+          volumeMounts:
+          - mountPath: /csi
+            name: socket-dir
+          resources: {{- toYaml .Values.controller.resources.csiAttacher | nindent 12 }}
         - name: csi-snapshotter
 {{- if hasPrefix "/" .Values.snapshot.image.csiSnapshotter.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.snapshot.image.csiSnapshotter.repository }}:{{ .Values.snapshot.image.csiSnapshotter.tag }}"
@@ -189,7 +210,7 @@ spec:
             - name: AZURE_CREDENTIAL_FILE
               valueFrom:
                 configMapKeyRef:
-                  name: {{ .Values.azureCredentialFileConfigMap }}
+                  name: azure-cred-file
                   key: path
                   optional: true
             - name: CSI_ENDPOINT
