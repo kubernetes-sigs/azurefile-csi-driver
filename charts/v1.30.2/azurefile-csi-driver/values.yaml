@@ -46,6 +46,7 @@ controller:
   cloudConfigSecretNamespace: kube-system
   allowEmptyCloudConfig: true
   replicas: 2
+  strategyType: RollingUpdate
   hostNetwork: true # this setting could be disabled if controller does not depend on MSI setting
   metricsPort: 29614
   livenessProbe:
@@ -112,6 +113,8 @@ node:
   cloudConfigSecretName: azure-cloud-provider
   cloudConfigSecretNamespace: kube-system
   allowEmptyCloudConfig: true
+  strategyType: RollingUpdate
+  maxUnavailable: 1
   allowInlineVolumeKeyAccessWithIdentity: false
   metricsPort: 29615
   livenessProbe:
@@ -132,6 +135,7 @@ snapshot:
   snapshotController:
     name: csi-snapshot-controller
     replicas: 2
+    strategyType: RollingUpdate
     labels: {}
     annotations: {}
     podLabels: {}
