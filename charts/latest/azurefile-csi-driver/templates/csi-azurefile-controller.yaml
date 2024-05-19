@@ -19,6 +19,8 @@ spec:
     matchLabels:
       {{- include "azurefile.selectorLabels" . | nindent 6 }}
       app: {{ .Values.controller.name }}
+  strategy:
+    type: {{ .Values.controller.strategyType }}
   template:
     metadata:
       labels:
