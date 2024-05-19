@@ -18,7 +18,7 @@ spec:
   updateStrategy:
     rollingUpdate:
       maxUnavailable: {{ .Values.node.maxUnavailable }}
-    type: RollingUpdate
+    type: {{ .Values.node.strategyType }}
   selector:
     matchLabels:
       app: {{ .Values.windows.dsName }}
