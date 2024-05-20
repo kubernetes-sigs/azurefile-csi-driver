@@ -1419,3 +1419,8 @@ func (d *Driver) generateSASToken(accountName, accountKey, storageEndpointSuffix
 	d.azcopySasTokenCache.Set(accountName, sasToken)
 	return sasToken, nil
 }
+
+// ControllerModifyVolume modify volume
+func (d *Driver) ControllerModifyVolume(context.Context, *csi.ControllerModifyVolumeRequest) (*csi.ControllerModifyVolumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "")
+}
