@@ -6,11 +6,11 @@ image:
     pullPolicy: IfNotPresent
   csiProvisioner:
     repository: /oss/kubernetes-csi/csi-provisioner
-    tag: v4.0.0
+    tag: v4.0.1
     pullPolicy: IfNotPresent
   csiResizer:
     repository: /oss/kubernetes-csi/csi-resizer
-    tag: v1.9.3
+    tag: v1.10.1
     pullPolicy: IfNotPresent
   livenessProbe:
     repository: /oss/kubernetes-csi/livenessprobe
@@ -18,7 +18,7 @@ image:
     pullPolicy: IfNotPresent
   nodeDriverRegistrar:
     repository: /oss/kubernetes-csi/csi-node-driver-registrar
-    tag: v2.10.0
+    tag: v2.10.1
     pullPolicy: IfNotPresent
 
 ## Reference to one or more secrets to be used when pulling images
@@ -126,11 +126,11 @@ snapshot:
   image:
     csiSnapshotter:
       repository: /oss/kubernetes-csi/csi-snapshotter
-      tag: v6.3.3
+      tag: v7.0.2
       pullPolicy: IfNotPresent
     csiSnapshotController:
       repository: /oss/kubernetes-csi/snapshot-controller
-      tag: v6.3.3
+      tag: v7.0.2
       pullPolicy: IfNotPresent
   snapshotController:
     name: csi-snapshot-controller
