@@ -18,7 +18,7 @@ require (
 	github.com/kubernetes-csi/csi-lib-utils v0.14.1
 	github.com/kubernetes-csi/csi-proxy/client v1.0.1
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
-	github.com/onsi/ginkgo/v2 v2.17.3
+	github.com/onsi/ginkgo/v2 v2.18.0
 	github.com/onsi/gomega v1.33.1
 	github.com/pborman/uuid v1.2.0
 	github.com/pelletier/go-toml v1.9.4
@@ -40,7 +40,7 @@ require (
 	k8s.io/pod-security-admission v0.27.4
 	k8s.io/utils v0.0.0-20231127182322-b307cd553661
 	sigs.k8s.io/cloud-provider-azure v1.27.1-0.20240418020948-86cfc443b48c
-	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.0.21
+	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.0.22
 	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.0.5
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -148,7 +148,7 @@ require (
 	golang.org/x/term v0.20.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	golang.org/x/tools v0.20.0 // indirect
+	golang.org/x/tools v0.21.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20240227224415-6ceb2ff114de // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240318140521-94a12d6c2237 // indirect
