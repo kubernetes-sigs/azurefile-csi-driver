@@ -1,0 +1,21 @@
+---
+kind: Pod
+apiVersion: v1
+metadata:
+  name: nginx-restored
+spec:
+  nodeSelector:
+    kubernetes.io/os: linux
+  containers:
+    - image: mcr.microsoft.com/oss/nginx/nginx:1.17.3-alpine
+      name: nginx-restored
+      args:
+        - sleep
+        - "3600"
+      volumeMounts:
+        - name: azurefile01
+          mountPath: "/mnt/azurefile"
+  volumes:
+    - name: azurefile01
+      persistentVolumeClaim:
+        claimName: pvc-azurefile-snapshot-restored
