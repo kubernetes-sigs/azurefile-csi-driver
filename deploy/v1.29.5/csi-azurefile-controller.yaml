@@ -54,6 +54,10 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
         - name: csi-snapshotter
           image: mcr.microsoft.com/oss/kubernetes-csi/csi-snapshotter:v6.3.1
           args:
@@ -73,6 +77,10 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
         - name: csi-resizer
           image: mcr.microsoft.com/oss/kubernetes-csi/csi-resizer:v1.8.0
           args:
@@ -95,6 +103,10 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
         - name: liveness-probe
           image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.10.0
           args:
@@ -111,6 +123,10 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
         - name: azurefile
           image: mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.5
           imagePullPolicy: IfNotPresent
@@ -152,6 +168,10 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
       volumes:
         - name: socket-dir
           emptyDir: {}
