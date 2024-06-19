@@ -172,6 +172,9 @@ spec:
           imagePullPolicy: {{ .Values.image.azurefile.pullPolicy }}
           securityContext:
             privileged: true
+            capabilities:
+              drop:
+              - ALL
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
