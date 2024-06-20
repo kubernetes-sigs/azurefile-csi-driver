@@ -59,7 +59,100 @@ az identity federated-credential create --name $FEDERATED_IDENTITY_NAME \
 --subject system:serviceaccount:${SERVICE_ACCOUNT_NAMESPACE}:${SERVICE_ACCOUNT_NAME}
 ```
 
-## Pod with ephemeral inline volume
+## option#1: static provision with PV
+```
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  annotations:
+    pv.kubernetes.io/provisioned-by: file.csi.azure.com
+  name: pv-azurefile
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: azurefile-csi
+  mountOptions:
+    - dir_mode=0777
+    - file_mode=0777
+    - uid=0
+    - gid=0
+    - mfsymlinks
+    - cache=strict
+    - nosharesock
+  csi:
+    driver: file.csi.azure.com
+    # make sure volumeid is unique for every identical share in the cluster
+    # the # character is reserved for internal use
+    volumeHandle: unique_volume_id
+    volumeAttributes:
+      storageaccount: $ACCOUNT # required
+      shareName: $SHARE  # required
+      clientID: $USER_ASSIGNED_CLIENT_ID # required
+      resourcegroup: $STORAGE_RESOURCE_GROUP # optional, specified when the storage account is not under AKS node resource group(which is prefixed with "MC_")
+      # tenantID: $IDENTITY_TENANT  #optional, only specified when workload identity and AKS cluster are in different tenant
+      # subscriptionid: $SUBSCRIPTION #optional, only specified when workload identity and AKS cluster are in different subscription
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: pvc-azurefile
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  volumeName: pv-azurefile
+  storageClassName: azurefile-csi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx
+  name: deployment-azurefile
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+      name: deployment-azurefile
+    spec:
+      serviceAccountName: $SERVICE_ACCOUNT_NAME  #required, Pod has no permission to mount the volume without this field
+      nodeSelector:
+        "kubernetes.io/os": linux
+      containers:
+        - name: deployment-azurefile
+          image: mcr.microsoft.com/oss/nginx/nginx:1.19.5
+          command:
+            - "/bin/bash"
+            - "-c"
+            - set -euo pipefail; while true; do echo $(date) >> /mnt/azurefile/outfile; sleep 1; done
+          volumeMounts:
+            - name: azurefile
+              mountPath: "/mnt/azurefile"
+              readOnly: false
+      volumes:
+        - name: azurefile
+          persistentVolumeClaim:
+            claimName: pvc-azurefile
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate
+EOF
+```
+
+## option#2: Pod with ephemeral inline volume
 ```
 cat <<EOF | kubectl apply -f -
 kind: Pod
