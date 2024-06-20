@@ -82,6 +82,10 @@ spec:
             - --v=2
           imagePullPolicy: {{ .Values.image.livenessProbe.pullPolicy }}
           resources: {{- toYaml .Values.linux.resources.livenessProbe | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
         - name: node-driver-registrar
 {{- if hasPrefix "/" .Values.image.nodeDriverRegistrar.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.image.nodeDriverRegistrar.repository }}:{{ .Values.image.nodeDriverRegistrar.tag }}"
@@ -114,6 +118,10 @@ spec:
             - name: registration-dir
               mountPath: /registration
           resources: {{- toYaml .Values.linux.resources.nodeDriverRegistrar | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
         - name: azurefile
 {{- if hasPrefix "/" .Values.image.azurefile.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
@@ -172,6 +180,9 @@ spec:
           imagePullPolicy: {{ .Values.image.azurefile.pullPolicy }}
           securityContext:
             privileged: true
+            capabilities:
+              drop:
+              - ALL
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
