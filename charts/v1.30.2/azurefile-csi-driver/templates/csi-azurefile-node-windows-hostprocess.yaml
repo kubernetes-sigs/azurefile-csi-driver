@@ -76,6 +76,10 @@ spec:
             - "powershell.exe"
             - "-c"
             - "New-Item -ItemType Directory -Path C:\\var\\lib\\kubelet\\plugins\\{{ .Values.driver.name }}\\ -Force"
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
       containers:
         - name: node-driver-registrar
 {{- if hasPrefix "/" .Values.image.nodeDriverRegistrar.repository }}
