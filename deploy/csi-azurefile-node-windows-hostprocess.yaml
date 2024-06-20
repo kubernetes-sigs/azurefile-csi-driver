@@ -49,6 +49,10 @@ spec:
             - "powershell.exe"
             - "-c"
             - "New-Item -ItemType Directory -Path C:\\var\\lib\\kubelet\\plugins\\file.csi.azure.com\\ -Force"
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
       containers:
         - name: node-driver-registrar
           image: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0
@@ -77,6 +81,10 @@ spec:
             requests:
               cpu: 30m
               memory: 40Mi
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
         - name: azurefile
           image: mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.5-windows-hp
           imagePullPolicy: IfNotPresent
@@ -108,3 +116,7 @@ spec:
             requests:
               cpu: 10m
               memory: 40Mi
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
