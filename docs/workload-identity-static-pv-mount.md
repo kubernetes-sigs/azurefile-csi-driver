@@ -1,7 +1,7 @@
 # workload identity support on static provisioning
  - supported from v1.30.1 (from AKS 1.29 with `tokenRequests` field support in `CSIDriver`)
 
-The feature is intended for SMB mount and is not supported for NFS mount since NFS mount does not need credentials. Each pod has its own standalone SMB mount, but if multiple pods are present on a single node, it may lead to performance problems.
+The feature is not supported for NFS mount since NFS mount does not need credentials. Multiple pods cannot share the same persistent volume mount on the node, every pod would have its own standalone blobfuse mount.
 
 ## Prerequisites
 ### 1. Create a cluster with oidc-issuer enabled and get the credential
