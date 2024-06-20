@@ -39,6 +39,9 @@ spec:
 {{ toYaml . | indent 8 }}
 {{- end }}
     spec:
+{{- if .Values.node.enableAznfsMount }}
+      hostPID: true
+{{- end }}
       hostNetwork: true
       dnsPolicy: {{ .Values.linux.dnsPolicy }}
       serviceAccountName: {{ .Values.serviceAccount.node }}
@@ -136,6 +139,7 @@ spec:
             - "--mount-permissions={{ .Values.linux.mountPermissions }}"
             - "--allow-inline-volume-key-access-with-identity={{ .Values.node.allowInlineVolumeKeyAccessWithIdentity }}"
             - "--metrics-address=0.0.0.0:{{ .Values.node.metricsPort }}"
+            - "--enable-aznfs-mount={{ .Values.node.enableAznfsMount }}"
           livenessProbe:
             failureThreshold: 5
             httpGet:
@@ -190,7 +194,34 @@ spec:
               mountPath: /etc/pki/ca-trust/extracted
               readOnly: true
             {{- end }}
+            {{- if .Values.node.enableAznfsMount }}
+            - mountPath: /opt/microsoft/aznfs/data
+              name: aznfs-data
+            - mountPath: /lib/modules
+              name: lib-modules
+              readOnly: true
+            {{- end }}
           resources: {{- toYaml .Values.linux.resources.azurefile | nindent 12 }}
+{{- if .Values.node.enableAznfsMount }}
+        - name: aznfswatchdogv4
+{{- if hasPrefix "/" .Values.image.azurefile.repository }}
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
+{{- else }}
+          image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
+{{- end }}
+          command:
+          - "aznfswatchdogv4"
+          imagePullPolicy: {{ .Values.image.azurefile.pullPolicy }}
+          securityContext:
+            privileged: true
+          resources: {{- toYaml .Values.linux.resources.aznfswatchdog | nindent 12 }}
+          volumeMounts:
+            - mountPath: /opt/microsoft/aznfs/data
+              name: aznfs-data
+            - mountPath: {{ .Values.linux.kubelet }}/
+              mountPropagation: Bidirectional
+              name: mountpoint-dir
+{{- end }}
       volumes:
         - hostPath:
             path: {{ .Values.linux.kubelet }}/plugins/{{ .Values.driver.name }}
@@ -219,5 +250,15 @@ spec:
         - name: ssl-pki
           hostPath:
             path: /etc/pki/ca-trust/extracted
+        {{- end }}
+        {{- if .Values.node.enableAznfsMount }}
+        - hostPath:
+            path: /opt/microsoft/aznfs-azurefile/data  # host path `/opt/microsoft/aznfs-azurefile/data` for azurefile and host path `/opt/microsoft/aznfs/data` for blob
+            type: DirectoryOrCreate
+          name: aznfs-data
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+            type: DirectoryOrCreate
         {{- end }}
 {{- end -}}

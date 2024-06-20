@@ -49,6 +49,7 @@ type DriverOptions struct {
 	WaitForAzCopyTimeoutMinutes            int
 	KubeConfig                             string
 	Endpoint                               string
+	EnableAznfsMount                       bool
 }
 
 func (o *DriverOptions) AddFlags() *flag.FlagSet {
@@ -85,6 +86,7 @@ func (o *DriverOptions) AddFlags() *flag.FlagSet {
 	fs.IntVar(&o.WaitForAzCopyTimeoutMinutes, "wait-for-azcopy-timeout-minutes", 5, "timeout in minutes for waiting for azcopy to finish")
 	fs.StringVar(&o.KubeConfig, "kubeconfig", "", "Absolute path to the kubeconfig file. Required only when running out of cluster.")
 	fs.StringVar(&o.Endpoint, "endpoint", "unix://tmp/csi.sock", "CSI endpoint")
+	fs.BoolVar(&o.EnableAznfsMount, "enable-aznfs-mount", false, "replace nfs mount with aznfs mount")
 
 	return fs
 }

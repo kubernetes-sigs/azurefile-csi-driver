@@ -117,6 +117,7 @@ node:
   livenessProbe:
     healthPort: 29613
   logLevel: 5
+  enableAznfsMount: true
 
 snapshot:
   enabled: false
@@ -186,6 +187,12 @@ linux:
     azurefile:
       limits:
         memory: 400Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    aznfswatchdog:
+      limits:
+        memory: 100Mi
       requests:
         cpu: 10m
         memory: 20Mi

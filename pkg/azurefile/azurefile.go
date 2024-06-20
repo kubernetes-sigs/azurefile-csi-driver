@@ -130,6 +130,7 @@ const (
 	cifs                              = "cifs"
 	smb                               = "smb"
 	nfs                               = "nfs"
+	aznfs                             = "aznfs"
 	ext4                              = "ext4"
 	ext3                              = "ext3"
 	ext2                              = "ext2"
@@ -261,6 +262,8 @@ type Driver struct {
 	waitForAzCopyTimeoutMinutes int
 	// azcopy for provide exec mock for ut
 	azcopy *fileutil.Azcopy
+	// enable aznfs mount
+	enableAznfsMount bool
 
 	kubeconfig string
 	endpoint   string
@@ -302,6 +305,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.azcopy = &fileutil.Azcopy{}
 	driver.kubeconfig = options.KubeConfig
 	driver.endpoint = options.Endpoint
+	driver.enableAznfsMount = options.EnableAznfsMount
 
 	var err error
 	getter := func(key string) (interface{}, error) { return nil, nil }

@@ -124,6 +124,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `node.maxUnavailable`                             | `maxUnavailable` value of driver node daemonset                            | `1`
 | `node.livenessProbe.healthPort `                  | health check port for liveness probe                   | `29613` |
 | `node.logLevel`                                   | node driver log level                                                          |`5`                                                           |
+| `node.enableAznfsMount`                           | enable [AZNFS mount helper](https://github.com/Azure/AZNFS-mount/) for NFS protocol | true
 | `snapshot.enabled`                                | whether enable snapshot feature                            | `false`                                                        |
 | `snapshot.image.csiSnapshotter.repository`        | csi-snapshotter docker image                               | `/oss/kubernetes-csi/csi-snapshotter`         |
 | `snapshot.image.csiSnapshotter.tag`               | csi-snapshotter docker image tag                           | `v6.3.3`                                                       |
