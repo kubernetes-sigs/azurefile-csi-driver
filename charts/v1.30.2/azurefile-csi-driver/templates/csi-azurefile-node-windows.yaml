@@ -18,7 +18,7 @@ spec:
   updateStrategy:
     rollingUpdate:
       maxUnavailable: {{ .Values.node.maxUnavailable }}
-    type: RollingUpdate
+    type: {{ .Values.node.strategyType }}
   selector:
     matchLabels:
       app: {{ .Values.windows.dsName }}
@@ -80,6 +80,10 @@ spec:
               value: unix://C:\\csi\\csi.sock
           imagePullPolicy: {{ .Values.image.livenessProbe.pullPolicy }}
           resources: {{- toYaml .Values.windows.resources.livenessProbe | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
         - name: node-driver-registrar
 {{- if hasPrefix "/" .Values.image.nodeDriverRegistrar.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.image.nodeDriverRegistrar.repository }}:{{ .Values.image.nodeDriverRegistrar.tag }}"
@@ -118,6 +122,10 @@ spec:
             - name: registration-dir
               mountPath: C:\registration
           resources: {{- toYaml .Values.windows.resources.nodeDriverRegistrar | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
         - name: azurefile
 {{- if hasPrefix "/" .Values.image.azurefile.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
@@ -193,6 +201,10 @@ spec:
             - name: csi-proxy-smb-pipe-v1beta1
               mountPath: \\.\pipe\csi-proxy-smb-v1beta1
           resources: {{- toYaml .Values.windows.resources.azurefile | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
       volumes:
         - name: csi-proxy-fs-pipe-v1
           hostPath:

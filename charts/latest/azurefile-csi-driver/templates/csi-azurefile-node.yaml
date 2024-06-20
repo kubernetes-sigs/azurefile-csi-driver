@@ -18,7 +18,7 @@ spec:
   updateStrategy:
     rollingUpdate:
       maxUnavailable: {{ .Values.node.maxUnavailable }}
-    type: RollingUpdate
+    type: {{ .Values.node.strategyType }}
   selector:
     matchLabels:
       app: {{ .Values.linux.dsName }}
@@ -176,6 +176,9 @@ spec:
           imagePullPolicy: {{ .Values.image.azurefile.pullPolicy }}
           securityContext:
             privileged: true
+            capabilities:
+              drop:
+              - ALL
           volumeMounts:
             - mountPath: /csi
               name: socket-dir

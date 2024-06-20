@@ -1,5 +1,5 @@
 # workload identity support on static provisioning
- - supported from v1.30.1
+ - supported from v1.30.1 (from AKS 1.29 with `tokenRequests` field support in `CSIDriver`)
 
 The feature is intended for SMB mount and is not supported for NFS mount since NFS mount does not need credentials. Each pod has its own standalone SMB mount, but if multiple pods are present on a single node, it may lead to performance problems.
 
@@ -59,89 +59,7 @@ az identity federated-credential create --name $FEDERATED_IDENTITY_NAME \
 --subject system:serviceaccount:${SERVICE_ACCOUNT_NAMESPACE}:${SERVICE_ACCOUNT_NAME}
 ```
 
-## option#1: static provision with PV
-```
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  annotations:
-    pv.kubernetes.io/provisioned-by: file.csi.azure.com
-  name: pv-azurefile
-spec:
-  capacity:
-    storage: 10Gi
-  accessModes:
-    - ReadWriteMany
-  persistentVolumeReclaimPolicy: Retain
-  storageClassName: azurefile-csi
-  mountOptions:
-    - dir_mode=0777
-    - file_mode=0777
-    - uid=0
-    - gid=0
-    - mfsymlinks
-    - cache=strict
-    - nosharesock
-  csi:
-    driver: file.csi.azure.com
-    # make sure volumeid is unique for every identical share in the cluster
-    # the # character is reserved for internal use
-    volumeHandle: unique_volume_id
-    volumeAttributes:
-      storageaccount: $ACCOUNT # required
-      shareName: $SHARE  # required
-      clientID: $USER_ASSIGNED_CLIENT_ID # required
-      resourcegroup: $STORAGE_RESOURCE_GROUP # optional, specified when the storage account is not under AKS node resource group(which is prefixed with "MC_")
-      # tenantID: $IDENTITY_TENANT  #optional, only specified when workload identity and AKS cluster are in different tenant
-      # subscriptionid: $SUBSCRIPTION #optional, only specified when workload identity and AKS cluster are in different subscription
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: statefulset-azurefile
-  labels:
-    app: nginx
-spec:
-  podManagementPolicy: Parallel 
-  serviceName: statefulset-azurefile
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: nginx
-    spec:
-      serviceAccountName: $SERVICE_ACCOUNT_NAME  #required, Pod does not use this service account has no permission to mount the volume
-      nodeSelector:
-        "kubernetes.io/os": linux
-      containers:
-        - name: statefulset-azurefile
-          image: mcr.microsoft.com/oss/nginx/nginx:1.19.5
-          command:
-            - "/bin/bash"
-            - "-c"
-            - set -euo pipefail; while true; do echo $(date) >> /mnt/azurefile/outfile; sleep 1; done
-          volumeMounts:
-            - name: persistent-storage
-              mountPath: /mnt/azurefile
-  updateStrategy:
-    type: RollingUpdate
-  selector:
-    matchLabels:
-      app: nginx
-  volumeClaimTemplates:
-    - metadata:
-        name: persistent-storage
-      spec:
-        storageClassName: azurefile-csi
-        accessModes: ["ReadWriteMany"]
-        resources:
-          requests:
-            storage: 10Gi
-EOF
-```
-
-## option#2: Pod with ephemeral inline volume
+## Pod with ephemeral inline volume
 ```
 cat <<EOF | kubectl apply -f -
 kind: Pod

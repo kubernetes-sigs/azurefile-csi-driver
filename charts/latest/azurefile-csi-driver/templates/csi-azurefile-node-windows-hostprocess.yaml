@@ -18,7 +18,7 @@ spec:
   updateStrategy:
     rollingUpdate:
       maxUnavailable: {{ .Values.node.maxUnavailable }}
-    type: RollingUpdate
+    type: {{ .Values.node.strategyType }}
   selector:
     matchLabels:
       app: {{ .Values.windows.dsName }}
@@ -103,6 +103,10 @@ spec:
                   fieldPath: spec.nodeName
           imagePullPolicy: {{ .Values.image.nodeDriverRegistrar.pullPolicy }}
           resources: {{- toYaml .Values.windows.resources.nodeDriverRegistrar | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
         - name: azurefile
 {{- if hasPrefix "/" .Values.image.azurefile.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}-windows-hp"
@@ -149,4 +153,8 @@ spec:
                   fieldPath: spec.nodeName
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           resources: {{- toYaml .Values.windows.resources.azurefile | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
 {{- end -}}

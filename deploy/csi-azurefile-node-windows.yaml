@@ -57,8 +57,12 @@ spec:
             requests:
               cpu: 10m
               memory: 40Mi
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
         - name: node-driver-registrar
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.1
           args:
             - --v=2
             - --csi-address=$(CSI_ENDPOINT)
@@ -93,6 +97,10 @@ spec:
             requests:
               cpu: 30m
               memory: 40Mi
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
         - name: azurefile
           image: mcr.microsoft.com/k8s/csi/azurefile-csi:latest
           imagePullPolicy: IfNotPresent
@@ -150,6 +158,10 @@ spec:
             requests:
               cpu: 10m
               memory: 40Mi
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
       volumes:
         - name: csi-proxy-fs-pipe-v1
           hostPath:

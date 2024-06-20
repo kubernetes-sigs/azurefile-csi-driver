@@ -1,6 +1,7 @@
 # Azure File Snapshot feature
 
 > NOTE: Due to [Azure File snapshot restore API limitation](https://github.com/kubernetes-sigs/azurefile-csi-driver/issues/136), this driver only supports snapshot creation, snapshot could be restored from Azure portal or cli.
+> From version 1.30.2, you can restore smb fileshare snapshot by azure file CSI driver
 
 ## Install CSI Driver
 
@@ -52,6 +53,19 @@ Status:
 Events:                                <none>
 ```
 > In above example, `snapcontent-2b0ef334-4112-4c86-8360-079c625d5562` is the snapshot name
+
+### 3. Create a new PVC based on snapshot
+```console
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/snapshot/pvc-azurefile-snapshot-restored.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/snapshot/nginx-pod-restored-snapshot.yaml
+```
+
+ - Check data
+```console
+$ kubectl exec nginx-restored -- ls /mnt/azurefile
+lost+found
+outfile
+```
 
 #### Links
  - [CSI Snapshotter](https://github.com/kubernetes-csi/external-snapshotter)
