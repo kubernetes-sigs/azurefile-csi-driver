@@ -85,6 +85,10 @@ spec:
             - mountPath: /csi
               name: socket-dir
           resources: {{- toYaml .Values.controller.resources.csiProvisioner | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
         - name: csi-attacher
 {{- if hasPrefix "/" .Values.image.csiAttacher.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.image.csiAttacher.repository }}:{{ .Values.image.csiAttacher.tag }}"
@@ -107,6 +111,10 @@ spec:
           - mountPath: /csi
             name: socket-dir
           resources: {{- toYaml .Values.controller.resources.csiAttacher | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
         - name: csi-snapshotter
 {{- if hasPrefix "/" .Values.snapshot.image.csiSnapshotter.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.snapshot.image.csiSnapshotter.repository }}:{{ .Values.snapshot.image.csiSnapshotter.tag }}"
@@ -125,6 +133,10 @@ spec:
             - name: socket-dir
               mountPath: /csi
           resources: {{- toYaml .Values.controller.resources.csiSnapshotter | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
         - name: csi-resizer
 {{- if hasPrefix "/" .Values.image.csiResizer.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.image.csiResizer.repository }}:{{ .Values.image.csiResizer.tag }}"
@@ -147,6 +159,10 @@ spec:
             - name: socket-dir
               mountPath: /csi
           resources: {{- toYaml .Values.controller.resources.csiResizer | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
         - name: liveness-probe
 {{- if hasPrefix "/" .Values.image.livenessProbe.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}"
@@ -167,6 +183,10 @@ spec:
             - name: socket-dir
               mountPath: /csi
           resources: {{- toYaml .Values.controller.resources.livenessProbe | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
         - name: azurefile
 {{- if hasPrefix "/" .Values.image.azurefile.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
@@ -240,6 +260,10 @@ spec:
               readOnly: true
             {{- end }}
           resources: {{- toYaml .Values.controller.resources.azurefile | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
       volumes:
         - name: socket-dir
           emptyDir: {}
