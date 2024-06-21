@@ -76,6 +76,10 @@ spec:
             - "powershell.exe"
             - "-c"
             - "New-Item -ItemType Directory -Path C:\\var\\lib\\kubelet\\plugins\\{{ .Values.driver.name }}\\ -Force"
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
       containers:
         - name: node-driver-registrar
 {{- if hasPrefix "/" .Values.image.nodeDriverRegistrar.repository }}
@@ -103,6 +107,10 @@ spec:
                   fieldPath: spec.nodeName
           imagePullPolicy: {{ .Values.image.nodeDriverRegistrar.pullPolicy }}
           resources: {{- toYaml .Values.windows.resources.nodeDriverRegistrar | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
         - name: azurefile
 {{- if hasPrefix "/" .Values.image.azurefile.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}-windows-hp"
@@ -149,4 +157,8 @@ spec:
                   fieldPath: spec.nodeName
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           resources: {{- toYaml .Values.windows.resources.azurefile | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
 {{- end -}}
