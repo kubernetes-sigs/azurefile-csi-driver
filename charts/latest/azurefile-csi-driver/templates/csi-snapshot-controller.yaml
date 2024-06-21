@@ -71,4 +71,8 @@ spec:
             - "--leader-election-namespace={{ .Release.Namespace }}"
           resources: {{- toYaml .Values.snapshot.snapshotController.resources | nindent 12 }}
           imagePullPolicy: {{ .Values.snapshot.image.csiSnapshotController.pullPolicy }}
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
 {{- end -}}
