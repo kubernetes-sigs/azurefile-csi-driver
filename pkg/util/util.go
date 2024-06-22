@@ -83,7 +83,7 @@ func RunPowershellCmd(command string, envs ...string) ([]byte, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	cmd := exec.Command("powershell", "-Mta", "-NoProfile", "-Command", command)
+	cmd := exec.Command("powershell", "-Mta", "-NoProfile", "-ExecutionPolicy Bypass", "-NoLogo", "-Command", command)
 	cmd.Env = append(os.Environ(), envs...)
 	klog.V(8).Infof("Executing command: %q", cmd.String())
 	return cmd.CombinedOutput()
