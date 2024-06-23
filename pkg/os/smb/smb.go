@@ -21,11 +21,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/util"
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 )
+
+var getRemoteServerFromTargetMutex = &sync.Mutex{}
 
 func IsSmbMapped(remotePath string) (bool, error) {
 	cmdLine := `$(Get-SmbGlobalMapping -RemotePath $Env:smbremotepath -ErrorAction Stop).Status`
@@ -69,6 +72,10 @@ func RemoveSmbGlobalMapping(remotePath string) error {
 
 // GetRemoteServerFromTarget- gets the remote server path given a mount point, the function is recursive until it find the remote server or errors out
 func GetRemoteServerFromTarget(mount string, volStatsCache azcache.Resource) (string, error) {
+	// use mutex to allow more cache hit
+	getRemoteServerFromTargetMutex.Lock()
+	defer getRemoteServerFromTargetMutex.Unlock()
+
 	cache, err := volStatsCache.Get(mount, azcache.CacheReadTypeDefault)
 	if err != nil {
 		return "", err
