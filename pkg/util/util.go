@@ -29,7 +29,7 @@ const (
 	MaxPathLengthWindows = 260
 )
 
-var mutex = &sync.Mutex{}
+var powershellCmdMutex = &sync.Mutex{}
 
 // RoundUpBytes rounds up the volume size in bytes up to multiplications of GiB
 // in the unit of Bytes
@@ -68,8 +68,8 @@ func roundUpSize(volumeSizeBytes int64, allocationUnitBytes int64) int64 {
 
 func RunPowershellCmd(command string, envs ...string) ([]byte, error) {
 	// only one powershell command can be executed at a time to avoid OOM
-	mutex.Lock()
-	defer mutex.Unlock()
+	powershellCmdMutex.Lock()
+	defer powershellCmdMutex.Unlock()
 
 	cmd := exec.Command("powershell", "-Mta", "-NoProfile", "-Command", command)
 	cmd.Env = append(os.Environ(), envs...)
