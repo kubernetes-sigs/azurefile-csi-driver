@@ -51,7 +51,7 @@ spec:
             - "New-Item -ItemType Directory -Path C:\\var\\lib\\kubelet\\plugins\\file.csi.azure.com\\ -Force"
       containers:
         - name: node-driver-registrar
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.1
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.11.0
           imagePullPolicy: IfNotPresent
           command:
             - "csi-node-driver-registrar.exe"
