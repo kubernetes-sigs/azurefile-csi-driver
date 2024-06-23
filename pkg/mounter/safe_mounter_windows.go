@@ -25,6 +25,7 @@ import (
 	"os"
 	filepath "path/filepath"
 	"strings"
+	"time"
 
 	fs "github.com/kubernetes-csi/csi-proxy/client/api/filesystem/v1"
 	fsclient "github.com/kubernetes-csi/csi-proxy/client/groups/filesystem/v1"
@@ -35,6 +36,8 @@ import (
 	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
 	utilexec "k8s.io/utils/exec"
+
+	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 )
 
 // CSIProxyMounter extends the mount.Interface interface with CSI Proxy methods.
@@ -293,9 +296,16 @@ func NewCSIProxyMounter() (*csiProxyMounter, error) {
 
 func NewSafeMounter(enableWindowsHostProcess bool) (*mount.SafeFormatAndMount, error) {
 	if enableWindowsHostProcess {
+		// initialize the cache for volume stats
+		getter := func(key string) (interface{}, error) { return nil, nil }
+		volStatsCache, err := azcache.NewTimedCache(10*time.Minute, getter, false)
+		if err != nil {
+			return nil, err
+		}
+
 		klog.V(2).Infof("using windows host process mounter")
 		return &mount.SafeFormatAndMount{
-			Interface: NewWinMounter(),
+			Interface: NewWinMounter(volStatsCache),
 			Exec:      utilexec.New(),
 		}, nil
 	}
