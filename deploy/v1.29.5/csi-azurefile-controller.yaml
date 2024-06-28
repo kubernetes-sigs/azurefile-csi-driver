@@ -160,6 +160,8 @@ spec:
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
+            - mountPath: /root/.azcopy
+              name: azcopy-dir
             - mountPath: /etc/kubernetes/
               name: azure-cred
           resources:
@@ -174,6 +176,8 @@ spec:
                 - ALL
       volumes:
         - name: socket-dir
+          emptyDir: {}
+        - name: azcopy-dir
           emptyDir: {}
         - name: azure-cred
           hostPath:

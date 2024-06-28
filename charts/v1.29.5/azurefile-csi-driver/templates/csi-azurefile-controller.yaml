@@ -224,6 +224,8 @@ spec:
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
+            - mountPath: /root/.azcopy
+              name: azcopy-dir
             - mountPath: /etc/kubernetes/
               name: azure-cred
             {{- if eq .Values.linux.distro "fedora" }}
@@ -241,6 +243,8 @@ spec:
               - ALL
       volumes:
         - name: socket-dir
+          emptyDir: {}
+        - name: azcopy-dir
           emptyDir: {}
         - name: azure-cred
           hostPath:
