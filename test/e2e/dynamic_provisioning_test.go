@@ -61,6 +61,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 		cs = f.ClientSet
 		ns = f.Namespace
+		testDriver = driver.InitAzureFileDriver()
 
 		var err error
 		snapshotrcs, err = restClient(testsuites.SnapshotAPIGroup, testsuites.APIVersionv1)
@@ -68,8 +69,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			ginkgo.Fail(fmt.Sprintf("could not get rest clientset: %v", err))
 		}
 	}, ginkgo.NodeTimeout(time.Hour*2))
-
-	testDriver = driver.InitAzureFileDriver()
 
 	ginkgo.It("should create a pod, write and read to it, take a volume snapshot, and create another pod from the snapshot [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
 		skipIfUsingInTreeVolumePlugin()
@@ -768,7 +767,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(ctx, cs, ns)
 	})
 
-	ginkgo.It("should create a pod, write and read to it, take a standard smb volume snapshot, and validate whether it is ready to use [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+	ginkgo.It("should create a pod, write and read to it, take a standard smb volume snapshot, and validate whether it is ready to use [file.csi.azure.com]", ginkgo.Serial, func(ctx ginkgo.SpecContext) {
 		skipIfTestingInWindowsCluster()
 		skipIfUsingInTreeVolumePlugin()
 
@@ -801,7 +800,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(ctx, cs, snapshotrcs, ns)
 	})
 
-	ginkgo.It("should create a pod, write and read to it, take a premium smb volume snapshot, and validate whether it is ready to use [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+	ginkgo.It("should create a pod, write and read to it, take a premium smb volume snapshot, and validate whether it is ready to use [file.csi.azure.com]", ginkgo.Serial, func(ctx ginkgo.SpecContext) {
 		skipIfTestingInWindowsCluster()
 		skipIfUsingInTreeVolumePlugin()
 
@@ -832,7 +831,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(ctx, cs, snapshotrcs, ns)
 	})
 
-	ginkgo.It("should create a pod, write and read to it, take a nfs volume snapshot, and validate whether it is ready to use [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+	ginkgo.It("should create a pod, write and read to it, take a nfs volume snapshot, and validate whether it is ready to use [file.csi.azure.com]", ginkgo.Serial, func(ctx ginkgo.SpecContext) {
 		skipIfTestingInWindowsCluster()
 		skipIfUsingInTreeVolumePlugin()
 		if !supportSnapshotwithNFS {
@@ -869,26 +868,30 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 	ginkgo.It("should create a volume on demand with mount options (Bring Your Own Key) [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
 		skipIfUsingInTreeVolumePlugin()
-		// get storage account secret name
-		err := os.Chdir("../..")
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		defer func() {
-			err := os.Chdir("test/e2e")
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		}()
+		// create a volume
+		volName := fmt.Sprintf("byok-%d", ginkgo.GinkgoParallelProcess())
+		resp, err := azurefileDriver.CreateVolume(ctx, makeCreateVolumeReq(volName, ns.Name))
+		framework.ExpectNoError(err, "create volume error")
+		volumeID := resp.Volume.VolumeId
+		// get accountname and key
+		_, accountName, accountKey, _, _, _, err := azurefileDriver.GetAccountInfo(ctx, volumeID, nil, nil)
+		framework.ExpectNoError(err, fmt.Sprintf("Error GetAccountInfo from volumeID(%s): %v", volumeID, err))
+		// create secret
+		secretName := "byok-secret"
+		secretData := map[string]string{
+			"azurestorageaccountname": accountName,
+			"azurestorageaccountkey":  accountKey,
+		}
+		tsecret := testsuites.NewTestSecret(cs, ns, secretName, secretData)
+		tsecret.Create(ctx)
+		defer tsecret.Cleanup(ctx)
 
-		getSecretNameScript := "test/utils/get_storage_account_secret_name.sh"
-		log.Printf("run script: %s\n", getSecretNameScript)
-
-		cmd := exec.Command("bash", getSecretNameScript)
-		output, err := cmd.CombinedOutput()
-		log.Printf("got output: %v, error: %v\n", string(output), err)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-		secretName := strings.TrimSuffix(string(output), "\n")
-		log.Printf("got storage account secret name: %v\n", secretName)
-		bringKeyStorageClassParameters["csi.storage.k8s.io/provisioner-secret-name"] = secretName
-		bringKeyStorageClassParameters["csi.storage.k8s.io/node-stage-secret-name"] = secretName
+		var bringKeyStorageClassParameters = map[string]string{
+			"csi.storage.k8s.io/provisioner-secret-name":      secretName,
+			"csi.storage.k8s.io/node-stage-secret-name":       secretName,
+			"csi.storage.k8s.io/provisioner-secret-namespace": ns.Name,
+			"csi.storage.k8s.io/node-stage-secret-namespace":  ns.Name,
+		}
 
 		pods := []testsuites.PodDetails{
 			{
@@ -1129,39 +1132,23 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 	ginkgo.It("should create an CSI inline volume [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
 		skipIfUsingInTreeVolumePlugin()
 
-		// get storage account secret name
-		err := os.Chdir("../..")
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		defer func() {
-			err := os.Chdir("test/e2e")
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		}()
-
-		getSecretNameScript := "test/utils/get_storage_account_secret_name.sh"
-		log.Printf("run script: %s\n", getSecretNameScript)
-
-		cmd := exec.Command("bash", getSecretNameScript)
-		output, err := cmd.CombinedOutput()
-		log.Printf("got output: %v, error: %v\n", string(output), err)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-		secretName := strings.TrimSuffix(string(output), "\n")
-		log.Printf("got storage account secret name: %v\n", secretName)
-		segments := strings.Split(secretName, "-")
-		if len(segments) != 5 {
-			ginkgo.Fail(fmt.Sprintf("%s have %d elements, expected: %d ", secretName, len(segments), 5))
-		}
-		accountName := segments[3]
-
+		// create a volume
 		shareName := "csi-inline-smb-volume"
-		req := makeCreateVolumeReq(shareName, ns.Name)
-		req.Parameters["storageAccount"] = accountName
-		resp, err := azurefileDriver.CreateVolume(ctx, req)
-		if err != nil {
-			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
-		}
+		resp, err := azurefileDriver.CreateVolume(ctx, makeCreateVolumeReq(shareName, ns.Name))
+		framework.ExpectNoError(err, "create volume error")
 		volumeID := resp.Volume.VolumeId
-		ginkgo.By(fmt.Sprintf("Successfully provisioned AzureFile volume: %q\n", volumeID))
+		// get accountname and key
+		_, accountName, accountKey, _, _, _, err := azurefileDriver.GetAccountInfo(ctx, volumeID, nil, nil)
+		framework.ExpectNoError(err, fmt.Sprintf("Error GetAccountInfo from volumeID(%s): %v", volumeID, err))
+		// create secret
+		secretName := "csi-inline-smb-volume-secret"
+		secretData := map[string]string{
+			"azurestorageaccountname": accountName,
+			"azurestorageaccountkey":  accountKey,
+		}
+		tsecret := testsuites.NewTestSecret(cs, ns, secretName, secretData)
+		tsecret.Create(ctx)
+		defer tsecret.Cleanup(ctx)
 
 		pods := []testsuites.PodDetails{
 			{
@@ -1202,39 +1189,22 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		if !isTestingMigration {
 			ginkgo.Skip("test case is only available for migration test")
 		}
-		// get storage account secret name
-		err := os.Chdir("../..")
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		defer func() {
-			err := os.Chdir("test/e2e")
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		}()
-
-		getSecretNameScript := "test/utils/get_storage_account_secret_name.sh"
-		log.Printf("run script: %s\n", getSecretNameScript)
-
-		cmd := exec.Command("bash", getSecretNameScript)
-		output, err := cmd.CombinedOutput()
-		log.Printf("got output: %v, error: %v\n", string(output), err)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-		secretName := strings.TrimSuffix(string(output), "\n")
-		log.Printf("got storage account secret name: %v\n", secretName)
-		segments := strings.Split(secretName, "-")
-		if len(segments) != 5 {
-			ginkgo.Fail(fmt.Sprintf("%s have %d elements, expected: %d ", secretName, len(segments), 5))
-		}
-		accountName := segments[3]
-
+		// create a volume
 		shareName := "intree-inline-smb-volume"
-		req := makeCreateVolumeReq("intree-inline-smb-volume", ns.Name)
-		req.Parameters["storageAccount"] = accountName
-		resp, err := azurefileDriver.CreateVolume(ctx, req)
-		if err != nil {
-			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
-		}
+		resp, err := azurefileDriver.CreateVolume(ctx, makeCreateVolumeReq(shareName, ns.Name))
+		framework.ExpectNoError(err, "create volume error")
 		volumeID := resp.Volume.VolumeId
-		ginkgo.By(fmt.Sprintf("Successfully provisioned AzureFile volume: %q\n", volumeID))
+		// get accountname and key
+		_, accountName, accountKey, _, _, _, err := azurefileDriver.GetAccountInfo(ctx, volumeID, nil, nil)
+		framework.ExpectNoError(err, fmt.Sprintf("Error GetAccountInfo from volumeID(%s): %v", volumeID, err))
+		// create secret
+		secretName := "csi-inline-smb-volume-secret"
+		secretData := map[string]string{
+			"azurestorageaccountname": accountName,
+			"azurestorageaccountkey":  accountKey,
+		}
+		tsecret := testsuites.NewTestSecret(cs, ns, secretName, secretData)
+		tsecret.Create(ctx)
 
 		pods := []testsuites.PodDetails{
 			{

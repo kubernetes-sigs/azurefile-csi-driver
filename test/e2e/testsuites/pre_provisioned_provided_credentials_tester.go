@@ -43,26 +43,41 @@ func (t *PreProvisionedProvidedCredentiasTest) Run(ctx context.Context, client c
 		for n, volume := range pod.Volumes {
 			_, accountName, accountKey, fileShareName, _, _, err := t.Azurefile.GetAccountInfo(ctx, volume.VolumeID, nil, nil)
 			framework.ExpectNoError(err, fmt.Sprintf("Error GetAccountInfo from volumeID(%s): %v", volume.VolumeID, err))
+			var secretData map[string]string
+			var i int
+			var run = func() {
+				// add suffix to fileshare name to force kubelet to NodeStageVolume every time,
+				// otherwise it will skip NodeStageVolume for the same fileshare(VolumeHanlde)
+				pod.Volumes[n].ShareName = fmt.Sprintf("%s-%d", fileShareName, i)
+				i++
 
-			ginkgo.By("creating the secret")
-			secreteData := map[string]string{"azurestorageaccountname": accountName}
-			secreteData["azurestorageaccountkey"] = accountKey
-			tsecret := NewTestSecret(client, namespace, volume.NodeStageSecretRef, secreteData)
-			tsecret.Create(ctx)
-			defer tsecret.Cleanup(ctx)
+				tsecret := NewTestSecret(client, namespace, volume.NodeStageSecretRef, secretData)
+				tsecret.Create(ctx)
+				defer tsecret.Cleanup(ctx)
 
-			pod.Volumes[n].ShareName = fileShareName
-			tpod, cleanup := pod.SetupWithPreProvisionedVolumes(ctx, client, namespace, t.CSIDriver)
-			// defer must be called here for resources not get removed before using them
-			for i := range cleanup {
-				defer cleanup[i](ctx)
+				tpod, cleanup := pod.SetupWithPreProvisionedVolumes(ctx, client, namespace, t.CSIDriver)
+				// defer must be called here for resources not get removed before using them
+				for i := range cleanup {
+					defer cleanup[i](ctx)
+				}
+
+				ginkgo.By("deploying the pod")
+				tpod.Create(ctx)
+				defer func() {
+					tpod.Cleanup(ctx)
+				}()
+
+				ginkgo.By("checking that the pods command exits with no error")
+				tpod.WaitForSuccess(ctx)
 			}
 
-			ginkgo.By("deploying the pod")
-			tpod.Create(ctx)
-			defer tpod.Cleanup(ctx)
-			ginkgo.By("checking that the pods command exits with no error")
-			tpod.WaitForSuccess(ctx)
+			// test for storage account key
+			ginkgo.By("Run for storage account key")
+			secretData = map[string]string{
+				"azurestorageaccountname": accountName,
+				"azurestorageaccountkey":  accountKey,
+			}
+			run()
 		}
 	}
 }

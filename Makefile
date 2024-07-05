@@ -36,7 +36,6 @@ endif
 ifdef EXTERNAL_E2E_TEST_NFS
 E2E_HELM_OPTIONS += --set feature.enableVolumeMountGroup=false --set feature.fsGroupPolicy=File
 endif
-GINKGO_FLAGS = -ginkgo.v
 GO111MODULE = on
 GOPATH ?= $(shell go env GOPATH)
 GOBIN ?= $(GOPATH)/bin
@@ -88,7 +87,7 @@ e2e-test:
 		bash ./test/external-e2e/run.sh;\
 	else \
 		bash ./hack/parse-prow-creds.sh;\
-		go test -v -timeout=0 ./test/e2e ${GINKGO_FLAGS};\
+		ginkgo -p -vv --fail-fast --output-interceptor-mode=none --flake-attempts 2 ./test/e2e -- --project-root=$(shell pwd);\
 	fi
 
 .PHONY: e2e-bootstrap
@@ -117,6 +116,10 @@ endif
 .PHONY: install-helm
 install-helm:
 	curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+
+.PHONY: install-ginkgo
+install-ginkgo:
+	go install github.com/onsi/ginkgo/v2/ginkgo@v2.9.2
 
 .PHONY: e2e-teardown
 e2e-teardown:
