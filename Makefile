@@ -82,7 +82,7 @@ sanity-test: azurefile
 	go test -v -timeout=10m ./test/sanity
 
 .PHONY: e2e-test
-e2e-test:
+e2e-test: install-ginkgo
 	if [ ! -z "$(EXTERNAL_E2E_TEST_SMB)" ] || [ ! -z "$(EXTERNAL_E2E_TEST_NFS)" ]; then \
 		bash ./test/external-e2e/run.sh;\
 	else \
@@ -119,7 +119,7 @@ install-helm:
 
 .PHONY: install-ginkgo
 install-ginkgo:
-	go install github.com/onsi/ginkgo/v2/ginkgo@v2.9.2
+	go install github.com/onsi/ginkgo/v2/ginkgo@v2.19.0
 
 .PHONY: e2e-teardown
 e2e-teardown:
