@@ -895,7 +895,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		}
 
 		itemSnapshot = snapshotShare.Snapshot()
-		itemSnapshotTime = properties.LastModified()
+		itemSnapshotTime = properties.Date()
 		itemSnapshotQuota = properties.Quota()
 	} else {
 		snapshotShare, err := d.cloud.FileClient.WithSubscriptionID(subsID).CreateFileShare(ctx, rgName, accountName, &fileclient.ShareOptions{Name: fileShareName, Metadata: map[string]*string{snapshotNameKey: &snapshotName}}, snapshotsExpand)
