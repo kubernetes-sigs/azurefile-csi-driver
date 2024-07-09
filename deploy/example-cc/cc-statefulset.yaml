@@ -1,0 +1,44 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: cc-statefulset-azurefile
+  labels:
+    app: nginx
+spec:
+  podManagementPolicy: Parallel  # default is OrderedReady
+  serviceName: cc-statefulset-azurefile
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      runtimeClassName: kata-cc
+      nodeSelector:
+        "kubernetes.io/os": linux
+      containers:
+        - name: cc-statefulset-azurefile
+          image: mcr.microsoft.com/oss/nginx/nginx:1.19.5
+          command:
+            - "/bin/bash"
+            - "-c"
+            - set -euo pipefail; while true; do echo $(date) >> /mnt/azurefile/kata-cc.txt; sleep 1; done
+          volumeMounts:
+            - name: persistent-storage
+              mountPath: /mnt/azurefile
+              readOnly: false
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: nginx
+  volumeClaimTemplates:
+    - metadata:
+        name: persistent-storage
+      spec:
+        storageClassName: azurefile-csi
+        accessModes: ["ReadWriteMany"]
+        resources:
+          requests:
+            storage: 100Gi

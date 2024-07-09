@@ -1,0 +1,53 @@
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: pvc-azurefile
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: azurefile-csi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx
+  name: cc-deployment-azurefile
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+      name: cc-deployment-azurefile
+    spec:
+      runtimeClassName: kata-cc
+      nodeSelector:
+        "kubernetes.io/os": linux
+      containers:
+        - name: cc-deployment-azurefile
+          image: mcr.microsoft.com/oss/nginx/nginx:1.19.5
+          command:
+            - "/bin/bash"
+            - "-c"
+            - set -euo pipefail; while true; do echo $(date) >> /mnt/azurefile/kata-cc.txt; sleep 1; done
+          volumeMounts:
+            - name: cc-azurefile
+              mountPath: "/mnt/azurefile"
+              readOnly: false
+      volumes:
+        - name: cc-azurefile
+          persistentVolumeClaim:
+            claimName: pvc-azurefile
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate

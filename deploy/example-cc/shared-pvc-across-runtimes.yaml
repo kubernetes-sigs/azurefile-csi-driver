@@ -1,0 +1,72 @@
+---
+kind: Pod
+apiVersion: v1
+metadata:
+  name: nginx-azurefile
+spec:
+  nodeSelector:
+    "kubernetes.io/os": linux
+  containers:
+    - image: mcr.microsoft.com/oss/nginx/nginx:1.19.5
+      name: nginx-azurefile
+      command:
+        - "/bin/bash"
+        - "-c"
+        - set -euo pipefail; while true; do echo $(date) >> /mnt/azurefile/runc.txt; sleep 1; done
+      volumeMounts:
+        - name: persistent-storage
+          mountPath: "/mnt/azurefile"
+          readOnly: false
+  volumes:
+    - name: persistent-storage
+      persistentVolumeClaim:
+        claimName: pvc-azurefile
+---
+kind: Pod
+apiVersion: v1
+metadata:
+  name: kata-nginx-azurefile
+spec:
+  runtimeClassName: kata
+  nodeSelector:
+    "kubernetes.io/os": linux
+  containers:
+    - image: mcr.microsoft.com/oss/nginx/nginx:1.19.5
+      name: nginx-azurefile
+      command:
+        - "/bin/bash"
+        - "-c"
+        - set -euo pipefail; while true; do echo $(date) >> /mnt/azurefile/kata.txt; sleep 1; done
+      volumeMounts:
+        - name: persistent-storage
+          mountPath: "/mnt/azurefile"
+          readOnly: false
+  volumes:
+    - name: persistent-storage
+      persistentVolumeClaim:
+        claimName: pvc-azurefile
+---
+kind: Pod
+apiVersion: v1
+metadata:
+  name: kata-cc-nginx-azurefile
+spec:
+  runtimeClassName: kata-cc
+  nodeSelector:
+    "kubernetes.io/os": linux
+  containers:
+    - image: mcr.microsoft.com/oss/nginx/nginx:1.19.5
+      name: nginx-azurefile
+      command:
+        - "/bin/bash"
+        - "-c"
+        - set -euo pipefail; while true; do echo $(date) >> /mnt/azurefile/kata-cc.txt; sleep 1; done
+      volumeMounts:
+        - name: persistent-storage
+          mountPath: "/mnt/azurefile"
+          readOnly: false
+  volumes:
+    - name: persistent-storage
+      persistentVolumeClaim:
+        claimName: pvc-azurefile
+---

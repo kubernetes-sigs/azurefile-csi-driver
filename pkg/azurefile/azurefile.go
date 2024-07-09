@@ -120,6 +120,7 @@ const (
 	storageEndpointSuffixField        = "storageendpointsuffix"
 	fsGroupChangePolicyField          = "fsgroupchangepolicy"
 	ephemeralField                    = "csi.storage.k8s.io/ephemeral"
+	podNameField                      = "csi.storage.k8s.io/pod.name"
 	podNamespaceField                 = "csi.storage.k8s.io/pod.namespace"
 	serviceAccountTokenField          = "csi.storage.k8s.io/serviceAccount.tokens"
 	clientIDField                     = "clientID"
@@ -220,6 +221,7 @@ type Driver struct {
 	allowInlineVolumeKeyAccessWithIdentity bool
 	enableVHDDiskFeature                   bool
 	enableGetVolumeStats                   bool
+	enableKataCCMount                      bool
 	enableVolumeMountGroup                 bool
 	appendMountErrorHelpLink               bool
 	mountPermissions                       uint64
@@ -270,8 +272,10 @@ type Driver struct {
 	// azcopy for provide exec mock for ut
 	azcopy *fileutil.Azcopy
 
-	kubeconfig string
-	endpoint   string
+	kubeconfig   string
+	endpoint     string
+	resolver     Resolver
+	directVolume DirectVolume
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -288,6 +292,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.allowEmptyCloudConfig = options.AllowEmptyCloudConfig
 	driver.allowInlineVolumeKeyAccessWithIdentity = options.AllowInlineVolumeKeyAccessWithIdentity
 	driver.enableVHDDiskFeature = options.EnableVHDDiskFeature
+	driver.enableKataCCMount = options.EnableKataCCMount
 	driver.enableVolumeMountGroup = options.EnableVolumeMountGroup
 	driver.enableGetVolumeStats = options.EnableGetVolumeStats
 	driver.appendMountErrorHelpLink = options.AppendMountErrorHelpLink
@@ -310,6 +315,8 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.azcopy = &fileutil.Azcopy{}
 	driver.kubeconfig = options.KubeConfig
 	driver.endpoint = options.Endpoint
+	driver.resolver = new(NetResolver)
+	driver.directVolume = new(directVolume)
 
 	var err error
 	getter := func(_ string) (interface{}, error) { return nil, nil }
