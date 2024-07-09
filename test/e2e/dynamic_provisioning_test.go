@@ -68,7 +68,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("could not get rest clientset: %v", err))
 		}
-	}, ginkgo.NodeTimeout(time.Hour*2))
+	})
 
 	ginkgo.It("should create a pod, write and read to it, take a volume snapshot, and create another pod from the snapshot [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
 		skipIfUsingInTreeVolumePlugin()
