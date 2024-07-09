@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -30,9 +31,12 @@ import (
 
 	azure2 "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/golang/mock/gomock"
+	volume "github.com/kata-containers/kata-containers/src/runtime/pkg/direct-volume"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	clientset "k8s.io/client-go/kubernetes"
 	mount "k8s.io/mount-utils"
 	"k8s.io/utils/exec"
 	testingexec "k8s.io/utils/exec/testing"
@@ -107,6 +111,14 @@ func TestNodeGetCapabilities(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func mockGetRuntimeClassForPod(_ context.Context, _ clientset.Interface, _, _ string) (string, error) {
+	return "mockRuntimeClass", nil
+}
+
+func mockIsConfidentialRuntimeClass(_ context.Context, _ clientset.Interface, _ string) (bool, error) {
+	return true, nil
+}
+
 func TestNodePublishVolume(t *testing.T) {
 	d := NewFakeDriver()
 	d.cloud = &azure.Cloud{}
@@ -119,6 +131,12 @@ func TestNodePublishVolume(t *testing.T) {
 		sourceTest = testutil.GetWorkDirPath("source_test", t)
 		targetTest = testutil.GetWorkDirPath("target_test", t)
 	)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockDirectVolume := NewMockDirectVolume(ctrl)
+	getRuntimeClassForPodFunc = mockGetRuntimeClassForPod
+	isConfidentialRuntimeClassFunc = mockIsConfidentialRuntimeClass
 
 	tests := []struct {
 		desc        string
@@ -235,6 +253,25 @@ func TestNodePublishVolume(t *testing.T) {
 				DefaultError: status.Error(codes.InvalidArgument, fmt.Sprintf("invalid mountPermissions %s", "07ab")),
 			},
 		},
+		{
+			desc: "[Success] Valid request with Kata CC Mount enabled",
+			req: csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "vol_1",
+				TargetPath:        targetTest,
+				StagingTargetPath: sourceTest,
+				Readonly:          true,
+				VolumeContext:     map[string]string{mountPermissionsField: "0755", podNameField: "testPod", podNamespaceField: "testNamespace"},
+			},
+			setup: func() {
+				d.enableKataCCMount = true
+				d.directVolume = mockDirectVolume
+				mockDirectVolume.EXPECT().VolumeMountInfo(sourceTest).Return(&volume.MountInfo{}, nil)
+				mockDirectVolume.EXPECT().Add(targetTest, gomock.Any()).Return(nil)
+			},
+			cleanup: func() {
+				d.enableKataCCMount = false
+			},
+		},
 	}
 
 	// Setup
@@ -272,6 +309,9 @@ func TestNodeUnpublishVolume(t *testing.T) {
 	errorTarget := testutil.GetWorkDirPath("error_is_likely_target", t)
 	targetFile := testutil.GetWorkDirPath("abc.go", t)
 	d := NewFakeDriver()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockDirectVolume := NewMockDirectVolume(ctrl)
 
 	tests := []struct {
 		desc         string
@@ -307,6 +347,19 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			desc:        "[Success] Valid request",
 			req:         csi.NodeUnpublishVolumeRequest{TargetPath: targetFile, VolumeId: "vol_1"},
 			expectedErr: testutil.TestError{},
+		},
+		{
+			desc:        "[Success] Valid request with Kata CC Mount enabled",
+			req:         csi.NodeUnpublishVolumeRequest{TargetPath: targetFile, VolumeId: "vol_1"},
+			expectedErr: testutil.TestError{},
+			setup: func() {
+				d.enableKataCCMount = true
+				d.directVolume = mockDirectVolume
+				mockDirectVolume.EXPECT().Remove(targetFile).Return(nil)
+			},
+			cleanup: func() {
+				d.enableKataCCMount = false
+			},
 		},
 	}
 
@@ -406,6 +459,11 @@ func TestNodeStageVolume(t *testing.T) {
 		"accountname": "k8s",
 		"accountkey":  "testkey",
 	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockResolver := NewMockResolver(ctrl)
+	mockDirectVolume := NewMockDirectVolume(ctrl)
 
 	tests := []struct {
 		desc          string
@@ -701,6 +759,28 @@ func TestNodeStageVolume(t *testing.T) {
 				DefaultError: status.Error(codes.InvalidArgument, fmt.Sprintf("invalid mountPermissions %s", "07ab")),
 			},
 		},
+		{
+			desc: "[Success] Valid request with Kata CC Mount enabled",
+			setup: func() {
+				d.resolver = mockResolver
+				d.directVolume = mockDirectVolume
+				d.enableKataCCMount = true
+				if runtime.GOOS != "windows" {
+					mockIPAddr := &net.IPAddr{IP: net.ParseIP("192.168.1.1")}
+					mockDirectVolume.EXPECT().VolumeMountInfo(sourceTest).Return(nil, nil)
+					mockResolver.EXPECT().ResolveIPAddr("ip", "test_servername").Return(mockIPAddr, nil)
+					mockDirectVolume.EXPECT().Add(sourceTest, gomock.Any()).Return(nil)
+				}
+			},
+			req: csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext:    volContext,
+				Secrets:          secrets},
+			skipOnWindows: true,
+			cleanup: func() {
+				d.enableKataCCMount = false
+			},
+		},
 	}
 
 	// Setup
@@ -767,6 +847,9 @@ func TestNodeUnstageVolume(t *testing.T) {
 		targetFile  = testutil.GetWorkDirPath("abc.go", t)
 	)
 	d := NewFakeDriver()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockDirectVolume := NewMockDirectVolume(ctrl)
 
 	tests := []struct {
 		desc         string
@@ -815,6 +898,19 @@ func TestNodeUnstageVolume(t *testing.T) {
 			desc:        "[Success] Valid request",
 			req:         csi.NodeUnstageVolumeRequest{StagingTargetPath: targetFile, VolumeId: "vol_1"},
 			expectedErr: testutil.TestError{},
+		},
+		{
+			desc: "[Success] Valid request with Kata CC Mount enabled",
+			setup: func() {
+				d.enableKataCCMount = true
+				d.directVolume = mockDirectVolume
+				mockDirectVolume.EXPECT().Remove(targetFile).Return(nil)
+			},
+			req:         csi.NodeUnstageVolumeRequest{StagingTargetPath: targetFile, VolumeId: "vol_1"},
+			expectedErr: testutil.TestError{},
+			cleanup: func() {
+				d.enableKataCCMount = false
+			},
 		},
 	}
 

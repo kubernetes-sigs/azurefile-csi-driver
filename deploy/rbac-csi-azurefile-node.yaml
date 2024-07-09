@@ -28,3 +28,48 @@ roleRef:
   kind: ClusterRole
   name: csi-azurefile-node-secret-role
   apiGroup: rbac.authorization.k8s.io
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: csi-azurefile-node-pod-role
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: csi-azurefile-node-pod-binding
+subjects:
+  - kind: ServiceAccount
+    name: csi-azurefile-node-sa
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: csi-azurefile-node-pod-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: csi-azurefile-node-rc-role
+rules:
+  - apiGroups: ["node.k8s.io"]
+    resources: ["runtimeclasses"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: csi-azurefile-node-rc-binding
+subjects:
+  - kind: ServiceAccount
+    name: csi-azurefile-node-sa
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: csi-azurefile-node-rc-role
+  apiGroup: rbac.authorization.k8s.io
+---

@@ -147,10 +147,12 @@ github.com/AzureAD/microsoft-authentication-library-for-go/apps/internal/options
 github.com/AzureAD/microsoft-authentication-library-for-go/apps/internal/shared
 github.com/AzureAD/microsoft-authentication-library-for-go/apps/internal/version
 github.com/AzureAD/microsoft-authentication-library-for-go/apps/public
-# github.com/Microsoft/go-winio v0.6.0
+# github.com/Microsoft/go-winio v0.6.1
 ## explicit; go 1.17
 github.com/Microsoft/go-winio
+github.com/Microsoft/go-winio/internal/fs
 github.com/Microsoft/go-winio/internal/socket
+github.com/Microsoft/go-winio/internal/stringbuffer
 github.com/Microsoft/go-winio/pkg/guid
 # github.com/NYTimes/gziphandler v1.1.1
 ## explicit; go 1.11
@@ -179,7 +181,7 @@ github.com/container-storage-interface/spec/lib/go/csi
 # github.com/coreos/go-semver v0.3.1
 ## explicit; go 1.8
 github.com/coreos/go-semver/semver
-# github.com/coreos/go-systemd/v22 v22.5.0
+# github.com/coreos/go-systemd/v22 v22.5.1-0.20231103132048-7d375ecc2b09
 ## explicit; go 1.12
 github.com/coreos/go-systemd/v22/daemon
 github.com/coreos/go-systemd/v22/journal
@@ -237,6 +239,9 @@ github.com/golang-jwt/jwt/v5
 # github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 ## explicit
 github.com/golang/groupcache/lru
+# github.com/golang/mock v1.6.0
+## explicit; go 1.11
+github.com/golang/mock/gomock
 # github.com/golang/protobuf v1.5.4
 ## explicit; go 1.17
 github.com/golang/protobuf/descriptor
@@ -333,6 +338,9 @@ github.com/klauspost/compress/internal/cpuinfo
 github.com/klauspost/compress/internal/snapref
 github.com/klauspost/compress/zstd
 github.com/klauspost/compress/zstd/internal/xxhash
+# github.com/kata-containers/kata-containers/src/runtime v0.0.0-20240702121346-ef3f6515cf8a
+## explicit; go 1.21
+github.com/kata-containers/kata-containers/src/runtime/pkg/direct-volume
 # github.com/kubernetes-csi/csi-lib-utils v0.14.1
 ## explicit; go 1.18
 github.com/kubernetes-csi/csi-lib-utils/protosanitizer
@@ -372,7 +380,7 @@ github.com/mattn/go-ieproxy
 ## explicit; go 1.13
 github.com/moby/spdystream
 github.com/moby/spdystream/spdy
-# github.com/moby/sys/mountinfo v0.6.2
+# github.com/moby/sys/mountinfo v0.7.1
 ## explicit; go 1.16
 github.com/moby/sys/mountinfo
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
