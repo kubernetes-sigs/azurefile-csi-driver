@@ -388,27 +388,43 @@ func TestConvertTagsToMap(t *testing.T) {
 	tests := []struct {
 		desc          string
 		tags          string
+		tagsDelimiter string
 		expectedError error
 	}{
 		{
 			desc:          "Invalid tag",
-			tags:          "invalid=test=tag",
-			expectedError: errors.New("Tags 'invalid=test=tag' are invalid, the format should like: 'key1=value1,key2=value2'"),
+			tags:          "invalid,test,tag",
+			tagsDelimiter: ",",
+			expectedError: errors.New("Tags 'invalid,test,tag' are invalid, the format should like: 'key1=value1,key2=value2'"),
 		},
 		{
 			desc:          "Invalid key",
 			tags:          "=test",
+			tagsDelimiter: ",",
 			expectedError: errors.New("Tags '=test' are invalid, the format should like: 'key1=value1,key2=value2'"),
 		},
 		{
 			desc:          "Valid tags",
 			tags:          "testTag=testValue",
+			tagsDelimiter: ",",
+			expectedError: nil,
+		},
+		{
+			desc:          "should return success for empty tagsDelimiter",
+			tags:          "key1=value1,key2=value2",
+			tagsDelimiter: "",
+			expectedError: nil,
+		},
+		{
+			desc:          "should return success for special tagsDelimiter and tag values containing commas and equal sign",
+			tags:          "key1=aGVsbG8=;key2=value-2, value-3",
+			tagsDelimiter: ";",
 			expectedError: nil,
 		},
 	}
 
 	for _, test := range tests {
-		_, err := ConvertTagsToMap(test.tags)
+		_, err := ConvertTagsToMap(test.tags, test.tagsDelimiter)
 		if !reflect.DeepEqual(err, test.expectedError) {
 			t.Errorf("test[%s]: unexpected error: %v, expected error: %v", test.desc, err, test.expectedError)
 		}
