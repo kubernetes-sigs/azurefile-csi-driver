@@ -17,6 +17,7 @@ limitations under the License.
 package azurefile
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,8 +34,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	directvolume "github.com/kata-containers/kata-containers/src/runtime/pkg/direct-volume"
 	"golang.org/x/net/context"
-
 	volumehelper "sigs.k8s.io/azurefile-csi-driver/pkg/util"
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	"sigs.k8s.io/cloud-provider-azure/pkg/metrics"
@@ -95,6 +96,35 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid mountPermissions %s", perm))
 			}
 		}
+
+		// get runtime class using pod info from volume context
+		runtimeClass, err := getRuntimeClassForPod(ctx, d.kubeconfig, context[podNameField], context[podNamespaceField])
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to get runtime class for pod %s/%s: %v", context[podNamespaceField], context[podNameField], err)
+		}
+		klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with runtimeClass %s", volumeID, target, runtimeClass)
+		if isConfidentialRuntimeClass(runtimeClass) {
+			klog.V(2).Infof("NodePublishVolume for volume(%s) where runtimeClass %s is kata-cc", volumeID, runtimeClass)
+			source := req.GetStagingTargetPath()
+			if len(source) == 0 {
+				return nil, status.Error(codes.InvalidArgument, "Staging target not provided")
+			}
+			// Load the mount info from staging area
+			mountInfo, err := directvolume.VolumeMountInfo(source)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "failed to load mount info from %s: %v", source, err)
+			}
+			if mountInfo == nil {
+				return nil, status.Errorf(codes.Internal, "mount info is nil for volume %s", volumeID)
+			}
+			data, _ := json.Marshal(mountInfo)
+			err = directvolume.Add(target, string(data))
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "failed to save mount info %s: %v", target, err)
+			}
+			klog.V(2).Infof("NodePublishVolume: direct volume mount %s at %s successfully", source, target)
+			return &csi.NodePublishVolumeResponse{}, nil
+		}
 	}
 
 	source := req.GetStagingTargetPath()
@@ -146,6 +176,9 @@ func (d *Driver) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVo
 	klog.V(2).Infof("NodeUnpublishVolume: unmounting volume %s on %s", volumeID, targetPath)
 	if err := CleanupMountPoint(d.mounter, targetPath, true /*extensiveMountPointCheck*/); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to unmount target %s: %v", targetPath, err)
+	}
+	if err := directvolume.Remove(targetPath); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to direct volume remove mount info %s: %v", targetPath, err)
 	}
 	klog.V(2).Infof("NodeUnpublishVolume: unmount volume %s on %s successfully", volumeID, targetPath)
 
@@ -367,6 +400,42 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		klog.V(2).Infof("volume(%s) mount %s on %s succeeded", volumeID, source, cifsMountPath)
 	}
 
+	// If runtime OS is not windows and protocol is not nfs, save mountInfo.json
+	if runtime.GOOS != "windows" && protocol != nfs {
+		// Check if mountInfo.json is already present at the targetPath
+		isMountInfoPresent, err := directvolume.VolumeMountInfo(cifsMountPath)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, status.Errorf(codes.Internal, "Could not save direct volume mount info %s: %v", cifsMountPath, err)
+		}
+		if isMountInfoPresent != nil { // If already present, skip the operation
+			klog.V(2).Infof("NodeStageVolume: mount info for volume %s is already present on %s", volumeID, targetPath)
+		} else { // if not mounted, save mountInfo.json
+			mountFsType := cifs
+			if protocol == nfs { // will not come here as nfs is not supported
+				mountFsType = nfs
+			}
+			mountInfo := directvolume.MountInfo{
+				VolumeType: "azurefile",
+				Device:     source,
+				FsType:     mountFsType,
+				Metadata: map[string]string{
+					"sensitiveMountOptions": strings.Join(sensitiveMountOptions, ","),
+				},
+				// Additional mount options.
+				Options: mountOptions,
+			}
+			data, _ := json.Marshal(mountInfo)
+			if err := directvolume.Add(cifsMountPath, string(data)); err != nil {
+				return nil, status.Errorf(codes.Internal, "Could not save direct volume mount info %s: %v", cifsMountPath, err)
+			}
+			klog.V(2).Infof("NodeStageVolume: mount info for volume %s saved on %s", volumeID, targetPath)
+		}
+	}
+	else {
+		klog.V(2).Infof("NodeStageVolume: runtime OS: %s, protocol: %s", runtime.GOOS, protocol)
+		klog.V(2).Infof("NodeStageVolume: skip saving mount info for volume %s on %s", volumeID, targetPath)
+	}
+
 	if isDiskMount {
 		mnt, err := d.ensureMountPoint(targetPath, os.FileMode(mountPermissions))
 		if err != nil {
@@ -440,6 +509,12 @@ func (d *Driver) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolume
 			return nil, status.Errorf(codes.Internal, "failed to unmount staging target %s: %v", targetPath, err)
 		}
 	}
+
+	klog.V(2).Infof("NodeUnstageVolume:remove direct volume mount info %s from %s", volumeID, stagingTargetPath)
+	if err := directvolume.Remove(stagingTargetPath); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to remove mount info %s: %v", stagingTargetPath, err)
+	}
+
 	klog.V(2).Infof("NodeUnstageVolume: unmount volume %s on %s successfully", volumeID, stagingTargetPath)
 
 	isOperationSucceeded = true

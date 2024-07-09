@@ -317,3 +317,17 @@ func isReadOnlyFromCapability(vc *csi.VolumeCapability) bool {
 	return (mode == csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY ||
 		mode == csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY)
 }
+
+func getConfidentialRuntimeClasses() []string {
+	return []string{"kata-cc", "kata-cc-isolation"}
+}
+
+// check if runtimeClass is confidential
+func isConfidentialRuntimeClass(runtimeClass string) bool {
+	for _, confidentialRuntimeClass := range getConfidentialRuntimeClasses() {
+		if runtimeClass == confidentialRuntimeClass {
+			return true
+		}
+	}
+	return false
+}

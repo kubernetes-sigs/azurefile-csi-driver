@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2022-07-01/network"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -48,6 +49,32 @@ const (
 var (
 	storageService = "Microsoft.Storage"
 )
+
+func getRuntimeClassForPod(ctx context.Context, kubeconfig, podName string, podNameSpace string) (string, error) {
+	var (
+		kubeClient *clientset.Clientset
+	)
+	kubeCfg, err := getKubeConfig(kubeconfig, false)
+	if err != nil {
+		klog.Warningf("getKubeConfig(%s) failed with error: %v", kubeconfig, err)
+		return "", err
+	}
+	kubeClient, err = clientset.NewForConfig(kubeCfg)
+	if err != nil {
+		klog.Warningf("NewForConfig failed with error: %v", err)
+		return "", err
+	}
+	// Get runtime class for pod
+	pod, err := kubeClient.CoreV1().Pods(podNameSpace).Get(ctx, podName, metav1.GetOptions{})
+	if err != nil {
+		klog.Warningf("Get pod(%s) failed with error: %v", podName, err)
+		return "", err
+	}
+	if pod.Spec.RuntimeClassName != nil {
+		return *pod.Spec.RuntimeClassName, nil
+	}
+	return "", nil
+}
 
 // getCloudProvider get Azure Cloud Provider
 func getCloudProvider(ctx context.Context, kubeconfig, nodeID, secretName, secretNamespace, userAgent string, allowEmptyCloudConfig, enableWindowsHostProcess bool, kubeAPIQPS float64, kubeAPIBurst int) (*azure.Cloud, error) {
