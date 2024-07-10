@@ -68,7 +68,7 @@ func (t *DynamicallyProvisionedAccountWithTags) Run(ctx context.Context, client 
 
 		resultTags := account.Tags
 
-		specifiedTags, err := azurefile.ConvertTagsToMap(t.Tags)
+		specifiedTags, err := azurefile.ConvertTagsToMap(t.Tags, "")
 		framework.ExpectNoError(err, fmt.Sprintf("failed to convert tags(%s) %v", t.Tags, err))
 		specifiedTags["k8s-azure-created-by"] = "azure"
 
