@@ -31,7 +31,6 @@ import (
 )
 
 const (
-	tagsDelimiter        = ","
 	tagKeyValueDelimiter = "="
 )
 
@@ -185,20 +184,23 @@ func createStorageAccountSecret(account, key string) map[string]string {
 	return secret
 }
 
-func ConvertTagsToMap(tags string) (map[string]string, error) {
+func ConvertTagsToMap(tags string, tagsDelimiter string) (map[string]string, error) {
 	m := make(map[string]string)
 	if tags == "" {
 		return m, nil
 	}
+	if tagsDelimiter == "" {
+		tagsDelimiter = ","
+	}
 	s := strings.Split(tags, tagsDelimiter)
 	for _, tag := range s {
-		kv := strings.Split(tag, tagKeyValueDelimiter)
+		kv := strings.SplitN(tag, tagKeyValueDelimiter, 2)
 		if len(kv) != 2 {
-			return nil, fmt.Errorf("Tags '%s' are invalid, the format should like: 'key1=value1,key2=value2'", tags)
+			return nil, fmt.Errorf("Tags '%s' are invalid, the format should like: 'key1=value1%skey2=value2'", tags, tagsDelimiter)
 		}
 		key := strings.TrimSpace(kv[0])
 		if key == "" {
-			return nil, fmt.Errorf("Tags '%s' are invalid, the format should like: 'key1=value1,key2=value2'", tags)
+			return nil, fmt.Errorf("Tags '%s' are invalid, the format should like: 'key1=value1%skey2=value2'", tags, tagsDelimiter)
 		}
 		value := strings.TrimSpace(kv[1])
 		m[key] = value
