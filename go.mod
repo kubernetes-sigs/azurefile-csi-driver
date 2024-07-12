@@ -37,8 +37,8 @@ require (
 	k8s.io/cloud-provider v0.30.2
 	k8s.io/component-base v0.30.2
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/kubernetes v1.29.4
-	k8s.io/mount-utils v0.29.4
+	k8s.io/kubernetes v1.30.2
+	k8s.io/mount-utils v0.30.2
 	k8s.io/pod-security-admission v0.27.4
 	k8s.io/utils v0.0.0-20231127182322-b307cd553661
 	sigs.k8s.io/cloud-provider-azure v1.27.1-0.20240711055529-32f2f4cde182
@@ -171,18 +171,18 @@ require (
 )
 
 replace (
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.29.4
-	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.29.4
-	k8s.io/cri-api => k8s.io/cri-api v0.29.4
-	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.29.4
-	k8s.io/dynamic-resource-allocation => k8s.io/dynamic-resource-allocation v0.29.4
-	k8s.io/endpointslice => k8s.io/endpointslice v0.29.4
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.29.4
-	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.29.4
-	k8s.io/kube-proxy => k8s.io/kube-proxy v0.29.4
-	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.29.4
-	k8s.io/kubectl => k8s.io/kubectl v0.29.4
-	k8s.io/kubelet => k8s.io/kubelet v0.29.4
-	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.29.4
-	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.29.4
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.30.2
+	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.30.2
+	k8s.io/cri-api => k8s.io/cri-api v0.30.2
+	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.30.2
+	k8s.io/dynamic-resource-allocation => k8s.io/dynamic-resource-allocation v0.30.2
+	k8s.io/endpointslice => k8s.io/endpointslice v0.30.2
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.30.2
+	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.30.2
+	k8s.io/kube-proxy => k8s.io/kube-proxy v0.30.2
+	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.30.2
+	k8s.io/kubectl => k8s.io/kubectl v0.30.2
+	k8s.io/kubelet => k8s.io/kubelet v0.30.2
+	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.30.2
+	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.30.2
 )
