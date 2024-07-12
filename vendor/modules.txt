@@ -1577,8 +1577,8 @@ k8s.io/kubernetes/test/utils/kubeconfig
 # k8s.io/mount-utils v0.30.2
 ## explicit; go 1.22.0
 k8s.io/mount-utils
-# k8s.io/pod-security-admission v0.27.4
-## explicit; go 1.20
+# k8s.io/pod-security-admission v0.30.2
+## explicit; go 1.22.0
 k8s.io/pod-security-admission/api
 k8s.io/pod-security-admission/policy
 # k8s.io/utils v0.0.0-20231127182322-b307cd553661
@@ -1608,7 +1608,7 @@ sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client/metrics
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/common/metrics
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client
-# sigs.k8s.io/cloud-provider-azure v1.27.1-0.20240711055529-32f2f4cde182
+# sigs.k8s.io/cloud-provider-azure v1.27.1-0.20240712023313-f3072cb733cb
 ## explicit; go 1.22.0
 sigs.k8s.io/cloud-provider-azure/pkg/azureclients
 sigs.k8s.io/cloud-provider-azure/pkg/azureclients/armauth
