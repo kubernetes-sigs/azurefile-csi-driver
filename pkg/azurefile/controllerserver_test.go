@@ -721,7 +721,7 @@ func TestCreateVolume(t *testing.T) {
 			},
 		},
 		{
-			name: "No valid key with zero request gib",
+			name: "fileServicePropertiesCache is nil",
 			testFunc: func(t *testing.T) {
 				name := "baz"
 				sku := "sku"
@@ -780,7 +780,7 @@ func TestCreateVolume(t *testing.T) {
 				mockFileClient.EXPECT().GetServiceProperties(context.TODO(), gomock.Any(), gomock.Any()).Return(fileServiceProperties, nil).AnyTimes()
 				mockFileClient.EXPECT().SetServiceProperties(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fileServiceProperties, nil).AnyTimes()
 
-				expectedErr := fmt.Errorf("no valid keys")
+				expectedErr := fmt.Errorf("failed to ensure storage account: fileServicePropertiesCache is nil")
 
 				_, err := d.CreateVolume(ctx, req)
 				if !strings.Contains(err.Error(), expectedErr.Error()) {
