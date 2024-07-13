@@ -35,7 +35,6 @@ import (
 
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/accountclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/cache"
-	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	"sigs.k8s.io/cloud-provider-azure/pkg/consts"
 	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
 )
@@ -121,14 +120,37 @@ func (az *Cloud) getStorageAccounts(ctx context.Context, accountOptions *Account
 				isRequireInfrastructureEncryptionEqual(acct, accountOptions) &&
 				isAllowSharedKeyAccessEqual(acct, accountOptions) &&
 				isAccessTierEqual(acct, accountOptions) &&
-				az.isMultichannelEnabledEqual(ctx, acct, accountOptions) &&
-				az.isDisableFileServiceDeleteRetentionPolicyEqual(ctx, acct, accountOptions) &&
-				az.isEnableBlobDataProtectionEqual(ctx, acct, accountOptions) &&
 				isPrivateEndpointAsExpected(acct, accountOptions)) {
 				continue
 			}
 
+			equal, err := az.isMultichannelEnabledEqual(ctx, acct, accountOptions)
+			if err != nil {
+				return nil, err
+			}
+			if !equal {
+				continue
+			}
+
+			if equal, err = az.isDisableFileServiceDeleteRetentionPolicyEqual(ctx, acct, accountOptions); err != nil {
+				return nil, err
+			}
+			if !equal {
+				continue
+			}
+
+			if equal, err = az.isEnableBlobDataProtectionEqual(ctx, acct, accountOptions); err != nil {
+				return nil, err
+			}
+			if !equal {
+				continue
+			}
+
 			accounts = append(accounts, accountWithLocation{Name: *acct.Name, StorageType: string((*acct.Sku).Name), Location: *acct.Location})
+			if !accountOptions.PickRandomMatchingAccount {
+				// return the first matching account if it's not required to pick a random one
+				break
+			}
 		}
 	}
 	return accounts, nil
@@ -513,7 +535,7 @@ func (az *Cloud) EnsureStorageAccount(ctx context.Context, accountOptions *Accou
 		}
 
 		if accountOptions.DisableFileServiceDeleteRetentionPolicy != nil || accountOptions.IsMultichannelEnabled != nil {
-			prop, err := az.FileClient.WithSubscriptionID(subsID).GetServiceProperties(ctx, resourceGroup, accountName)
+			prop, err := az.getFileServicePropertiesCache(ctx, accountOptions.SubscriptionID, accountOptions.ResourceGroup, accountName)
 			if err != nil {
 				return "", "", err
 			}
@@ -676,11 +698,6 @@ func (az *Cloud) createPrivateDNSZoneGroup(ctx context.Context, dnsZoneGroupName
 	return az.privatednszonegroupclient.CreateOrUpdate(ctx, vnetResourceGroup, privateEndpointName, dnsZoneGroupName, privateDNSZoneGroup, "", false).Error()
 }
 
-func (az *Cloud) newStorageAccountCache() (azcache.Resource, error) {
-	getter := func(key string) (interface{}, error) { return nil, nil }
-	return azcache.NewTimedCache(time.Minute, getter, az.Config.DisableAPICallCache)
-}
-
 func (az *Cloud) getStorageAccountWithCache(ctx context.Context, subsID, resourceGroup, account string) (storage.Account, *retry.Error) {
 	if az.StorageAccountClient == nil {
 		return storage.Account{}, retry.NewError(false, fmt.Errorf("StorageAccountClient is nil"))
@@ -706,6 +723,34 @@ func (az *Cloud) getStorageAccountWithCache(ctx context.Context, subsID, resourc
 			return storage.Account{}, rerr
 		}
 		az.storageAccountCache.Set(account, result)
+	}
+
+	return result, nil
+}
+
+func (az *Cloud) getFileServicePropertiesCache(ctx context.Context, subsID, resourceGroup, account string) (storage.FileServiceProperties, error) {
+	if az.FileClient == nil {
+		return storage.FileServiceProperties{}, fmt.Errorf("FileClient is nil")
+	}
+	if az.fileServicePropertiesCache == nil {
+		return storage.FileServiceProperties{}, fmt.Errorf("fileServicePropertiesCache is nil")
+	}
+
+	// search in cache first
+	cache, err := az.fileServicePropertiesCache.Get(account, cache.CacheReadTypeDefault)
+	if err != nil {
+		return storage.FileServiceProperties{}, err
+	}
+	var result storage.FileServiceProperties
+	if cache != nil {
+		result = cache.(storage.FileServiceProperties)
+		klog.V(2).Infof("Get service properties(%s) from cache", account)
+	} else {
+		result, err = az.FileClient.WithSubscriptionID(subsID).GetServiceProperties(ctx, resourceGroup, account)
+		if err != nil {
+			return storage.FileServiceProperties{}, err
+		}
+		az.fileServicePropertiesCache.Set(account, result)
 	}
 
 	return result, nil
@@ -907,74 +952,71 @@ func isAccessTierEqual(account storage.Account, accountOptions *AccountOptions) 
 	return accountOptions.AccessTier == string(account.AccessTier)
 }
 
-func (az *Cloud) isMultichannelEnabledEqual(ctx context.Context, account storage.Account, accountOptions *AccountOptions) bool {
+func (az *Cloud) isMultichannelEnabledEqual(ctx context.Context, account storage.Account, accountOptions *AccountOptions) (bool, error) {
 	if accountOptions.IsMultichannelEnabled == nil {
-		return true
+		return true, nil
 	}
 
 	if account.Name == nil {
 		klog.Warningf("account.Name under resource group(%s) is nil", accountOptions.ResourceGroup)
-		return false
+		return false, nil
 	}
 
-	prop, err := az.FileClient.WithSubscriptionID(accountOptions.SubscriptionID).GetServiceProperties(ctx, accountOptions.ResourceGroup, *account.Name)
+	prop, err := az.getFileServicePropertiesCache(ctx, accountOptions.SubscriptionID, accountOptions.ResourceGroup, *account.Name)
 	if err != nil {
-		klog.Warningf("GetServiceProperties(%s) under resource group(%s) failed with %v", *account.Name, accountOptions.ResourceGroup, err)
-		return false
+		return false, err
 	}
 
 	if prop.FileServicePropertiesProperties == nil ||
 		prop.FileServicePropertiesProperties.ProtocolSettings == nil ||
 		prop.FileServicePropertiesProperties.ProtocolSettings.Smb == nil ||
 		prop.FileServicePropertiesProperties.ProtocolSettings.Smb.Multichannel == nil {
-		return !*accountOptions.IsMultichannelEnabled
+		return !*accountOptions.IsMultichannelEnabled, nil
 	}
 
-	return *accountOptions.IsMultichannelEnabled == pointer.BoolDeref(prop.FileServicePropertiesProperties.ProtocolSettings.Smb.Multichannel.Enabled, false)
+	return *accountOptions.IsMultichannelEnabled == pointer.BoolDeref(prop.FileServicePropertiesProperties.ProtocolSettings.Smb.Multichannel.Enabled, false), nil
 }
 
-func (az *Cloud) isDisableFileServiceDeleteRetentionPolicyEqual(ctx context.Context, account storage.Account, accountOptions *AccountOptions) bool {
+func (az *Cloud) isDisableFileServiceDeleteRetentionPolicyEqual(ctx context.Context, account storage.Account, accountOptions *AccountOptions) (bool, error) {
 	if accountOptions.DisableFileServiceDeleteRetentionPolicy == nil {
-		return true
+		return true, nil
 	}
 
 	if account.Name == nil {
 		klog.Warningf("account.Name under resource group(%s) is nil", accountOptions.ResourceGroup)
-		return false
+		return false, nil
 	}
 
 	prop, err := az.FileClient.WithSubscriptionID(accountOptions.SubscriptionID).GetServiceProperties(ctx, accountOptions.ResourceGroup, *account.Name)
 	if err != nil {
-		klog.Warningf("GetServiceProperties(%s) under resource group(%s) failed with %v", *account.Name, accountOptions.ResourceGroup, err)
-		return false
+		return false, err
 	}
 
 	if prop.FileServicePropertiesProperties == nil ||
 		prop.FileServicePropertiesProperties.ShareDeleteRetentionPolicy == nil ||
 		prop.FileServicePropertiesProperties.ShareDeleteRetentionPolicy.Enabled == nil {
 		// by default, ShareDeleteRetentionPolicy.Enabled is true if it's nil
-		return !*accountOptions.DisableFileServiceDeleteRetentionPolicy
+		return !*accountOptions.DisableFileServiceDeleteRetentionPolicy, nil
 	}
 
-	return *accountOptions.DisableFileServiceDeleteRetentionPolicy != *prop.FileServicePropertiesProperties.ShareDeleteRetentionPolicy.Enabled
+	return *accountOptions.DisableFileServiceDeleteRetentionPolicy != *prop.FileServicePropertiesProperties.ShareDeleteRetentionPolicy.Enabled, nil
 }
 
-func (az *Cloud) isEnableBlobDataProtectionEqual(ctx context.Context, account storage.Account, accountOptions *AccountOptions) bool {
+func (az *Cloud) isEnableBlobDataProtectionEqual(ctx context.Context, account storage.Account, accountOptions *AccountOptions) (bool, error) {
 	if accountOptions.SoftDeleteBlobs == 0 &&
 		accountOptions.SoftDeleteContainers == 0 &&
 		accountOptions.EnableBlobVersioning == nil {
-		return true
+		return true, nil
 	}
 
 	property, err := az.BlobClient.GetServiceProperties(ctx, accountOptions.SubscriptionID, accountOptions.ResourceGroup, *account.Name)
 	if err != nil {
-		klog.Warningf("GetServiceProperties failed for account %s, err: %v", *account.Name, err)
-		return false
+		return false, err
 	}
 
 	return isSoftDeleteBlobsEqual(property, accountOptions) &&
 		isSoftDeleteContainersEqual(property, accountOptions) &&
-		isEnableBlobVersioningEqual(property, accountOptions)
+		isEnableBlobVersioningEqual(property, accountOptions), nil
 }
 
 func isSoftDeleteBlobsEqual(property storage.BlobServiceProperties, accountOptions *AccountOptions) bool {

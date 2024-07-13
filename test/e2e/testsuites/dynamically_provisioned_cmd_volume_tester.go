@@ -19,6 +19,7 @@ package testsuites
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 
@@ -50,7 +51,7 @@ func (t *DynamicallyProvisionedCmdVolumeTest) Run(ctx context.Context, client cl
 		defer tpod.Cleanup(ctx)
 		ginkgo.By("checking that the pods command exits with no error")
 		if pod.WinServerVer == "windows-2022" {
-			if err := e2epod.WaitForPodSuccessInNamespaceSlow(ctx, tpod.client, tpod.pod.Name, tpod.namespace.Name); err != nil {
+			if err := e2epod.WaitForPodSuccessInNamespaceTimeout(ctx, tpod.client, tpod.pod.Name, tpod.namespace.Name, 15*time.Minute); err != nil {
 				ginkgo.By(fmt.Sprintf("hit error(%v) in first run, give another try", err))
 			}
 			tpod.WaitForSuccess(ctx)
