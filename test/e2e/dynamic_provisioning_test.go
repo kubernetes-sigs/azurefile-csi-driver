@@ -1376,10 +1376,11 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			CSIDriver: testDriver,
 			Pods:      pods,
 			StorageClassParameters: map[string]string{
-				"skuName":          "Premium_LRS",
-				"protocol":         "nfs",
-				"rootSquashType":   "RootSquash",
-				"mountPermissions": "0755",
+				"skuName":              "Premium_LRS",
+				"protocol":             "nfs",
+				"rootSquashType":       "RootSquash",
+				"mountPermissions":     "0755",
+				"allowSharedKeyAccess": "false",
 			},
 		}
 		test.Run(ctx, cs, ns)
