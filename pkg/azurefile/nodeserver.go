@@ -79,7 +79,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 				setKeyValueInMap(context, getAccountKeyFromSecretField, trueValue)
 				setKeyValueInMap(context, storageAccountField, "")
 			}
-			klog.V(2).Infof("NodePublishVolume: ephemeral volume(%s) mount on %s, VolumeContext: %v", volumeID, target, context)
+			klog.V(2).Infof("NodePublishVolume: ephemeral volume(%s) mount on %s", volumeID, target)
 			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
 				StagingTargetPath: target,
 				VolumeContext:     context,
@@ -323,7 +323,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}
 	}
 
-	klog.V(2).Infof("cifsMountPath(%v) fstype(%v) volumeID(%v) context(%v) mountflags(%v) mountOptions(%v) volumeMountGroup(%s)", cifsMountPath, fsType, volumeID, context, mountFlags, mountOptions, volumeMountGroup)
+	klog.V(2).Infof("cifsMountPath(%v) fstype(%v) volumeID(%v) mountflags(%v) mountOptions(%v) volumeMountGroup(%s)", cifsMountPath, fsType, volumeID, mountFlags, mountOptions, volumeMountGroup)
 
 	isDirMounted, err := d.ensureMountPoint(cifsMountPath, os.FileMode(mountPermissions))
 	if err != nil {

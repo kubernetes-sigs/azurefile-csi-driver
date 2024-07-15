@@ -113,6 +113,7 @@ const (
 	getAccountKeyFromSecretField      = "getaccountkeyfromsecret"
 	disableDeleteRetentionPolicyField = "disabledeleteretentionpolicy"
 	allowBlobPublicAccessField        = "allowblobpublicaccess"
+	allowSharedKeyAccessField         = "allowsharedkeyaccess"
 	storageEndpointSuffixField        = "storageendpointsuffix"
 	fsGroupChangePolicyField          = "fsgroupchangepolicy"
 	ephemeralField                    = "csi.storage.k8s.io/ephemeral"
@@ -185,6 +186,8 @@ const (
 	SnapshotID       = "snapshot_id"
 
 	FSGroupChangeNone = "None"
+	// define tag value delimiter and default is comma
+	tagValueDelimiterField = "tagValueDelimiter"
 )
 
 var (

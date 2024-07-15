@@ -676,7 +676,52 @@ func TestCreateVolume(t *testing.T) {
 			},
 		},
 		{
-			name: "No valid key with zero request gib",
+			name: "Failed with storeAccountKey is not supported for account with shared access key disabled",
+			testFunc: func(t *testing.T) {
+				allParam := map[string]string{
+					skuNameField:              "premium",
+					storageAccountTypeField:   "stoacctype",
+					locationField:             "loc",
+					storageAccountField:       "stoacc",
+					resourceGroupField:        "rg",
+					shareNameField:            "",
+					diskNameField:             "diskname.vhd",
+					fsTypeField:               "",
+					storeAccountKeyField:      "storeaccountkey",
+					secretNamespaceField:      "default",
+					mountPermissionsField:     "0755",
+					accountQuotaField:         "1000",
+					allowSharedKeyAccessField: "false",
+				}
+
+				fakeCloud := &azure.Cloud{
+					Config: azure.Config{
+						ResourceGroup: "rg",
+						Location:      "loc",
+						VnetName:      "fake-vnet",
+						SubnetName:    "fake-subnet",
+					},
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name-vol-cap-invalid",
+					CapacityRange:      stdCapRange,
+					VolumeCapabilities: stdVolCap,
+					Parameters:         allParam,
+				}
+				d := NewFakeDriver()
+
+				d.cloud = fakeCloud
+
+				expectedErr := status.Errorf(codes.InvalidArgument, "storeAccountKey is not supported for account with shared access key disabled")
+				_, err := d.CreateVolume(ctx, req)
+				if !reflect.DeepEqual(err, expectedErr) {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name: "fileServicePropertiesCache is nil",
 			testFunc: func(t *testing.T) {
 				name := "baz"
 				sku := "sku"
@@ -735,7 +780,7 @@ func TestCreateVolume(t *testing.T) {
 				mockFileClient.EXPECT().GetServiceProperties(context.TODO(), gomock.Any(), gomock.Any()).Return(fileServiceProperties, nil).AnyTimes()
 				mockFileClient.EXPECT().SetServiceProperties(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fileServiceProperties, nil).AnyTimes()
 
-				expectedErr := fmt.Errorf("no valid keys")
+				expectedErr := fmt.Errorf("failed to ensure storage account: fileServicePropertiesCache is nil")
 
 				_, err := d.CreateVolume(ctx, req)
 				if !strings.Contains(err.Error(), expectedErr.Error()) {
