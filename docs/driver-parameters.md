@@ -114,13 +114,13 @@ kubectl create secret generic azure-storage-account-{accountname}-secret --from-
 
 ### Tips
   - mounting Azure SMB File share requires account key
-    - If you set `storeAccountKey: "false"` in the storage class, the driver will not store the account key as a Kubernetes secret.
+    - If you set `storeAccountKey: "false"` in the storage class, the driver will not store the account key as a Kubernetes secret,  the driver will not store the account key as a Kubernetes secret. Instead, it will use the kubelet identity to obtain the account key.
     - if the `nodeStageSecretRef` field is not specified in the persistent volume (PV) configuration, the driver will attempt to retrieve the `azure-storage-account-{accountname}-secret` in the pod namespace. 
     - If `azure-storage-account-{accountname}-secret` in the pod namespace does not exist, the driver will use the kubelet identity to retrieve the account key directly from the Azure storage account API, provided that the kubelet identity has reader access to the storage account.
   - mounting Azure NFS File share does not require account key, NFS mount access is configured by either of the following settings:
     - `Firewalls and virtual networks`: select `Enabled from selected virtual networks and IP addresses` with same vnet as agent node
     - `Private endpoint connections`
-  - If a storage account is full, the driver will add a tag `skip-matching` to the storage account to prevent the creation of new file shares in that account. This tag will only be removed after 30 minutes if a file share is deleted from that account. To use the account immediately, the user can manually remove the tag.
+  - In case a storage account is full, the driver will add a `skip-matching` tag to the account to prevent the creation of new file shares. This tag will remain for 30 minutes after a file share is deleted from the account. If the user wants to use the account immediately, they can manually remove the tag.
   - The default NFS mount options in this driver are `vers=4,minorversion=1,sec=sys`. It is not supported to specify these NFS mount options, including `nfsvers`.
 
 #### `shareName` parameter supports following pv/pvc metadata conversion
