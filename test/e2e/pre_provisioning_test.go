@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
+	"strings"
 
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/testsuites"
@@ -28,16 +29,25 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 	admissionapi "k8s.io/pod-security-admission/api"
 )
 
 const (
-	defaultDiskSize      = 100
-	defaultDiskSizeBytes = defaultDiskSize * 1024 * 1024 * 1024
+	defaultDiskSize       = 100
+	defaultDiskSizeBytes  = defaultDiskSize * 1024 * 1024 * 1024
+	accountNotProvisioned = "StorageAccountIsNotProvisioned"
+	// this is a workaround fix for 429 throttling issue, will update cloud provider for better fix later
+	tooManyRequests   = "TooManyRequests"
+	shareBeingDeleted = "The specified share is being deleted"
+	clientThrottled   = "client throttled"
 )
 
+var (
+	retriableErrors = []string{accountNotProvisioned, tooManyRequests, shareBeingDeleted, clientThrottled}
+)
 var _ = ginkgo.Describe("Pre-Provisioned", func() {
 	f := framework.NewDefaultFramework("azurefile")
 	f.NamespacePodSecurityEnforceLevel = admissionapi.LevelPrivileged
@@ -63,7 +73,16 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 		testDriver = driver.InitAzureFileDriver()
 
 		volName := fmt.Sprintf("pre-provisioned-%d-%v", ginkgo.GinkgoParallelProcess(), strconv.Itoa(rand.Intn(10000)))
-		resp, err := azurefileDriver.CreateVolume(ctx, makeCreateVolumeReq(volName, ns.Name))
+		var resp *csi.CreateVolumeResponse
+		err := wait.ExponentialBackoff(wait.Backoff{Steps: 1}, func() (bool, error) {
+			var createErr error
+			resp, createErr = azurefileDriver.CreateVolume(ctx, makeCreateVolumeReq(volName, ns.Name))
+			if isRetriableError(createErr) {
+				framework.Logf("create volume retriable error: %v", createErr)
+				return false, nil
+			}
+			return true, createErr
+		})
 		framework.ExpectNoError(err, "create volume error")
 		volumeID = resp.Volume.VolumeId
 
@@ -259,4 +278,15 @@ func makeCreateVolumeReq(volumeName, secretNamespace string) *csi.CreateVolumeRe
 	}
 
 	return req
+}
+
+func isRetriableError(err error) bool {
+	if err != nil {
+		for _, v := range retriableErrors {
+			if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(v)) {
+				return true
+			}
+		}
+	}
+	return false
 }
