@@ -49,7 +49,7 @@ selectRandomMatchingAccount | whether randomly selecting a matching account, by 
 accountQuota | to limit the quota for an account, you can specify a maximum quota in GB (`102400`GB by default). If the account exceeds the specified quota, the driver would skip selecting the account | `` | No | `102400`
 --- | **Following parameters are only for SMB protocol** | --- | --- |
 subscriptionID | specify Azure subscription ID where Azure file share will be created | Azure subscription ID | No | if not empty, `resourceGroup` must be provided
-storeAccountKey | whether store account key to k8s secret <br><br> Note:  <br> `false` means driver would leverage kubelet identity to get account key | `true`,`false` | No | `true`
+storeAccountKey | Should the storage account key be stored in a Kubernetes secret <br> (Note:  if set to `false`, the driver will use the kubelet identity to obtain the account key) | `true`,`false` | No | `true`
 getLatestAccountKey | whether getting the latest account key based on the creation time, this driver would get the first key by default | `true`,`false` | No | `false`
 secretName | specify secret name to store account key | | No |
 secretNamespace | specify the namespace of secret to store account key | `default`,`kube-system`, etc | No | pvc namespace (`csi.storage.k8s.io/pvc/namespace`)
@@ -114,7 +114,7 @@ kubectl create secret generic azure-storage-account-{accountname}-secret --from-
 
 ### Tips
   - mounting Azure SMB File share requires account key
-    - set `storeAccountKey: "false"` in storage class would make driver **not** store account key as k8s secret
+    - If you set `storeAccountKey: "false"` in the storage class, the driver will not store the account key as a Kubernetes secret.
     - if the `nodeStageSecretRef` field is not specified in the persistent volume (PV) configuration, the driver will attempt to retrieve the `azure-storage-account-{accountname}-secret` in the pod namespace. 
     - If `azure-storage-account-{accountname}-secret` in the pod namespace does not exist, the driver will use the kubelet identity to retrieve the account key directly from the Azure storage account API, provided that the kubelet identity has reader access to the storage account.
   - mounting Azure NFS File share does not require account key, NFS mount access is configured by either of the following settings:
