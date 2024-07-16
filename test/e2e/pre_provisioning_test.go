@@ -17,6 +17,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -88,7 +89,7 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 
 		ginkgo.DeferCleanup(func() {
 			_, err := azurefileDriver.DeleteVolume(
-				ctx,
+				context.TODO(),
 				&csi.DeleteVolumeRequest{
 					VolumeId: volumeID,
 				})
