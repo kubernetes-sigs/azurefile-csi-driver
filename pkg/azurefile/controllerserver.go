@@ -64,6 +64,8 @@ const (
 	SPN                    = "SPN"
 
 	authorizationPermissionMismatch = "AuthorizationPermissionMismatch"
+
+	createdByMetadata = "createdBy"
 )
 
 var (
@@ -569,6 +571,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		RequestGiB: fileShareSize,
 		AccessTier: shareAccessTier,
 		RootSquash: rootSquashType,
+		Metadata:   map[string]*string{createdByMetadata: pointer.String(d.Name)},
 	}
 
 	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) subID(%s) rg(%s) location(%s) size(%d) protocol(%s)", validFileShareName, accountName, sku, subsID, resourceGroup, location, fileShareSize, shareProtocol)
