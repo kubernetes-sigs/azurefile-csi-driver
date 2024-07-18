@@ -1399,8 +1399,6 @@ func TestCreateVolume(t *testing.T) {
 					CapacityRange:      capRange,
 				}
 
-				expectedShareOptions := &fileclient.ShareOptions{Name: "vol-1", Protocol: "SMB", RequestGiB: 100, AccessTier: "", RootSquash: "", Metadata: nil}
-
 				d := NewFakeDriver()
 
 				ctrl := gomock.NewController(t)
@@ -1410,7 +1408,7 @@ func TestCreateVolume(t *testing.T) {
 				d.cloud.StorageAccountClient = mockStorageAccountsClient
 
 				mockFileClient.EXPECT().WithSubscriptionID(gomock.Any()).Return(mockFileClient).AnyTimes()
-				mockFileClient.EXPECT().CreateFileShare(context.TODO(), gomock.Any(), gomock.Any(), expectedShareOptions, gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
+				mockFileClient.EXPECT().CreateFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
 				mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
@@ -1460,8 +1458,6 @@ func TestCreateVolume(t *testing.T) {
 					CapacityRange:      capRange,
 				}
 
-				expectedShareOptions := &fileclient.ShareOptions{Name: "vol-1", Protocol: "SMB", RequestGiB: 100, AccessTier: "", RootSquash: "", Metadata: nil}
-
 				d := NewFakeDriver()
 
 				ctrl := gomock.NewController(t)
@@ -1471,7 +1467,7 @@ func TestCreateVolume(t *testing.T) {
 				d.cloud.StorageAccountClient = mockStorageAccountsClient
 
 				mockFileClient.EXPECT().WithSubscriptionID(gomock.Any()).Return(mockFileClient).AnyTimes()
-				mockFileClient.EXPECT().CreateFileShare(context.TODO(), gomock.Any(), gomock.Any(), expectedShareOptions, gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
+				mockFileClient.EXPECT().CreateFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
 				mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
@@ -1519,8 +1515,6 @@ func TestCreateVolume(t *testing.T) {
 					CapacityRange:      capRange,
 				}
 
-				expectedShareOptions := &fileclient.ShareOptions{Name: "vol-1", Protocol: "SMB", RequestGiB: 1, AccessTier: "", RootSquash: "", Metadata: nil}
-
 				d := NewFakeDriver()
 
 				ctrl := gomock.NewController(t)
@@ -1530,7 +1524,7 @@ func TestCreateVolume(t *testing.T) {
 				d.cloud.StorageAccountClient = mockStorageAccountsClient
 
 				mockFileClient.EXPECT().WithSubscriptionID(gomock.Any()).Return(mockFileClient).AnyTimes()
-				mockFileClient.EXPECT().CreateFileShare(context.TODO(), gomock.Any(), gomock.Any(), expectedShareOptions, gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
+				mockFileClient.EXPECT().CreateFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
 				mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().ListByResourceGroup(gomock.Any(), gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
