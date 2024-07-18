@@ -216,7 +216,7 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 		test.Run(ctx, cs, ns)
 	})
 
-	ginkgo.It("should use provided credentials [file.csi.azure.com] [Windows]", ginkgo.Label("flaky"), func(ctx ginkgo.SpecContext) {
+	ginkgo.It("should use provided credentials [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
 		// Az tests are not yet working for in tree driver
 		skipIfUsingInTreeVolumePlugin()
 
