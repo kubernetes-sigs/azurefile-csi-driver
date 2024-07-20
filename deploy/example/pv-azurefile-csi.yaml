@@ -19,7 +19,9 @@ spec:
     - gid=0
     - mfsymlinks
     - cache=strict  # https://linux.die.net/man/8/mount.cifs
-    - nosharesock
+    - nosharesock  # reduce probability of reconnect race
+    - actimeo=30  # reduce latency for metadata-heavy workload
+    - nobrl  # disable sending byte range lock requests to the server and for applications which have challenges with posix locks
   csi:
     driver: file.csi.azure.com
     # make sure volumeid is unique for every identical share in the cluster

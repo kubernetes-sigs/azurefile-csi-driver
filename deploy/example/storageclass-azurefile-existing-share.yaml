@@ -20,3 +20,4 @@ mountOptions:
   - cache=strict  # https://linux.die.net/man/8/mount.cifs
   - nosharesock  # reduce probability of reconnect race
   - actimeo=30  # reduce latency for metadata-heavy workload
+  - nobrl  # disable sending byte range lock requests to the server and for applications which have challenges with posix locks
