@@ -39,7 +39,7 @@ spec:
           type: RuntimeDefault
         windowsOptions:
           hostProcess: true
-          runAsUserName: "NT AUTHORITY\\SYSTEM"
+          runAsUserName: "NT AUTHORITY\\Local service"
       hostNetwork: true
       initContainers:
         - name: init
