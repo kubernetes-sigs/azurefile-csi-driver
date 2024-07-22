@@ -29,11 +29,12 @@ import (
 // DynamicallyProvisionedVolumeCloningTest will provision required StorageClass(es), PVC(s) and Pod(s)
 // ClonedVolumeSize optional for when testing for cloned volume with different size to the original volume
 type DynamicallyProvisionedVolumeCloningTest struct {
-	CSIDriver              driver.DynamicPVTestDriver
-	Pod                    PodDetails
-	PodWithClonedVolume    PodDetails
-	ClonedVolumeSize       string
-	StorageClassParameters map[string]string
+	CSIDriver                    driver.DynamicPVTestDriver
+	Pod                          PodDetails
+	PodWithClonedVolume          PodDetails
+	ClonedVolumeSize             string
+	StorageClassParameters       map[string]string
+	ClonedStorageClassParameters map[string]string
 }
 
 func (t *DynamicallyProvisionedVolumeCloningTest) Run(ctx context.Context, client clientset.Interface, namespace *v1.Namespace) {
@@ -69,7 +70,11 @@ func (t *DynamicallyProvisionedVolumeCloningTest) Run(ctx context.Context, clien
 	}
 
 	t.PodWithClonedVolume.Volumes = []VolumeDetails{clonedVolume}
-	tpod, cleanups = t.PodWithClonedVolume.SetupWithDynamicVolumes(ctx, client, namespace, t.CSIDriver, t.StorageClassParameters)
+	clonedStorageClassParameters := t.StorageClassParameters
+	if t.ClonedStorageClassParameters != nil {
+		clonedStorageClassParameters = t.ClonedStorageClassParameters
+	}
+	tpod, cleanups = t.PodWithClonedVolume.SetupWithDynamicVolumes(ctx, client, namespace, t.CSIDriver, clonedStorageClassParameters)
 	for i := range cleanups {
 		defer cleanups[i](ctx)
 	}
