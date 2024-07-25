@@ -17,6 +17,7 @@ limitations under the License.
 package azurefile
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"regexp"
@@ -27,6 +28,8 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/volume"
 )
@@ -318,16 +321,20 @@ func isReadOnlyFromCapability(vc *csi.VolumeCapability) bool {
 		mode == csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY)
 }
 
-func getConfidentialRuntimeClasses() []string {
-	return []string{"kata-cc", "kata-cc-isolation"}
-}
+const confidentialRuntimeClassHandler = "kata-cc"
 
 // check if runtimeClass is confidential
-func isConfidentialRuntimeClass(runtimeClass string) bool {
-	for _, confidentialRuntimeClass := range getConfidentialRuntimeClasses() {
-		if runtimeClass == confidentialRuntimeClass {
-			return true
-		}
+func isConfidentialRuntimeClass(ctx context.Context, kubeClient clientset.Interface, runtimeClassName string) (bool, error) {
+	if kubeClient == nil {
+		klog.Warningf("kubeClient is nil")
+		return false, fmt.Errorf("kubeClient is nil")
 	}
-	return false
+	runtimeClassClient := kubeClient.NodeV1().RuntimeClasses()
+	runtimeClass, err := runtimeClassClient.Get(ctx, runtimeClassName, metav1.GetOptions{})
+	if err != nil {
+		klog.Warningf("Failed to get runtimeClass %s: %v", runtimeClassName, err)
+		return false, err
+	}
+	klog.Infof("runtimeClass %s handler: %s", runtimeClassName, runtimeClass.Handler)
+	return runtimeClass.Handler == confidentialRuntimeClassHandler, nil
 }

@@ -50,19 +50,10 @@ var (
 	storageService = "Microsoft.Storage"
 )
 
-func getRuntimeClassForPod(ctx context.Context, kubeconfig, podName string, podNameSpace string) (string, error) {
-	var (
-		kubeClient *clientset.Clientset
-	)
-	kubeCfg, err := getKubeConfig(kubeconfig, false)
-	if err != nil {
-		klog.Warningf("getKubeConfig(%s) failed with error: %v", kubeconfig, err)
-		return "", err
-	}
-	kubeClient, err = clientset.NewForConfig(kubeCfg)
-	if err != nil {
-		klog.Warningf("NewForConfig failed with error: %v", err)
-		return "", err
+func getRuntimeClassForPod(ctx context.Context, kubeClient clientset.Interface, podName string, podNameSpace string) (string, error) {
+	if kubeClient == nil {
+		klog.Warningf("kubeClient is nil")
+		return "", fmt.Errorf("kubeClient is nil")
 	}
 	// Get runtime class for pod
 	pod, err := kubeClient.CoreV1().Pods(podNameSpace).Get(ctx, podName, metav1.GetOptions{})

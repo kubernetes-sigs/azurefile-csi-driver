@@ -161,6 +161,8 @@ spec:
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
           volumeMounts:
+            - mountPath: /run/kata-containers/shared/direct-volumes
+              name: kata-direct-volumes          
             - mountPath: /csi
               name: socket-dir
             - mountPath: /root/.azcopy
@@ -186,3 +188,8 @@ spec:
           hostPath:
             path: /etc/kubernetes/
             type: DirectoryOrCreate
+        - name: kata-direct-volumes 
+          hostPath:
+              path: /run/kata-containers/shared/direct-volumes/
+              type: DirectoryOrCreate
+          
