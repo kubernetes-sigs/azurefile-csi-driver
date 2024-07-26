@@ -105,7 +105,7 @@ kubectl debug node/{node-name} --image=nginx
 kubectl cp node-debugger-{node-name-xxxx}:/host/var/log/messages /tmp/messages
 kubectl cp node-debugger-{node-name-xxxx}:/host/var/log/syslog /tmp/syslog
 kubectl cp node-debugger-{node-name-xxxx}:/host/var/log/kern.log /tmp/kern.log
-#after log collected, delete the debug pod by:
+# after the logs have been collected, you can delete the debug pod
 kubectl delete po node-debugger-{node-name-xxxx}
 ```
  
