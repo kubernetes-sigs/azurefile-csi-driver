@@ -1,9 +1,6 @@
 module sigs.k8s.io/azurefile-csi-driver
 
 go 1.22.0
-
-toolchain go1.22.5
-
 require (
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.13.0
@@ -42,7 +39,7 @@ require (
 	k8s.io/pod-security-admission v0.30.3
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 	sigs.k8s.io/cloud-provider-azure v1.27.1-0.20240712023313-f3072cb733cb
-	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.0.32
+	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.0.33
 	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.0.16
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -132,12 +129,12 @@ require (
 	go.etcd.io/etcd/client/v3 v3.5.10 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.46.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.0 // indirect
-	go.opentelemetry.io/otel v1.20.0 // indirect
+	go.opentelemetry.io/otel v1.28.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.20.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.20.0 // indirect
-	go.opentelemetry.io/otel/metric v1.20.0 // indirect
+	go.opentelemetry.io/otel/metric v1.28.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.20.0 // indirect
-	go.opentelemetry.io/otel/trace v1.20.0 // indirect
+	go.opentelemetry.io/otel/trace v1.28.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
