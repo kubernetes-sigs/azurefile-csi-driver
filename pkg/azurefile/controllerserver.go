@@ -122,7 +122,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, shareAccessTier, accountAccessTier, rootSquashType string
 	var createAccount, useDataPlaneAPI, useSeretCache, matchTags, selectRandomMatchingAccount, getLatestAccountKey bool
 	var vnetResourceGroup, vnetName, subnetName, shareNamePrefix, fsGroupChangePolicy string
-	var requireInfraEncryption, disableDeleteRetentionPolicy, enableLFS, isMultichannelEnabled *bool
+	var requireInfraEncryption, disableDeleteRetentionPolicy, enableLFS, isMultichannelEnabled, allowSharedKeyAccess *bool
 	// set allowBlobPublicAccess as false by default
 	allowBlobPublicAccess := pointer.Bool(false)
 
@@ -212,6 +212,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s: %s in storage class", allowBlobPublicAccessField, v))
 			}
 			allowBlobPublicAccess = &value
+		case allowSharedKeyAccessField:
+			value, err := strconv.ParseBool(v)
+			if err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s: %s in storage class", allowSharedKeyAccessField, v))
+			}
+			allowSharedKeyAccess = &value
 		case pvcNameKey:
 			fileShareNameReplaceMap[pvcNameMetadata] = v
 		case pvNameKey:
@@ -358,6 +364,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
+	if storeAccountKey && !pointer.BoolDeref(allowSharedKeyAccess, true) {
+		return nil, status.Errorf(codes.InvalidArgument, "storeAccountKey is not supported for account with shared access key disabled")
+	}
+
 	fileShareSize := int(requestGiB)
 	// account kind should be FileStorage for Premium File
 	accountKind := string(storage.KindStorageV2)
@@ -418,6 +428,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		EnableLargeFileShare:                    enableLFS,
 		DisableFileServiceDeleteRetentionPolicy: disableDeleteRetentionPolicy,
 		AllowBlobPublicAccess:                   allowBlobPublicAccess,
+		AllowSharedKeyAccess:                    allowSharedKeyAccess,
 		VNetResourceGroup:                       vnetResourceGroup,
 		VNetName:                                vnetName,
 		SubnetName:                              subnetName,
