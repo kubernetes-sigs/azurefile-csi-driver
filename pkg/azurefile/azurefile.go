@@ -114,6 +114,7 @@ const (
 	getAccountKeyFromSecretField      = "getaccountkeyfromsecret"
 	disableDeleteRetentionPolicyField = "disabledeleteretentionpolicy"
 	allowBlobPublicAccessField        = "allowblobpublicaccess"
+	allowSharedKeyAccessField         = "allowsharedkeyaccess"
 	storageEndpointSuffixField        = "storageendpointsuffix"
 	fsGroupChangePolicyField          = "fsgroupchangepolicy"
 	ephemeralField                    = "csi.storage.k8s.io/ephemeral"
