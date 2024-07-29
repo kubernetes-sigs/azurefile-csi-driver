@@ -31,6 +31,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
 	"github.com/Azure/azure-storage-file-go/azfile"
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	grpcprom "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	"github.com/pborman/uuid"
 	"github.com/rubiojr/go-vhd/vhd"
 	"google.golang.org/grpc"
@@ -409,7 +410,11 @@ func (d *Driver) Run(ctx context.Context) error {
 
 	//setup grpc server
 	opts := []grpc.ServerOption{
-		grpc.UnaryInterceptor(csicommon.LogGRPC),
+		// TODO: add more interceptors.
+		grpc.ChainUnaryInterceptor(
+			grpcprom.NewServerMetrics().UnaryServerInterceptor(),
+			csicommon.LogGRPC,
+		),
 	}
 	server := grpc.NewServer(opts...)
 	csi.RegisterIdentityServer(server, d)
