@@ -1,6 +1,6 @@
 ## CSI driver debug tips
 ### case#1: volume create/delete issue
-> If you are using [managed CSI driver on AKS](https://docs.microsoft.com/en-us/azure/aks/azure-csi-blob-storage-dynamic), this step does not apply since the driver controller is not visible to the user.
+> If you are using [managed CSI driver on AKS](https://docs.microsoft.com/en-us/azure/aks/csi-storage-drivers), this step does not apply since the driver controller is not visible to the user.
  - find csi driver controller pod
 > There could be multiple controller pods (only one pod is the leader), if there are no helpful logs, try to get logs from the leader controller pod.
 ```console
