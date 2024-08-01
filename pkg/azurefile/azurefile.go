@@ -288,7 +288,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.allowEmptyCloudConfig = options.AllowEmptyCloudConfig
 	driver.allowInlineVolumeKeyAccessWithIdentity = options.AllowInlineVolumeKeyAccessWithIdentity
 	driver.enableVHDDiskFeature = options.EnableVHDDiskFeature
-	driver.enableKataCCMount = true
+	driver.enableKataCCMount = options.EnableKataCCMount
 	driver.enableVolumeMountGroup = options.EnableVolumeMountGroup
 	driver.enableGetVolumeStats = options.EnableGetVolumeStats
 	driver.appendMountErrorHelpLink = options.AppendMountErrorHelpLink
