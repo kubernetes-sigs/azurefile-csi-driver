@@ -21,9 +21,9 @@ COPY ${binary} /azurefileplugin
 RUN apt update && apt upgrade -y && apt-mark unhold libcap2 && clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase wget
 
 # install azcopy
-ARG azcopyURL=https://azcopyvnext.azureedge.net/releases/release-10.25.1-20240612/azcopy_linux_amd64_10.25.1.tar.gz
+ARG azcopyURL=https://azcopyvnext.azureedge.net/releases/release-10.26.0-20240731/azcopy_linux_amd64_10.26.0.tar.gz
 RUN if [ "$ARCH" == "arm64" ] ; then \
-  azcopyURL=https://azcopyvnext.azureedge.net/releases/release-10.25.1-20240612/azcopy_linux_arm64_10.25.1.tar.gz; fi
+  azcopyURL=https://azcopyvnext.azureedge.net/releases/release-10.26.0-20240731/azcopy_linux_arm64_10.26.0.tar.gz; fi
 RUN wget -O azcopy.tar.gz ${azcopyURL} && \
   tar xvzf azcopy.tar.gz -C . && rm azcopy.tar.gz && \
   mv ./azcopy_linux_$ARCH_*/azcopy /usr/local/bin/azcopy && \
