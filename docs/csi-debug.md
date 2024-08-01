@@ -1,6 +1,6 @@
 ## CSI driver debug tips
 ### case#1: volume create/delete issue
-> This step is not applicable if you are using [managed CSI driver on AKS](https://docs.microsoft.com/en-us/azure/aks/csi-storage-drivers).
+> If you are using [managed CSI driver on AKS](https://docs.microsoft.com/en-us/azure/aks/azure-csi-blob-storage-dynamic), this step does not apply since the driver controller is not visible to the user.
  - find csi driver controller pod
 > There could be multiple controller pods (only one pod is the leader), if there are no helpful logs, try to get logs from the leader controller pod.
 ```console
@@ -89,11 +89,16 @@ change below deployment config, e.g.
 
 ### troubleshooting connection failure on agent node
 > server address of sovereign cloud: accountname.file.core.chinacloudapi.cn
-##### SMB
+#### SMB
  - On Linux node
 ```console
 mkdir /tmp/test
 sudo mount -v -t cifs //accountname.file.core.windows.net/filesharename /tmp/test -o  username=accountname,password=accountkey,dir_mode=0777,file_mode=0777,cache=strict,actimeo=30
+```
+
+#### get os version on the node
+```console
+uname -a
 ```
 
 <details><summary>
