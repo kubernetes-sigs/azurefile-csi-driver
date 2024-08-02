@@ -188,6 +188,8 @@ func (d *Driver) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVo
 	if err := CleanupMountPoint(d.mounter, targetPath, true /*extensiveMountPointCheck*/); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to unmount target %s: %v", targetPath, err)
 	}
+	// Remove deletes the direct volume path including all the files inside it.
+	// if there is no kata-cc mountinfo present on this path, it will return nil.
 	if err := directvolume.Remove(targetPath); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to direct volume remove mount info %s: %v", targetPath, err)
 	}
