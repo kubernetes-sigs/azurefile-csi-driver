@@ -368,15 +368,9 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 		if !pointer.BoolDeref(createPrivateEndpoint, false) {
 			// set VirtualNetworkResourceIDs for storage account firewall setting
-			subnets := strings.Split(subnetName, ",")
-			for _, subnet := range subnets {
-				subnet = strings.TrimSpace(subnet)
-				vnetResourceID := d.getSubnetResourceID(vnetResourceGroup, vnetName, subnet)
-				klog.V(2).Infof("set vnetResourceID(%s) for NFS protocol", vnetResourceID)
-				vnetResourceIDs = append(vnetResourceIDs, vnetResourceID)
-				if err := d.updateSubnetServiceEndpoints(ctx, vnetResourceGroup, vnetName, subnet); err != nil {
-					return nil, status.Errorf(codes.Internal, "update service endpoints failed with error: %v", err)
-				}
+			var err error
+			if vnetResourceIDs, err = d.updateSubnetServiceEndpoints(ctx, vnetResourceGroup, vnetName, subnetName); err != nil {
+				return nil, status.Errorf(codes.Internal, "update service endpoints failed with error: %v", err)
 			}
 		}
 	}
