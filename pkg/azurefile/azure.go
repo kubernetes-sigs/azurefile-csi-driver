@@ -34,6 +34,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader"
+	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
 	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
 )
@@ -195,6 +196,16 @@ func (d *Driver) updateSubnetServiceEndpoints(ctx context.Context, vnetResourceG
 	}
 
 	lockKey := vnetResourceGroup + vnetName + subnetName
+	cache, err := d.subnetCache.Get(lockKey, azcache.CacheReadTypeDefault)
+	if err != nil {
+		return nil, err
+	}
+	if cache != nil {
+		vnetResourceIDs = cache.([]string)
+		klog.V(2).Infof("subnet %s under vnet %s in rg %s is already updated, vnetResourceIDs: %v", subnetName, vnetName, vnetResourceGroup, vnetResourceIDs)
+		return vnetResourceIDs, nil
+	}
+
 	d.subnetLockMap.LockEntry(lockKey)
 	defer d.subnetLockMap.UnlockEntry(lockKey)
 
@@ -204,17 +215,17 @@ func (d *Driver) updateSubnetServiceEndpoints(ctx context.Context, vnetResourceG
 		subnetNames := strings.Split(subnetName, ",")
 		for _, sn := range subnetNames {
 			sn = strings.TrimSpace(sn)
-			subnet, err := d.cloud.SubnetsClient.Get(ctx, vnetResourceGroup, vnetName, sn, "")
-			if err != nil {
-				return vnetResourceIDs, fmt.Errorf("failed to get the subnet %s under rg %s vnet %s: %v", subnetName, vnetResourceGroup, vnetName, err)
+			subnet, rerr := d.cloud.SubnetsClient.Get(ctx, vnetResourceGroup, vnetName, sn, "")
+			if rerr != nil {
+				return vnetResourceIDs, fmt.Errorf("failed to get the subnet %s under rg %s vnet %s: %v", subnetName, vnetResourceGroup, vnetName, rerr.Error())
 			}
 			subnets = append(subnets, subnet)
 		}
 	} else {
-		var err *retry.Error
-		subnets, err = d.cloud.SubnetsClient.List(ctx, vnetResourceGroup, vnetName)
-		if err != nil {
-			return vnetResourceIDs, fmt.Errorf("failed to list the subnets under rg %s vnet %s: %v", vnetResourceGroup, vnetName, err.Error())
+		var rerr *retry.Error
+		subnets, rerr = d.cloud.SubnetsClient.List(ctx, vnetResourceGroup, vnetName)
+		if rerr != nil {
+			return vnetResourceIDs, fmt.Errorf("failed to list the subnets under rg %s vnet %s: %v", vnetResourceGroup, vnetName, rerr.Error())
 		}
 	}
 
@@ -223,7 +234,7 @@ func (d *Driver) updateSubnetServiceEndpoints(ctx context.Context, vnetResourceG
 			return vnetResourceIDs, fmt.Errorf("subnet name is nil")
 		}
 		sn := *subnet.Name
-		vnetResourceID := d.getSubnetResourceID(vnetResourceGroup, vnetName, *subnet.Name)
+		vnetResourceID := d.getSubnetResourceID(vnetResourceGroup, vnetName, sn)
 		klog.V(2).Infof("set vnetResourceID %s", vnetResourceID)
 		vnetResourceIDs = append(vnetResourceIDs, vnetResourceID)
 
@@ -258,7 +269,8 @@ func (d *Driver) updateSubnetServiceEndpoints(ctx context.Context, vnetResourceG
 			}
 		}
 	}
-
+	// cache the subnet update
+	d.subnetCache.Set(lockKey, vnetResourceIDs)
 	return vnetResourceIDs, nil
 }
 
