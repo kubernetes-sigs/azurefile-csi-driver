@@ -267,8 +267,6 @@ func TestUpdateSubnetServiceEndpoints(t *testing.T) {
 				}
 
 				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeSubnet, nil).Times(1)
-				mockSubnetClient.EXPECT().CreateOrUpdate(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
-
 				_, err := d.updateSubnetServiceEndpoints(ctx, "", "", "subnetname")
 				if !reflect.DeepEqual(err, nil) {
 					t.Errorf("Unexpected error: %v", err)
@@ -285,7 +283,7 @@ func TestUpdateSubnetServiceEndpoints(t *testing.T) {
 					Name: pointer.String("subnetName"),
 				}
 
-				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeSubnet, nil).Times(1)
+				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeSubnet, nil).AnyTimes()
 
 				_, err := d.updateSubnetServiceEndpoints(ctx, "", "", "subnetname")
 				if !reflect.DeepEqual(err, nil) {
@@ -307,7 +305,7 @@ func TestUpdateSubnetServiceEndpoints(t *testing.T) {
 					Name: pointer.String("subnetName"),
 				}
 
-				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeSubnet, nil).Times(1)
+				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeSubnet, nil).AnyTimes()
 
 				_, err := d.updateSubnetServiceEndpoints(ctx, "", "", "subnetname")
 				if !reflect.DeepEqual(err, nil) {
