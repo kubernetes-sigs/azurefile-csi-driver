@@ -148,6 +148,7 @@ type TestPersistentVolumeClaim struct {
 	persistentVolumeClaim          *v1.PersistentVolumeClaim
 	requestedPersistentVolumeClaim *v1.PersistentVolumeClaim
 	dataSource                     *v1.TypedLocalObjectReference
+	AccessModes                    []v1.PersistentVolumeAccessMode
 }
 
 func NewTestPersistentVolumeClaim(c clientset.Interface, ns *v1.Namespace, claimSize string, volumeMode VolumeMode, sc *storagev1.StorageClass) *TestPersistentVolumeClaim {
@@ -188,6 +189,10 @@ func (t *TestPersistentVolumeClaim) Create(ctx context.Context) {
 		storageClassName = t.storageClass.Name
 	}
 	t.requestedPersistentVolumeClaim = generatePVC(t.namespace.Name, storageClassName, t.claimSize, t.volumeMode, t.dataSource)
+	if len(t.AccessModes) > 0 {
+		ginkgo.By("setting access modes")
+		t.requestedPersistentVolumeClaim.Spec.AccessModes = t.AccessModes
+	}
 	t.persistentVolumeClaim, err = t.client.CoreV1().PersistentVolumeClaims(t.namespace.Name).Create(ctx, t.requestedPersistentVolumeClaim, metav1.CreateOptions{})
 	framework.ExpectNoError(err)
 }
