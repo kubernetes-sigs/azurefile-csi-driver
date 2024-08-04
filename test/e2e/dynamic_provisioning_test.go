@@ -355,7 +355,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				Cmd: convertToPowershellCommandIfNecessary("touch /mnt/test-1/data"),
 				Volumes: []testsuites.VolumeDetails{
 					{
-						FSType:    "ext4",
 						ClaimSize: "10Gi",
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
@@ -374,6 +373,70 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		if !isUsingInTreeVolumePlugin {
 			scParameters["allowBlobPublicAccess"] = "true"
 			scParameters["shareAccessTier"] = "Cool"
+		}
+		test := testsuites.DynamicallyProvisionedReadOnlyVolumeTest{
+			CSIDriver:              testDriver,
+			Pods:                   pods,
+			StorageClassParameters: scParameters,
+		}
+		test.Run(ctx, cs, ns)
+	})
+
+	ginkgo.It("should create a smb volume on demand and mount it as readOnly when volume access mode is readonly [kubernetes.io/azure-file] [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
+		skipIfUsingInTreeVolumePlugin()
+		skipIfTestingInWindowsCluster()
+
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: convertToPowershellCommandIfNecessary("touch /mnt/test-1/data"),
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize: "10Gi",
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+						AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadOnlyMany},
+					},
+				},
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
+			},
+		}
+		scParameters := map[string]string{
+			"skuName": "Standard_LRS",
+		}
+		test := testsuites.DynamicallyProvisionedReadOnlyVolumeTest{
+			CSIDriver:              testDriver,
+			Pods:                   pods,
+			StorageClassParameters: scParameters,
+		}
+		test.Run(ctx, cs, ns)
+	})
+
+	ginkgo.It("should create a nfs volume on demand and mount it as readOnly when volume access mode is readonly [kubernetes.io/azure-file] [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
+		skipIfUsingInTreeVolumePlugin()
+		skipIfTestingInWindowsCluster()
+
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: convertToPowershellCommandIfNecessary("touch /mnt/test-1/data"),
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize: "10Gi",
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+						AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadOnlyMany},
+					},
+				},
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
+			},
+		}
+		scParameters := map[string]string{
+			"protocol": "nfs",
 		}
 		test := testsuites.DynamicallyProvisionedReadOnlyVolumeTest{
 			CSIDriver:              testDriver,

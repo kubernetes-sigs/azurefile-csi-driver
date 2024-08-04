@@ -57,6 +57,7 @@ type VolumeDetails struct {
 	StorageClass       *storagev1.StorageClass
 	ShareName          string
 	NodeStageSecretRef string
+	AccessModes        []v1.PersistentVolumeAccessMode
 }
 
 type VolumeMode int
@@ -242,6 +243,11 @@ func (volume *VolumeDetails) SetupDynamicPersistentVolumeClaim(ctx context.Conte
 		tpvc = NewTestPersistentVolumeClaimWithDataSource(client, namespace, volume.ClaimSize, volume.VolumeMode, &createdStorageClass, dataSource)
 	} else {
 		tpvc = NewTestPersistentVolumeClaim(client, namespace, volume.ClaimSize, volume.VolumeMode, &createdStorageClass)
+	}
+
+	if len(volume.AccessModes) > 0 {
+		ginkgo.By("setting up the PVC with access modes")
+		tpvc.AccessModes = volume.AccessModes
 	}
 	tpvc.Create(ctx)
 	cleanupFuncs = append(cleanupFuncs, tpvc.Cleanup)

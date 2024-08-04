@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/volume"
@@ -306,4 +307,13 @@ func replaceWithMap(str string, m map[string]string) string {
 		}
 	}
 	return str
+}
+
+func isReadOnlyFromCapability(vc *csi.VolumeCapability) bool {
+	if vc.GetAccessMode() == nil {
+		return false
+	}
+	mode := vc.GetAccessMode().GetMode()
+	return (mode == csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY ||
+		mode == csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY)
 }
