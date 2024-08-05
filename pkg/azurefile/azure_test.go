@@ -28,10 +28,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2022-07-01/network"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
+	"k8s.io/utils/pointer"
 
 	"sigs.k8s.io/azurefile-csi-driver/test/utils/testutil"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/subnetclient/mocksubnetclient"
-	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
 
 	azureprovider "sigs.k8s.io/cloud-provider-azure/pkg/provider"
 )
@@ -246,25 +246,14 @@ func TestUpdateSubnetServiceEndpoints(t *testing.T) {
 		testFunc func(t *testing.T)
 	}{
 		{
-			name: "[fail] no subnet",
-			testFunc: func(t *testing.T) {
-				retErr := retry.NewError(false, fmt.Errorf("the subnet does not exist"))
-				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(network.Subnet{}, retErr).Times(1)
-				expectedErr := fmt.Errorf("failed to get the subnet %s under vnet %s: %v", config.SubnetName, config.VnetName, retErr)
-				err := d.updateSubnetServiceEndpoints(ctx, "", "", "")
-				if !reflect.DeepEqual(err, expectedErr) {
-					t.Errorf("Unexpected error: %v", err)
-				}
-			},
-		},
-		{
-			name: "[success] subnetPropertiesFormat is nil",
+			name: "[fail] subnet name is nil",
 			testFunc: func(t *testing.T) {
 				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(network.Subnet{}, nil).Times(1)
 				mockSubnetClient.EXPECT().CreateOrUpdate(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
 
-				err := d.updateSubnetServiceEndpoints(ctx, "", "", "")
-				if !reflect.DeepEqual(err, nil) {
+				_, err := d.updateSubnetServiceEndpoints(ctx, "", "", "subnetname")
+				expectedErr := fmt.Errorf("subnet name is nil")
+				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
 				}
 			},
@@ -274,12 +263,11 @@ func TestUpdateSubnetServiceEndpoints(t *testing.T) {
 			testFunc: func(t *testing.T) {
 				fakeSubnet := network.Subnet{
 					SubnetPropertiesFormat: &network.SubnetPropertiesFormat{},
+					Name:                   pointer.String("subnetName"),
 				}
 
 				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeSubnet, nil).Times(1)
-				mockSubnetClient.EXPECT().CreateOrUpdate(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
-
-				err := d.updateSubnetServiceEndpoints(ctx, "", "", "")
+				_, err := d.updateSubnetServiceEndpoints(ctx, "", "", "subnetname")
 				if !reflect.DeepEqual(err, nil) {
 					t.Errorf("Unexpected error: %v", err)
 				}
@@ -292,12 +280,12 @@ func TestUpdateSubnetServiceEndpoints(t *testing.T) {
 					SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
 						ServiceEndpoints: &[]network.ServiceEndpointPropertiesFormat{},
 					},
+					Name: pointer.String("subnetName"),
 				}
 
-				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeSubnet, nil).Times(1)
-				mockSubnetClient.EXPECT().CreateOrUpdate(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
+				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeSubnet, nil).AnyTimes()
 
-				err := d.updateSubnetServiceEndpoints(ctx, "", "", "")
+				_, err := d.updateSubnetServiceEndpoints(ctx, "", "", "subnetname")
 				if !reflect.DeepEqual(err, nil) {
 					t.Errorf("Unexpected error: %v", err)
 				}
@@ -314,11 +302,12 @@ func TestUpdateSubnetServiceEndpoints(t *testing.T) {
 							},
 						},
 					},
+					Name: pointer.String("subnetName"),
 				}
 
-				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeSubnet, nil).Times(1)
+				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeSubnet, nil).AnyTimes()
 
-				err := d.updateSubnetServiceEndpoints(ctx, "", "", "")
+				_, err := d.updateSubnetServiceEndpoints(ctx, "", "", "subnetname")
 				if !reflect.DeepEqual(err, nil) {
 					t.Errorf("Unexpected error: %v", err)
 				}
@@ -329,7 +318,7 @@ func TestUpdateSubnetServiceEndpoints(t *testing.T) {
 			testFunc: func(t *testing.T) {
 				d.cloud.SubnetsClient = nil
 				expectedErr := fmt.Errorf("SubnetsClient is nil")
-				err := d.updateSubnetServiceEndpoints(ctx, "", "", "")
+				_, err := d.updateSubnetServiceEndpoints(ctx, "", "", "")
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
 				}
