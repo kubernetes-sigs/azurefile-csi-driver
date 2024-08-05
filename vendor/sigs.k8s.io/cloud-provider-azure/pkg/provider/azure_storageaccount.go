@@ -109,7 +109,6 @@ func (az *Cloud) getStorageAccounts(ctx context.Context, accountOptions *Account
 			if !(isStorageTypeEqual(acct, accountOptions) &&
 				isAccountKindEqual(acct, accountOptions) &&
 				isLocationEqual(acct, accountOptions) &&
-				AreVNetRulesEqual(acct, accountOptions) &&
 				isLargeFileSharesPropertyEqual(acct, accountOptions) &&
 				isTagsEqual(acct, accountOptions) &&
 				isTaggedWithSkip(acct) &&
@@ -120,6 +119,7 @@ func (az *Cloud) getStorageAccounts(ctx context.Context, accountOptions *Account
 				isRequireInfrastructureEncryptionEqual(acct, accountOptions) &&
 				isAllowSharedKeyAccessEqual(acct, accountOptions) &&
 				isAccessTierEqual(acct, accountOptions) &&
+				AreVNetRulesEqual(acct, accountOptions) &&
 				isPrivateEndpointAsExpected(acct, accountOptions)) {
 				continue
 			}
@@ -842,18 +842,19 @@ func AreVNetRulesEqual(account storage.Account, accountOptions *AccountOptions) 
 			return false
 		}
 
-		found := false
 		for _, subnetID := range accountOptions.VirtualNetworkResourceIDs {
+			found := false
 			for _, rule := range *account.AccountProperties.NetworkRuleSet.VirtualNetworkRules {
 				if strings.EqualFold(ptr.Deref(rule.VirtualNetworkResourceID, ""), subnetID) && rule.Action == storage.ActionAllow {
 					found = true
 					break
 				}
 			}
+			if !found {
+				return false
+			}
 		}
-		if !found {
-			return false
-		}
+		klog.V(2).Infof("found all vnet rules(%v) in account %s", accountOptions.VirtualNetworkResourceIDs, ptr.Deref(account.Name, ""))
 	}
 	return true
 }
@@ -872,7 +873,7 @@ func isTaggedWithSkip(account storage.Account) bool {
 	if account.Tags != nil {
 		// skip account with SkipMatchingTag tag
 		if _, ok := account.Tags[SkipMatchingTag]; ok {
-			klog.V(2).Infof("found %s tag for account %s, skip matching", SkipMatchingTag, *account.Name)
+			klog.V(2).Infof("found %s tag for account %s, skip matching", SkipMatchingTag, ptr.Deref(account.Name, ""))
 			return false
 		}
 	}
@@ -963,7 +964,7 @@ func (az *Cloud) isMultichannelEnabledEqual(ctx context.Context, account storage
 		return false, nil
 	}
 
-	prop, err := az.getFileServicePropertiesCache(ctx, accountOptions.SubscriptionID, accountOptions.ResourceGroup, *account.Name)
+	prop, err := az.getFileServicePropertiesCache(ctx, accountOptions.SubscriptionID, accountOptions.ResourceGroup, ptr.Deref(account.Name, ""))
 	if err != nil {
 		return false, err
 	}
@@ -988,7 +989,7 @@ func (az *Cloud) isDisableFileServiceDeleteRetentionPolicyEqual(ctx context.Cont
 		return false, nil
 	}
 
-	prop, err := az.FileClient.WithSubscriptionID(accountOptions.SubscriptionID).GetServiceProperties(ctx, accountOptions.ResourceGroup, *account.Name)
+	prop, err := az.FileClient.WithSubscriptionID(accountOptions.SubscriptionID).GetServiceProperties(ctx, accountOptions.ResourceGroup, ptr.Deref(account.Name, ""))
 	if err != nil {
 		return false, err
 	}
@@ -1010,7 +1011,7 @@ func (az *Cloud) isEnableBlobDataProtectionEqual(ctx context.Context, account st
 		return true, nil
 	}
 
-	property, err := az.BlobClient.GetServiceProperties(ctx, accountOptions.SubscriptionID, accountOptions.ResourceGroup, *account.Name)
+	property, err := az.BlobClient.GetServiceProperties(ctx, accountOptions.SubscriptionID, accountOptions.ResourceGroup, ptr.Deref(account.Name, ""))
 	if err != nil {
 		return false, err
 	}
