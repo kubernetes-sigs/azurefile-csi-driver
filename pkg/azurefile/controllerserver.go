@@ -366,7 +366,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				subnet = strings.TrimSpace(subnet)
 				vnetResourceID := d.getSubnetResourceID(vnetResourceGroup, vnetName, subnet)
 				klog.V(2).Infof("set vnetResourceID(%s) for NFS protocol", vnetResourceID)
-				vnetResourceIDs = []string{vnetResourceID}
+				vnetResourceIDs = append(vnetResourceIDs, vnetResourceID)
 				if err := d.updateSubnetServiceEndpoints(ctx, vnetResourceGroup, vnetName, subnet); err != nil {
 					return nil, status.Errorf(codes.Internal, "update service endpoints failed with error: %v", err)
 				}
