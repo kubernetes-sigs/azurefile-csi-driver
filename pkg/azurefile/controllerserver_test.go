@@ -667,9 +667,9 @@ func TestCreateVolume(t *testing.T) {
 				mockSubnetClient := mocksubnetclient.NewMockInterface(ctrl)
 				fakeCloud.SubnetsClient = mockSubnetClient
 
-				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(network.Subnet{}, retErr).Times(1)
+				mockSubnetClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return([]network.Subnet{}, retErr).Times(1)
 
-				expectedErr := status.Errorf(codes.Internal, "update service endpoints failed with error: failed to get the subnet fake-subnet under vnet fake-vnet: &{false 0 0001-01-01 00:00:00 +0000 UTC the subnet does not exist}")
+				expectedErr := status.Errorf(codes.Internal, "update service endpoints failed with error: failed to list the subnets under rg rg vnet fake-vnet: Retriable: false, RetryAfter: 0s, HTTPStatusCode: 0, RawError: the subnet does not exist")
 				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
