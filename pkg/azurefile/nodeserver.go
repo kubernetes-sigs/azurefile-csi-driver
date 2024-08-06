@@ -178,6 +178,11 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	volumeMountGroup := req.GetVolumeCapability().GetMount().GetVolumeMountGroup()
 	gidPresent := checkGidPresentInMountFlags(mountFlags)
 
+	if isReadOnlyFromCapability(volumeCapability) {
+		mountFlags = util.JoinMountOptions(mountFlags, []string{"ro"})
+		klog.V(2).Infof("CSI volume is read-only, mounting with extra option ro")
+	}
+
 	mc := metrics.NewMetricContext(azureFileCSIDriverName, "node_stage_volume", d.cloud.ResourceGroup, "", d.Name)
 	isOperationSucceeded := false
 	defer func() {
