@@ -924,7 +924,11 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 
 	klog.V(2).Infof("created share snapshot: %s, time: %v, quota: %dGiB", itemSnapshot, itemSnapshotTime, itemSnapshotQuota)
 	if itemSnapshotQuota == 0 {
-		itemSnapshotQuota = defaultAzureFileQuota
+		fileshare, err := d.cloud.FileClient.WithSubscriptionID(subsID).GetFileShare(ctx, rgName, accountName, fileShareName, "")
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to get file share(%s) quota: %v", fileShareName, err)
+		}
+		itemSnapshotQuota = pointer.Int32Deref(fileshare.ShareQuota, defaultAzureFileQuota)
 	}
 	createResp := &csi.CreateSnapshotResponse{
 		Snapshot: &csi.Snapshot{
