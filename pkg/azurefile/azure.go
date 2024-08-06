@@ -34,7 +34,9 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader"
+	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
 )
 
 const (
@@ -170,9 +172,10 @@ func getKubeConfig(kubeconfig string, enableWindowsHostProcess bool) (config *re
 	return config, err
 }
 
-func (d *Driver) updateSubnetServiceEndpoints(ctx context.Context, vnetResourceGroup, vnetName, subnetName string) error {
+func (d *Driver) updateSubnetServiceEndpoints(ctx context.Context, vnetResourceGroup, vnetName, subnetName string) ([]string, error) {
+	var vnetResourceIDs []string
 	if d.cloud.SubnetsClient == nil {
-		return fmt.Errorf("SubnetsClient is nil")
+		return vnetResourceIDs, fmt.Errorf("SubnetsClient is nil")
 	}
 
 	if vnetResourceGroup == "" {
@@ -186,55 +189,89 @@ func (d *Driver) updateSubnetServiceEndpoints(ctx context.Context, vnetResourceG
 	if vnetName == "" {
 		vnetName = d.cloud.VnetName
 	}
-	if subnetName == "" {
-		subnetName = d.cloud.SubnetName
-	}
 
 	klog.V(2).Infof("updateSubnetServiceEndpoints on vnetName: %s, subnetName: %s, location: %s", vnetName, subnetName, location)
-	if subnetName == "" || vnetName == "" || location == "" {
-		return fmt.Errorf("value of subnetName, vnetName or location is empty")
+	if vnetName == "" || location == "" {
+		return vnetResourceIDs, fmt.Errorf("vnetName or location is empty")
 	}
 
 	lockKey := vnetResourceGroup + vnetName + subnetName
+	cache, err := d.subnetCache.Get(lockKey, azcache.CacheReadTypeDefault)
+	if err != nil {
+		return nil, err
+	}
+	if cache != nil {
+		vnetResourceIDs = cache.([]string)
+		klog.V(2).Infof("subnet %s under vnet %s in rg %s is already updated, vnetResourceIDs: %v", subnetName, vnetName, vnetResourceGroup, vnetResourceIDs)
+		return vnetResourceIDs, nil
+	}
+
 	d.subnetLockMap.LockEntry(lockKey)
 	defer d.subnetLockMap.UnlockEntry(lockKey)
 
-	subnet, err := d.cloud.SubnetsClient.Get(ctx, vnetResourceGroup, vnetName, subnetName, "")
-	if err != nil {
-		return fmt.Errorf("failed to get the subnet %s under vnet %s: %v", subnetName, vnetName, err)
-	}
-	endpointLocaions := []string{location}
-	storageServiceEndpoint := network.ServiceEndpointPropertiesFormat{
-		Service:   &storageService,
-		Locations: &endpointLocaions,
-	}
-	storageServiceExists := false
-	if subnet.SubnetPropertiesFormat == nil {
-		subnet.SubnetPropertiesFormat = &network.SubnetPropertiesFormat{}
-	}
-	if subnet.SubnetPropertiesFormat.ServiceEndpoints == nil {
-		subnet.SubnetPropertiesFormat.ServiceEndpoints = &[]network.ServiceEndpointPropertiesFormat{}
-	}
-	serviceEndpoints := *subnet.SubnetPropertiesFormat.ServiceEndpoints
-	for _, v := range serviceEndpoints {
-		if strings.HasPrefix(pointer.StringDeref(v.Service, ""), storageService) {
-			storageServiceExists = true
-			klog.V(4).Infof("serviceEndpoint(%s) is already in subnet(%s)", storageService, subnetName)
-			break
+	var subnets []network.Subnet
+	if subnetName != "" {
+		// list multiple subnets separated by comma
+		subnetNames := strings.Split(subnetName, ",")
+		for _, sn := range subnetNames {
+			sn = strings.TrimSpace(sn)
+			subnet, rerr := d.cloud.SubnetsClient.Get(ctx, vnetResourceGroup, vnetName, sn, "")
+			if rerr != nil {
+				return vnetResourceIDs, fmt.Errorf("failed to get the subnet %s under rg %s vnet %s: %v", subnetName, vnetResourceGroup, vnetName, rerr.Error())
+			}
+			subnets = append(subnets, subnet)
+		}
+	} else {
+		var rerr *retry.Error
+		subnets, rerr = d.cloud.SubnetsClient.List(ctx, vnetResourceGroup, vnetName)
+		if rerr != nil {
+			return vnetResourceIDs, fmt.Errorf("failed to list the subnets under rg %s vnet %s: %v", vnetResourceGroup, vnetName, rerr.Error())
 		}
 	}
 
-	if !storageServiceExists {
-		serviceEndpoints = append(serviceEndpoints, storageServiceEndpoint)
-		subnet.SubnetPropertiesFormat.ServiceEndpoints = &serviceEndpoints
-
-		if err := d.cloud.SubnetsClient.CreateOrUpdate(ctx, vnetResourceGroup, vnetName, subnetName, subnet); err != nil {
-			return fmt.Errorf("failed to update the subnet %s under vnet %s: %v", subnetName, vnetName, err)
+	for _, subnet := range subnets {
+		if subnet.Name == nil {
+			return vnetResourceIDs, fmt.Errorf("subnet name is nil")
 		}
-		klog.V(2).Infof("serviceEndpoint(%s) is appended in subnet(%s)", storageService, subnetName)
-	}
+		sn := *subnet.Name
+		vnetResourceID := d.getSubnetResourceID(vnetResourceGroup, vnetName, sn)
+		klog.V(2).Infof("set vnetResourceID %s", vnetResourceID)
+		vnetResourceIDs = append(vnetResourceIDs, vnetResourceID)
 
-	return nil
+		endpointLocaions := []string{location}
+		storageServiceEndpoint := network.ServiceEndpointPropertiesFormat{
+			Service:   &storageService,
+			Locations: &endpointLocaions,
+		}
+		storageServiceExists := false
+		if subnet.SubnetPropertiesFormat == nil {
+			subnet.SubnetPropertiesFormat = &network.SubnetPropertiesFormat{}
+		}
+		if subnet.SubnetPropertiesFormat.ServiceEndpoints == nil {
+			subnet.SubnetPropertiesFormat.ServiceEndpoints = &[]network.ServiceEndpointPropertiesFormat{}
+		}
+		serviceEndpoints := *subnet.SubnetPropertiesFormat.ServiceEndpoints
+		for _, v := range serviceEndpoints {
+			if strings.HasPrefix(pointer.StringDeref(v.Service, ""), storageService) {
+				storageServiceExists = true
+				klog.V(4).Infof("serviceEndpoint(%s) is already in subnet(%s)", storageService, sn)
+				break
+			}
+		}
+
+		if !storageServiceExists {
+			serviceEndpoints = append(serviceEndpoints, storageServiceEndpoint)
+			subnet.SubnetPropertiesFormat.ServiceEndpoints = &serviceEndpoints
+
+			klog.V(2).Infof("begin to update the subnet %s under vnet %s in rg %s", sn, vnetName, vnetResourceGroup)
+			if err := d.cloud.SubnetsClient.CreateOrUpdate(ctx, vnetResourceGroup, vnetName, sn, subnet); err != nil {
+				return vnetResourceIDs, fmt.Errorf("failed to update the subnet %s under vnet %s: %v", sn, vnetName, err)
+			}
+		}
+	}
+	// cache the subnet update
+	d.subnetCache.Set(lockKey, vnetResourceIDs)
+	return vnetResourceIDs, nil
 }
 
 // inClusterConfig is copied from https://github.com/kubernetes/client-go/blob/b46677097d03b964eab2d67ffbb022403996f4d4/rest/config.go#L507-L541

@@ -283,6 +283,8 @@ type Driver struct {
 	volStatsCache azcache.Resource
 	// a timed cache storing account which should use sastoken for azcopy based volume cloning
 	azcopySasTokenCache azcache.Resource
+	// a timed cache storing subnet operations
+	subnetCache azcache.Resource
 	// sas expiry time for azcopy in volume clone
 	sasTokenExpirationMinutes int
 	// azcopy timeout for volume clone and snapshot restore
@@ -364,6 +366,10 @@ func NewDriver(options *DriverOptions) *Driver {
 		options.VolStatsCacheExpireInMinutes = 10 // default expire in 10 minutes
 	}
 	if driver.volStatsCache, err = azcache.NewTimedCache(time.Duration(options.VolStatsCacheExpireInMinutes)*time.Minute, getter, false); err != nil {
+		klog.Fatalf("%v", err)
+	}
+
+	if driver.subnetCache, err = azcache.NewTimedCache(10*time.Minute, getter, false); err != nil {
 		klog.Fatalf("%v", err)
 	}
 
