@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	gomock "go.uber.org/mock/gomock"
 )
@@ -257,6 +258,58 @@ func TestParseAzcopyJobShow(t *testing.T) {
 		jobState, percent, err := parseAzcopyJobShow(test.str)
 		if jobState != test.expectedJobState || percent != test.expectedPercent || !reflect.DeepEqual(err, test.expectedErr) {
 			t.Errorf("test[%s]: unexpected jobState: %v, percent: %v, err: %v, expected jobState: %v, percent: %v, err: %v", test.desc, jobState, percent, err, test.expectedJobState, test.expectedPercent, test.expectedErr)
+		}
+	}
+}
+
+func TestWaitUntilTimeout(t *testing.T) {
+	tests := []struct {
+		desc        string
+		timeout     time.Duration
+		execFunc    ExecFunc
+		timeoutFunc TimeoutFunc
+		expectedErr error
+	}{
+		{
+			desc:    "execFunc returns error",
+			timeout: 1 * time.Second,
+			execFunc: func() error {
+				return fmt.Errorf("execFunc error")
+			},
+			timeoutFunc: func() error {
+				return fmt.Errorf("timeout error")
+			},
+			expectedErr: fmt.Errorf("execFunc error"),
+		},
+		{
+			desc:    "execFunc timeout",
+			timeout: 1 * time.Second,
+			execFunc: func() error {
+				time.Sleep(2 * time.Second)
+				return nil
+			},
+			timeoutFunc: func() error {
+				return fmt.Errorf("timeout error")
+			},
+			expectedErr: fmt.Errorf("timeout error"),
+		},
+		{
+			desc:    "execFunc completed successfully",
+			timeout: 1 * time.Second,
+			execFunc: func() error {
+				return nil
+			},
+			timeoutFunc: func() error {
+				return fmt.Errorf("timeout error")
+			},
+			expectedErr: nil,
+		},
+	}
+
+	for _, test := range tests {
+		err := WaitUntilTimeout(test.timeout, test.execFunc, test.timeoutFunc)
+		if err != nil && (err.Error() != test.expectedErr.Error()) {
+			t.Errorf("unexpected error: %v, expected error: %v", err, test.expectedErr)
 		}
 	}
 }

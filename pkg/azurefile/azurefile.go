@@ -22,8 +22,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net/url"
-	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
@@ -187,8 +185,6 @@ const (
 	SnapshotID       = "snapshot_id"
 
 	FSGroupChangeNone = "None"
-
-	waitForAzCopyInterval = 2 * time.Second
 )
 
 var (
@@ -993,8 +989,8 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 	})
 }
 
-// copyFileShare copies a fileshare in the same storage account
-func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest, accountSASToken string, authAzcopyEnv []string, secretName, secretNamespace string, secrets map[string]string, shareOptions *fileclient.ShareOptions, accountOptions *azure.AccountOptions, storageEndpointSuffix string) error {
+// copyFileShare copies a fileshare, if dstAccountName is empty, then copy in the same account
+func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest, dstAccountName string, dstAccountSasToken string, authAzcopyEnv []string, secretName, secretNamespace string, secrets map[string]string, shareOptions *fileclient.ShareOptions, accountOptions *azure.AccountOptions, storageEndpointSuffix string) error {
 	if shareOptions.Protocol == storage.EnabledProtocolsNFS {
 		return fmt.Errorf("protocol nfs is not supported for volume cloning")
 	}
@@ -1002,63 +998,34 @@ func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest
 	if req.GetVolumeContentSource() != nil && req.GetVolumeContentSource().GetVolume() != nil {
 		sourceVolumeID = req.GetVolumeContentSource().GetVolume().GetVolumeId()
 	}
-	resourceGroupName, accountName, srcFileShareName, _, _, _, err := GetFileShareInfo(sourceVolumeID) //nolint:dogsled
+	srcResourceGroupName, srcAccountName, srcFileShareName, _, _, srcSubscriptionID, err := GetFileShareInfo(sourceVolumeID) //nolint:dogsled
 	if err != nil {
 		return status.Error(codes.NotFound, err.Error())
 	}
+	if dstAccountName == "" {
+		dstAccountName = srcAccountName
+	}
 	dstFileShareName := shareOptions.Name
-	if srcFileShareName == "" || dstFileShareName == "" {
-		return fmt.Errorf("srcFileShareName(%s) or dstFileShareName(%s) is empty", srcFileShareName, dstFileShareName)
+	if srcAccountName == "" || srcFileShareName == "" || dstFileShareName == "" {
+		return fmt.Errorf("one or more of srcAccountName(%s), srcFileShareName(%s), dstFileShareName(%s) are empty", srcAccountName, srcFileShareName, dstFileShareName)
 	}
-
-	timeAfter := time.After(time.Duration(d.waitForAzCopyTimeoutMinutes) * time.Minute)
-	timeTick := time.Tick(waitForAzCopyInterval)
-	srcPath := fmt.Sprintf("https://%s.file.%s/%s%s", accountName, storageEndpointSuffix, srcFileShareName, accountSASToken)
-	dstPath := fmt.Sprintf("https://%s.file.%s/%s%s", accountName, storageEndpointSuffix, dstFileShareName, accountSASToken)
-
-	jobState, percent, err := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
-	klog.V(2).Infof("azcopy job status: %s, copy percent: %s%%, error: %v", jobState, percent, err)
-	if jobState == fileutil.AzcopyJobError || jobState == fileutil.AzcopyJobCompleted {
-		return err
-	}
-	klog.V(2).Infof("begin to copy fileshare %s to %s", srcFileShareName, dstFileShareName)
-	for {
-		select {
-		case <-timeTick:
-			jobState, percent, err := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
-			klog.V(2).Infof("azcopy job status: %s, copy percent: %s%%, error: %v", jobState, percent, err)
-			switch jobState {
-			case fileutil.AzcopyJobError, fileutil.AzcopyJobCompleted:
-				return err
-			case fileutil.AzcopyJobNotFound:
-				klog.V(2).Infof("copy fileshare %s to %s", srcFileShareName, dstFileShareName)
-				cmd := exec.Command("azcopy", "copy", srcPath, dstPath)
-				cmd.Args = append(cmd.Args, defaultAzcopyCopyOptions...)
-				if len(authAzcopyEnv) > 0 {
-					cmd.Env = append(os.Environ(), authAzcopyEnv...)
-				}
-				out, copyErr := cmd.CombinedOutput()
-				if accountSASToken == "" && strings.Contains(string(out), authorizationPermissionMismatch) && copyErr != nil {
-					klog.Warningf("azcopy list failed with AuthorizationPermissionMismatch error, should assign \"Storage File Data SMB Share Elevated Contributor\" role to controller identity, fall back to use sas token, original output: %v", string(out))
-					var sasToken string
-					if sasToken, _, err = d.getAzcopyAuth(ctx, accountName, "", storageEndpointSuffix, accountOptions, secrets, secretName, secretNamespace, true); err != nil {
-						return err
-					}
-					cmd := exec.Command("azcopy", "copy", srcPath+sasToken, dstPath+sasToken)
-					cmd.Args = append(cmd.Args, defaultAzcopyCopyOptions...)
-					out, copyErr = cmd.CombinedOutput()
-				}
-				if copyErr != nil {
-					klog.Warningf("CopyFileShare(%s, %s, %s) failed with error(%v): %v", resourceGroupName, accountName, dstFileShareName, copyErr, string(out))
-				} else {
-					klog.V(2).Infof("copied fileshare %s to %s successfully", srcFileShareName, dstFileShareName)
-				}
-				return copyErr
-			}
-		case <-timeAfter:
-			return fmt.Errorf("timeout waiting for copy fileshare %s to %s succeed", srcFileShareName, dstFileShareName)
+	srcAccountSasToken := dstAccountSasToken
+	if srcAccountName != dstAccountName && dstAccountSasToken != "" {
+		srcAccountOptions := &azure.AccountOptions{
+			Name:                srcAccountName,
+			ResourceGroup:       srcResourceGroupName,
+			SubscriptionID:      srcSubscriptionID,
+			GetLatestAccountKey: accountOptions.GetLatestAccountKey,
+		}
+		if srcAccountSasToken, _, err = d.getAzcopyAuth(ctx, srcAccountName, "", storageEndpointSuffix, srcAccountOptions, nil, "", secretNamespace, true); err != nil {
+			return err
 		}
 	}
+
+	srcPath := fmt.Sprintf("https://%s.file.%s/%s%s", srcAccountName, storageEndpointSuffix, srcFileShareName, srcAccountSasToken)
+	dstPath := fmt.Sprintf("https://%s.file.%s/%s%s", dstAccountName, storageEndpointSuffix, dstFileShareName, dstAccountSasToken)
+
+	return d.copyFileShareByAzcopy(ctx, srcFileShareName, dstFileShareName, srcPath, dstPath, srcAccountName, dstAccountName, srcResourceGroupName, srcAccountSasToken, authAzcopyEnv, secretName, secretNamespace, secrets, accountOptions, storageEndpointSuffix)
 }
 
 // GetTotalAccountQuota returns the total quota in GB of all file shares in the storage account and the number of file shares
