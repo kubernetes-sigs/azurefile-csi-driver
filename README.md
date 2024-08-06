@@ -6,7 +6,8 @@
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/azurefile-csi-driver)](https://artifacthub.io/packages/search?repo=azurefile-csi-driver)
 
 ### About
-This driver allows Kubernetes to access [Azure File](https://docs.microsoft.com/en-us/azure/storage/files/storage-files-introduction) volume using smb and nfs protocols, csi plugin name: `file.csi.azure.com`
+This driver allows Kubernetes to access [Azure File](https://docs.microsoft.com/en-us/azure/storage/files/storage-files-introduction) volume using smb and nfs protocols, csi plugin name: `file.csi.azure.com`.
+> Note: this driver only supports mounting SMB file shares using key-based authentication.
 
 Disclaimer: Deploying this driver manually is not an officially supported Microsoft product. For a fully managed and supported experience on Kubernetes, use [AKS with the managed Azure file csi driver](https://learn.microsoft.com/azure/aks/azure-files-csi).
 
