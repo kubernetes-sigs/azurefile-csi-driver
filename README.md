@@ -7,7 +7,7 @@
 
 ### About
 This driver allows Kubernetes to access [Azure File](https://docs.microsoft.com/en-us/azure/storage/files/storage-files-introduction) volume using smb and nfs protocols, csi plugin name: `file.csi.azure.com`.
-> Please note that this driver only allows for mounting SMB file shares using key-based authentication. On the other hand, NFS file shares do not require key-based authentication.
+> Please be aware that this driver only permits the mounting of SMB file shares using key-based (NTLM v2) authentication, and therefore does not support the maximum security profile of Azure File share settings.  On the other hand, mounting NFS file shares does not require key-based authentication.
 
 Disclaimer: Deploying this driver manually is not an officially supported Microsoft product. For a fully managed and supported experience on Kubernetes, use [AKS with the managed Azure File CSI driver](https://learn.microsoft.com/azure/aks/azure-files-csi).
 
