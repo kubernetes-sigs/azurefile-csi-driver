@@ -42,7 +42,7 @@ kubectl apply -f $repo/csi-azurefile-controller.yaml
 kubectl apply -f $repo/csi-azurefile-driver.yaml
 kubectl apply -f $repo/csi-azurefile-node.yaml
 
-windowsMode="csi-proxy"
+windowsMode="hostprocess"
 
 if [[ "$#" -gt 1 ]]; then
   if [[ "$2" == *"snapshot"* ]]; then
@@ -52,8 +52,8 @@ if [[ "$#" -gt 1 ]]; then
     kubectl apply -f $repo/csi-snapshot-controller.yaml
   fi
 
-  if [[ "$2" == *"hostprocess"* ]]; then
-    windowsMode="hostProcess"
+  if [[ "$2" == *"csi-proxy"* ]]; then
+    windowsMode="csi-proxy"
   fi
 fi
 
