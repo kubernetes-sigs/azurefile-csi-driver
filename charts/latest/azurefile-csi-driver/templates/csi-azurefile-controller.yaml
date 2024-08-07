@@ -51,6 +51,9 @@ spec:
         node-role.kubernetes.io/control-plane: ""
         {{- end}}
       priorityClassName: system-cluster-critical
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
 {{- with .Values.controller.tolerations }}
       tolerations:
 {{ toYaml . | indent 8 }}
