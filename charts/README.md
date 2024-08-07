@@ -166,7 +166,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `linux.resources.azurefile.requests.memory`            | azurefile memory requests                | 20Mi                                                           |
 | `windows.enabled`                                 | whether enable windows feature                             | `true`                                                             |
 | `windows.dsName`                                  | name of driver daemonset on windows                             |`csi-azurefile-node-win`                                                         |
-| `windows.useHostProcessContainers`                | whether deploy driver daemonset with host process containers on windows | `false`                                                             |
+| `windows.useHostProcessContainers`                | whether deploy driver daemonset with HostProcess containers on windows | `false`                                                             |
 | `windows.kubelet`                                 | configure kubelet directory path on Windows agent node                | `'C:\var\lib\kubelet'`                                            |
 | `windows.kubeconfig`                              | configure kubeconfig path on Windows agent node                | `` (empty, use InClusterConfig by default)                                            |
 | `windows.enableRegistrationProbe`                 | enable [kubelet-registration-probe](https://github.com/kubernetes-csi/node-driver-registrar#health-check-with-an-exec-probe) on windows driver config     | `true`
