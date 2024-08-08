@@ -270,8 +270,10 @@ type Driver struct {
 	// azcopy for provide exec mock for ut
 	azcopy *fileutil.Azcopy
 
-	kubeconfig string
-	endpoint   string
+	kubeconfig   string
+	endpoint     string
+	resolver     Resolver
+	directVolume DirectVolume
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -311,6 +313,8 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.azcopy = &fileutil.Azcopy{}
 	driver.kubeconfig = options.KubeConfig
 	driver.endpoint = options.Endpoint
+	driver.resolver = new(NetResolver)
+	driver.directVolume = new(directVolume)
 
 	var err error
 	getter := func(key string) (interface{}, error) { return nil, nil }
