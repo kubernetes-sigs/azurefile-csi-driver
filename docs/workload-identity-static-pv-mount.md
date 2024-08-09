@@ -3,7 +3,7 @@
 
 ### Limitations
  - This feature is not supported for NFS mount since NFS mount does not need credentials.
- - This feature would still retrieve storage account key using federated identity credentials.
+ - This feature would still retrieve storage account key using federated identity credentials and mount Azure File share using key-based authentication.
  - Multiple pods cannot share the same persistent volume mount on the node, every pod would have its own standalone smb mount.
 
 ## Prerequisites
