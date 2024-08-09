@@ -14,10 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -euo pipefail
+set -eo pipefail
 
-NS=kube-system
-LABEL="app=csi-azurefile-node"
+echo "*****************start azurefile log (before restart)***********************"
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+source $DIR/azurefile_log.sh
+echo "*****************end azurefile log (before restart)*********************"
 
-echo "Restarting driver pods ..."
-kubectl delete pods -n ${NS} -l ${LABEL}
+kubectl rollout restart ds csi-azurefile-node -n kube-system
+kubectl rollout status daemonset/csi-azurefile-node -n kube-system --watch --timeout=1m

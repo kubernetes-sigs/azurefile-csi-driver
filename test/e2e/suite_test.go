@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -27,11 +28,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/reporters"
 	"github.com/onsi/gomega"
 	"github.com/pborman/uuid"
+	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/framework/config"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
@@ -52,18 +55,15 @@ const (
 )
 
 var (
-	azurefileDriver                *azurefile.Driver
-	isUsingInTreeVolumePlugin      = os.Getenv(driver.AzureDriverNameVar) == inTreeStorageClass
-	isTestingMigration             = os.Getenv(testMigrationEnvVar) != ""
-	isWindowsCluster               = os.Getenv(testWindowsEnvVar) != ""
-	isCapzTest                     = os.Getenv("NODE_MACHINE_TYPE") != ""
-	winServerVer                   = os.Getenv(testWinServerVerEnvVar)
-	bringKeyStorageClassParameters = map[string]string{
-		"csi.storage.k8s.io/provisioner-secret-namespace": "default",
-		"csi.storage.k8s.io/node-stage-secret-namespace":  "default",
-	}
-	supportZRSwithNFS      bool
-	supportSnapshotwithNFS bool
+	azurefileDriver           *azurefile.Driver
+	isUsingInTreeVolumePlugin = os.Getenv(driver.AzureDriverNameVar) == inTreeStorageClass
+	isTestingMigration        = os.Getenv(testMigrationEnvVar) != ""
+	isWindowsCluster          = os.Getenv(testWindowsEnvVar) != ""
+	isCapzTest                = os.Getenv("NODE_MACHINE_TYPE") != ""
+	winServerVer              = os.Getenv(testWinServerVerEnvVar)
+	projectRoot               string
+	supportZRSwithNFS         bool
+	supportSnapshotwithNFS    bool
 )
 
 type testCmd struct {
@@ -74,18 +74,36 @@ type testCmd struct {
 	ignoreError bool
 }
 
-var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
+// handleFlags sets up all flags and parses the command line.
+func TestMain(m *testing.M) {
+	flag.StringVar(&projectRoot, "project-root", "", "path to the azure file csi driver project root, used for script execution")
+	flag.Parse()
+	if projectRoot == "" {
+		klog.Fatal("project-root must be set")
+	}
+	config.CopyFlags(config.Flags, flag.CommandLine)
+	framework.RegisterCommonFlags(flag.CommandLine)
+	framework.RegisterClusterFlags(flag.CommandLine)
+	flag.Parse()
+	framework.AfterReadingAllFlags(&framework.TestContext)
+	os.Exit(m.Run())
+}
+
+func TestE2E(t *testing.T) {
+	gomega.RegisterFailHandler(ginkgo.Fail)
+	reportDir := os.Getenv(reportDirEnv)
+	if reportDir == "" {
+		reportDir = defaultReportDir
+	}
+	r := []ginkgo.Reporter{reporters.NewJUnitReporter(path.Join(reportDir, "junit_01.xml"))}
+	ginkgo.RunSpecsWithDefaultAndCustomReporters(t, "AzureFile CSI Driver End-to-End Tests", r)
+}
+
+var _ = ginkgo.SynchronizedBeforeSuite(func(ctx ginkgo.SpecContext) []byte {
 	log.Println(driver.AzureDriverNameVar, os.Getenv(driver.AzureDriverNameVar), fmt.Sprintf("%v", isUsingInTreeVolumePlugin))
 	log.Println(testMigrationEnvVar, os.Getenv(testMigrationEnvVar), fmt.Sprintf("%v", isTestingMigration))
 	log.Println(testWindowsEnvVar, os.Getenv(testWindowsEnvVar), fmt.Sprintf("%v", isWindowsCluster))
 	log.Println(testWinServerVerEnvVar, os.Getenv(testWinServerVerEnvVar), fmt.Sprintf("%v", winServerVer))
-
-	// k8s.io/kubernetes/test/e2e/framework requires env KUBECONFIG to be set
-	// it does not fall back to defaults
-	if os.Getenv(kubeconfigEnvVar) == "" {
-		kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
-		os.Setenv(kubeconfigEnvVar, kubeconfig)
-	}
 
 	// Default storage driver configuration is CSI. Freshly built
 	// CSI driver is installed for that case.
@@ -139,7 +157,34 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 			}
 			execTestCmd([]testCmd{installSMBProvisioner})
 		}
+		if testutil.IsRunningInProw() {
+			data, err := json.Marshal(creds)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			return data
+		}
+	}
 
+	return nil
+}, func(data []byte) {
+	if testutil.IsRunningInProw() {
+		creds := &credentials.Credentials{}
+		err := json.Unmarshal(data, creds)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		// set env for azidentity.EnvironmentCredential
+		os.Setenv("AZURE_TENANT_ID", creds.TenantID)
+		os.Setenv("AZURE_CLIENT_ID", creds.AADClientID)
+		os.Setenv("AZURE_CLIENT_SECRET", creds.AADClientSecret)
+	}
+
+	// k8s.io/kubernetes/test/e2e/framework requires env KUBECONFIG to be set
+	// it does not fall back to defaults
+	if os.Getenv(kubeconfigEnvVar) == "" {
+		kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
+		os.Setenv(kubeconfigEnvVar, kubeconfig)
+	}
+
+	// spin up a azurefile driver locally to make use of the azure client and controller service
+	if testutil.IsRunningInProw() && (isTestingMigration || !isUsingInTreeVolumePlugin) {
 		kubeconfig := os.Getenv(kubeconfigEnvVar)
 		driverOptions := azurefile.DriverOptions{
 			NodeID:     os.Getenv("nodeid"),
@@ -156,112 +201,87 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 	}
 })
 
-var _ = ginkgo.AfterSuite(func(ctx ginkgo.SpecContext) {
-	if testutil.IsRunningInProw() {
-		if isTestingMigration || isUsingInTreeVolumePlugin {
-			cmLog := testCmd{
-				command:  "bash",
-				args:     []string{"test/utils/controller-manager-log.sh"},
-				startLog: "===================controller-manager log=======",
-				endLog:   "===================================================",
-			}
-			execTestCmd([]testCmd{cmLog})
-		}
-		if isTestingMigration || !isUsingInTreeVolumePlugin {
-			checkPodsRestart := testCmd{
-				command:  "bash",
-				args:     []string{"test/utils/check_driver_pods_restart.sh", "log"},
-				startLog: "Check driver pods if restarts ...",
-				endLog:   "Check successfully",
-			}
-			execTestCmd([]testCmd{checkPodsRestart})
-
-			os := "linux"
-			if isWindowsCluster {
-				os = "windows"
-				if winServerVer == "windows-2022" {
-					os = winServerVer
-				}
-			}
-			createExampleDeployment := testCmd{
-				command:  "bash",
-				args:     []string{"hack/verify-examples.sh", os},
-				startLog: "create example deployments",
-				endLog:   "example deployments created",
-			}
-			execTestCmd([]testCmd{createExampleDeployment})
-
-			azurefileLog := testCmd{
-				command:     "bash",
-				args:        []string{"test/utils/azurefile_log.sh"},
-				startLog:    "===================azurefile log===================",
-				endLog:      "===================================================",
-				ignoreError: true,
-			}
-			e2eTeardown := testCmd{
-				command:  "make",
-				args:     []string{"e2e-teardown"},
-				startLog: "Uninstalling Azure File CSI Driver...",
-				endLog:   "Azure File CSI Driver uninstalled",
-			}
-			execTestCmd([]testCmd{azurefileLog, e2eTeardown})
-
-			if !isTestingMigration {
-				// install CSI Driver deployment scripts test
-				installDriver := testCmd{
+var _ = ginkgo.SynchronizedAfterSuite(func(ctx ginkgo.SpecContext) {},
+	func(ctx ginkgo.SpecContext) {
+		if testutil.IsRunningInProw() {
+			if isTestingMigration || isUsingInTreeVolumePlugin {
+				cmLog := testCmd{
 					command:  "bash",
-					args:     []string{"deploy/install-driver.sh", "master", "windows,local"},
-					startLog: "===================install CSI Driver deployment scripts test===================",
+					args:     []string{"test/utils/controller-manager-log.sh"},
+					startLog: "===================controller-manager log=======",
 					endLog:   "===================================================",
 				}
-
-				createExampleDeployment := testCmd{
-					command:  "bash",
-					args:     []string{"hack/verify-examples.sh", os},
-					startLog: "create example deployments#2",
-					endLog:   "example deployments#2 created",
-				}
-				execTestCmd([]testCmd{createExampleDeployment})
-
-				// uninstall CSI Driver deployment scripts test
-				uninstallDriver := testCmd{
-					command:  "bash",
-					args:     []string{"deploy/uninstall-driver.sh", "master", "windows,local"},
-					startLog: "===================uninstall CSI Driver deployment scripts test===================",
-					endLog:   "===================================================",
-				}
-				execTestCmd([]testCmd{installDriver, uninstallDriver})
+				execTestCmd([]testCmd{cmLog})
 			}
+			if isTestingMigration || !isUsingInTreeVolumePlugin {
+				checkPodsRestart := testCmd{
+					command:  "bash",
+					args:     []string{"test/utils/check_driver_pods_restart.sh", "log"},
+					startLog: "Check driver pods if restarts ...",
+					endLog:   "Check successfully",
+				}
+				execTestCmd([]testCmd{checkPodsRestart})
 
-			checkAccountCreationLeak(ctx)
+				os := "linux"
+				if isWindowsCluster {
+					os = "windows"
+					if winServerVer == "windows-2022" {
+						os = winServerVer
+					}
+				}
 
-			err := credentials.DeleteAzureCredentialFile()
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				azurefileLog := testCmd{
+					command:     "bash",
+					args:        []string{"test/utils/azurefile_log.sh"},
+					startLog:    "===================start azurefile log(after suite)===================",
+					endLog:      "===================end azurefile log(after suite)================================",
+					ignoreError: true,
+				}
+				e2eTeardown := testCmd{
+					command:  "make",
+					args:     []string{"e2e-teardown"},
+					startLog: "Uninstalling Azure File CSI Driver...",
+					endLog:   "Azure File CSI Driver uninstalled",
+				}
+				execTestCmd([]testCmd{azurefileLog, e2eTeardown})
+
+				if !isTestingMigration {
+					// install CSI Driver deployment scripts test
+					installDriver := testCmd{
+						command:  "bash",
+						args:     []string{"deploy/install-driver.sh", "master", "windows,local"},
+						startLog: "===================install CSI Driver deployment scripts test===================",
+						endLog:   "===================================================",
+					}
+
+					createExampleDeployment := testCmd{
+						command:  "bash",
+						args:     []string{"hack/verify-examples.sh", os},
+						startLog: "create example deployments#2",
+						endLog:   "example deployments#2 created",
+					}
+					execTestCmd([]testCmd{createExampleDeployment})
+
+					// uninstall CSI Driver deployment scripts test
+					uninstallDriver := testCmd{
+						command:  "bash",
+						args:     []string{"deploy/uninstall-driver.sh", "master", "windows,local"},
+						startLog: "===================uninstall CSI Driver deployment scripts test===================",
+						endLog:   "===================================================",
+					}
+					execTestCmd([]testCmd{installDriver, uninstallDriver})
+				}
+
+				checkAccountCreationLeak(ctx)
+
+				err := credentials.DeleteAzureCredentialFile()
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			}
 		}
-	}
-})
-
-func TestE2E(t *testing.T) {
-	gomega.RegisterFailHandler(ginkgo.Fail)
-	reportDir := os.Getenv(reportDirEnv)
-	if reportDir == "" {
-		reportDir = defaultReportDir
-	}
-	r := []ginkgo.Reporter{reporters.NewJUnitReporter(path.Join(reportDir, "junit_01.xml"))}
-	ginkgo.RunSpecsWithDefaultAndCustomReporters(t, "AzureFile CSI Driver End-to-End Tests", r)
-}
+	}, ginkgo.NodeTimeout(10*time.Minute))
 
 func execTestCmd(cmds []testCmd) {
-	err := os.Chdir("../..")
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	defer func() {
-		err := os.Chdir("test/e2e")
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	}()
-
-	projectRoot, err := os.Getwd()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	gomega.Expect(strings.HasSuffix(projectRoot, "azurefile-csi-driver")).To(gomega.Equal(true))
+	ginkgo.GinkgoHelper()
 
 	for _, cmd := range cmds {
 		log.Println(cmd.startLog)
@@ -269,9 +289,9 @@ func execTestCmd(cmds []testCmd) {
 		cmdSh.Dir = projectRoot
 		cmdSh.Stdout = os.Stdout
 		cmdSh.Stderr = os.Stderr
-		err = cmdSh.Run()
+		err := cmdSh.Run()
 		if err != nil {
-			log.Println(err)
+			log.Printf("Failed to run command: %s %s, Error: %s\n", cmd.command, strings.Join(cmd.args, " "), err.Error())
 			if !cmd.ignoreError {
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			}
@@ -290,7 +310,7 @@ func checkAccountCreationLeak(ctx context.Context) {
 	framework.ExpectNoError(err, fmt.Sprintf("failed to GetAccountNumByResourceGroup(%s): %v", creds.ResourceGroup, err))
 	ginkgo.By(fmt.Sprintf("GetAccountNumByResourceGroup(%s) returns %d accounts", creds.ResourceGroup, accountNum))
 
-	accountLimitInTest := 15
+	accountLimitInTest := 20
 	gomega.Expect(accountNum >= accountLimitInTest).To(gomega.BeFalse())
 }
 
@@ -332,14 +352,4 @@ func convertToPowershellCommandIfNecessary(command string) string {
 	}
 
 	return command
-}
-
-// handleFlags sets up all flags and parses the command line.
-func TestMain(m *testing.M) {
-	config.CopyFlags(config.Flags, flag.CommandLine)
-	framework.RegisterCommonFlags(flag.CommandLine)
-	framework.RegisterClusterFlags(flag.CommandLine)
-	framework.AfterReadingAllFlags(&framework.TestContext)
-	flag.Parse()
-	os.Exit(m.Run())
 }

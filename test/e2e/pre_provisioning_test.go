@@ -17,7 +17,11 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
+	"math/rand"
+	"strconv"
+	"strings"
 
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/testsuites"
@@ -26,16 +30,25 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 	admissionapi "k8s.io/pod-security-admission/api"
 )
 
 const (
-	defaultDiskSize      = 100
-	defaultDiskSizeBytes = defaultDiskSize * 1024 * 1024 * 1024
+	defaultDiskSize       = 100
+	defaultDiskSizeBytes  = defaultDiskSize * 1024 * 1024 * 1024
+	accountNotProvisioned = "StorageAccountIsNotProvisioned"
+	// this is a workaround fix for 429 throttling issue, will update cloud provider for better fix later
+	tooManyRequests   = "TooManyRequests"
+	shareBeingDeleted = "The specified share is being deleted"
+	clientThrottled   = "client throttled"
 )
 
+var (
+	retriableErrors = []string{accountNotProvisioned, tooManyRequests, shareBeingDeleted, clientThrottled}
+)
 var _ = ginkgo.Describe("Pre-Provisioned", func() {
 	f := framework.NewDefaultFramework("azurefile")
 	f.NamespacePodSecurityEnforceLevel = admissionapi.LevelPrivileged
@@ -45,8 +58,6 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 		ns         *v1.Namespace
 		testDriver driver.PreProvisionedVolumeTestDriver
 		volumeID   string
-		// Set to true if the volume should be deleted automatically after test
-		skipManuallyDeletingVolume bool
 	)
 
 	ginkgo.BeforeEach(func(ctx ginkgo.SpecContext) {
@@ -61,31 +72,34 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 		cs = f.ClientSet
 		ns = f.Namespace
 		testDriver = driver.InitAzureFileDriver()
-	})
 
-	ginkgo.AfterEach(func(ctx ginkgo.SpecContext) {
-		if !skipManuallyDeletingVolume {
-			req := &csi.DeleteVolumeRequest{
-				VolumeId: volumeID,
+		volName := fmt.Sprintf("pre-provisioned-%d-%v", ginkgo.GinkgoParallelProcess(), strconv.Itoa(rand.Intn(10000)))
+		var resp *csi.CreateVolumeResponse
+		err := wait.ExponentialBackoff(wait.Backoff{Steps: 1}, func() (bool, error) {
+			var createErr error
+			resp, createErr = azurefileDriver.CreateVolume(ctx, makeCreateVolumeReq(volName, ns.Name))
+			if isRetriableError(createErr) {
+				framework.Logf("create volume retriable error: %v", createErr)
+				return false, nil
 			}
-			_, err := azurefileDriver.DeleteVolume(ctx, req)
-			if err != nil {
-				ginkgo.Fail(fmt.Sprintf("create volume %q error: %v", volumeID, err))
-			}
-		}
+			return true, createErr
+		})
+		framework.ExpectNoError(err, "create volume error")
+		volumeID = resp.Volume.VolumeId
+
+		ginkgo.DeferCleanup(func() {
+			_, err := azurefileDriver.DeleteVolume(
+				context.TODO(),
+				&csi.DeleteVolumeRequest{
+					VolumeId: volumeID,
+				})
+			framework.ExpectNoError(err, "delete volume %s error", volumeID)
+		})
 	})
 
 	ginkgo.It("should use a pre-provisioned volume and mount it as readOnly in a pod [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
 		// Az tests are not yet working for in-tree
 		skipIfUsingInTreeVolumePlugin()
-
-		req := makeCreateVolumeReq("pre-provisioned-readonly", ns.Name)
-		resp, err := azurefileDriver.CreateVolume(ctx, req)
-		if err != nil {
-			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
-		}
-		volumeID = resp.Volume.VolumeId
-		ginkgo.By(fmt.Sprintf("Successfully provisioned AzureFile volume: %q\n", volumeID))
 
 		diskSize := fmt.Sprintf("%dGi", defaultDiskSize)
 		pods := []testsuites.PodDetails{
@@ -116,14 +130,6 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 	ginkgo.It("should use a pre-provisioned volume and mount it by multiple pods [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
 		// Az tests are not yet working for in-tree
 		skipIfUsingInTreeVolumePlugin()
-
-		req := makeCreateVolumeReq("pre-provisioned-multiple-pods", ns.Name)
-		resp, err := azurefileDriver.CreateVolume(ctx, req)
-		if err != nil {
-			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
-		}
-		volumeID = resp.Volume.VolumeId
-		ginkgo.By(fmt.Sprintf("Successfully provisioned AzureFile volume: %q\n", volumeID))
 
 		diskSize := fmt.Sprintf("%dGi", defaultDiskSize)
 		pods := []testsuites.PodDetails{}
@@ -158,14 +164,6 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 		// Az tests are not yet working for in tree driver
 		skipIfUsingInTreeVolumePlugin()
 
-		req := makeCreateVolumeReq("pre-provisioned-retain-reclaimpolicy", ns.Name)
-		resp, err := azurefileDriver.CreateVolume(ctx, req)
-		if err != nil {
-			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
-		}
-		volumeID = resp.Volume.VolumeId
-		ginkgo.By(fmt.Sprintf("Successfully provisioned AzureFile volume: %q\n", volumeID))
-
 		diskSize := fmt.Sprintf("%dGi", defaultDiskSize)
 		reclaimPolicy := v1.PersistentVolumeReclaimRetain
 		volumes := []testsuites.VolumeDetails{
@@ -185,14 +183,6 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 	ginkgo.It("should use existing credentials in k8s cluster [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
 		// Az tests are not yet working for in tree driver
 		skipIfUsingInTreeVolumePlugin()
-
-		req := makeCreateVolumeReq("pre-provisioned-existing-credentials", ns.Name)
-		resp, err := azurefileDriver.CreateVolume(ctx, req)
-		if err != nil {
-			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
-		}
-		volumeID = resp.Volume.VolumeId
-		ginkgo.By(fmt.Sprintf("Successfully provisioned AzureFile volume: %q\n", volumeID))
 
 		volumeSize := fmt.Sprintf("%dGi", defaultDiskSize)
 		reclaimPolicy := v1.PersistentVolumeReclaimRetain
@@ -229,14 +219,6 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 	ginkgo.It("should use provided credentials [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
 		// Az tests are not yet working for in tree driver
 		skipIfUsingInTreeVolumePlugin()
-
-		req := makeCreateVolumeReq("pre-provisioned-provided-credentials", ns.Name)
-		resp, err := azurefileDriver.CreateVolume(ctx, req)
-		if err != nil {
-			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
-		}
-		volumeID = resp.Volume.VolumeId
-		ginkgo.By(fmt.Sprintf("Successfully provisioned Azure File volume: %q\n", volumeID))
 
 		volumeSize := fmt.Sprintf("%dGi", defaultDiskSize)
 		reclaimPolicy := v1.PersistentVolumeReclaimRetain
@@ -297,4 +279,15 @@ func makeCreateVolumeReq(volumeName, secretNamespace string) *csi.CreateVolumeRe
 	}
 
 	return req
+}
+
+func isRetriableError(err error) bool {
+	if err != nil {
+		for _, v := range retriableErrors {
+			if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(v)) {
+				return true
+			}
+		}
+	}
+	return false
 }
