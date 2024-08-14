@@ -344,9 +344,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	shareProtocol := storage.EnabledProtocolsSMB
 	var createPrivateEndpoint *bool
 	if strings.EqualFold(networkEndpointType, privateEndpoint) {
-		if strings.Contains(subnetName, ",") {
-			return nil, status.Errorf(codes.InvalidArgument, "subnetName(%s) can only contain one subnet for private endpoint", subnetName)
-		}
 		createPrivateEndpoint = pointer.BoolPtr(true)
 	}
 	var vnetResourceIDs []string
