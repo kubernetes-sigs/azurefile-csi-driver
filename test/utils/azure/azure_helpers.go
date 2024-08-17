@@ -50,14 +50,20 @@ type Client struct {
 	sshPublicKeysClient sshpublickeyresourceclient.Interface
 }
 
-func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret string) (*Client, error) {
+func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aadFederatedTokenFile string) (*Client, error) {
 	armConfig := &azclient.ARMClientConfig{
 		Cloud:    cloud,
 		TenantID: tenantID,
 	}
+	useFederatedWorkloadIdentityExtension := false
+	if aadFederatedTokenFile != "" {
+		useFederatedWorkloadIdentityExtension = true
+	}
 	credProvider, err := azclient.NewAuthProvider(armConfig, &azclient.AzureAuthConfig{
-		AADClientID:     clientID,
-		AADClientSecret: clientSecret,
+		AADClientID:                           clientID,
+		AADClientSecret:                       clientSecret,
+		AADFederatedTokenFile:                 aadFederatedTokenFile,
+		UseFederatedWorkloadIdentityExtension: useFederatedWorkloadIdentityExtension,
 	})
 	if err != nil {
 		return nil, err

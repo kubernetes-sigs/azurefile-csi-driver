@@ -15,4 +15,4 @@
 # limitations under the License.
 
 set -e
-kubectl get secret | grep azure-storage-account | head -n 1 | awk '{print $1}'
+kubectl get secret -n default | grep azure-storage-account | head -n 1 | awk '{print $1}'

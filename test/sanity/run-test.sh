@@ -47,7 +47,7 @@ if [ ! -f "$azcopyPath" ]; then
   chmod +x /usr/local/bin/azcopy
 fi
 
-_output/${ARCH}/azurefileplugin --endpoint "$endpoint" --nodeid "$nodeid" -v=5 &
+_output/${ARCH}/azurefileplugin --endpoint "$endpoint" --nodeid "$nodeid" -v=5 --kubeconfig "no-need-kubeconfig" &
 
 # sleep a while waiting for azurefileplugin start up
 sleep 1
