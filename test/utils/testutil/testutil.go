@@ -24,11 +24,6 @@ import (
 	"testing"
 )
 
-func IsRunningInProw() bool {
-	_, ok := os.LookupEnv("AZURE_CREDENTIALS")
-	return ok
-}
-
 func isWindows() bool {
 	return runtime.GOOS == "windows"
 }

@@ -15,4 +15,4 @@
 # limitations under the License.
 
 set -e
-kubectl get svc smb-server | grep smb | awk '{print $4}'
+kubectl get svc smb-server -n default | grep smb | awk '{print $4}'
