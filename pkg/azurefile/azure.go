@@ -58,20 +58,26 @@ func getCloudProvider(ctx context.Context, kubeconfig, nodeID, secretName, secre
 	)
 
 	az := &azure.Cloud{}
+	var err error
 
-	kubeCfg, err := getKubeConfig(kubeconfig, enableWindowsHostProcess)
-	if err == nil && kubeCfg != nil {
-		klog.V(2).Infof("set QPS(%f) and QPS Burst(%d) for driver kubeClient", float32(kubeAPIQPS), kubeAPIBurst)
-		kubeCfg.QPS = float32(kubeAPIQPS)
-		kubeCfg.Burst = kubeAPIBurst
-		kubeClient, err = clientset.NewForConfig(kubeCfg)
-		if err != nil {
-			klog.Warningf("NewForConfig failed with error: %v", err)
-		}
+	// for sanity test: if kubeconfig is set as "no-need-kubeconfig", kubeClient will be nil
+	if kubeconfig == "no-need-kubeconfig" {
+		klog.V(2).Infof("kubeconfig is set as no-need-kubeconfig, kubeClient will be nil")
 	} else {
-		klog.Warningf("get kubeconfig(%s) failed with error: %v", kubeconfig, err)
-		if !os.IsNotExist(err) && !errors.Is(err, rest.ErrNotInCluster) {
-			return az, fmt.Errorf("failed to get KubeClient: %v", err)
+		kubeCfg, err := getKubeConfig(kubeconfig, enableWindowsHostProcess)
+		if err == nil && kubeCfg != nil {
+			klog.V(2).Infof("set QPS(%f) and QPS Burst(%d) for driver kubeClient", float32(kubeAPIQPS), kubeAPIBurst)
+			kubeCfg.QPS = float32(kubeAPIQPS)
+			kubeCfg.Burst = kubeAPIBurst
+			kubeClient, err = clientset.NewForConfig(kubeCfg)
+			if err != nil {
+				klog.Warningf("NewForConfig failed with error: %v", err)
+			}
+		} else {
+			klog.Warningf("get kubeconfig(%s) failed with error: %v", kubeconfig, err)
+			if !os.IsNotExist(err) && !errors.Is(err, rest.ErrNotInCluster) {
+				return az, fmt.Errorf("failed to get KubeClient: %v", err)
+			}
 		}
 	}
 

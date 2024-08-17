@@ -22,6 +22,8 @@ fi
 
 echo "begin to create deployment examples with parameter ", $1
 
+kubectl config set-context --current --namespace=default
+
 kubectl apply -f deploy/example/storageclass-azurefile-csi.yaml
 
 rollout_and_wait() {
