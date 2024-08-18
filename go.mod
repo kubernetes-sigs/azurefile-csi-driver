@@ -31,7 +31,7 @@ require (
 	k8s.io/component-base v0.28.12
 	k8s.io/klog/v2 v2.110.1
 	k8s.io/kubernetes v1.28.12
-	k8s.io/mount-utils v0.28.12
+	k8s.io/mount-utils v0.29.8
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/cloud-provider-azure v1.27.1-0.20231117111043-4e434a9c261f
 	sigs.k8s.io/yaml v1.3.0
@@ -170,7 +170,6 @@ require (
 )
 
 replace (
-	github.com/niemeyer/pretty => github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e
 	go.etcd.io/etcd => go.etcd.io/etcd v0.0.0-20200410171415-59f5fb25a533
 	k8s.io/api => k8s.io/api v0.28.12
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.12
@@ -195,7 +194,6 @@ replace (
 	k8s.io/kubelet => k8s.io/kubelet v0.28.12
 	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.28.12
 	k8s.io/metrics => k8s.io/metrics v0.28.12
-	k8s.io/mount-utils => k8s.io/mount-utils v0.0.0-20231116185301-00b898b94b20
 	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.28.12
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.28.12
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.28.12
