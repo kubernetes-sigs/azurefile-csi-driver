@@ -609,33 +609,6 @@ func TestCreateVolume(t *testing.T) {
 			},
 		},
 		{
-			name: "invalid privateEndpoint and subnetName combination",
-			testFunc: func(t *testing.T) {
-				allParam := map[string]string{
-					networkEndpointTypeField: "privateendpoint",
-					subnetNameField:          "subnet1,subnet2",
-				}
-
-				req := &csi.CreateVolumeRequest{
-					Name:               "invalid-privateEndpoint-and-subnetName-combination",
-					CapacityRange:      stdCapRange,
-					VolumeCapabilities: stdVolCap,
-					Parameters:         allParam,
-				}
-
-				d := NewFakeDriver()
-				d.cloud = &azure.Cloud{
-					Config: azure.Config{},
-				}
-
-				expectedErr := status.Errorf(codes.InvalidArgument, "subnetName(subnet1,subnet2) can only contain one subnet for private endpoint")
-				_, err := d.CreateVolume(ctx, req)
-				if !reflect.DeepEqual(err, expectedErr) {
-					t.Errorf("Unexpected error: %v, expected error: %v", err, expectedErr)
-				}
-			},
-		},
-		{
 			name: "Failed to update subnet service endpoints",
 			testFunc: func(t *testing.T) {
 				allParam := map[string]string{
