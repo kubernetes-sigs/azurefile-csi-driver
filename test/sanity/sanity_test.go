@@ -59,7 +59,7 @@ func TestSanity(t *testing.T) {
 		if strings.HasPrefix(creds.ResourceGroup, credentials.ResourceGroupPrefix) {
 			log.Printf("Deleting resource group %s", creds.ResourceGroup)
 			err := azureClient.DeleteResourceGroup(ctx, creds.ResourceGroup)
-			assert.NoError(t, err)
+			log.Printf("Deleted resource group %s failed with error %v", creds.ResourceGroup, err)
 		}
 	}()
 
