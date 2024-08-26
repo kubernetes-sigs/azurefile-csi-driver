@@ -12,24 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM registry.k8s.io/build-image/debian-base:bookworm-v1.0.3
-
 ARG ARCH=amd64
+
+FROM registry.k8s.io/build-image/debian-base:bookworm-v1.0.3 AS base
+
+FROM base AS builder
+
+ARG ARCH
+
+RUN apt update \
+    && apt install -y curl \
+    && curl -Ls https://azcopyvnext.azureedge.net/releases/release-10.26.0-20240731/azcopy_linux_${ARCH}_10.26.0.tar.gz \
+        | tar xvzf - --strip-components=1 -C /usr/local/bin/ --wildcards "*/azcopy"
+
+FROM base
+
+ARG ARCH
 ARG binary=./_output/${ARCH}/azurefileplugin
+
 COPY ${binary} /azurefileplugin
+COPY --from=builder --chown=root:root /usr/local/bin/azcopy /usr/local/bin/azcopy
 
-RUN apt update && apt upgrade -y && apt-mark unhold libcap2 && clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase wget
-
-# install azcopy
-ARG azcopyURL=https://azcopyvnext.azureedge.net/releases/release-10.26.0-20240731/azcopy_linux_amd64_10.26.0.tar.gz
-RUN if [ "$ARCH" == "arm64" ] ; then \
-  azcopyURL=https://azcopyvnext.azureedge.net/releases/release-10.26.0-20240731/azcopy_linux_arm64_10.26.0.tar.gz; fi
-RUN wget -O azcopy.tar.gz ${azcopyURL} && \
-  tar xvzf azcopy.tar.gz -C . && rm azcopy.tar.gz && \
-  mv ./azcopy_linux_$ARCH_*/azcopy /usr/local/bin/azcopy && \
-  rm -rf ./azcopy_linux_$ARCH_*
-RUN chmod +x /usr/local/bin/azcopy
-RUN apt remove wget -y
+RUN apt update && apt upgrade -y && apt-mark unhold libcap2 && clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase
 
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"
