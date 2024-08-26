@@ -219,7 +219,7 @@ func WaitUntilTimeout(timeout time.Duration, execFunc ExecFunc, timeoutFunc Time
 	done := make(chan bool)
 	var err error
 
-	// Start the azcopy exec function in a goroutine
+	// Start exec function in a goroutine
 	go func() {
 		err = execFunc()
 		done <- true
