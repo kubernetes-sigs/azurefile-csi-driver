@@ -131,13 +131,24 @@ func (az *Client) EnsureResourceGroup(ctx context.Context, name, location string
 
 func (az *Client) DeleteResourceGroup(ctx context.Context, groupName string) error {
 	_, err := az.groupsClient.Get(ctx, groupName)
-	if err == nil {
-		err := az.groupsClient.Delete(ctx, groupName)
-		if err != nil {
-			return fmt.Errorf("cannot delete resource group %v: %v", groupName, err)
-		}
+	if err != nil {
+		return err
 	}
-	return nil
+
+	timeout := 20 * time.Minute
+	ch := make(chan bool, 1)
+
+	go func() {
+		err = az.groupsClient.Delete(ctx, groupName)
+		ch <- true
+	}()
+
+	select {
+	case <-ch:
+		return err
+	case <-time.After(timeout):
+		return fmt.Errorf("timeout waiting for resource group %s to be deleted", groupName)
+	}
 }
 
 func (az *Client) EnsureVirtualMachine(ctx context.Context, groupName, location, vmName string) (vm *compute.VirtualMachine, err error) {
