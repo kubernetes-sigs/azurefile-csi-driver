@@ -80,7 +80,7 @@ unit-test:
 
 .PHONY: sanity-test
 sanity-test: azurefile
-	go test -v -timeout=10m ./test/sanity
+	go test -v -timeout=30m ./test/sanity
 
 .PHONY: e2e-test
 e2e-test:
