@@ -1082,7 +1082,7 @@ func (d *Driver) copyFileShareByAzcopy(ctx context.Context, srcFileShareName, ds
 		}
 		copyErr := volumehelper.WaitUntilTimeout(time.Duration(d.waitForAzCopyTimeoutMinutes)*time.Minute, execFuncWithAuth, timeoutFunc)
 		if accountSASToken == "" && copyErr != nil && strings.Contains(copyErr.Error(), authorizationPermissionMismatch) {
-			klog.Warningf("azcopy list failed with AuthorizationPermissionMismatch error, should assign \"Storage File Data Privileged Contributor\" role to controller identity, fall back to use sas token, original error: %v", copyErr)
+			klog.Warningf("azcopy copy failed with AuthorizationPermissionMismatch error, should assign \"Storage File Data Privileged Contributor\" role to controller identity, fall back to use sas token, original error: %v", copyErr)
 			var srcSasToken, dstSasToken string
 			srcAccountOptions := &azure.AccountOptions{
 				Name:                srcAccountName,
