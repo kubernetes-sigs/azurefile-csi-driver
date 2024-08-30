@@ -53,7 +53,7 @@ import (
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	e2epv "k8s.io/kubernetes/test/e2e/framework/pv"
 	imageutils "k8s.io/kubernetes/test/utils/image"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -684,7 +684,7 @@ func NewTestPod(c clientset.Interface, ns *v1.Namespace, command string, isWindo
 				},
 				RestartPolicy:                v1.RestartPolicyNever,
 				Volumes:                      make([]v1.Volume, 0),
-				AutomountServiceAccountToken: pointer.Bool(false),
+				AutomountServiceAccountToken: ptr.To(false),
 			},
 		},
 	}
@@ -845,7 +845,7 @@ func (t *TestPod) SetupCSIInlineVolume(name, mountPath, secretName, shareName, s
 					"server":       server,
 					"mountOptions": "dir_mode=0755,file_mode=0721,cache=singleclient",
 				},
-				ReadOnly: pointer.Bool(readOnly),
+				ReadOnly: ptr.To(readOnly),
 			},
 		},
 	}
