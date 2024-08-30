@@ -39,7 +39,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
@@ -92,7 +92,7 @@ var (
 			Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER,
 		},
 	}
-	skipMatchingTag = map[string]*string{azure.SkipMatchingTag: pointer.String("")}
+	skipMatchingTag = map[string]*string{azure.SkipMatchingTag: ptr.To("")}
 )
 
 // CreateVolume provisions an azure file
@@ -138,7 +138,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	var vnetResourceGroup, vnetName, subnetName, shareNamePrefix, fsGroupChangePolicy string
 	var requireInfraEncryption, disableDeleteRetentionPolicy, enableLFS, isMultichannelEnabled, allowSharedKeyAccess *bool
 	// set allowBlobPublicAccess as false by default
-	allowBlobPublicAccess := pointer.Bool(false)
+	allowBlobPublicAccess := ptr.To(false)
 
 	fileShareNameReplaceMap := map[string]string{}
 	// store account key to k8s secret by default
@@ -347,7 +347,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		if strings.Contains(subnetName, ",") {
 			return nil, status.Errorf(codes.InvalidArgument, "subnetName(%s) can only contain one subnet for private endpoint", subnetName)
 		}
-		createPrivateEndpoint = pointer.BoolPtr(true)
+		createPrivateEndpoint = ptr.To(true)
 	}
 	var vnetResourceIDs []string
 	if fsType == nfs || protocol == nfs {
@@ -366,7 +366,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		// reset protocol field (compatible with "fsType: nfs")
 		setKeyValueInMap(parameters, protocolField, protocol)
 
-		if !pointer.BoolDeref(createPrivateEndpoint, false) {
+		if !ptr.Deref(createPrivateEndpoint, false) {
 			// set VirtualNetworkResourceIDs for storage account firewall setting
 			var err error
 			if vnetResourceIDs, err = d.updateSubnetServiceEndpoints(ctx, vnetResourceGroup, vnetName, subnetName); err != nil {
@@ -375,7 +375,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
-	if pointer.BoolDeref(isMultichannelEnabled, false) {
+	if ptr.Deref(isMultichannelEnabled, false) {
 		if sku != "" && !strings.HasPrefix(strings.ToLower(sku), premium) {
 			return nil, status.Errorf(codes.InvalidArgument, "smb multichannel is only supported with premium account, current account type: %s", sku)
 		}
@@ -384,7 +384,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
-	if storeAccountKey && !pointer.BoolDeref(allowSharedKeyAccess, true) {
+	if storeAccountKey && !ptr.Deref(allowSharedKeyAccess, true) {
 		return nil, status.Errorf(codes.InvalidArgument, "storeAccountKey is not supported for account with shared access key disabled")
 	}
 
@@ -492,8 +492,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			accountName = v.(string)
 		} else {
 			lockKey = fmt.Sprintf("%s%s%s%s%s%s%s%v%v%v%v%v", sku, accountKind, resourceGroup, location, protocol, subsID, accountAccessTier,
-				pointer.BoolDeref(createPrivateEndpoint, false), pointer.BoolDeref(allowBlobPublicAccess, false), pointer.BoolDeref(requireInfraEncryption, false),
-				pointer.BoolDeref(enableLFS, false), pointer.BoolDeref(disableDeleteRetentionPolicy, false))
+				ptr.Deref(createPrivateEndpoint, false), ptr.Deref(allowBlobPublicAccess, false), ptr.Deref(requireInfraEncryption, false),
+				ptr.Deref(enableLFS, false), ptr.Deref(disableDeleteRetentionPolicy, false))
 			// search in cache first
 			cache, err := d.accountSearchCache.Get(lockKey, azcache.CacheReadTypeDefault)
 			if err != nil {
@@ -537,7 +537,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
-	if pointer.BoolDeref(createPrivateEndpoint, false) {
+	if ptr.Deref(createPrivateEndpoint, false) {
 		setKeyValueInMap(parameters, serverNameField, fmt.Sprintf("%s.privatelink.file.%s", accountName, storageEndpointSuffix))
 	}
 
@@ -565,7 +565,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		RequestGiB: fileShareSize,
 		AccessTier: shareAccessTier,
 		RootSquash: rootSquashType,
-		Metadata:   map[string]*string{createdByMetadata: pointer.String(d.Name)},
+		Metadata:   map[string]*string{createdByMetadata: ptr.To(d.Name)},
 	}
 
 	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) subID(%s) rg(%s) location(%s) size(%d) protocol(%s)", validFileShareName, accountName, sku, subsID, resourceGroup, location, fileShareSize, shareProtocol)
@@ -919,7 +919,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 
 		itemSnapshot = snapshotShare.SnapshotTime.Format(snapshotTimeFormat)
 		itemSnapshotTime = snapshotShare.SnapshotTime.Time
-		itemSnapshotQuota = pointer.Int32Deref(snapshotShare.ShareQuota, 0)
+		itemSnapshotQuota = ptr.Deref(snapshotShare.ShareQuota, 0)
 	}
 
 	klog.V(2).Infof("created share snapshot: %s, time: %v, quota: %dGiB", itemSnapshot, itemSnapshotTime, itemSnapshotQuota)
@@ -928,7 +928,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to get file share(%s) quota: %v", fileShareName, err)
 		}
-		itemSnapshotQuota = pointer.Int32Deref(fileshare.ShareQuota, defaultAzureFileQuota)
+		itemSnapshotQuota = ptr.Deref(fileshare.ShareQuota, defaultAzureFileQuota)
 	}
 	createResp := &csi.CreateSnapshotResponse{
 		Snapshot: &csi.Snapshot{
@@ -1294,17 +1294,17 @@ func (d *Driver) snapshotExists(ctx context.Context, sourceVolumeID, snapshotNam
 				continue
 			}
 			shareSnapshotTime := share.SnapshotTime.Format(snapshotTimeFormat)
-			fileshare, err := d.cloud.FileClient.WithSubscriptionID(subsID).GetFileShare(ctx, rgName, accountName, pointer.StringDeref(share.Name, ""), shareSnapshotTime)
+			fileshare, err := d.cloud.FileClient.WithSubscriptionID(subsID).GetFileShare(ctx, rgName, accountName, ptr.Deref(share.Name, ""), shareSnapshotTime)
 			if err != nil {
-				klog.V(2).Infof("get share(%s) snapshot(%s) error(%s)", pointer.StringDeref(share.Name, ""), shareSnapshotTime, err)
+				klog.V(2).Infof("get share(%s) snapshot(%s) error(%s)", ptr.Deref(share.Name, ""), shareSnapshotTime, err)
 				return false, "", time.Time{}, 0, nil
 			}
-			if fileshare.Metadata != nil && pointer.StringDeref(fileshare.Metadata[snapshotNameKey], "") == snapshotName {
-				if pointer.StringDeref(fileshare.Name, "") == fileShareName {
-					klog.V(2).Infof("found share(%s) snapshot(%s) Metadata(%v)", pointer.StringDeref(fileshare.Name, ""), shareSnapshotTime, fileshare.Metadata)
-					return true, shareSnapshotTime, share.SnapshotTime.Time, pointer.Int32Deref(share.ShareQuota, 0), nil
+			if fileshare.Metadata != nil && ptr.Deref(fileshare.Metadata[snapshotNameKey], "") == snapshotName {
+				if ptr.Deref(fileshare.Name, "") == fileShareName {
+					klog.V(2).Infof("found share(%s) snapshot(%s) Metadata(%v)", ptr.Deref(fileshare.Name, ""), shareSnapshotTime, fileshare.Metadata)
+					return true, shareSnapshotTime, share.SnapshotTime.Time, ptr.Deref(share.ShareQuota, 0), nil
 				}
-				return true, "", time.Time{}, 0, fmt.Errorf("snapshot(%s) already exists, while the current file share name(%s) does not equal to %s, SourceVolumeId(%s)", snapshotName, pointer.StringDeref(share.Name, ""), fileShareName, sourceVolumeID)
+				return true, "", time.Time{}, 0, fmt.Errorf("snapshot(%s) already exists, while the current file share name(%s) does not equal to %s, SourceVolumeId(%s)", snapshotName, ptr.Deref(share.Name, ""), fileShareName, sourceVolumeID)
 			}
 		}
 	}

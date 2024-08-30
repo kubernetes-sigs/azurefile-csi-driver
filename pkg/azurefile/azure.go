@@ -32,7 +32,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader"
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
@@ -258,7 +258,7 @@ func (d *Driver) updateSubnetServiceEndpoints(ctx context.Context, vnetResourceG
 		}
 		serviceEndpoints := *subnet.SubnetPropertiesFormat.ServiceEndpoints
 		for _, v := range serviceEndpoints {
-			if strings.HasPrefix(pointer.StringDeref(v.Service, ""), storageService) {
+			if strings.HasPrefix(ptr.Deref(v.Service, ""), storageService) {
 				storageServiceExists = true
 				klog.V(4).Infof("serviceEndpoint(%s) is already in subnet(%s)", storageService, sn)
 				break

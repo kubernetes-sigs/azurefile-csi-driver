@@ -27,7 +27,7 @@ import (
 	network "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
 	resources "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	storage "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/accountclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/fileshareclient"
@@ -167,29 +167,29 @@ func (az *Client) EnsureVirtualMachine(ctx context.Context, groupName, location,
 		groupName,
 		vmName,
 		compute.VirtualMachine{
-			Location: pointer.String(location),
+			Location: ptr.To(location),
 			Properties: &compute.VirtualMachineProperties{
 				HardwareProfile: &compute.HardwareProfile{
 					VMSize: to.Ptr(compute.VirtualMachineSizeTypesStandardDS2V2),
 				},
 				StorageProfile: &compute.StorageProfile{
 					ImageReference: &compute.ImageReference{
-						Publisher: pointer.String("Canonical"),
-						Offer:     pointer.String("UbuntuServer"),
-						SKU:       pointer.String("16.04.0-LTS"),
-						Version:   pointer.String("latest"),
+						Publisher: ptr.To("Canonical"),
+						Offer:     ptr.To("UbuntuServer"),
+						SKU:       ptr.To("16.04.0-LTS"),
+						Version:   ptr.To("latest"),
 					},
 				},
 				OSProfile: &compute.OSProfile{
-					ComputerName:  pointer.String(vmName),
-					AdminUsername: pointer.String("azureuser"),
-					AdminPassword: pointer.String("Azureuser1234"),
+					ComputerName:  ptr.To(vmName),
+					AdminUsername: ptr.To("azureuser"),
+					AdminPassword: ptr.To("Azureuser1234"),
 					LinuxConfiguration: &compute.LinuxConfiguration{
-						DisablePasswordAuthentication: pointer.Bool(true),
+						DisablePasswordAuthentication: ptr.To(true),
 						SSH: &compute.SSHConfiguration{
 							PublicKeys: []*compute.SSHPublicKey{
 								{
-									Path:    pointer.String("/home/azureuser/.ssh/authorized_keys"),
+									Path:    ptr.To("/home/azureuser/.ssh/authorized_keys"),
 									KeyData: &publicKey,
 								},
 							},
@@ -201,7 +201,7 @@ func (az *Client) EnsureVirtualMachine(ctx context.Context, groupName, location,
 						{
 							ID: nic.ID,
 							Properties: &compute.NetworkInterfaceReferenceProperties{
-								Primary: pointer.Bool(true),
+								Primary: ptr.To(true),
 							},
 						},
 					},
@@ -232,12 +232,12 @@ func (az *Client) EnsureNIC(ctx context.Context, groupName, location, nicName, v
 		groupName,
 		nicName,
 		network.Interface{
-			Name:     pointer.String(nicName),
-			Location: pointer.String(location),
+			Name:     ptr.To(nicName),
+			Location: ptr.To(location),
 			Properties: &network.InterfacePropertiesFormat{
 				IPConfigurations: []*network.InterfaceIPConfiguration{
 					{
-						Name: pointer.String("ipConfig1"),
+						Name: ptr.To("ipConfig1"),
 						Properties: &network.InterfaceIPConfigurationPropertiesFormat{
 							Subnet:                    subnet,
 							PrivateIPAllocationMethod: to.Ptr(network.IPAllocationMethodDynamic),
@@ -260,16 +260,16 @@ func (az *Client) EnsureVirtualNetworkAndSubnet(ctx context.Context, groupName, 
 		groupName,
 		vnetName,
 		network.VirtualNetwork{
-			Location: pointer.String(location),
+			Location: ptr.To(location),
 			Properties: &network.VirtualNetworkPropertiesFormat{
 				AddressSpace: &network.AddressSpace{
 					AddressPrefixes: []*string{to.Ptr("10.0.0.0/8")},
 				},
 				Subnets: []*network.Subnet{
 					{
-						Name: pointer.String(subnetName),
+						Name: ptr.To(subnetName),
 						Properties: &network.SubnetPropertiesFormat{
-							AddressPrefix: pointer.String("10.0.0.0/16"),
+							AddressPrefix: ptr.To("10.0.0.0/16"),
 						},
 					},
 				},
