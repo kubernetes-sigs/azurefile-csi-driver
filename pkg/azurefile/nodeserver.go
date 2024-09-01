@@ -92,7 +92,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		if perm := getValueInMap(context, mountPermissionsField); perm != "" {
 			var err error
 			if mountPermissions, err = strconv.ParseUint(perm, 8, 32); err != nil {
-				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid mountPermissions %s", perm))
+				return nil, status.Errorf(codes.InvalidArgument, "invalid mountPermissions %s", perm)
 			}
 		}
 	}
@@ -237,7 +237,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 				var err error
 				var perm uint64
 				if perm, err = strconv.ParseUint(v, 8, 32); err != nil {
-					return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid mountPermissions %s", v))
+					return nil, status.Errorf(codes.InvalidArgument, "invalid mountPermissions %s", v)
 				}
 				if perm == 0 {
 					performChmodOp = false
@@ -472,7 +472,7 @@ func (d *Driver) NodeGetVolumeStats(_ context.Context, req *csi.NodeGetVolumeSta
 	// check if the volume stats is cached
 	cache, err := d.volStatsCache.Get(req.VolumeId, azcache.CacheReadTypeDefault)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
 	if cache != nil {
 		resp := cache.(csi.NodeGetVolumeStatsResponse)
@@ -494,7 +494,7 @@ func (d *Driver) NodeGetVolumeStats(_ context.Context, req *csi.NodeGetVolumeSta
 	}
 
 	if cache, err = d.volStatsCache.Get(newVolID, azcache.CacheReadTypeDefault); err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
 	if cache != nil {
 		resp := cache.(csi.NodeGetVolumeStatsResponse)

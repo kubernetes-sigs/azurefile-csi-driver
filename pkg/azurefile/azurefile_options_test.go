@@ -28,7 +28,7 @@ func TestDriverOptions_AddFlags(t *testing.T) {
 
 	got := o.AddFlags()
 	count := 0
-	got.VisitAll(func(f *flag.Flag) {
+	got.VisitAll(func(_ *flag.Flag) {
 		count++
 	})
 	if count != typeInfo.NumField() {
