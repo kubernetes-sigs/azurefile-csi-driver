@@ -171,7 +171,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case selectRandomMatchingAccountField:
 			value, err := strconv.ParseBool(v)
 			if err != nil {
-				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s: %s in storage class", selectRandomMatchingAccountField, v))
+				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", selectRandomMatchingAccountField, v)
 			}
 			selectRandomMatchingAccount = value
 		case secretNameField:
@@ -191,7 +191,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case enableLargeFileSharesField:
 			value, err := strconv.ParseBool(v)
 			if err != nil {
-				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s: %s in storage class", enableLargeFileSharesField, v))
+				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", enableLargeFileSharesField, v)
 			}
 			enableLFS = &value
 		case useDataPlaneAPIField:
@@ -199,7 +199,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case disableDeleteRetentionPolicyField:
 			value, err := strconv.ParseBool(v)
 			if err != nil {
-				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s: %s in storage class", disableDeleteRetentionPolicyField, v))
+				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", disableDeleteRetentionPolicyField, v)
 			}
 			disableDeleteRetentionPolicy = &value
 		case pvcNamespaceKey:
@@ -220,13 +220,13 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case allowBlobPublicAccessField:
 			value, err := strconv.ParseBool(v)
 			if err != nil {
-				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s: %s in storage class", allowBlobPublicAccessField, v))
+				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", allowBlobPublicAccessField, v)
 			}
 			allowBlobPublicAccess = &value
 		case allowSharedKeyAccessField:
 			value, err := strconv.ParseBool(v)
 			if err != nil {
-				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s: %s in storage class", allowSharedKeyAccessField, v))
+				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", allowSharedKeyAccessField, v)
 			}
 			allowSharedKeyAccess = &value
 		case pvcNameKey:
@@ -242,7 +242,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case mountPermissionsField:
 			// only do validations here, used in NodeStageVolume, NodePublishVolume
 			if _, err := strconv.ParseUint(v, 8, 32); err != nil {
-				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid mountPermissions %s in storage class", v))
+				return nil, status.Errorf(codes.InvalidArgument, "invalid mountPermissions %s in storage class", v)
 			}
 		case vnetResourceGroupField:
 			vnetResourceGroup = v
@@ -255,39 +255,39 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case requireInfraEncryptionField:
 			value, err := strconv.ParseBool(v)
 			if err != nil {
-				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s: %s in storage class", requireInfraEncryptionField, v))
+				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", requireInfraEncryptionField, v)
 			}
 			requireInfraEncryption = &value
 		case enableMultichannelField:
 			value, err := strconv.ParseBool(v)
 			if err != nil {
-				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s: %s in storage class", enableMultichannelField, v))
+				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", enableMultichannelField, v)
 			}
 			isMultichannelEnabled = &value
 		case getLatestAccountKeyField:
 			value, err := strconv.ParseBool(v)
 			if err != nil {
-				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s: %s in storage class", getLatestAccountKeyField, v))
+				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", getLatestAccountKeyField, v)
 			}
 			getLatestAccountKey = value
 		case accountQuotaField:
 			value, err := strconv.ParseInt(v, 10, 32)
 			if err != nil || value < minimumAccountQuota {
-				return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid accountQuota %s in storage class, minimum quota: %d", v, minimumAccountQuota))
+				return nil, status.Errorf(codes.InvalidArgument, "invalid accountQuota %s in storage class, minimum quota: %d", v, minimumAccountQuota)
 			}
 			accountQuota = int32(value)
 		default:
-			return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid parameter %q in storage class", k))
+			return nil, status.Errorf(codes.InvalidArgument, "invalid parameter %q in storage class", k)
 		}
 	}
 
 	if matchTags && account != "" {
-		return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("matchTags must set as false when storageAccount(%s) is provided", account))
+		return nil, status.Errorf(codes.InvalidArgument, "matchTags must set as false when storageAccount(%s) is provided", account)
 	}
 
 	if subsID != "" && subsID != d.cloud.SubscriptionID {
 		if resourceGroup == "" {
-			return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("resourceGroup must be provided in cross subscription(%s)", subsID))
+			return nil, status.Errorf(codes.InvalidArgument, "resourceGroup must be provided in cross subscription(%s)", subsID)
 		}
 	}
 
@@ -427,7 +427,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	tags, err := ConvertTagsToMap(customTags)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	if strings.TrimSpace(storageEndpointSuffix) == "" {
@@ -494,7 +494,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			// search in cache first
 			cache, err := d.accountSearchCache.Get(lockKey, azcache.CacheReadTypeDefault)
 			if err != nil {
-				return nil, status.Errorf(codes.Internal, err.Error())
+				return nil, status.Errorf(codes.Internal, "%v", err)
 			}
 			if cache != nil {
 				accountName = cache.(string)
@@ -550,7 +550,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		// skip validating file share quota if useDataPlaneAPI
 	} else {
 		if quota, err := d.getFileShareQuota(ctx, subsID, resourceGroup, accountName, validFileShareName, secret); err != nil {
-			return nil, status.Errorf(codes.Internal, err.Error())
+			return nil, status.Errorf(codes.Internal, "%v", err)
 		} else if quota != -1 && quota < fileShareSize {
 			return nil, status.Errorf(codes.AlreadyExists, "request file share(%s) already exists, but its capacity %d is smaller than %d", validFileShareName, quota, fileShareSize)
 		}
@@ -577,7 +577,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			d.volumeLocks.Release(volName)
 			// clean search cache
 			if err := d.accountSearchCache.Delete(lockKey); err != nil {
-				return nil, status.Errorf(codes.Internal, err.Error())
+				return nil, status.Errorf(codes.Internal, "%v", err)
 			}
 			// remove the volName from the volMap to stop matching the same storage account
 			d.volMap.Delete(volName)
@@ -853,7 +853,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		case useDataPlaneAPIField:
 			useDataPlaneAPI = strings.EqualFold(v, trueValue)
 		default:
-			return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid parameter %q in storage class", k))
+			return nil, status.Errorf(codes.InvalidArgument, "invalid parameter %q in storage class", k)
 		}
 	}
 
@@ -1299,7 +1299,7 @@ func (d *Driver) authorizeAzcopyWithIdentity() ([]string, error) {
 		authAzcopyEnv = append(authAzcopyEnv, fmt.Sprintf("%s=%s", azcopySPAApplicationID, azureAuthConfig.AADClientID))
 		authAzcopyEnv = append(authAzcopyEnv, fmt.Sprintf("%s=%s", azcopySPAClientSecret, azureAuthConfig.AADClientSecret))
 		authAzcopyEnv = append(authAzcopyEnv, fmt.Sprintf("%s=%s", azcopyTenantID, azureAuthConfig.TenantID))
-		klog.V(2).Infof(fmt.Sprintf("set AZCOPY_SPA_APPLICATION_ID=%s, AZCOPY_TENANT_ID=%s successfully", azureAuthConfig.AADClientID, azureAuthConfig.TenantID))
+		klog.V(2).Infof("set AZCOPY_SPA_APPLICATION_ID=%s, AZCOPY_TENANT_ID=%s successfully", azureAuthConfig.AADClientID, azureAuthConfig.TenantID)
 
 		return authAzcopyEnv, nil
 	}
@@ -1353,11 +1353,11 @@ func (d *Driver) generateSASToken(accountName, accountKey, storageEndpointSuffix
 
 	credential, err := service.NewSharedKeyCredential(accountName, accountKey)
 	if err != nil {
-		return "", status.Errorf(codes.Internal, fmt.Sprintf("failed to generate sas token in creating new shared key credential, accountName: %s, err: %s", accountName, err.Error()))
+		return "", status.Errorf(codes.Internal, "failed to generate sas token in creating new shared key credential, accountName: %s, err: %s", accountName, err.Error())
 	}
 	serviceClient, err := service.NewClientWithSharedKeyCredential(fmt.Sprintf("https://%s.file.%s/", accountName, storageEndpointSuffix), credential, nil)
 	if err != nil {
-		return "", status.Errorf(codes.Internal, fmt.Sprintf("failed to generate sas token in creating new client with shared key credential, accountName: %s, err: %s", accountName, err.Error()))
+		return "", status.Errorf(codes.Internal, "failed to generate sas token in creating new client with shared key credential, accountName: %s, err: %s", accountName, err.Error())
 	}
 	nowTime := time.Now()
 	sasURL, err := serviceClient.GetSASURL(

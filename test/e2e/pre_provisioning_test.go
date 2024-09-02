@@ -49,7 +49,7 @@ var _ = ginkgo.Describe("Pre-Provisioned", func() {
 		skipManuallyDeletingVolume bool
 	)
 
-	ginkgo.BeforeEach(func(ctx ginkgo.SpecContext) {
+	ginkgo.BeforeEach(func(_ ginkgo.SpecContext) {
 		checkPodsRestart := testCmd{
 			command:  "bash",
 			args:     []string{"test/utils/check_driver_pods_restart.sh"},
