@@ -329,7 +329,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.azcopy = &fileutil.Azcopy{}
 
 	var err error
-	getter := func(key string) (interface{}, error) { return nil, nil }
+	getter := func(_ string) (interface{}, error) { return nil, nil }
 
 	if driver.secretCacheMap, err = azcache.NewTimedCache(time.Minute, getter, false); err != nil {
 		klog.Fatalf("%v", err)
