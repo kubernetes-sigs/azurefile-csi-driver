@@ -110,7 +110,8 @@ In the above example, there is a `/mnt/azurefile` directory mounted as cifs file
 
 #### Option#3: Inline volume
  >  - inline volume does not support nfs protocol
- >  - to avoid performance issue, use persistent volume instead of inline volume when numerous pods are accessing the same volume.
+ >  - to avoid performance issue, use persistent volume instead of inline volume when numerous pods are accessing the same volume
+ >  - `secretNamespace` parameter is not required since the secret must be in the same namespace as pod
  - in below SMB protocol example, create `azure-secret` with existing storage account name and key in the same namespace as pod, both secret and pod are in `default` namespace
 ```console
 kubectl create secret generic azure-secret --from-literal azurestorageaccountname=NAME --from-literal azurestorageaccountkey="KEY" --type=Opaque
