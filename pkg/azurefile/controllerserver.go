@@ -1353,7 +1353,7 @@ func (d *Driver) authorizeAzcopyWithIdentity() ([]string, error) {
 func (d *Driver) getAzcopyAuth(ctx context.Context, accountName, accountKey, storageEndpointSuffix string, accountOptions *azure.AccountOptions, secrets map[string]string, secretName, secretNamespace string, useSasToken bool) (string, []string, error) {
 	var authAzcopyEnv []string
 	var err error
-	if len(secrets) == 0 && len(secretName) == 0 {
+	if !useSasToken && !d.useDataPlaneAPI("", accountName) && len(secrets) == 0 && len(secretName) == 0 {
 		// search in cache first
 		if cache, err := d.azcopySasTokenCache.Get(accountName, azcache.CacheReadTypeDefault); err == nil && cache != nil {
 			klog.V(2).Infof("use sas token for account(%s) since this account is found in azcopySasTokenCache", accountName)
