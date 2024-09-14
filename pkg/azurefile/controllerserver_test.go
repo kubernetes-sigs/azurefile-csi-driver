@@ -1739,13 +1739,11 @@ func TestCopyVolume(t *testing.T) {
 					VolumeContentSource: &volumecontensource,
 				}
 
-				secret := map[string]string{}
-
 				d := NewFakeDriver()
 				ctx := context.Background()
 
 				expectedErr := status.Errorf(codes.InvalidArgument, "copy volume from volumeSnapshot is not supported")
-				err := d.copyVolume(ctx, req, "", "", []string{}, "", "", secret, nil, nil, "core.windows.net")
+				err := d.copyVolume(ctx, req, "", "", []string{}, "", nil, nil, "core.windows.net")
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
 				}
@@ -1774,13 +1772,11 @@ func TestCopyVolume(t *testing.T) {
 					VolumeContentSource: &volumecontensource,
 				}
 
-				secret := map[string]string{}
-
 				d := NewFakeDriver()
 				ctx := context.Background()
 
 				expectedErr := fmt.Errorf("protocol nfs is not supported for volume cloning")
-				err := d.copyVolume(ctx, req, "", "", []string{}, "", "", secret, &fileclient.ShareOptions{Protocol: storage.EnabledProtocolsNFS}, nil, "core.windows.net")
+				err := d.copyVolume(ctx, req, "", "", []string{}, "", &fileclient.ShareOptions{Protocol: storage.EnabledProtocolsNFS}, nil, "core.windows.net")
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
 				}
@@ -1809,13 +1805,11 @@ func TestCopyVolume(t *testing.T) {
 					VolumeContentSource: &volumecontensource,
 				}
 
-				secret := map[string]string{}
-
 				d := NewFakeDriver()
 				ctx := context.Background()
 
 				expectedErr := status.Errorf(codes.NotFound, "error parsing volume id: \"unit-test\", should at least contain two #")
-				err := d.copyVolume(ctx, req, "", "", []string{}, "", "", secret, &fileclient.ShareOptions{Name: "dstFileshare"}, nil, "core.windows.net")
+				err := d.copyVolume(ctx, req, "", "", []string{}, "", &fileclient.ShareOptions{Name: "dstFileshare"}, nil, "core.windows.net")
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
 				}
@@ -1844,13 +1838,11 @@ func TestCopyVolume(t *testing.T) {
 					VolumeContentSource: &volumecontensource,
 				}
 
-				secret := map[string]string{}
-
 				d := NewFakeDriver()
 				ctx := context.Background()
 
 				expectedErr := fmt.Errorf("one or more of srcAccountName(unit-test), srcFileShareName(), dstFileShareName(dstFileshare) are empty")
-				err := d.copyVolume(ctx, req, "", "", []string{}, "", "", secret, &fileclient.ShareOptions{Name: "dstFileshare"}, nil, "core.windows.net")
+				err := d.copyVolume(ctx, req, "", "", []string{}, "", &fileclient.ShareOptions{Name: "dstFileshare"}, nil, "core.windows.net")
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
 				}
@@ -1879,13 +1871,11 @@ func TestCopyVolume(t *testing.T) {
 					VolumeContentSource: &volumecontensource,
 				}
 
-				secret := map[string]string{}
-
 				d := NewFakeDriver()
 				ctx := context.Background()
 
 				expectedErr := fmt.Errorf("one or more of srcAccountName(f5713de20cde511e8ba4900), srcFileShareName(fileshare), dstFileShareName() are empty")
-				err := d.copyVolume(ctx, req, "", "", []string{}, "", "", secret, &fileclient.ShareOptions{}, nil, "core.windows.net")
+				err := d.copyVolume(ctx, req, "", "", []string{}, "", &fileclient.ShareOptions{}, nil, "core.windows.net")
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
 				}
@@ -1913,12 +1903,10 @@ func TestCopyVolume(t *testing.T) {
 					Parameters:          mp,
 					VolumeContentSource: &volumecontensource,
 				}
-
-				secret := map[string]string{}
 				ctx := context.Background()
 
 				expectedErr := fmt.Errorf("one or more of srcAccountName(f5713de20cde511e8ba4900), srcFileShareName(fileshare), dstFileShareName() are empty")
-				err := d.copyVolume(ctx, req, "", "", []string{}, "", "", secret, &fileclient.ShareOptions{}, nil, "core.windows.net")
+				err := d.copyVolume(ctx, req, "", "", []string{}, "", &fileclient.ShareOptions{}, nil, "core.windows.net")
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
 				}
@@ -1946,7 +1934,6 @@ func TestCopyVolume(t *testing.T) {
 					Parameters:          mp,
 					VolumeContentSource: &volumecontensource,
 				}
-				secret := map[string]string{}
 				ctx := context.Background()
 
 				ctrl := gomock.NewController(t)
@@ -1960,7 +1947,7 @@ func TestCopyVolume(t *testing.T) {
 				d.azcopy.ExecCmd = m
 
 				expectedErr := fmt.Errorf("wait for the existing AzCopy job to complete, current copy percentage is 50.0%%")
-				err := d.copyVolume(ctx, req, "", "sastoken", []string{}, "", "", secret, &fileclient.ShareOptions{Name: "dstFileshare"}, nil, "core.windows.net")
+				err := d.copyVolume(ctx, req, "", "sastoken", []string{}, "", &fileclient.ShareOptions{Name: "dstFileshare"}, nil, "core.windows.net")
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
 				}

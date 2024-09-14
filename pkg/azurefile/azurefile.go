@@ -996,7 +996,7 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 }
 
 // copyFileShare copies a fileshare, if dstAccountName is empty, then copy in the same account
-func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest, dstAccountName string, dstAccountSasToken string, authAzcopyEnv []string, secretName, secretNamespace string, secrets map[string]string, shareOptions *fileclient.ShareOptions, accountOptions *azure.AccountOptions, storageEndpointSuffix string) error {
+func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest, dstAccountName string, dstAccountSasToken string, authAzcopyEnv []string, secretNamespace string, shareOptions *fileclient.ShareOptions, accountOptions *azure.AccountOptions, storageEndpointSuffix string) error {
 	if shareOptions.Protocol == storage.EnabledProtocolsNFS {
 		return fmt.Errorf("protocol nfs is not supported for volume cloning")
 	}
@@ -1031,7 +1031,7 @@ func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest
 	srcPath := fmt.Sprintf("https://%s.file.%s/%s%s", srcAccountName, storageEndpointSuffix, srcFileShareName, srcAccountSasToken)
 	dstPath := fmt.Sprintf("https://%s.file.%s/%s%s", dstAccountName, storageEndpointSuffix, dstFileShareName, dstAccountSasToken)
 
-	return d.copyFileShareByAzcopy(ctx, srcFileShareName, dstFileShareName, srcPath, dstPath, srcAccountName, dstAccountName, srcResourceGroupName, srcAccountSasToken, authAzcopyEnv, secretName, secretNamespace, secrets, accountOptions, storageEndpointSuffix)
+	return d.copyFileShareByAzcopy(srcFileShareName, dstFileShareName, srcPath, dstPath, srcAccountName, dstAccountName, authAzcopyEnv, accountOptions)
 }
 
 // GetTotalAccountQuota returns the total quota in GB of all file shares in the storage account and the number of file shares
