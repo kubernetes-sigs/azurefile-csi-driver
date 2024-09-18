@@ -4,7 +4,7 @@
 
 <details><summary>required permissions for CSI driver controller</summary>
 <pre>
-# assign the "storage account contributor" role to the CSI driver controller, it will provide permissions for the following actions:
+ # To grant permissions for following actions, you need to assign both "Storage Account Contributor" role to the CSI driver controller.
 Microsoft.Storage/storageAccounts/read
 Microsoft.Storage/storageAccounts/write
 Microsoft.Storage/storageAccounts/listKeys/action
