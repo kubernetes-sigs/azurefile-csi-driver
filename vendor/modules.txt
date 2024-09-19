@@ -76,7 +76,7 @@ github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets
 # github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.0.0
 ## explicit; go 1.18
 github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal
-# github.com/Azure/azure-sdk-for-go/sdk/storage/azfile v1.3.0
+# github.com/Azure/azure-sdk-for-go/sdk/storage/azfile v1.3.1
 ## explicit; go 1.18
 github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/directory
 github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/file
