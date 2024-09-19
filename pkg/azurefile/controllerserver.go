@@ -1335,11 +1335,11 @@ func (d *Driver) generateSASToken(accountName, accountKey, storageEndpointSuffix
 
 	credential, err := service.NewSharedKeyCredential(accountName, accountKey)
 	if err != nil {
-		return "", status.Errorf(codes.Internal, "failed to generate sas token in creating new shared key credential, accountName: %s, err: %s", accountName, err.Error())
+		return "", status.Errorf(codes.Internal, "failed to generate sas token in creating new shared key credential, accountName: %s, err: %v", accountName, err)
 	}
 	serviceClient, err := service.NewClientWithSharedKeyCredential(fmt.Sprintf("https://%s.file.%s/", accountName, storageEndpointSuffix), credential, nil)
 	if err != nil {
-		return "", status.Errorf(codes.Internal, "failed to generate sas token in creating new client with shared key credential, accountName: %s, err: %s", accountName, err.Error())
+		return "", status.Errorf(codes.Internal, "failed to generate sas token in creating new client with shared key credential, accountName: %s, err: %v", accountName, err)
 	}
 	nowTime := time.Now()
 	sasURL, err := serviceClient.GetSASURL(
