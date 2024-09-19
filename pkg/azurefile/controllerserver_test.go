@@ -371,7 +371,7 @@ func TestCreateVolume(t *testing.T) {
 
 				d := NewFakeDriver()
 
-				expectedErr := status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid accountQuota %d in storage class, minimum quota: %d", 10, minimumAccountQuota))
+				expectedErr := status.Errorf(codes.InvalidArgument, "invalid accountQuota %d in storage class, minimum quota: %d", 10, minimumAccountQuota)
 				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
@@ -403,7 +403,7 @@ func TestCreateVolume(t *testing.T) {
 
 				d := NewFakeDriver()
 
-				expectedErr := status.Errorf(codes.InvalidArgument, fmt.Errorf("Tags 'tags' are invalid, the format should like: 'key1=value1,key2=value2'").Error())
+				expectedErr := status.Errorf(codes.InvalidArgument, "%v", "Tags 'tags' are invalid, the format should like: 'key1=value1,key2=value2'")
 				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
@@ -1184,7 +1184,7 @@ func TestCreateVolume(t *testing.T) {
 				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 				mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
 
-				expectedErr := status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid %s %s in storage class", "mountPermissions", "0abc"))
+				expectedErr := status.Errorf(codes.InvalidArgument, "invalid %s %s in storage class", "mountPermissions", "0abc")
 				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
@@ -1239,7 +1239,7 @@ func TestCreateVolume(t *testing.T) {
 				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 				mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
 
-				expectedErr := status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid parameter %q in storage class", "invalidparameter"))
+				expectedErr := status.Errorf(codes.InvalidArgument, "invalid parameter %q in storage class", "invalidparameter")
 				_, err := d.CreateVolume(ctx, req)
 				if !reflect.DeepEqual(err, expectedErr) {
 					t.Errorf("Unexpected error: %v", err)
@@ -1400,7 +1400,7 @@ func TestDeleteVolume(t *testing.T) {
 						},
 					},
 				}
-				d.dataPlaneAPIAccountCache, _ = azcache.NewTimedCache(10*time.Minute, func(key string) (interface{}, error) { return nil, nil }, false)
+				d.dataPlaneAPIAccountCache, _ = azcache.NewTimedCache(10*time.Minute, func(_ string) (interface{}, error) { return nil, nil }, false)
 				d.dataPlaneAPIAccountCache.Set("f5713de20cde511e8ba4900", "1")
 				d.cloud = &azure.Cloud{}
 
@@ -1825,7 +1825,7 @@ func TestControllerPublishVolume(t *testing.T) {
 	d.cloud = azure.GetTestCloud(ctrl)
 	d.cloud.Location = "centralus"
 	d.cloud.ResourceGroup = "rg"
-	d.dataPlaneAPIAccountCache, _ = azcache.NewTimedCache(10*time.Minute, func(key string) (interface{}, error) { return nil, nil }, false)
+	d.dataPlaneAPIAccountCache, _ = azcache.NewTimedCache(10*time.Minute, func(_ string) (interface{}, error) { return nil, nil }, false)
 	nodeName := "vm1"
 	instanceID := fmt.Sprintf("/subscriptions/subscription/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/%s", nodeName)
 	vm := compute.VirtualMachine{
@@ -1937,7 +1937,7 @@ func TestControllerPublishVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap,
 				NodeId:           "vm3",
 			},
-			expectedErr: status.Error(codes.Internal, fmt.Sprintf("getFileURL(^f5713de20cde511e8ba4900,abc,fileshare,diskname.vhd) returned with error: %v", fmt.Errorf("parse fileURLTemplate error: %v", &url.Error{Op: "parse", URL: "https://^f5713de20cde511e8ba4900.file.abc/fileshare/diskname.vhd", Err: url.InvalidHostError("^")}))),
+			expectedErr: status.Error(codes.Internal, fmt.Sprintf("getFileURL(^f5713de20cde511e8ba4900,abc,fileshare,diskname.vhd) returned with error: parse fileURLTemplate error: %v", &url.Error{Op: "parse", URL: "https://^f5713de20cde511e8ba4900.file.abc/fileshare/diskname.vhd", Err: url.InvalidHostError("^")})),
 		},
 	}
 
@@ -2017,7 +2017,7 @@ func TestControllerUnpublishVolume(t *testing.T) {
 				NodeId:   fakeNodeID,
 				Secrets:  map[string]string{},
 			},
-			expectedErr: status.Error(codes.Internal, fmt.Sprintf("getFileURL(^f5713de20cde511e8ba4900,abc,fileshare,diskname.vhd) returned with error: %v", fmt.Errorf("parse fileURLTemplate error: %v", &url.Error{Op: "parse", URL: "https://^f5713de20cde511e8ba4900.file.abc/fileshare/diskname.vhd", Err: url.InvalidHostError("^")}))),
+			expectedErr: status.Error(codes.Internal, fmt.Sprintf("getFileURL(^f5713de20cde511e8ba4900,abc,fileshare,diskname.vhd) returned with error: parse fileURLTemplate error: %v", &url.Error{Op: "parse", URL: "https://^f5713de20cde511e8ba4900.file.abc/fileshare/diskname.vhd", Err: url.InvalidHostError("^")})),
 		},
 	}
 
@@ -2293,7 +2293,7 @@ func TestControllerExpandVolume(t *testing.T) {
 						ResourceGroup: "vol_2",
 					},
 				}
-				d.dataPlaneAPIAccountCache, _ = azcache.NewTimedCache(10*time.Minute, func(key string) (interface{}, error) { return nil, nil }, false)
+				d.dataPlaneAPIAccountCache, _ = azcache.NewTimedCache(10*time.Minute, func(_ string) (interface{}, error) { return nil, nil }, false)
 				d.dataPlaneAPIAccountCache.Set("f5713de20cde511e8ba4900", "1")
 				ctrl := gomock.NewController(t)
 				defer ctrl.Finish()
@@ -2665,7 +2665,7 @@ func TestGenerateSASToken(t *testing.T) {
 			accountName: "unit-test",
 			accountKey:  "fakeValue",
 			want:        "",
-			expectedErr: status.Errorf(codes.Internal, fmt.Sprintf("failed to generate sas token in creating new shared key credential, accountName: %s, err: %s", "unit-test", "decode account key: illegal base64 data at input byte 8")),
+			expectedErr: status.Errorf(codes.Internal, "failed to generate sas token in creating new shared key credential, accountName: %s, err: %s", "unit-test", "decode account key: illegal base64 data at input byte 8"),
 		},
 	}
 	for _, tt := range tests {

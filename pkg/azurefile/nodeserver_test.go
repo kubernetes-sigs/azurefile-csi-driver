@@ -168,8 +168,8 @@ func TestNodePublishVolume(t *testing.T) {
 				StagingTargetPath: sourceTest,
 				Readonly:          true},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Errorf(codes.Internal, fmt.Sprintf("Could not mount target %s: mkdir %s: not a directory", azureFile, azureFile)),
-				WindowsError: status.Errorf(codes.Internal, fmt.Sprintf("Could not mount target %v: mkdir %s: The system cannot find the path specified.", azureFile, azureFile)),
+				DefaultError: status.Errorf(codes.Internal, "Could not mount target %s: mkdir %s: not a directory", azureFile, azureFile),
+				WindowsError: status.Errorf(codes.Internal, "Could not mount target %v: mkdir %s: The system cannot find the path specified.", azureFile, azureFile),
 			},
 		},
 		{
@@ -180,7 +180,7 @@ func TestNodePublishVolume(t *testing.T) {
 				StagingTargetPath: errorMountSource,
 				Readonly:          true},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Errorf(codes.Internal, fmt.Sprintf("Could not mount %s at %s: fake Mount: source error", errorMountSource, targetTest)),
+				DefaultError: status.Errorf(codes.Internal, "Could not mount %s at %s: fake Mount: source error", errorMountSource, targetTest),
 			},
 		},
 		{
@@ -243,7 +243,7 @@ func TestNodePublishVolume(t *testing.T) {
 	_ = makeDir(alreadyMountedTarget, 0755)
 	mounter, err := NewFakeMounter()
 	if err != nil {
-		t.Fatalf(fmt.Sprintf("failed to get fake mounter: %v", err))
+		t.Fatalf("failed to get fake mounter: %v", err)
 	}
 	if runtime.GOOS != "windows" {
 		mounter.Exec = &testingexec.FakeExec{ExactOrder: true}
@@ -316,7 +316,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 	_ = makeDir(errorTarget, 0755)
 	mounter, err := NewFakeMounter()
 	if err != nil {
-		t.Fatalf(fmt.Sprintf("failed to get fake mounter: %v", err))
+		t.Fatalf("failed to get fake mounter: %v", err)
 	}
 	if runtime.GOOS != "windows" {
 		mounter.Exec = &testingexec.FakeExec{ExactOrder: true}
@@ -557,7 +557,7 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeContext:    volContextEmptyDiskName,
 				Secrets:          secrets},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Errorf(codes.Internal, fmt.Sprintf("diskname could not be empty, targetPath: %s", sourceTest)),
+				DefaultError: status.Errorf(codes.Internal, "diskname could not be empty, targetPath: %s", sourceTest),
 			},
 		},
 		{
@@ -598,7 +598,7 @@ func TestNodeStageVolume(t *testing.T) {
 				"with smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
 				errorSource, errorMountSensSource),
 			expectedErr: testutil.TestError{
-				DefaultError: status.Errorf(codes.Internal, fmt.Sprintf("volume(vol_1##) mount //test_servername/test_sharename on %v failed with fake MountSensitive: target error", errorMountSensSource)),
+				DefaultError: status.Errorf(codes.Internal, "volume(vol_1##) mount //test_servername/test_sharename on %v failed with fake MountSensitive: target error", errorMountSensSource),
 			},
 		},
 		{
@@ -718,7 +718,7 @@ func TestNodeStageVolume(t *testing.T) {
 		}
 		mounter, err := NewFakeMounter()
 		if err != nil {
-			t.Fatalf(fmt.Sprintf("failed to get fake mounter: %v", err))
+			t.Fatalf("failed to get fake mounter: %v", err)
 		}
 
 		if runtime.GOOS != "windows" {
@@ -824,7 +824,7 @@ func TestNodeUnstageVolume(t *testing.T) {
 	_ = makeDir(errorTarget, 0755)
 	mounter, err := NewFakeMounter()
 	if err != nil {
-		t.Fatalf(fmt.Sprintf("failed to get fake mounter: %v", err))
+		t.Fatalf("failed to get fake mounter: %v", err)
 	}
 	if runtime.GOOS != "windows" {
 		mounter.Exec = &testingexec.FakeExec{ExactOrder: true}
@@ -1068,7 +1068,7 @@ func TestNodePublishVolumeIdempotentMount(t *testing.T) {
 func makeFakeCmd(fakeCmd *testingexec.FakeCmd, cmd string, args ...string) testingexec.FakeCommandAction {
 	c := cmd
 	a := args
-	return func(cmd string, args ...string) exec.Cmd {
+	return func(_ string, _ ...string) exec.Cmd {
 		command := testingexec.InitFakeCmd(fakeCmd, c, a...)
 		return command
 	}
