@@ -28,20 +28,17 @@ import (
 
 	volumehelper "sigs.k8s.io/azurefile-csi-driver/pkg/util"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/sas"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/service"
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
 	"github.com/Azure/azure-storage-file-go/azfile"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/google/uuid"
-
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
-
-	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	"sigs.k8s.io/cloud-provider-azure/pkg/metrics"
@@ -317,15 +314,15 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	if !isSupportedShareAccessTier(shareAccessTier) {
-		return nil, status.Errorf(codes.InvalidArgument, "shareAccessTier(%s) is not supported, supported ShareAccessTier list: %v", shareAccessTier, storage.PossibleShareAccessTierValues())
+		return nil, status.Errorf(codes.InvalidArgument, "shareAccessTier(%s) is not supported, supported ShareAccessTier list: %v", shareAccessTier, armstorage.PossibleShareAccessTierValues())
 	}
 
 	if !isSupportedAccountAccessTier(accountAccessTier) {
-		return nil, status.Errorf(codes.InvalidArgument, "accountAccessTier(%s) is not supported, supported AccountAccessTier list: %v", accountAccessTier, storage.PossibleAccessTierValues())
+		return nil, status.Errorf(codes.InvalidArgument, "accountAccessTier(%s) is not supported, supported AccountAccessTier list: %v", accountAccessTier, armstorage.PossibleAccessTierValues())
 	}
 
 	if !isSupportedRootSquashType(rootSquashType) {
-		return nil, status.Errorf(codes.InvalidArgument, "rootSquashType(%s) is not supported, supported RootSquashType list: %v", rootSquashType, storage.PossibleRootSquashTypeValues())
+		return nil, status.Errorf(codes.InvalidArgument, "rootSquashType(%s) is not supported, supported RootSquashType list: %v", rootSquashType, armstorage.PossibleRootSquashTypeValues())
 	}
 
 	if !isSupportedFSGroupChangePolicy(fsGroupChangePolicy) {
@@ -341,7 +338,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	enableHTTPSTrafficOnly := true
-	shareProtocol := storage.EnabledProtocolsSMB
+	shareProtocol := armstorage.EnabledProtocolsSMB
 	var createPrivateEndpoint *bool
 	if strings.EqualFold(networkEndpointType, privateEndpoint) {
 		if strings.Contains(subnetName, ",") {
@@ -353,14 +350,14 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if fsType == nfs || protocol == nfs {
 		if sku == "" {
 			// NFS protocol only supports Premium storage
-			sku = string(storage.SkuNamePremiumLRS)
+			sku = string(armstorage.SKUNamePremiumLRS)
 		} else if strings.HasPrefix(strings.ToLower(sku), standard) {
 			return nil, status.Errorf(codes.InvalidArgument, "nfs protocol only supports premium storage, current account type: %s", sku)
 		}
 
 		protocol = nfs
 		enableHTTPSTrafficOnly = false
-		shareProtocol = storage.EnabledProtocolsNFS
+		shareProtocol = armstorage.EnabledProtocolsNFS
 		// NFS protocol does not need account key
 		storeAccountKey = false
 		// reset protocol field (compatible with "fsType: nfs")
@@ -405,9 +402,9 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	// account kind should be FileStorage for Premium File
-	accountKind := string(storage.KindStorageV2)
+	accountKind := string(armstorage.KindStorageV2)
 	if strings.HasPrefix(strings.ToLower(sku), premium) {
-		accountKind = string(storage.KindFileStorage)
+		accountKind = string(armstorage.KindFileStorage)
 		if fileShareSize < minimumPremiumShareSize {
 			fileShareSize = minimumPremiumShareSize
 		}
@@ -552,14 +549,14 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		secret = createStorageAccountSecret(accountName, accountKey)
 		// skip validating file share quota if useDataPlaneAPI
 	} else {
-		if quota, err := d.getFileShareQuota(ctx, subsID, resourceGroup, accountName, validFileShareName, secret); err != nil {
+		if quota, err := d.getFileShareQuota(ctx, accountOptions, validFileShareName, secret); err != nil {
 			return nil, status.Errorf(codes.Internal, "%v", err)
 		} else if quota != -1 && quota < fileShareSize {
 			return nil, status.Errorf(codes.AlreadyExists, "request file share(%s) already exists, but its capacity %d is smaller than %d", validFileShareName, quota, fileShareSize)
 		}
 	}
 
-	shareOptions := &fileclient.ShareOptions{
+	shareOptions := &ShareOptions{
 		Name:       validFileShareName,
 		Protocol:   shareProtocol,
 		RequestGiB: fileShareSize,
@@ -755,7 +752,7 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 }
 
 // copyVolume copy an azure file
-func (d *Driver) copyVolume(ctx context.Context, req *csi.CreateVolumeRequest, accountName, accountSASToken string, authAzcopyEnv []string, secretNamespace string, shareOptions *fileclient.ShareOptions, accountOptions *azure.AccountOptions, storageEndpointSuffix string) error {
+func (d *Driver) copyVolume(ctx context.Context, req *csi.CreateVolumeRequest, accountName, accountSASToken string, authAzcopyEnv []string, secretNamespace string, shareOptions *ShareOptions, accountOptions *azure.AccountOptions, storageEndpointSuffix string) error {
 	vs := req.VolumeContentSource
 	switch vs.Type.(type) {
 	case *csi.VolumeContentSource_Snapshot:
@@ -793,8 +790,13 @@ func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.Valida
 	if subsID == "" {
 		subsID = d.cloud.SubscriptionID
 	}
+	accountOptions := &azure.AccountOptions{
+		Name:           accountName,
+		SubscriptionID: subsID,
+		ResourceGroup:  resourceGroupName,
+	}
 
-	if quota, err := d.getFileShareQuota(ctx, subsID, resourceGroupName, accountName, fileShareName, req.GetSecrets()); err != nil {
+	if quota, err := d.getFileShareQuota(ctx, accountOptions, fileShareName, req.GetSecrets()); err != nil {
 		return nil, status.Errorf(codes.Internal, "error checking if volume(%s) exists: %v", volumeID, err)
 	} else if quota == -1 {
 		return nil, status.Errorf(codes.NotFound, "the requested volume(%s) does not exist.", volumeID)
@@ -1014,8 +1016,8 @@ func (d *Driver) ListSnapshots(_ context.Context, _ *csi.ListSnapshotsRequest) (
 }
 
 // restoreSnapshot restores from a snapshot
-func (d *Driver) restoreSnapshot(ctx context.Context, req *csi.CreateVolumeRequest, dstAccountName, dstAccountSasToken string, authAzcopyEnv []string, secretNamespace string, shareOptions *fileclient.ShareOptions, accountOptions *azure.AccountOptions, storageEndpointSuffix string) error {
-	if shareOptions.Protocol == storage.EnabledProtocolsNFS {
+func (d *Driver) restoreSnapshot(ctx context.Context, req *csi.CreateVolumeRequest, dstAccountName, dstAccountSasToken string, authAzcopyEnv []string, secretNamespace string, shareOptions *ShareOptions, accountOptions *azure.AccountOptions, storageEndpointSuffix string) error {
+	if shareOptions.Protocol == armstorage.EnabledProtocolsNFS {
 		return fmt.Errorf("protocol nfs is not supported for snapshot restore")
 	}
 	var sourceSnapshotID string

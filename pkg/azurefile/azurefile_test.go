@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -28,6 +29,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
 	azure2 "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -36,6 +39,8 @@ import (
 	"go.uber.org/mock/gomock"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/fileshareclient/mock_fileshareclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/mock_azclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient/mockfileclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/storageaccountclient/mockstorageaccountclient"
 	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
@@ -953,7 +958,7 @@ func TestGetFileShareQuota(t *testing.T) {
 	tests := []struct {
 		desc                string
 		secrets             map[string]string
-		mockedFileShareResp storage.FileShare
+		mockedFileShareResp *armstorage.FileShare
 		mockedFileShareErr  error
 		expectedQuota       int
 		expectedError       error
@@ -961,7 +966,7 @@ func TestGetFileShareQuota(t *testing.T) {
 		{
 			desc:                "Get file share return error",
 			secrets:             map[string]string{},
-			mockedFileShareResp: storage.FileShare{},
+			mockedFileShareResp: &armstorage.FileShare{},
 			mockedFileShareErr:  fmt.Errorf("test error"),
 			expectedQuota:       -1,
 			expectedError:       fmt.Errorf("test error"),
@@ -969,15 +974,17 @@ func TestGetFileShareQuota(t *testing.T) {
 		{
 			desc:                "Share not found",
 			secrets:             map[string]string{},
-			mockedFileShareResp: storage.FileShare{},
-			mockedFileShareErr:  fmt.Errorf("ShareNotFound"),
-			expectedQuota:       -1,
-			expectedError:       nil,
+			mockedFileShareResp: &armstorage.FileShare{},
+			mockedFileShareErr: &azcore.ResponseError{
+				StatusCode: http.StatusNotFound,
+			},
+			expectedQuota: -1,
+			expectedError: nil,
 		},
 		{
 			desc:                "Volume already exists",
 			secrets:             map[string]string{},
-			mockedFileShareResp: storage.FileShare{FileShareProperties: &storage.FileShareProperties{ShareQuota: &shareQuota}},
+			mockedFileShareResp: &armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: &shareQuota}},
 			mockedFileShareErr:  nil,
 			expectedQuota:       int(shareQuota),
 			expectedError:       nil,
@@ -987,7 +994,7 @@ func TestGetFileShareQuota(t *testing.T) {
 			secrets: map[string]string{
 				"secrets": "secrets",
 			},
-			mockedFileShareResp: storage.FileShare{},
+			mockedFileShareResp: &armstorage.FileShare{},
 			mockedFileShareErr:  nil,
 			expectedQuota:       -1,
 			expectedError:       fmt.Errorf("could not find accountname or azurestorageaccountname field in secrets"),
@@ -998,7 +1005,7 @@ func TestGetFileShareQuota(t *testing.T) {
 				"accountname": "ut",
 				"accountkey":  "testkey",
 			},
-			mockedFileShareResp: storage.FileShare{},
+			mockedFileShareResp: &armstorage.FileShare{},
 			mockedFileShareErr:  nil,
 			expectedQuota:       -1,
 			expectedError:       fmt.Errorf("error creating azure client: decode account key: illegal base64 data at input byte 4"),
@@ -1006,11 +1013,16 @@ func TestGetFileShareQuota(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		mockFileClient := mockfileclient.NewMockInterface(ctrl)
-		d.cloud.FileClient = mockFileClient
-		mockFileClient.EXPECT().GetFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
-		mockFileClient.EXPECT().WithSubscriptionID(gomock.Any()).Return(mockFileClient).AnyTimes()
-		quota, err := d.getFileShareQuota(context.TODO(), "", resourceGroupName, accountName, fileShareName, test.secrets)
+		mockFileClient := mock_fileshareclient.NewMockInterface(ctrl)
+		clientFactory := mock_azclient.NewMockClientFactory(ctrl)
+		clientFactory.EXPECT().GetFileShareClientForSub(gomock.Any()).Return(mockFileClient, nil).AnyTimes()
+		d.cloud.ComputeClientFactory = clientFactory
+		mockFileClient.EXPECT().Get(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
+		quota, err := d.getFileShareQuota(context.TODO(), &azure.AccountOptions{
+			ResourceGroup:  resourceGroupName,
+			Name:           accountName,
+			SubscriptionID: "subsID",
+		}, fileShareName, test.secrets)
 		if !reflect.DeepEqual(err, test.expectedError) {
 			t.Errorf("test name: %s, Unexpected error: %v, expected error: %v", test.desc, err, test.expectedError)
 		}

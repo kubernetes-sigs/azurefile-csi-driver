@@ -22,8 +22,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-
-	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
 )
 
 func TestCreateFileShare(t *testing.T) {
@@ -35,7 +33,7 @@ func TestCreateFileShare(t *testing.T) {
 		{
 			name: "",
 			testFunc: func(t *testing.T) {
-				options := &fileclient.ShareOptions{
+				options := &ShareOptions{
 					Name:       "devstoreaccount1",
 					RequestGiB: 10,
 				}
