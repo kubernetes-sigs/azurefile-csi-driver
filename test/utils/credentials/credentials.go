@@ -21,7 +21,7 @@ import (
 	"html/template"
 	"os"
 
-	"github.com/pborman/uuid"
+	"github.com/google/uuid"
 )
 
 const (
@@ -124,7 +124,7 @@ func CreateAzureCredentialFile(isAzureChinaCloud bool) (*Credentials, error) {
 	}
 
 	if resourceGroup == "" {
-		resourceGroup = ResourceGroupPrefix + uuid.NewUUID().String()
+		resourceGroup = ResourceGroupPrefix + uuid.NewString()
 	}
 
 	if location == "" {

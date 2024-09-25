@@ -28,10 +28,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/reporters"
 	"github.com/onsi/gomega"
-	"github.com/pborman/uuid"
 	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/framework/config"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
@@ -143,7 +143,7 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		driverOptions := azurefile.DriverOptions{
 			NodeID:     os.Getenv("nodeid"),
 			DriverName: azurefile.DefaultDriverName,
-			Endpoint:   fmt.Sprintf("unix:///tmp/csi-%s.sock", uuid.NewUUID().String()),
+			Endpoint:   fmt.Sprintf("unix:///tmp/csi-%s.sock", uuid.NewString()),
 			KubeConfig: kubeconfig,
 		}
 		azurefileDriver = azurefile.NewDriver(&driverOptions)
