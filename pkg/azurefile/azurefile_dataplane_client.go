@@ -18,18 +18,15 @@ package azurefile
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/service"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
 	"k8s.io/klog/v2"
 
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/utils"
-	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
 )
 
@@ -79,7 +76,7 @@ func newAzureFileClient(accountName, accountKey, storageEndpointSuffix string, b
 	}, nil
 }
 
-func (f *azureFileDataplaneClient) CreateFileShare(ctx context.Context, shareOptions *fileclient.ShareOptions) error {
+func (f *azureFileDataplaneClient) CreateFileShare(ctx context.Context, shareOptions *ShareOptions) error {
 	if shareOptions == nil {
 		return fmt.Errorf("shareOptions of account(%s) is nil", f.accountName)
 	}
@@ -124,10 +121,6 @@ func (f *azureFileDataplaneClient) GetFileShareQuota(ctx context.Context, name s
 	shareClient := f.Client.NewShareClient(name)
 	shareProps, err := shareClient.GetProperties(ctx, nil)
 	if err != nil {
-		var respErr *azcore.ResponseError
-		if errors.As(err, &respErr) && respErr != nil && respErr.StatusCode == http.StatusNotFound {
-			return -1, nil
-		}
 		return -1, err
 	}
 	return int(*shareProps.Quota), nil

@@ -19,11 +19,29 @@ package azurefile
 import (
 	"context"
 
-	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 )
 
+const (
+	// FileShareAccountNamePrefix is the file share account name prefix
+	FileShareAccountNamePrefix = "f"
+)
+
+// ShareOptions contains the fields which are used to create file share.
+type ShareOptions struct {
+	Name       string
+	Protocol   armstorage.EnabledProtocols
+	RequestGiB int
+	// supported values: ""(by default), "TransactionOptimized", "Cool", "Hot", "Premium"
+	AccessTier string
+	// supported values: ""(by default), "AllSquash", "NoRootSquash", "RootSquash"
+	RootSquash string
+	// Metadata - A name-value pair to associate with the share as metadata.
+	Metadata map[string]*string
+}
+
 type azureFileClient interface {
-	CreateFileShare(ctx context.Context, shareOptions *fileclient.ShareOptions) error
+	CreateFileShare(ctx context.Context, shareOptions *ShareOptions) error
 	DeleteFileShare(ctx context.Context, name string) error
 	GetFileShareQuota(ctx context.Context, name string) (int, error)
 	ResizeFileShare(ctx context.Context, name string, sizeGiB int) error

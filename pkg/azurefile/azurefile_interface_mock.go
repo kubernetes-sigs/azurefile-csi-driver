@@ -31,7 +31,6 @@ import (
 	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"
-	fileclient "sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
 )
 
 // MockAzureFileClient is a mock of AzureFileClient interface.
@@ -58,7 +57,7 @@ func (m *MockAzureFileClient) EXPECT() *MockAzureFileClientMockRecorder {
 }
 
 // CreateFileShare mocks base method.
-func (m *MockAzureFileClient) CreateFileShare(ctx context.Context, shareOptions *fileclient.ShareOptions) error {
+func (m *MockAzureFileClient) CreateFileShare(ctx context.Context, shareOptions *ShareOptions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateFileShare", ctx, shareOptions)
 	ret0, _ := ret[0].(error)
