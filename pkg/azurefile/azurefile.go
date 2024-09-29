@@ -31,8 +31,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
 	"github.com/Azure/azure-storage-file-go/azfile"
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/google/uuid"
 	grpcprom "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
-	"github.com/pborman/uuid"
 	"github.com/rubiojr/go-vhd/vhd"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -632,7 +632,7 @@ func getValidFileShareName(volumeName string) string {
 		fileShareName = fileShareName[0:fileShareNameMaxLength]
 	}
 	if !checkShareNameBeginAndEnd(fileShareName) || len(fileShareName) < fileShareNameMinLength {
-		fileShareName = util.GenerateVolumeName("pvc-file", uuid.NewUUID().String(), fileShareNameMaxLength)
+		fileShareName = util.GenerateVolumeName("pvc-file", uuid.NewString(), fileShareNameMaxLength)
 		klog.Warningf("the requested volume name (%q) is invalid, so it is regenerated as (%q)", volumeName, fileShareName)
 	}
 	fileShareName = strings.Replace(fileShareName, "--", "-", -1)
@@ -916,22 +916,27 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *azure.Acco
 	return wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 		var err error
 		if len(secrets) > 0 {
-			accountName, accountKey, rerr := getStorageAccount(secrets)
-			if rerr != nil {
-				return true, rerr
+			var accountName, accountKey string
+			accountName, accountKey, err = getStorageAccount(secrets)
+			if err != nil {
+				return true, err
 			}
-			fileClient, rerr := newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix(), &retry.Backoff{Steps: 1})
-			if rerr != nil {
-				return true, rerr
+			var fileClient azureFileClient
+			fileClient, err = newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix(), &retry.Backoff{Steps: 1})
+			if err != nil {
+				return true, err
 			}
 			err = fileClient.CreateFileShare(ctx, shareOptions)
 		} else {
 			_, err = d.cloud.FileClient.WithSubscriptionID(accountOptions.SubscriptionID).CreateFileShare(ctx, accountOptions.ResourceGroup, accountOptions.Name, shareOptions, "")
 		}
-		if isRetriableError(err) {
-			klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", shareOptions.Name, accountOptions.Name, err)
-			sleepIfThrottled(err, fileOpThrottlingSleepSec)
-			return false, nil
+		if err != nil {
+			if isRetriableError(err) {
+				klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", shareOptions.Name, accountOptions.Name, err)
+				sleepIfThrottled(err, fileOpThrottlingSleepSec)
+				return false, nil
+			}
+			klog.Errorf("CreateFileShare(%s) on account(%s) failed with error(%v)", shareOptions.Name, accountOptions.Name, err)
 		}
 		return true, err
 	})

@@ -59,7 +59,7 @@ func TestCreateFileShare(t *testing.T) {
 func TestNewAzureFileClient(t *testing.T) {
 	_, actualErr := newAzureFileClient("ut", "ut", "ut", nil)
 	if actualErr != nil {
-		expectedErr := fmt.Errorf("error creating azure client: azure: account name is not valid: it must be between 3 and 24 characters, and only may contain numbers and lowercase letters: ut")
+		expectedErr := fmt.Errorf("error creating azure client: decode account key: illegal base64 data at input byte 0")
 		if !reflect.DeepEqual(actualErr, expectedErr) {
 			t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
 		}

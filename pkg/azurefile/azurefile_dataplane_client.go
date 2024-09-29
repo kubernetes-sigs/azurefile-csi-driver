@@ -18,19 +18,19 @@ package azurefile
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	azs "github.com/Azure/azure-sdk-for-go/storage"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/service"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
 	"k8s.io/klog/v2"
 
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/utils"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
-)
-
-const (
-	useHTTPS = true
 )
 
 var (
@@ -47,78 +47,88 @@ var (
 type azureFileDataplaneClient struct {
 	accountName string
 	accountKey  string
-	*azs.FileServiceClient
+	*service.Client
 }
 
 func newAzureFileClient(accountName, accountKey, storageEndpointSuffix string, backoff *retry.Backoff) (azureFileClient, error) {
 	if storageEndpointSuffix == "" {
 		storageEndpointSuffix = defaultStorageEndPointSuffix
 	}
-
-	fileClient, err := azs.NewClient(accountName, accountKey, storageEndpointSuffix, azs.DefaultAPIVersion, useHTTPS)
+	keyCred, err := service.NewSharedKeyCredential(accountName, accountKey)
+	if err != nil {
+		return nil, fmt.Errorf("error creating azure client: %v", err)
+	}
+	storageEndpoint := fmt.Sprintf("https://%s.file."+storageEndpointSuffix, accountName)
+	clientOps := utils.GetDefaultAzCoreClientOption()
+	if backoff != nil {
+		clientOps.Retry.MaxRetries = int32(backoff.Steps)
+		clientOps.Retry.StatusCodes = defaultValidStatusCodes
+		clientOps.Retry.RetryDelay = backoff.Duration
+	}
+	fileClient, err := service.NewClientWithSharedKeyCredential(storageEndpoint, keyCred, &service.ClientOptions{
+		ClientOptions: clientOps,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("error creating azure client: %v", err)
 	}
 
-	if backoff != nil {
-		fileClient.Sender = &azs.DefaultSender{
-			RetryAttempts:    backoff.Steps,
-			ValidStatusCodes: defaultValidStatusCodes,
-			RetryDuration:    backoff.Duration,
-		}
-	}
-
 	return &azureFileDataplaneClient{
-		accountName:       accountName,
-		accountKey:        accountKey,
-		FileServiceClient: to.Ptr(fileClient.GetFileService()),
+		accountName: accountName,
+		accountKey:  accountKey,
+		Client:      fileClient,
 	}, nil
 }
 
-func (f *azureFileDataplaneClient) CreateFileShare(_ context.Context, shareOptions *fileclient.ShareOptions) error {
+func (f *azureFileDataplaneClient) CreateFileShare(ctx context.Context, shareOptions *fileclient.ShareOptions) error {
 	if shareOptions == nil {
 		return fmt.Errorf("shareOptions of account(%s) is nil", f.accountName)
 	}
-	share := f.FileServiceClient.GetShareReference(shareOptions.Name)
-	share.Properties.Quota = shareOptions.RequestGiB
-	newlyCreated, err := share.CreateIfNotExists(nil)
+	shareClient := f.Client.NewShareClient(shareOptions.Name)
+	_, err := shareClient.Create(ctx, &share.CreateOptions{
+		Quota: to.Ptr(int32(shareOptions.RequestGiB)),
+	})
+
 	if err != nil {
 		return fmt.Errorf("failed to create file share, err: %v", err)
-	}
-	if !newlyCreated {
-		klog.V(2).Infof("file share(%s) under account(%s) already exists", shareOptions.Name, f.accountName)
 	}
 	return nil
 }
 
 // delete a file share
-func (f *azureFileDataplaneClient) DeleteFileShare(_ context.Context, shareName string) error {
-	return f.FileServiceClient.GetShareReference(shareName).Delete(nil)
+func (f *azureFileDataplaneClient) DeleteFileShare(ctx context.Context, shareName string) error {
+	_, err := f.Client.NewShareClient(shareName).Delete(ctx, nil)
+	return err
 }
 
-func (f *azureFileDataplaneClient) ResizeFileShare(_ context.Context, shareName string, sizeGiB int) error {
-	share := f.FileServiceClient.GetShareReference(shareName)
-	if share.Properties.Quota >= sizeGiB {
+func (f *azureFileDataplaneClient) ResizeFileShare(ctx context.Context, shareName string, sizeGiB int) error {
+	shareClient := f.Client.NewShareClient(shareName)
+	shareProps, err := shareClient.GetProperties(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to set quota on file share %s, err: %v", shareName, err)
+	}
+	if *shareProps.Quota >= int32(sizeGiB) {
 		klog.Warningf("file share size(%dGi) is already greater or equal than requested size(%dGi), accountName: %s, shareName: %s",
-			share.Properties.Quota, sizeGiB, f.accountName, shareName)
+			*shareProps.Quota, sizeGiB, f.accountName, shareName)
 		return nil
 	}
-	share.Properties.Quota = sizeGiB
-	if err := share.SetProperties(nil); err != nil {
+	if _, err := shareClient.SetProperties(ctx, &share.SetPropertiesOptions{
+		Quota: to.Ptr(int32(sizeGiB)),
+	}); err != nil {
 		return fmt.Errorf("failed to set quota on file share %s, err: %v", shareName, err)
 	}
 	klog.V(4).Infof("resize file share completed, accountName: %s, shareName: %s, sizeGiB: %d", f.accountName, shareName, sizeGiB)
 	return nil
 }
 
-func (f *azureFileDataplaneClient) GetFileShareQuota(_ context.Context, name string) (int, error) {
-	share := f.FileServiceClient.GetShareReference(name)
-	exists, err := share.Exists()
+func (f *azureFileDataplaneClient) GetFileShareQuota(ctx context.Context, name string) (int, error) {
+	shareClient := f.Client.NewShareClient(name)
+	shareProps, err := shareClient.GetProperties(ctx, nil)
 	if err != nil {
+		var respErr *azcore.ResponseError
+		if errors.As(err, &respErr) && respErr != nil && respErr.StatusCode == http.StatusNotFound {
+			return -1, nil
+		}
 		return -1, err
 	}
-	if !exists {
-		return -1, nil
-	}
-	return share.Properties.Quota, nil
+	return int(*shareProps.Quota), nil
 }
