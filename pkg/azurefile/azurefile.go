@@ -192,6 +192,7 @@ const (
 	FSGroupChangeNone = "None"
 	// define tag value delimiter and default is comma
 	tagValueDelimiterField = "tagValueDelimiter"
+	enableKataCCMountField = "enablekataccmount"
 )
 
 var (
@@ -221,7 +222,6 @@ type Driver struct {
 	allowInlineVolumeKeyAccessWithIdentity bool
 	enableVHDDiskFeature                   bool
 	enableGetVolumeStats                   bool
-	enableKataCCMount                      bool
 	enableVolumeMountGroup                 bool
 	appendMountErrorHelpLink               bool
 	mountPermissions                       uint64
@@ -292,7 +292,6 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.allowEmptyCloudConfig = options.AllowEmptyCloudConfig
 	driver.allowInlineVolumeKeyAccessWithIdentity = options.AllowInlineVolumeKeyAccessWithIdentity
 	driver.enableVHDDiskFeature = options.EnableVHDDiskFeature
-	driver.enableKataCCMount = options.EnableKataCCMount
 	driver.enableVolumeMountGroup = options.EnableVolumeMountGroup
 	driver.enableGetVolumeStats = options.EnableGetVolumeStats
 	driver.appendMountErrorHelpLink = options.AppendMountErrorHelpLink

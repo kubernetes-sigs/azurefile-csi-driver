@@ -99,7 +99,16 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 				return nil, status.Errorf(codes.InvalidArgument, "invalid mountPermissions %s", perm)
 			}
 		}
-		if d.enableKataCCMount && context[podNameField] != "" && context[podNamespaceField] != "" {
+
+		enableKataCCMount := getValueInMap(context, enableKataCCMountField)
+		if enableKataCCMount == "" {
+			enableKataCCMount = falseValue
+		}
+		enableKataCCMountVal, err := strconv.ParseBool(enableKataCCMount)
+		if err != nil {
+			return &csi.NodePublishVolumeResponse{}, err
+		}
+		if enableKataCCMountVal && context[podNameField] != "" && context[podNamespaceField] != "" {
 			runtimeClass, err := getRuntimeClassForPodFunc(ctx, d.cloud.KubeClient, context[podNameField], context[podNamespaceField])
 			if err != nil {
 				klog.Errorf("failed to get runtime class for pod %s/%s: %v", context[podNamespaceField], context[podNameField], err)
@@ -187,13 +196,13 @@ func (d *Driver) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVo
 	if err := CleanupMountPoint(d.mounter, targetPath, true /*extensiveMountPointCheck*/); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to unmount target %s: %v", targetPath, err)
 	}
-	if d.enableKataCCMount {
-		// Remove deletes the direct volume path including all the files inside it.
-		// if there is no kata-cc mountinfo present on this path, it will return nil.
-		if err := d.directVolume.Remove(targetPath); err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to direct volume remove mount info %s: %v", targetPath, err)
-		}
+
+	// Remove deletes the direct volume path including all the files inside it.
+	// if there is no kata-cc mountinfo present on this path, it will return nil.
+	if err := d.directVolume.Remove(targetPath); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to direct volume remove mount info %s: %v", targetPath, err)
 	}
+
 	klog.V(2).Infof("NodeUnpublishVolume: unmount volume %s on %s successfully", volumeID, targetPath)
 
 	return &csi.NodeUnpublishVolumeResponse{}, nil
@@ -246,13 +255,12 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	// don't respect fsType from req.GetVolumeCapability().GetMount().GetFsType()
 	// since it's ext4 by default on Linux
 	var fsType, server, protocol, ephemeralVolMountOptions, storageEndpointSuffix, folderName string
-	var ephemeralVol bool
+	var ephemeralVol, enableKataCCMount bool
 	fileShareNameReplaceMap := map[string]string{}
 
 	mountPermissions := d.mountPermissions
 	performChmodOp := (mountPermissions > 0)
 	fsGroupChangePolicy := d.fsGroupChangePolicy
-
 	for k, v := range context {
 		switch strings.ToLower(k) {
 		case fsTypeField:
@@ -279,6 +287,11 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			fileShareNameReplaceMap[pvcNameMetadata] = v
 		case pvNameKey:
 			fileShareNameReplaceMap[pvNameMetadata] = v
+		case enableKataCCMountField:
+			enableKataCCMount, err = strconv.ParseBool(v)
+			if err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", enableKataCCMountField, v)
+			}
 		case mountPermissionsField:
 			if v != "" {
 				var err error
@@ -415,7 +428,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 
 	// If runtime OS is not windows and protocol is not nfs, save mountInfo.json
-	if d.enableKataCCMount {
+	if enableKataCCMount {
 		if runtime.GOOS != "windows" && protocol != nfs {
 			// Check if mountInfo.json is already present at the targetPath
 			isMountInfoPresent, err := d.directVolume.VolumeMountInfo(cifsMountPath)
@@ -526,11 +539,9 @@ func (d *Driver) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolume
 		}
 	}
 
-	if d.enableKataCCMount {
-		klog.V(2).Infof("NodeUnstageVolume:remove direct volume mount info %s from %s", volumeID, stagingTargetPath)
-		if err := d.directVolume.Remove(stagingTargetPath); err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to remove mount info %s: %v", stagingTargetPath, err)
-		}
+	klog.V(2).Infof("NodeUnstageVolume:remove direct volume mount info %s from %s", volumeID, stagingTargetPath)
+	if err := d.directVolume.Remove(stagingTargetPath); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to remove mount info %s: %v", stagingTargetPath, err)
 	}
 
 	klog.V(2).Infof("NodeUnstageVolume: unmount volume %s on %s successfully", volumeID, stagingTargetPath)
