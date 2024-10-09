@@ -329,6 +329,9 @@ github.com/josharian/intern
 # github.com/json-iterator/go v1.1.12
 ## explicit; go 1.12
 github.com/json-iterator/go
+# github.com/kata-containers/kata-containers/src/runtime v0.0.0-20240702121346-ef3f6515cf8a
+## explicit; go 1.21
+github.com/kata-containers/kata-containers/src/runtime/pkg/direct-volume
 # github.com/klauspost/compress v1.17.9
 ## explicit; go 1.20
 github.com/klauspost/compress
@@ -338,9 +341,6 @@ github.com/klauspost/compress/internal/cpuinfo
 github.com/klauspost/compress/internal/snapref
 github.com/klauspost/compress/zstd
 github.com/klauspost/compress/zstd/internal/xxhash
-# github.com/kata-containers/kata-containers/src/runtime v0.0.0-20240702121346-ef3f6515cf8a
-## explicit; go 1.21
-github.com/kata-containers/kata-containers/src/runtime/pkg/direct-volume
 # github.com/kubernetes-csi/csi-lib-utils v0.14.1
 ## explicit; go 1.18
 github.com/kubernetes-csi/csi-lib-utils/protosanitizer
