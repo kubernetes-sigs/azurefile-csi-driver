@@ -33,12 +33,81 @@ import (
 	"sigs.k8s.io/azurefile-csi-driver/test/utils/testutil"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/subnetclient/mocksubnetclient"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	fake "k8s.io/client-go/kubernetes/fake"
 	azureprovider "sigs.k8s.io/cloud-provider-azure/pkg/provider"
 )
 
 func skipIfTestingOnWindows(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Skipping test on Windows")
+	}
+}
+
+func TestGetRuntimeClassForPod(t *testing.T) {
+	ctx := context.TODO()
+
+	// Test the case where kubeClient is nil
+	_, err := getRuntimeClassForPod(ctx, nil, "test-pod", "default")
+	if err == nil || err.Error() != "kubeClient is nil" {
+		t.Fatalf("expected error 'kubeClient is nil', got %v", err)
+	}
+
+	// Create a fake clientset
+	clientset := fake.NewSimpleClientset()
+
+	// Test the case where the pod exists and has a RuntimeClassName
+	runtimeClassName := "my-runtime-class"
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "default",
+		},
+		Spec: corev1.PodSpec{
+			RuntimeClassName: &runtimeClassName,
+		},
+	}
+	_, err = clientset.CoreV1().Pods("default").Create(ctx, pod, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	runtimeClass, err := getRuntimeClassForPod(ctx, clientset, "test-pod", "default")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if runtimeClass != runtimeClassName {
+		t.Fatalf("expected runtime class name to be '%s', got '%s'", runtimeClassName, runtimeClass)
+	}
+
+	// Test the case where the pod exists but does not have a RuntimeClassName
+	podWithoutRuntimeClass := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod-no-runtime",
+			Namespace: "default",
+		},
+		Spec: corev1.PodSpec{},
+	}
+	_, err = clientset.CoreV1().Pods("default").Create(ctx, podWithoutRuntimeClass, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	runtimeClass, err = getRuntimeClassForPod(ctx, clientset, "test-pod-no-runtime", "default")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if runtimeClass != "" {
+		t.Fatalf("expected runtime class name to be '', got '%s'", runtimeClass)
+	}
+
+	// Test the case where the pod does not exist
+	_, err = getRuntimeClassForPod(ctx, clientset, "nonexistent-pod", "default")
+	if err == nil {
+		t.Fatalf("expected an error, got nil")
 	}
 }
 

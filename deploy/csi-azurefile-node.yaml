@@ -138,6 +138,8 @@ spec:
               name: azure-cred
             - mountPath: /dev
               name: device-dir
+            - mountPath: /run/kata-containers/shared/direct-volumes
+              name: kata-direct-volumes
           resources:
             limits:
               memory: 400Mi
@@ -165,4 +167,8 @@ spec:
             path: /dev
             type: Directory
           name: device-dir
+        - name: kata-direct-volumes
+          hostPath:
+            path: /run/kata-containers/shared/direct-volumes/
+            type: DirectoryOrCreate
 ---
