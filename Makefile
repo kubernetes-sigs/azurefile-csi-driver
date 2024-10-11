@@ -80,7 +80,7 @@ unit-test:
 
 .PHONY: sanity-test
 sanity-test: azurefile
-	go test -v -timeout=10m ./test/sanity
+	go test -v -timeout=30m ./test/sanity
 
 .PHONY: e2e-test
 e2e-test:
@@ -233,8 +233,8 @@ create-metrics-svc:
 
 .PHONY: install-smb-provisioner
 install-smb-provisioner:
-	kubectl delete secret smbcreds --ignore-not-found
-	kubectl create secret generic smbcreds --from-literal azurestorageaccountname=USERNAME --from-literal azurestorageaccountkey="PASSWORD"
+	kubectl delete secret smbcreds -n default --ignore-not-found
+	kubectl create secret generic smbcreds -n default --from-literal azurestorageaccountname=USERNAME --from-literal azurestorageaccountkey="PASSWORD"
 ifdef TEST_WINDOWS
 	kubectl apply -f deploy/example/smb-provisioner/smb-server-lb.yaml
 else

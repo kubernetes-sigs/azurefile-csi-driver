@@ -25,13 +25,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/volume"
 )
 
 const (
-	tagsDelimiter        = ","
 	tagKeyValueDelimiter = "="
 )
 
@@ -185,20 +185,23 @@ func createStorageAccountSecret(account, key string) map[string]string {
 	return secret
 }
 
-func ConvertTagsToMap(tags string) (map[string]string, error) {
+func ConvertTagsToMap(tags string, tagsDelimiter string) (map[string]string, error) {
 	m := make(map[string]string)
 	if tags == "" {
 		return m, nil
 	}
+	if tagsDelimiter == "" {
+		tagsDelimiter = ","
+	}
 	s := strings.Split(tags, tagsDelimiter)
 	for _, tag := range s {
-		kv := strings.Split(tag, tagKeyValueDelimiter)
+		kv := strings.SplitN(tag, tagKeyValueDelimiter, 2)
 		if len(kv) != 2 {
-			return nil, fmt.Errorf("Tags '%s' are invalid, the format should like: 'key1=value1,key2=value2'", tags)
+			return nil, fmt.Errorf("Tags '%s' are invalid, the format should like: 'key1=value1%skey2=value2'", tags, tagsDelimiter)
 		}
 		key := strings.TrimSpace(kv[0])
 		if key == "" {
-			return nil, fmt.Errorf("Tags '%s' are invalid, the format should like: 'key1=value1,key2=value2'", tags)
+			return nil, fmt.Errorf("Tags '%s' are invalid, the format should like: 'key1=value1%skey2=value2'", tags, tagsDelimiter)
 		}
 		value := strings.TrimSpace(kv[1])
 		m[key] = value
@@ -304,4 +307,13 @@ func replaceWithMap(str string, m map[string]string) string {
 		}
 	}
 	return str
+}
+
+func isReadOnlyFromCapability(vc *csi.VolumeCapability) bool {
+	if vc.GetAccessMode() == nil {
+		return false
+	}
+	mode := vc.GetAccessMode().GetMode()
+	return (mode == csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY ||
+		mode == csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY)
 }

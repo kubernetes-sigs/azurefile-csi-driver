@@ -1,7 +1,6 @@
 # Azure File Snapshot feature
 
-> NOTE: Due to [Azure File snapshot restore API limitation](https://github.com/kubernetes-sigs/azurefile-csi-driver/issues/136), this driver only supports snapshot creation, snapshot could be restored from Azure portal or cli.
-> From version 1.30.2, you can restore smb fileshare snapshot by azure file CSI driver
+> From v1.30.2, the restoration of an SMB file share snapshot is now supported by CSI driver.
 
 ## Install CSI Driver
 

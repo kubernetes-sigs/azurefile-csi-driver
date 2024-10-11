@@ -53,7 +53,7 @@ import (
 	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	e2epv "k8s.io/kubernetes/test/e2e/framework/pv"
 	imageutils "k8s.io/kubernetes/test/utils/image"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -148,6 +148,7 @@ type TestPersistentVolumeClaim struct {
 	persistentVolumeClaim          *v1.PersistentVolumeClaim
 	requestedPersistentVolumeClaim *v1.PersistentVolumeClaim
 	dataSource                     *v1.TypedLocalObjectReference
+	AccessModes                    []v1.PersistentVolumeAccessMode
 }
 
 func NewTestPersistentVolumeClaim(c clientset.Interface, ns *v1.Namespace, claimSize string, volumeMode VolumeMode, sc *storagev1.StorageClass) *TestPersistentVolumeClaim {
@@ -188,6 +189,10 @@ func (t *TestPersistentVolumeClaim) Create(ctx context.Context) {
 		storageClassName = t.storageClass.Name
 	}
 	t.requestedPersistentVolumeClaim = generatePVC(t.namespace.Name, storageClassName, t.claimSize, t.volumeMode, t.dataSource)
+	if len(t.AccessModes) > 0 {
+		ginkgo.By("setting access modes")
+		t.requestedPersistentVolumeClaim.Spec.AccessModes = t.AccessModes
+	}
 	t.persistentVolumeClaim, err = t.client.CoreV1().PersistentVolumeClaims(t.namespace.Name).Create(ctx, t.requestedPersistentVolumeClaim, metav1.CreateOptions{})
 	framework.ExpectNoError(err)
 }
@@ -679,7 +684,7 @@ func NewTestPod(c clientset.Interface, ns *v1.Namespace, command string, isWindo
 				},
 				RestartPolicy:                v1.RestartPolicyNever,
 				Volumes:                      make([]v1.Volume, 0),
-				AutomountServiceAccountToken: pointer.Bool(false),
+				AutomountServiceAccountToken: ptr.To(false),
 			},
 		},
 	}
@@ -702,7 +707,7 @@ func (t *TestPod) Create(ctx context.Context) {
 }
 
 func (t *TestPod) WaitForSuccess(ctx context.Context) {
-	err := e2epod.WaitForPodSuccessInNamespaceSlow(ctx, t.client, t.pod.Name, t.namespace.Name)
+	err := e2epod.WaitForPodSuccessInNamespaceTimeout(ctx, t.client, t.pod.Name, t.namespace.Name, 15*time.Minute)
 	framework.ExpectNoError(err)
 }
 
@@ -840,7 +845,7 @@ func (t *TestPod) SetupCSIInlineVolume(name, mountPath, secretName, shareName, s
 					"server":       server,
 					"mountOptions": "dir_mode=0755,file_mode=0721,cache=singleclient",
 				},
-				ReadOnly: pointer.Bool(readOnly),
+				ReadOnly: ptr.To(readOnly),
 			},
 		},
 	}

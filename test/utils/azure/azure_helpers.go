@@ -23,11 +23,11 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	compute "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v5"
-	network "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4"
+	compute "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	network "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	resources "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	storage "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/accountclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/fileshareclient"
@@ -50,14 +50,20 @@ type Client struct {
 	sshPublicKeysClient sshpublickeyresourceclient.Interface
 }
 
-func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret string) (*Client, error) {
+func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aadFederatedTokenFile string) (*Client, error) {
 	armConfig := &azclient.ARMClientConfig{
 		Cloud:    cloud,
 		TenantID: tenantID,
 	}
+	useFederatedWorkloadIdentityExtension := false
+	if aadFederatedTokenFile != "" {
+		useFederatedWorkloadIdentityExtension = true
+	}
 	credProvider, err := azclient.NewAuthProvider(armConfig, &azclient.AzureAuthConfig{
-		AADClientID:     clientID,
-		AADClientSecret: clientSecret,
+		AADClientID:                           clientID,
+		AADClientSecret:                       clientSecret,
+		AADFederatedTokenFile:                 aadFederatedTokenFile,
+		UseFederatedWorkloadIdentityExtension: useFederatedWorkloadIdentityExtension,
 	})
 	if err != nil {
 		return nil, err
@@ -125,13 +131,24 @@ func (az *Client) EnsureResourceGroup(ctx context.Context, name, location string
 
 func (az *Client) DeleteResourceGroup(ctx context.Context, groupName string) error {
 	_, err := az.groupsClient.Get(ctx, groupName)
-	if err == nil {
-		err := az.groupsClient.Delete(ctx, groupName)
-		if err != nil {
-			return fmt.Errorf("cannot delete resource group %v: %v", groupName, err)
-		}
+	if err != nil {
+		return err
 	}
-	return nil
+
+	timeout := 20 * time.Minute
+	ch := make(chan bool, 1)
+
+	go func() {
+		err = az.groupsClient.Delete(ctx, groupName)
+		ch <- true
+	}()
+
+	select {
+	case <-ch:
+		return err
+	case <-time.After(timeout):
+		return fmt.Errorf("timeout waiting for resource group %s to be deleted", groupName)
+	}
 }
 
 func (az *Client) EnsureVirtualMachine(ctx context.Context, groupName, location, vmName string) (vm *compute.VirtualMachine, err error) {
@@ -150,29 +167,29 @@ func (az *Client) EnsureVirtualMachine(ctx context.Context, groupName, location,
 		groupName,
 		vmName,
 		compute.VirtualMachine{
-			Location: pointer.String(location),
+			Location: ptr.To(location),
 			Properties: &compute.VirtualMachineProperties{
 				HardwareProfile: &compute.HardwareProfile{
 					VMSize: to.Ptr(compute.VirtualMachineSizeTypesStandardDS2V2),
 				},
 				StorageProfile: &compute.StorageProfile{
 					ImageReference: &compute.ImageReference{
-						Publisher: pointer.String("Canonical"),
-						Offer:     pointer.String("UbuntuServer"),
-						SKU:       pointer.String("16.04.0-LTS"),
-						Version:   pointer.String("latest"),
+						Publisher: ptr.To("Canonical"),
+						Offer:     ptr.To("UbuntuServer"),
+						SKU:       ptr.To("16.04.0-LTS"),
+						Version:   ptr.To("latest"),
 					},
 				},
 				OSProfile: &compute.OSProfile{
-					ComputerName:  pointer.String(vmName),
-					AdminUsername: pointer.String("azureuser"),
-					AdminPassword: pointer.String("Azureuser1234"),
+					ComputerName:  ptr.To(vmName),
+					AdminUsername: ptr.To("azureuser"),
+					AdminPassword: ptr.To("Azureuser1234"),
 					LinuxConfiguration: &compute.LinuxConfiguration{
-						DisablePasswordAuthentication: pointer.Bool(true),
+						DisablePasswordAuthentication: ptr.To(true),
 						SSH: &compute.SSHConfiguration{
 							PublicKeys: []*compute.SSHPublicKey{
 								{
-									Path:    pointer.String("/home/azureuser/.ssh/authorized_keys"),
+									Path:    ptr.To("/home/azureuser/.ssh/authorized_keys"),
 									KeyData: &publicKey,
 								},
 							},
@@ -184,7 +201,7 @@ func (az *Client) EnsureVirtualMachine(ctx context.Context, groupName, location,
 						{
 							ID: nic.ID,
 							Properties: &compute.NetworkInterfaceReferenceProperties{
-								Primary: pointer.Bool(true),
+								Primary: ptr.To(true),
 							},
 						},
 					},
@@ -215,12 +232,12 @@ func (az *Client) EnsureNIC(ctx context.Context, groupName, location, nicName, v
 		groupName,
 		nicName,
 		network.Interface{
-			Name:     pointer.String(nicName),
-			Location: pointer.String(location),
+			Name:     ptr.To(nicName),
+			Location: ptr.To(location),
 			Properties: &network.InterfacePropertiesFormat{
 				IPConfigurations: []*network.InterfaceIPConfiguration{
 					{
-						Name: pointer.String("ipConfig1"),
+						Name: ptr.To("ipConfig1"),
 						Properties: &network.InterfaceIPConfigurationPropertiesFormat{
 							Subnet:                    subnet,
 							PrivateIPAllocationMethod: to.Ptr(network.IPAllocationMethodDynamic),
@@ -243,16 +260,16 @@ func (az *Client) EnsureVirtualNetworkAndSubnet(ctx context.Context, groupName, 
 		groupName,
 		vnetName,
 		network.VirtualNetwork{
-			Location: pointer.String(location),
+			Location: ptr.To(location),
 			Properties: &network.VirtualNetworkPropertiesFormat{
 				AddressSpace: &network.AddressSpace{
 					AddressPrefixes: []*string{to.Ptr("10.0.0.0/8")},
 				},
 				Subnets: []*network.Subnet{
 					{
-						Name: pointer.String(subnetName),
+						Name: ptr.To(subnetName),
 						Properties: &network.SubnetPropertiesFormat{
-							AddressPrefix: pointer.String("10.0.0.0/16"),
+							AddressPrefix: ptr.To("10.0.0.0/16"),
 						},
 					},
 				},

@@ -6,9 +6,10 @@
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/azurefile-csi-driver)](https://artifacthub.io/packages/search?repo=azurefile-csi-driver)
 
 ### About
-This driver allows Kubernetes to access [Azure File](https://docs.microsoft.com/en-us/azure/storage/files/storage-files-introduction) volume using smb and nfs protocols, csi plugin name: `file.csi.azure.com`
+This driver allows Kubernetes to access [Azure File](https://docs.microsoft.com/en-us/azure/storage/files/storage-files-introduction) volume using smb and nfs protocols, csi plugin name: `file.csi.azure.com`.
+> Please be aware that this driver only permits the mounting of SMB file shares using key-based (NTLM v2) authentication, and therefore does not support the maximum security profile of Azure File share settings.  On the other hand, mounting NFS file shares does not require key-based authentication.
 
-Disclaimer: Deploying this driver manually is not an officially supported Microsoft product. For a fully managed and supported experience on Kubernetes, use [AKS with the managed Azure file csi driver](https://learn.microsoft.com/azure/aks/azure-files-csi).
+Disclaimer: Deploying this driver manually is not an officially supported Microsoft product. For a fully managed and supported experience on Kubernetes, use [AKS with the managed Azure File CSI driver](https://learn.microsoft.com/azure/aks/azure-files-csi).
 
 ### Project status: GA
 
@@ -16,9 +17,9 @@ Disclaimer: Deploying this driver manually is not an officially supported Micros
 |Driver Version  |Image                                                      | supported k8s version |
 |----------------|---------------------------------------------------------- |-----------------------|
 |master branch   |mcr.microsoft.com/k8s/csi/azurefile-csi:latest             | 1.21+                 |
-|v1.30.2         |mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.2 | 1.21+                 |
-|v1.29.5         |mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.5 | 1.21+                 |
-|v1.28.10         |mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.10 | 1.21+                 |
+|v1.30.5         |mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.5 | 1.21+                 |
+|v1.29.7         |mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.7 | 1.21+                 |
+|v1.28.12         |mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.12 | 1.21+                 |
 
 ### Driver parameters
 Please refer to [driver parameters](./docs/driver-parameters.md)

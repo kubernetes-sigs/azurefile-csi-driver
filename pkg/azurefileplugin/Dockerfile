@@ -12,14 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM registry.k8s.io/build-image/debian-base:bookworm-v1.0.3
-
 ARG ARCH=amd64
+
+FROM registry.k8s.io/build-image/debian-base:bookworm-v1.0.4 AS base
+
+FROM base AS builder
+
+ARG ARCH
+
+RUN apt update \
+    && apt install -y curl \
+    && curl -Ls https://azcopyvnext.azureedge.net/releases/release-10.26.0-20240731/azcopy_linux_${ARCH}_10.26.0.tar.gz \
+        | tar xvzf - --strip-components=1 -C /usr/local/bin/ --wildcards "*/azcopy"
+
+FROM base
+
+ARG ARCH
 ARG binary=./_output/${ARCH}/azurefileplugin
+
 COPY ${binary} /azurefileplugin
+COPY --from=builder --chown=root:root /usr/local/bin/azcopy /usr/local/bin/azcopy
 
 # packages that are only needed by aznfs: procps conntrack iptables bind9-host iproute2 bash netcat sysvinit-utils kmod net-tools
-RUN apt update && apt upgrade -y && apt-mark unhold libcap2 && clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase wget procps conntrack iptables bind9-host iproute2 bash netcat-traditional sysvinit-utils kmod net-tools
+RUN apt update && apt upgrade -y && apt-mark unhold libcap2 && clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase procps conntrack iptables bind9-host iproute2 bash netcat-traditional sysvinit-utils kmod net-tools
 
 # install aznfs
 ARG aznfsVer=0.1.349

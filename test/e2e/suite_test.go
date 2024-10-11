@@ -28,17 +28,16 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/reporters"
 	"github.com/onsi/gomega"
-	"github.com/pborman/uuid"
 	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/framework/config"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 	"sigs.k8s.io/azurefile-csi-driver/test/utils/azure"
 	"sigs.k8s.io/azurefile-csi-driver/test/utils/credentials"
-	"sigs.k8s.io/azurefile-csi-driver/test/utils/testutil"
 )
 
 const (
@@ -89,10 +88,10 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 
 	// Default storage driver configuration is CSI. Freshly built
 	// CSI driver is installed for that case.
-	if testutil.IsRunningInProw() && (isTestingMigration || !isUsingInTreeVolumePlugin) {
+	if isTestingMigration || !isUsingInTreeVolumePlugin {
 		creds, err := credentials.CreateAzureCredentialFile(false)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret)
+		azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret, creds.AADFederatedTokenFile)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		_, err = azureClient.EnsureResourceGroup(ctx, creds.ResourceGroup, creds.Location, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -144,7 +143,7 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		driverOptions := azurefile.DriverOptions{
 			NodeID:     os.Getenv("nodeid"),
 			DriverName: azurefile.DefaultDriverName,
-			Endpoint:   fmt.Sprintf("unix:///tmp/csi-%s.sock", uuid.NewUUID().String()),
+			Endpoint:   fmt.Sprintf("unix:///tmp/csi-%s.sock", uuid.NewString()),
 			KubeConfig: kubeconfig,
 		}
 		azurefileDriver = azurefile.NewDriver(&driverOptions)
@@ -157,87 +156,85 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 })
 
 var _ = ginkgo.AfterSuite(func(ctx ginkgo.SpecContext) {
-	if testutil.IsRunningInProw() {
-		if isTestingMigration || isUsingInTreeVolumePlugin {
-			cmLog := testCmd{
+	if isTestingMigration || isUsingInTreeVolumePlugin {
+		cmLog := testCmd{
+			command:  "bash",
+			args:     []string{"test/utils/controller-manager-log.sh"},
+			startLog: "===================controller-manager log=======",
+			endLog:   "===================================================",
+		}
+		execTestCmd([]testCmd{cmLog})
+	}
+	if isTestingMigration || !isUsingInTreeVolumePlugin {
+		checkPodsRestart := testCmd{
+			command:  "bash",
+			args:     []string{"test/utils/check_driver_pods_restart.sh", "log"},
+			startLog: "Check driver pods if restarts ...",
+			endLog:   "Check successfully",
+		}
+		execTestCmd([]testCmd{checkPodsRestart})
+
+		os := "linux"
+		if isWindowsCluster {
+			os = "windows"
+			if winServerVer == "windows-2022" {
+				os = winServerVer
+			}
+		}
+		createExampleDeployment := testCmd{
+			command:  "bash",
+			args:     []string{"hack/verify-examples.sh", os},
+			startLog: "create example deployments",
+			endLog:   "example deployments created",
+		}
+		execTestCmd([]testCmd{createExampleDeployment})
+
+		azurefileLog := testCmd{
+			command:     "bash",
+			args:        []string{"test/utils/azurefile_log.sh"},
+			startLog:    "===================azurefile log===================",
+			endLog:      "===================================================",
+			ignoreError: true,
+		}
+		e2eTeardown := testCmd{
+			command:  "make",
+			args:     []string{"e2e-teardown"},
+			startLog: "Uninstalling Azure File CSI Driver...",
+			endLog:   "Azure File CSI Driver uninstalled",
+		}
+		execTestCmd([]testCmd{azurefileLog, e2eTeardown})
+
+		if !isTestingMigration {
+			// install CSI Driver deployment scripts test
+			installDriver := testCmd{
 				command:  "bash",
-				args:     []string{"test/utils/controller-manager-log.sh"},
-				startLog: "===================controller-manager log=======",
+				args:     []string{"deploy/install-driver.sh", "master", "windows,local"},
+				startLog: "===================install CSI Driver deployment scripts test===================",
 				endLog:   "===================================================",
 			}
-			execTestCmd([]testCmd{cmLog})
-		}
-		if isTestingMigration || !isUsingInTreeVolumePlugin {
-			checkPodsRestart := testCmd{
-				command:  "bash",
-				args:     []string{"test/utils/check_driver_pods_restart.sh", "log"},
-				startLog: "Check driver pods if restarts ...",
-				endLog:   "Check successfully",
-			}
-			execTestCmd([]testCmd{checkPodsRestart})
 
-			os := "linux"
-			if isWindowsCluster {
-				os = "windows"
-				if winServerVer == "windows-2022" {
-					os = winServerVer
-				}
-			}
 			createExampleDeployment := testCmd{
 				command:  "bash",
 				args:     []string{"hack/verify-examples.sh", os},
-				startLog: "create example deployments",
-				endLog:   "example deployments created",
+				startLog: "create example deployments#2",
+				endLog:   "example deployments#2 created",
 			}
 			execTestCmd([]testCmd{createExampleDeployment})
 
-			azurefileLog := testCmd{
-				command:     "bash",
-				args:        []string{"test/utils/azurefile_log.sh"},
-				startLog:    "===================azurefile log===================",
-				endLog:      "===================================================",
-				ignoreError: true,
+			// uninstall CSI Driver deployment scripts test
+			uninstallDriver := testCmd{
+				command:  "bash",
+				args:     []string{"deploy/uninstall-driver.sh", "master", "windows,local"},
+				startLog: "===================uninstall CSI Driver deployment scripts test===================",
+				endLog:   "===================================================",
 			}
-			e2eTeardown := testCmd{
-				command:  "make",
-				args:     []string{"e2e-teardown"},
-				startLog: "Uninstalling Azure File CSI Driver...",
-				endLog:   "Azure File CSI Driver uninstalled",
-			}
-			execTestCmd([]testCmd{azurefileLog, e2eTeardown})
-
-			if !isTestingMigration {
-				// install CSI Driver deployment scripts test
-				installDriver := testCmd{
-					command:  "bash",
-					args:     []string{"deploy/install-driver.sh", "master", "windows,local"},
-					startLog: "===================install CSI Driver deployment scripts test===================",
-					endLog:   "===================================================",
-				}
-
-				createExampleDeployment := testCmd{
-					command:  "bash",
-					args:     []string{"hack/verify-examples.sh", os},
-					startLog: "create example deployments#2",
-					endLog:   "example deployments#2 created",
-				}
-				execTestCmd([]testCmd{createExampleDeployment})
-
-				// uninstall CSI Driver deployment scripts test
-				uninstallDriver := testCmd{
-					command:  "bash",
-					args:     []string{"deploy/uninstall-driver.sh", "master", "windows,local"},
-					startLog: "===================uninstall CSI Driver deployment scripts test===================",
-					endLog:   "===================================================",
-				}
-				execTestCmd([]testCmd{installDriver, uninstallDriver})
-			}
-
-			checkAccountCreationLeak(ctx)
-
-			err := credentials.DeleteAzureCredentialFile()
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			execTestCmd([]testCmd{installDriver, uninstallDriver})
 		}
+
+		checkAccountCreationLeak(ctx)
+
+		err := credentials.DeleteAzureCredentialFile()
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	}
 })
 
@@ -283,7 +280,7 @@ func execTestCmd(cmds []testCmd) {
 func checkAccountCreationLeak(ctx context.Context) {
 	creds, err := credentials.CreateAzureCredentialFile(false)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret)
+	azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret, creds.AADFederatedTokenFile)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	accountNum, err := azureClient.GetAccountNumByResourceGroup(ctx, creds.ResourceGroup)

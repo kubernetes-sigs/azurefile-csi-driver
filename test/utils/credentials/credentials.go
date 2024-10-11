@@ -19,13 +19,9 @@ package credentials
 import (
 	"fmt"
 	"html/template"
-	"log"
 	"os"
 
-	"sigs.k8s.io/azurefile-csi-driver/test/utils/testutil"
-
-	"github.com/pborman/uuid"
-	"github.com/pelletier/go-toml"
+	"github.com/google/uuid"
 )
 
 const (
@@ -42,6 +38,7 @@ const (
     "aadClientSecret": "{{.AADClientSecret}}",
     "resourceGroup": "{{.ResourceGroup}}",
 	"location": "{{.Location}}",
+	"aadFederatedTokenFile": "{{.AADFederatedTokenFile}}",
 	"cloudProviderBackoff": {{.CloudProviderBackoff}},
 	"cloudProviderBackoffRetries": {{.CloudProviderBackoffRetries}},
     "cloudProviderBackoffDuration": {{.CloudProviderBackoffDuration}}
@@ -59,6 +56,7 @@ const (
 	aadClientSecretEnvVar = "AZURE_CLIENT_SECRET"
 	resourceGroupEnvVar   = "AZURE_RESOURCE_GROUP"
 	locationEnvVar        = "AZURE_LOCATION"
+	federatedTokenFileVar = "AZURE_FEDERATED_TOKEN_FILE"
 
 	tenantIDChinaEnvVar        = "AZURE_TENANT_ID_CHINA"
 	subscriptionIDChinaEnvVar  = "AZURE_SUBSCRIPTION_ID_CHINA"
@@ -94,6 +92,7 @@ type Credentials struct {
 	AADClientSecret              string
 	ResourceGroup                string
 	Location                     string
+	AADFederatedTokenFile        string
 	CloudProviderBackoff         bool
 	CloudProviderBackoffRetries  int
 	CloudProviderBackoffDuration int
@@ -103,7 +102,7 @@ type Credentials struct {
 // Azure File CSI driver tests and returns the credentials
 func CreateAzureCredentialFile(isAzureChinaCloud bool) (*Credentials, error) {
 	// Search credentials through env vars first
-	var cloud, tenantID, subscriptionID, aadClientID, aadClientSecret, resourceGroup, location string
+	var cloud, tenantID, subscriptionID, aadClientID, aadClientSecret, resourceGroup, location, aadFederatedTokenFile string
 	if isAzureChinaCloud {
 		cloud = AzureChinaCloud
 		tenantID = os.Getenv(tenantIDChinaEnvVar)
@@ -112,6 +111,7 @@ func CreateAzureCredentialFile(isAzureChinaCloud bool) (*Credentials, error) {
 		aadClientSecret = os.Getenv(aadClientSecretChinaEnvVar)
 		resourceGroup = os.Getenv(resourceGroupChinaEnvVar)
 		location = os.Getenv(locationChinaEnvVar)
+		aadFederatedTokenFile = os.Getenv(federatedTokenFileVar)
 	} else {
 		cloud = AzurePublicCloud
 		tenantID = os.Getenv(tenantIDEnvVar)
@@ -120,10 +120,11 @@ func CreateAzureCredentialFile(isAzureChinaCloud bool) (*Credentials, error) {
 		aadClientSecret = os.Getenv(aadClientSecretEnvVar)
 		resourceGroup = os.Getenv(resourceGroupEnvVar)
 		location = os.Getenv(locationEnvVar)
+		aadFederatedTokenFile = os.Getenv(federatedTokenFileVar)
 	}
 
 	if resourceGroup == "" {
-		resourceGroup = ResourceGroupPrefix + uuid.NewUUID().String()
+		resourceGroup = ResourceGroupPrefix + uuid.NewString()
 	}
 
 	if location == "" {
@@ -134,21 +135,8 @@ func CreateAzureCredentialFile(isAzureChinaCloud bool) (*Credentials, error) {
 		}
 	}
 
-	// Running test locally
-	if tenantID != "" && subscriptionID != "" && aadClientID != "" && aadClientSecret != "" {
-		return parseAndExecuteTemplate(cloud, tenantID, subscriptionID, aadClientID, aadClientSecret, resourceGroup, location)
-	}
-
-	// If the tests are being run in Prow, credentials are not supplied through env vars. Instead, it is supplied
-	// through env var AZURE_CREDENTIALS. We need to convert it to AZURE_CREDENTIAL_FILE for sanity, integration and E2E tests
-	// https://github.com/kubernetes/test-infra/blob/master/config/jobs/kubernetes/cloud-provider-azure/cloud-provider-azure-config.yaml#L5-L6
-	if testutil.IsRunningInProw() {
-		log.Println("Running in Prow, converting AZURE_CREDENTIALS to AZURE_CREDENTIAL_FILE")
-		c, err := getCredentialsFromAzureCredentials(os.Getenv("AZURE_CREDENTIALS"))
-		if err != nil {
-			return nil, err
-		}
-		return parseAndExecuteTemplate(cloud, c.TenantID, c.SubscriptionID, c.ClientID, c.ClientSecret, resourceGroup, location)
+	if tenantID != "" && subscriptionID != "" && aadClientID != "" && (aadClientSecret != "" || aadFederatedTokenFile != "") {
+		return parseAndExecuteTemplate(cloud, tenantID, subscriptionID, aadClientID, aadClientSecret, aadFederatedTokenFile, resourceGroup, location)
 	}
 
 	return nil, fmt.Errorf("If you are running tests locally, you will need to set the following env vars: $%s, $%s, $%s, $%s, $%s, $%s",
@@ -164,25 +152,8 @@ func DeleteAzureCredentialFile() error {
 	return nil
 }
 
-// getCredentialsFromAzureCredentials parses the azure credentials toml (AZURE_CREDENTIALS)
-// in Prow and returns the credential information usable to Azure File CSI driver
-func getCredentialsFromAzureCredentials(azureCredentialsPath string) (*FromProw, error) {
-	content, err := os.ReadFile(azureCredentialsPath)
-	log.Printf("Reading credentials file %v", azureCredentialsPath)
-	if err != nil {
-		return nil, fmt.Errorf("error reading credentials file %v %v", azureCredentialsPath, err)
-	}
-
-	c := Config{}
-	if err := toml.Unmarshal(content, &c); err != nil {
-		return nil, fmt.Errorf("error parsing credentials file %v %v", azureCredentialsPath, err)
-	}
-
-	return &c.Creds, nil
-}
-
 // parseAndExecuteTemplate replaces credential placeholders in azureCredentialFileTemplate with actual credentials
-func parseAndExecuteTemplate(cloud, tenantID, subscriptionID, aadClientID, aadClientSecret, resourceGroup, location string) (*Credentials, error) {
+func parseAndExecuteTemplate(cloud, tenantID, subscriptionID, aadClientID, aadClientSecret, aadFederatedTokenFile, resourceGroup, location string) (*Credentials, error) {
 	t := template.New("AzureCredentialFileTemplate")
 	t, err := t.Parse(azureCredentialFileTemplate)
 	if err != nil {
@@ -203,6 +174,7 @@ func parseAndExecuteTemplate(cloud, tenantID, subscriptionID, aadClientID, aadCl
 		aadClientSecret,
 		resourceGroup,
 		location,
+		aadFederatedTokenFile,
 		defaultCloudProviderBackoff,
 		defaultCloudProviderBackoffRetries,
 		defaultCloudProviderBackoffDuration,

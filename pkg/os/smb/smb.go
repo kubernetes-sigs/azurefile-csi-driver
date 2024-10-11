@@ -21,10 +21,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/util"
+	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 )
+
+var getRemoteServerFromTargetMutex = &sync.Mutex{}
 
 func IsSmbMapped(remotePath string) (bool, error) {
 	cmdLine := `$(Get-SmbGlobalMapping -RemotePath $Env:smbremotepath -ErrorAction Stop).Status`
@@ -67,17 +71,33 @@ func RemoveSmbGlobalMapping(remotePath string) error {
 }
 
 // GetRemoteServerFromTarget- gets the remote server path given a mount point, the function is recursive until it find the remote server or errors out
-func GetRemoteServerFromTarget(mount string) (string, error) {
+func GetRemoteServerFromTarget(mount string, volStatsCache azcache.Resource) (string, error) {
+	// use mutex to allow more cache hit
+	getRemoteServerFromTargetMutex.Lock()
+	defer getRemoteServerFromTargetMutex.Unlock()
+
+	cache, err := volStatsCache.Get(mount, azcache.CacheReadTypeDefault)
+	if err != nil {
+		return "", err
+	}
+	if cache != nil {
+		remoteServer := cache.(string)
+		klog.V(6).Infof("GetRemoteServerFromTarget(%s) cache hit: %s", mount, remoteServer)
+		return remoteServer, nil
+	}
 	cmd := "(Get-Item -Path $Env:mount).Target"
 	out, err := util.RunPowershellCmd(cmd, fmt.Sprintf("mount=%s", mount))
 	if err != nil || len(out) == 0 {
 		return "", fmt.Errorf("error getting volume from mount. cmd: %s, output: %s, error: %v", cmd, string(out), err)
 	}
-	return strings.TrimSpace(string(out)), nil
+	remoteServer := strings.TrimSpace(string(out))
+	// cache the remote server path
+	volStatsCache.Set(mount, remoteServer)
+	return remoteServer, nil
 }
 
 // CheckForDuplicateSMBMounts checks if there is any other SMB mount exists on the same remote server
-func CheckForDuplicateSMBMounts(dir, mount, remoteServer string) (bool, error) {
+func CheckForDuplicateSMBMounts(dir, mount, remoteServer string, volStatsCache azcache.Resource) (bool, error) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		return false, err
@@ -93,7 +113,7 @@ func CheckForDuplicateSMBMounts(dir, mount, remoteServer string) (bool, error) {
 				fileInfo, err := os.Lstat(globalMountPath)
 				// check if the file is a symlink, if yes, check if it is pointing to the same remote server
 				if err == nil && fileInfo.Mode()&os.ModeSymlink != 0 {
-					remoteServerPath, err := GetRemoteServerFromTarget(globalMountPath)
+					remoteServerPath, err := GetRemoteServerFromTarget(globalMountPath, volStatsCache)
 					klog.V(2).Infof("checking remote server path %s on local path %s", remoteServerPath, globalMountPath)
 					if err == nil {
 						if remoteServerPath == remoteServer {

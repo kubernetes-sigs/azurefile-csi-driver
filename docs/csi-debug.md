@@ -1,6 +1,6 @@
 ## CSI driver debug tips
 ### case#1: volume create/delete issue
-> This step is not applicable if you are using [managed CSI driver on AKS](https://docs.microsoft.com/en-us/azure/aks/csi-storage-drivers).
+> If you are using [managed CSI driver on AKS](https://docs.microsoft.com/en-us/azure/aks/csi-storage-drivers), this step does not apply since the driver controller is not visible to the user.
  - find csi driver controller pod
 > There could be multiple controller pods (only one pod is the leader), if there are no helpful logs, try to get logs from the leader controller pod.
 ```console
@@ -89,38 +89,29 @@ change below deployment config, e.g.
 
 ### troubleshooting connection failure on agent node
 > server address of sovereign cloud: accountname.file.core.chinacloudapi.cn
-##### SMB
+#### SMB
  - On Linux node
 ```console
 mkdir /tmp/test
 sudo mount -v -t cifs //accountname.file.core.windows.net/filesharename /tmp/test -o  username=accountname,password=accountkey,dir_mode=0777,file_mode=0777,cache=strict,actimeo=30
 ```
 
-<details><summary>
-Get client-side logs on AKS Linux node if there is mount error 
-</summary>
-
+#### get os version on the node
 ```console
-# get ama-logs pod which is running on the AKS Linux node
-kubectl get po -n kube-system -o wide | grep ama-logs
-kubectl -n kube-system cp ama-logs-xxxx:/var/log/messages /tmp/messages
-kubectl -n kube-system cp ama-logs-xxxx:/var/log/syslog /tmp/syslog
-kubectl -n kube-system cp ama-logs-xxxx:/var/log/kern.log /tmp/kern.log
+uname -a
 ```
-
-</details>
 
 <details><summary>
 Get client-side logs on Linux node if there is mount error 
 </summary>
 
 ```console
-kubectl debug node/node-name --image=nginx
-kubectl cp node-debugger-node-name-xxxx:/host/var/log/messages /tmp/messages
-kubectl cp node-debugger-node-name-xxxx:/host/var/log/syslog /tmp/syslog
-kubectl cp node-debugger-node-name-xxxx:/host/var/log/kern.log /tmp/kern.log
-#after log collected, delete the debug pod by:
-kubectl delete po node-debugger-node-name-xxxx
+kubectl debug node/{node-name} --image=nginx
+kubectl cp node-debugger-{node-name-xxxx}:/host/var/log/messages /tmp/messages
+kubectl cp node-debugger-{node-name-xxxx}:/host/var/log/syslog /tmp/syslog
+kubectl cp node-debugger-{node-name-xxxx}:/host/var/log/kern.log /tmp/kern.log
+# after the logs have been collected, you can delete the debug pod
+kubectl delete po node-debugger-{node-name-xxxx}
 ```
  
 </details>

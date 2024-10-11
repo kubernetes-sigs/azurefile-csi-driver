@@ -60,7 +60,7 @@ func (t *DynamicallyProvisionedAccountWithTags) Run(ctx context.Context, client 
 
 		creds, err := credentials.CreateAzureCredentialFile(false)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		azureClient, err := azureUtils.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret)
+		azureClient, err := azureUtils.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret, creds.AADFederatedTokenFile)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		account, err := azureClient.GetStorageAccount(ctx, resourceGroupName, accountName)
@@ -68,7 +68,7 @@ func (t *DynamicallyProvisionedAccountWithTags) Run(ctx context.Context, client 
 
 		resultTags := account.Tags
 
-		specifiedTags, err := azurefile.ConvertTagsToMap(t.Tags)
+		specifiedTags, err := azurefile.ConvertTagsToMap(t.Tags, "")
 		framework.ExpectNoError(err, fmt.Sprintf("failed to convert tags(%s) %v", t.Tags, err))
 		specifiedTags["k8s-azure-created-by"] = "azure"
 

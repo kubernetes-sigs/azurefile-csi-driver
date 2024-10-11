@@ -15,6 +15,14 @@ parameters:
   skuName: Standard_LRS
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
+mountOptions:
+  - dir_mode=0777
+  - file_mode=0777
+  - mfsymlinks
+  - cache=strict  # https://linux.die.net/man/8/mount.cifs
+  - nosharesock  # reduce probability of reconnect race
+  - actimeo=30  # reduce latency for metadata-heavy workload
+  - nobrl  # disable sending byte range lock requests to the server and for applications which have challenges with posix locks
 ```
 
 2. Create storageclass, pvc and pod.

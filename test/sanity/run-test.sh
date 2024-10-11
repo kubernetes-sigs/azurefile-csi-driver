@@ -40,14 +40,14 @@ azcopyPath="/usr/local/bin/azcopy"
 if [ ! -f "$azcopyPath" ]; then
   azcopyTarFile="azcopy.tar.gz"
   echo 'Downloading azcopy...'
-  wget -O $azcopyTarFile azcopyvnext.azureedge.net/releases/release-10.25.1-20240612/azcopy_linux_amd64_10.25.1.tar.gz
+  wget -O $azcopyTarFile azcopyvnext.azureedge.net/releases/release-10.26.0-20240731/azcopy_linux_amd64_10.26.0.tar.gz
   tar -zxvf $azcopyTarFile
   mv ./azcopy*/azcopy /usr/local/bin/azcopy
   rm -rf ./$azcopyTarFile
   chmod +x /usr/local/bin/azcopy
 fi
 
-_output/${ARCH}/azurefileplugin --endpoint "$endpoint" --nodeid "$nodeid" -v=5 &
+_output/${ARCH}/azurefileplugin --endpoint "$endpoint" --nodeid "$nodeid" -v=5 --kubeconfig "no-need-kubeconfig" &
 
 # sleep a while waiting for azurefileplugin start up
 sleep 1

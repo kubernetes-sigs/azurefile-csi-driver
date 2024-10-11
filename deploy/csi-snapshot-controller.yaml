@@ -27,6 +27,9 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
       priorityClassName: system-cluster-critical
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       tolerations:
         - key: "node-role.kubernetes.io/master"
           operator: "Equal"
@@ -42,7 +45,7 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: csi-snapshot-controller
-          image: mcr.microsoft.com/oss/kubernetes-csi/snapshot-controller:v7.0.2
+          image: mcr.microsoft.com/oss/kubernetes-csi/snapshot-controller:v8.1.0
           args:
             - "--v=2"
             - "--leader-election=true"

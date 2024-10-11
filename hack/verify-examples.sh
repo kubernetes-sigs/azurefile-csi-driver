@@ -20,7 +20,9 @@ if [[ "$#" -eq 0 ]]; then
     exit 1
 fi
 
-echo "begin to create deployment examples ..."
+echo "begin to create deployment examples with parameter ", $1
+
+kubectl config set-context --current --namespace=default
 
 kubectl apply -f deploy/example/storageclass-azurefile-csi.yaml
 
@@ -47,9 +49,10 @@ if [[ "$1" == "linux" ]]; then
         )
 fi
 
-if [[ "$1" == "windows-2022" ]]; then
-    sed -i 's/ltsc2019/ltsc2022/g' deploy/example/windows/deployment.yaml
-    sed -i 's/ltsc2019/ltsc2022/g' deploy/example/windows/statefulset.yaml
+if ! [[ "$1" == *"windows-2022"* ]]; then
+    echo "switch to use ltsc2019 image in example test"
+    sed -i 's/ltsc2022/ltsc2019/g' deploy/example/windows/deployment.yaml
+    sed -i 's/ltsc2022/ltsc2019/g' deploy/example/windows/statefulset.yaml
 fi
 
 if [[ "$1" == *"windows"* ]]; then
