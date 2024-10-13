@@ -341,14 +341,17 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			expectedErr: testutil.TestError{
 				DefaultError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount target %s: fake IsLikelyNotMountPoint: fake error", errorTarget)),
 			},
+			setup: func() {
+				if runtime.GOOS == "windows" {
+					mockDirectVolume.EXPECT().Remove(errorTarget).Return(nil)
+				}
+			},
 		},
 		{
 			desc: "[Success] Valid request",
 			req:  csi.NodeUnpublishVolumeRequest{TargetPath: targetFile, VolumeId: "vol_1"},
 			setup: func() {
-				if runtime.GOOS != "windows" {
-					mockDirectVolume.EXPECT().Remove(targetFile).Return(nil)
-				}
+				mockDirectVolume.EXPECT().Remove(targetFile).Return(nil)
 			},
 			expectedErr: testutil.TestError{},
 		},
@@ -888,14 +891,17 @@ func TestNodeUnstageVolume(t *testing.T) {
 			expectedErr: testutil.TestError{
 				DefaultError: status.Error(codes.Internal, fmt.Sprintf("failed to unmount staging target %v: fake IsLikelyNotMountPoint: fake error", errorTarget)),
 			},
+			setup: func() {
+				if runtime.GOOS == "windows" {
+					mockDirectVolume.EXPECT().Remove(errorTarget).Return(nil)
+				}
+			},
 		},
 		{
 			desc: "[Success] Valid request",
 			req:  csi.NodeUnstageVolumeRequest{StagingTargetPath: targetFile, VolumeId: "vol_1"},
 			setup: func() {
-				if runtime.GOOS != "windows" {
-					mockDirectVolume.EXPECT().Remove(targetFile).Return(nil)
-				}
+				mockDirectVolume.EXPECT().Remove(targetFile).Return(nil)
 			},
 			expectedErr: testutil.TestError{},
 		},

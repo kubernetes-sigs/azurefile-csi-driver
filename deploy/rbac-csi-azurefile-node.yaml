@@ -32,9 +32,7 @@ roleRef:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: csi-{{ .Values.rbac.name }}-node-katacc-role
-  labels:
-    {{- include "azurefile.labels" . | nindent 4 }}
+  name: csi-azurefile-node-katacc-role
 rules:
   - apiGroups: [""]
     resources: ["pods"]
@@ -46,15 +44,13 @@ rules:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: csi-{{ .Values.rbac.name }}-node-katacc-binding
-  labels:
-    {{- include "azurefile.labels" . | nindent 4 }}
+  name: csi-azurefile-node-katacc-binding
 subjects:
   - kind: ServiceAccount
-    name: {{ .Values.serviceAccount.node }}
-    namespace: {{ .Release.Namespace }}
+    name: csi-azurefile-node-sa
+    namespace: kube-system
 roleRef:
   kind: ClusterRole
-  name: csi-{{ .Values.rbac.name }}-node-katacc-role
+  name: csi-azurefile-node-katacc-role
   apiGroup: rbac.authorization.k8s.io
 ---
