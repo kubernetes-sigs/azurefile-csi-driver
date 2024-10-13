@@ -346,7 +346,9 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			desc: "[Success] Valid request",
 			req:  csi.NodeUnpublishVolumeRequest{TargetPath: targetFile, VolumeId: "vol_1"},
 			setup: func() {
-				mockDirectVolume.EXPECT().Remove(targetFile).Return(nil)
+				if runtime.GOOS != "windows" {
+					mockDirectVolume.EXPECT().Remove(targetFile).Return(nil)
+				}
 			},
 			expectedErr: testutil.TestError{},
 		},
@@ -891,7 +893,9 @@ func TestNodeUnstageVolume(t *testing.T) {
 			desc: "[Success] Valid request",
 			req:  csi.NodeUnstageVolumeRequest{StagingTargetPath: targetFile, VolumeId: "vol_1"},
 			setup: func() {
-				mockDirectVolume.EXPECT().Remove(targetFile).Return(nil)
+				if runtime.GOOS != "windows" {
+					mockDirectVolume.EXPECT().Remove(targetFile).Return(nil)
+				}
 			},
 			expectedErr: testutil.TestError{},
 		},

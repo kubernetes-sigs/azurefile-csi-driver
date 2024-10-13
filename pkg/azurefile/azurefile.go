@@ -234,6 +234,7 @@ type Driver struct {
 	appendNoResvPortOption                 bool
 	appendActimeoOption                    bool
 	printVolumeStatsCallLogs               bool
+	enableKataCCMount                      bool
 	mounter                                *mount.SafeFormatAndMount
 	server                                 *grpc.Server
 	// lock per volume attach (only for vhd disk feature)
@@ -294,6 +295,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.enableVHDDiskFeature = options.EnableVHDDiskFeature
 	driver.enableVolumeMountGroup = options.EnableVolumeMountGroup
 	driver.enableGetVolumeStats = options.EnableGetVolumeStats
+	driver.enableKataCCMount = options.EnableKataCCMount
 	driver.appendMountErrorHelpLink = options.AppendMountErrorHelpLink
 	driver.mountPermissions = options.MountPermissions
 	driver.fsGroupChangePolicy = options.FSGroupChangePolicy

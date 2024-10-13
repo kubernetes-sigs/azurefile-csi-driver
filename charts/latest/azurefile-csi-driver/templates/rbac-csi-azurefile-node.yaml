@@ -26,49 +26,26 @@ roleRef:
   kind: ClusterRole
   name: csi-{{ .Values.rbac.name }}-node-secret-role
   apiGroup: rbac.authorization.k8s.io
-{{ end }}
 ---
+{{- if Values.node.enableKataCCMount -}}
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: csi-{{ .Values.rbac.name }}-node-pod-role
+  name: csi-{{ .Values.rbac.name }}-node-katacc-role
   labels:
     {{- include "azurefile.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get"]
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: csi-{{ .Values.rbac.name }}-node-pod-binding
-  labels:
-    {{- include "azurefile.labels" . | nindent 4 }}
-subjects:
-  - kind: ServiceAccount
-    name: {{ .Values.serviceAccount.node }}
-    namespace: {{ .Release.Namespace }}
-roleRef:
-  kind: ClusterRole
-  name: csi-{{ .Values.rbac.name }}-node-pod-role
-  apiGroup: rbac.authorization.k8s.io
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: csi-{{ .Values.rbac.name }}-node-rc-role
-  labels:
-    {{- include "azurefile.labels" . | nindent 4 }}
-rules:
   - apiGroups: ["node.k8s.io"]
     resources: ["runtimeclasses"]
     verbs: ["get", "list"]
 ---
-apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: csi-{{ .Values.rbac.name }}-node-rc-binding
+  name: csi-{{ .Values.rbac.name }}-node-katacc-binding
   labels:
     {{- include "azurefile.labels" . | nindent 4 }}
 subjects:
@@ -77,6 +54,8 @@ subjects:
     namespace: {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole
-  name: csi-{{ .Values.rbac.name }}-node-rc-role
+  name: csi-{{ .Values.rbac.name }}-node-katacc-role
   apiGroup: rbac.authorization.k8s.io
 ---
+{{ end }}
+{{ end }}
