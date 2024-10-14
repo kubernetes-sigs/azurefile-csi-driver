@@ -102,18 +102,10 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 
 		if d.enableKataCCMount {
 			enableKataCCMount := getValueInMap(context, enableKataCCMountField)
-			if enableKataCCMount == "" {
-				enableKataCCMount = falseValue
-			}
-			enableKataCCMountVal, err := strconv.ParseBool(enableKataCCMount)
-			if err != nil {
-				return &csi.NodePublishVolumeResponse{}, err
-			}
-			if enableKataCCMountVal && context[podNameField] != "" && context[podNamespaceField] != "" {
+			if strings.EqualFold(enableKataCCMount, trueValue) && context[podNameField] != "" && context[podNamespaceField] != "" {
 				runtimeClass, err := getRuntimeClassForPodFunc(ctx, d.cloud.KubeClient, context[podNameField], context[podNamespaceField])
 				if err != nil {
-					klog.Errorf("failed to get runtime class for pod %s/%s: %v", context[podNamespaceField], context[podNameField], err)
-					return &csi.NodePublishVolumeResponse{}, nil
+					return nil, status.Errorf(codes.Internal, "failed to get runtime class for pod %s/%s: %v", context[podNamespaceField], context[podNameField], err)
 				}
 				klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with runtimeClass %s", volumeID, target, runtimeClass)
 				isConfidentialRuntimeClass, err := isConfidentialRuntimeClassFunc(ctx, d.cloud.KubeClient, runtimeClass)
