@@ -93,7 +93,7 @@ spec:
               drop:
                 - ALL
         - name: azurefile
-          image: mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.31.0
+          image: mcr.microsoft.com/k8s/csi/azurefile-csi:latest
           imagePullPolicy: IfNotPresent
           args:
             - "--v=5"
