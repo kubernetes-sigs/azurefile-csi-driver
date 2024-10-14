@@ -330,13 +330,11 @@ func isConfidentialRuntimeClass(ctx context.Context, kubeClient clientset.Interf
 		return false, nil
 	}
 	if kubeClient == nil {
-		klog.Warningf("kubeClient is nil")
 		return false, fmt.Errorf("kubeClient is nil")
 	}
 	runtimeClassClient := kubeClient.NodeV1().RuntimeClasses()
 	runtimeClass, err := runtimeClassClient.Get(ctx, runtimeClassName, metav1.GetOptions{})
 	if err != nil {
-		klog.Warningf("Failed to get runtimeClass %s: %v", runtimeClassName, err)
 		return false, err
 	}
 	klog.Infof("runtimeClass %s handler: %s", runtimeClassName, runtimeClass.Handler)

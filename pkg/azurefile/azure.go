@@ -59,10 +59,7 @@ func getRuntimeClassForPod(ctx context.Context, kubeClient clientset.Interface, 
 	if err != nil {
 		return "", err
 	}
-	if pod.Spec.RuntimeClassName != nil {
-		return *pod.Spec.RuntimeClassName, nil
-	}
-	return "", nil
+	return ptr.Deref(pod.Spec.RuntimeClassName, ""), nil
 }
 
 // getCloudProvider get Azure Cloud Provider

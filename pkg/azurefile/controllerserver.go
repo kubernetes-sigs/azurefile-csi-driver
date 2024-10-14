@@ -279,8 +279,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case tagValueDelimiterField:
 			tagValueDelimiter = v
 		case enableKataCCMountField:
-			_, err := strconv.ParseBool(v)
-			if err != nil {
+			if _, err := strconv.ParseBool(v); err != nil {
 				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", enableKataCCMountField, v)
 			}
 		default:
