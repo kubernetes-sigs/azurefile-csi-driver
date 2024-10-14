@@ -203,6 +203,10 @@ spec:
             - mountPath: /lib/modules
               name: lib-modules
               readOnly: true
+            - mountPath: /etc/stunnel/microsoft/aznfs/nfsv4_fileShare
+              name: stunnel-config
+            - mountPath: /etc/stunnel/microsoft/aznfs/nfsv4_fileShare/logs
+              name: stunnel-logs
             {{- end }}
           resources: {{- toYaml .Values.linux.resources.azurefile | nindent 12 }}
 {{- if .Values.node.enableAznfsMount }}
@@ -224,6 +228,10 @@ spec:
             - mountPath: {{ .Values.linux.kubelet }}/
               mountPropagation: Bidirectional
               name: mountpoint-dir
+            - mountPath: /etc/stunnel/microsoft/aznfs/nfsv4_fileShare
+              name: stunnel-config
+            - mountPath: /etc/stunnel/microsoft/aznfs/nfsv4_fileShare/logs
+              name: stunnel-logs
 {{- end }}
       volumes:
         - hostPath:
@@ -262,6 +270,14 @@ spec:
         - name: lib-modules
           hostPath:
             path: /lib/modules
+            type: DirectoryOrCreate
+        - name: stunnel-config
+          hostPath:
+            path: /etc/stunnel/microsoft/aznfs/nfsv4_fileShare
+            type: DirectoryOrCreate
+        - name: stunnel-logs
+          hostPath:
+            path: /etc/stunnel/microsoft/aznfs/nfsv4_fileShare/logs
             type: DirectoryOrCreate
         {{- end }}
 {{- end -}}
