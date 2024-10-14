@@ -33,7 +33,17 @@ ARG binary=./_output/${ARCH}/azurefileplugin
 COPY ${binary} /azurefileplugin
 COPY --from=builder --chown=root:root /usr/local/bin/azcopy /usr/local/bin/azcopy
 
-RUN apt update && apt upgrade -y && apt-mark unhold libcap2 && clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase
+# packages that are only needed by aznfs: procps conntrack iptables bind9-host iproute2 bash netcat sysvinit-utils kmod net-tools stunnel4
+RUN apt update && apt upgrade -y && apt-mark unhold libcap2 && clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase wget procps conntrack iptables bind9-host iproute2 bash netcat-traditional sysvinit-utils kmod net-tools stunnel4
+
+# install aznfs
+# TODO: Dont use wget to download and install aznfs
+ARG aznfsVer=0.1.394
+RUN if [ "$ARCH" = "amd64" ] ; then \
+  wget -O aznfs.tar.gz https://github.com/Azure/AZNFS-mount/releases/download/${aznfsVer}/aznfs-${aznfsVer}-1.x86_64.tar.gz; \
+else \
+  wget -O aznfs.tar.gz https://github.com/Azure/AZNFS-mount/releases/download/${aznfsVer}/aznfs-${aznfsVer}-1.arm64.tar.gz;fi
+RUN tar xvzf aznfs.tar.gz -C / --keep-directory-symlink && rm aznfs.tar.gz
 
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"
