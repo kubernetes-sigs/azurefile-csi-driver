@@ -63,6 +63,7 @@ func NewFakeDriver() *Driver {
 		KubeConfig:                  "",
 		Endpoint:                    "tcp://127.0.0.1:0",
 		WaitForAzCopyTimeoutMinutes: 1,
+		EnableKataCCMount:           true,
 	}
 	driver := NewDriver(&driverOptions)
 	driver.Name = fakeDriverName

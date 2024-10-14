@@ -192,3 +192,4 @@ roleRef:
   kind: ClusterRole
   name: csi-azurefile-controller-secret-role
   apiGroup: rbac.authorization.k8s.io
+---

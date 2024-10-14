@@ -136,6 +136,7 @@ spec:
             - "--mount-permissions={{ .Values.linux.mountPermissions }}"
             - "--allow-inline-volume-key-access-with-identity={{ .Values.node.allowInlineVolumeKeyAccessWithIdentity }}"
             - "--metrics-address=0.0.0.0:{{ .Values.node.metricsPort }}"
+            - "--enable-kata-cc-mount={{ .Values.node.enableKataCCMount }}"
           livenessProbe:
             failureThreshold: 5
             httpGet:
@@ -193,6 +194,10 @@ spec:
               mountPath: /etc/pki/ca-trust/extracted
               readOnly: true
             {{- end }}
+            {{- if .Values.node.enableKataCCMount }}
+            - mountPath: /run/kata-containers/shared/direct-volumes
+              name: kata-direct-volumes
+            {{- end }}
           resources: {{- toYaml .Values.linux.resources.azurefile | nindent 12 }}
       volumes:
         - hostPath:
@@ -222,5 +227,11 @@ spec:
         - name: ssl-pki
           hostPath:
             path: /etc/pki/ca-trust/extracted
+        {{- end }}
+        {{- if .Values.node.enableKataCCMount }}
+        - name: kata-direct-volumes
+          hostPath:
+            path: /run/kata-containers/shared/direct-volumes/
+            type: DirectoryOrCreate
         {{- end }}
 {{- end -}}

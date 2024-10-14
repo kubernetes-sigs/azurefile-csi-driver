@@ -100,6 +100,7 @@ spec:
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
             - "--metrics-address=0.0.0.0:29615"
+            - "--enable-kata-cc-mount=true"
           livenessProbe:
             failureThreshold: 5
             httpGet:
@@ -138,6 +139,8 @@ spec:
               name: azure-cred
             - mountPath: /dev
               name: device-dir
+            - mountPath: /run/kata-containers/shared/direct-volumes
+              name: kata-direct-volumes
           resources:
             limits:
               memory: 400Mi
@@ -165,4 +168,8 @@ spec:
             path: /dev
             type: Directory
           name: device-dir
+        - name: kata-direct-volumes
+          hostPath:
+            path: /run/kata-containers/shared/direct-volumes/
+            type: DirectoryOrCreate
 ---

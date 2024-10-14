@@ -120,6 +120,7 @@ const (
 	storageEndpointSuffixField        = "storageendpointsuffix"
 	fsGroupChangePolicyField          = "fsgroupchangepolicy"
 	ephemeralField                    = "csi.storage.k8s.io/ephemeral"
+	podNameField                      = "csi.storage.k8s.io/pod.name"
 	podNamespaceField                 = "csi.storage.k8s.io/pod.namespace"
 	serviceAccountTokenField          = "csi.storage.k8s.io/serviceAccount.tokens"
 	clientIDField                     = "clientID"
@@ -191,6 +192,7 @@ const (
 	FSGroupChangeNone = "None"
 	// define tag value delimiter and default is comma
 	tagValueDelimiterField = "tagValueDelimiter"
+	enableKataCCMountField = "enablekataccmount"
 )
 
 var (
@@ -232,6 +234,7 @@ type Driver struct {
 	appendNoResvPortOption                 bool
 	appendActimeoOption                    bool
 	printVolumeStatsCallLogs               bool
+	enableKataCCMount                      bool
 	mounter                                *mount.SafeFormatAndMount
 	server                                 *grpc.Server
 	// lock per volume attach (only for vhd disk feature)
@@ -270,8 +273,10 @@ type Driver struct {
 	// azcopy for provide exec mock for ut
 	azcopy *fileutil.Azcopy
 
-	kubeconfig string
-	endpoint   string
+	kubeconfig   string
+	endpoint     string
+	resolver     Resolver
+	directVolume DirectVolume
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -290,6 +295,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.enableVHDDiskFeature = options.EnableVHDDiskFeature
 	driver.enableVolumeMountGroup = options.EnableVolumeMountGroup
 	driver.enableGetVolumeStats = options.EnableGetVolumeStats
+	driver.enableKataCCMount = options.EnableKataCCMount
 	driver.appendMountErrorHelpLink = options.AppendMountErrorHelpLink
 	driver.mountPermissions = options.MountPermissions
 	driver.fsGroupChangePolicy = options.FSGroupChangePolicy
@@ -310,6 +316,8 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.azcopy = &fileutil.Azcopy{}
 	driver.kubeconfig = options.KubeConfig
 	driver.endpoint = options.Endpoint
+	driver.resolver = new(NetResolver)
+	driver.directVolume = new(directVolume)
 
 	var err error
 	getter := func(_ string) (interface{}, error) { return nil, nil }
