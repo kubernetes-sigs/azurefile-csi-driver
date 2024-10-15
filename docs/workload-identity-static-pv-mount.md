@@ -88,8 +88,7 @@ spec:
   csi:
     driver: file.csi.azure.com
     # make sure volumeid is unique for every identical share in the cluster
-    # the # character is reserved for internal use
-    volumeHandle: unique_volume_id
+    volumeHandle: "{resource-group-name}#{account-name}#{file-share-name}"
     volumeAttributes:
       storageaccount: $ACCOUNT # required
       shareName: $SHARE  # required
