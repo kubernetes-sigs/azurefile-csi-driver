@@ -4,7 +4,7 @@ go 1.23.1
 
 require (
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.14.0
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.16.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6 v6.1.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6 v6.1.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0
@@ -42,7 +42,7 @@ require (
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 	sigs.k8s.io/cloud-provider-azure v1.31.1-0.20240922212359-6c002772ad81
 	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.0.57
-	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.0.29
+	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.1.0
 	sigs.k8s.io/yaml v1.4.0
 )
 
