@@ -132,7 +132,7 @@ spec:
         "kubernetes.io/os": linux
       containers:
         - name: deployment-azurefile
-          image: mcr.microsoft.com/oss/nginx/nginx:1.19.5
+          image: mcr.microsoft.com/mirror/docker/library/nginx:1.23
           command:
             - "/bin/bash"
             - "-c"
@@ -165,7 +165,7 @@ spec:
   nodeSelector:
     "kubernetes.io/os": linux
   containers:
-    - image: mcr.microsoft.com/oss/nginx/nginx:1.19.5
+    - image: mcr.microsoft.com/mirror/docker/library/nginx:1.23
       name: nginx-azurefile
       command:
         - "/bin/bash"
