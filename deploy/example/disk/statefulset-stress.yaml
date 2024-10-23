@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
         - name: statefulset-azurefile
-          image: mcr.microsoft.com/oss/nginx/nginx:1.17.3-alpine
+          image: mcr.microsoft.com/mirror/docker/library/nginx:1.23
           command:
             - "/bin/sh"
             - "-c"
