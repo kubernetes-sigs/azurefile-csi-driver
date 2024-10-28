@@ -28,6 +28,7 @@ import (
 	resources "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	storage "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/accountclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/fileshareclient"
@@ -52,8 +53,9 @@ type Client struct {
 
 func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aadFederatedTokenFile string) (*Client, error) {
 	armConfig := &azclient.ARMClientConfig{
-		Cloud:    cloud,
-		TenantID: tenantID,
+		Cloud:     cloud,
+		TenantID:  tenantID,
+		UserAgent: azurefile.GetUserAgent(azurefile.DefaultDriverName, "", "e2e-test"),
 	}
 	useFederatedWorkloadIdentityExtension := false
 	if aadFederatedTokenFile != "" {
