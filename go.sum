@@ -1123,8 +1123,8 @@ github.com/onsi/gomega v1.27.10/go.mod h1:RsS8tutOdbdgzbPtzzATp12yT7kM5I5aElG3ev
 github.com/onsi/gomega v1.29.0/go.mod h1:9sxs+SwGrKI0+PWe4Fxa9tFQQBG5xSsSbMXOI8PPpoQ=
 github.com/onsi/gomega v1.30.0/go.mod h1:9sxs+SwGrKI0+PWe4Fxa9tFQQBG5xSsSbMXOI8PPpoQ=
 github.com/onsi/gomega v1.31.0/go.mod h1:DW9aCi7U6Yi40wNVAvT6kzFnEVEI5n3DloYBiKiT6zk=
-github.com/onsi/gomega v1.34.2 h1:pNCwDkzrsv7MS9kpaQvVb1aVLahQXyJ/Tv5oAZMI3i8=
-github.com/onsi/gomega v1.34.2/go.mod h1:v1xfxRgk0KIsG+QOdm7p8UosrOzPYRo60fd3B/1Dukc=
+github.com/onsi/gomega v1.35.0 h1:xuM1M/UvMp9BCdS4hojhS9/4jEuVqS9Er3bqupeaoPM=
+github.com/onsi/gomega v1.35.0/go.mod h1:PvZbdDc8J6XJEpDK4HCuRBm8a6Fzp9/DmhC9C7yFlog=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/selinux v1.11.0 h1:+5Zbo97w3Lbmb3PeqQtpmTkMwsW5nRI3YaLpt7tQ7oU=
@@ -2160,8 +2160,8 @@ sigs.k8s.io/cloud-provider-azure v1.31.1-0.20240922212359-6c002772ad81 h1:8ceL+e
 sigs.k8s.io/cloud-provider-azure v1.31.1-0.20240922212359-6c002772ad81/go.mod h1:cLkRdyV81YGxF8RKTHspUVKIX01+5DWHjhSxzOEuLws=
 sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.0.57 h1:Gt0aHqpju4eEtO9DoLLSZbKCjfH5fLmfCES7VGsiHHo=
 sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.0.57/go.mod h1:pCcUbyidPO6qrplCGARQY70n0E7ANUjmwR1xtAz/nng=
-sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.1.1 h1:fIfY2cov1VA+HEWdHbpRnH3AZjRFe+GLs+5IcfzwMWg=
-sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.1.1/go.mod h1:/5z3DKSmEdjwEJnHRN+b3MkEN0dJGCOtXnLVULqmH20=
+sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.1.2 h1:mNGc7XBWH24i136jDdql7iIwj9SzleVTstzeaRr13YE=
+sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.1.2/go.mod h1:OxOpTR3FbtkRTdJ0SkrOYClKaMU61hjvOurxHPtor3k=
 sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd h1:EDPBXCAspyGV4jQlpZSudPeMmr1bNJefnuqLsRAsHZo=
 sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd/go.mod h1:B8JuhiUyNFVKdsE8h686QcCxMaH6HrOAZj4vswFpcB0=
 sigs.k8s.io/structured-merge-diff/v4 v4.0.1/go.mod h1:bJZC9H9iH24zzfZ/41RGcq60oK1F7G282QMXDPYydCw=
