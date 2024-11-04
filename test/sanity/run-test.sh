@@ -54,7 +54,7 @@ sleep 1
 
 echo 'Begin to run sanity test...'
 readonly CSI_SANITY_BIN='csi-sanity'
-"$CSI_SANITY_BIN" --ginkgo.v --ginkgo.noColor --csi.endpoint="$endpoint" --ginkgo.skip='should fail when the volume source snapshot is not found|should work|should fail when the volume does not exist|should fail when the node does not exist|Node Service NodeGetCapabilities|should remove target path|should fail when requesting to create a snapshot with already existing name and different source volume ID'
+"$CSI_SANITY_BIN" --ginkgo.v --ginkgo.noColor --csi.endpoint="$endpoint" --ginkgo.skip='should fail when requesting to create a snapshot with already existing name and different source volume ID'
 
 testvolumeparameters='/tmp/vhd.yaml'
 cat > $testvolumeparameters << EOF
