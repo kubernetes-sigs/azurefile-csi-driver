@@ -85,12 +85,12 @@ func GetRemoteServerFromTarget(mount string, volStatsCache azcache.Resource) (st
 		klog.V(6).Infof("GetRemoteServerFromTarget(%s) cache hit: %s", mount, remoteServer)
 		return remoteServer, nil
 	}
-	cmd := "(Get-Item -Path $Env:mount).Target"
-	out, err := util.RunPowershellCmd(cmd, fmt.Sprintf("mount=%s", mount))
-	if err != nil || len(out) == 0 {
-		return "", fmt.Errorf("error getting volume from mount. cmd: %s, output: %s, error: %v", cmd, string(out), err)
+	target, err := os.Readlink(mount)
+	klog.V(2).Infof("read link for mount %s, target: %s", mount, target)
+	if err != nil || len(target) == 0 {
+		return "", fmt.Errorf("error reading link for mount %s. target %s err: %v", mount, target, err)
 	}
-	remoteServer := strings.TrimSpace(string(out))
+	remoteServer := strings.TrimSpace(target)
 	// cache the remote server path
 	volStatsCache.Set(mount, remoteServer)
 	return remoteServer, nil
