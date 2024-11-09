@@ -40,7 +40,7 @@ azcopyPath="/usr/local/bin/azcopy"
 if [ ! -f "$azcopyPath" ]; then
   echo 'Downloading azcopy...'
   azcopyTarFile="azcopy.tar.gz"
-  wget -O $azcopyTarFile azcopyvnext.azureedge.net/releases/release-10.26.0-20240731/azcopy_linux_amd64_10.26.0.tar.gz
+  wget -O $azcopyTarFile azcopyvnext.azureedge.net/releases/release-10.27.0-20241030/azcopy_linux_amd64_10.27.0.tar.gz
   tar -zxvf $azcopyTarFile
   mv ./azcopy*/azcopy /usr/local/bin/azcopy
   rm -rf ./$azcopyTarFile
