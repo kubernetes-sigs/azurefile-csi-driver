@@ -142,7 +142,6 @@ func (mounter *winMounter) Unmount(target string) error {
 		klog.V(2).Infof("remote server path: %s, local path: %s", remoteServer, target)
 		if hasDupSMBMount, err := smb.CheckForDuplicateSMBMounts(driverGlobalMountPath, target, remoteServer, mounter.volStatsCache); err == nil {
 			if !hasDupSMBMount {
-				remoteServer = strings.Replace(remoteServer, "UNC\\", "\\\\", 1)
 				if err := smb.RemoveSmbGlobalMapping(remoteServer); err != nil {
 					klog.Errorf("RemoveSmbGlobalMapping(%s) failed with %v", target, err)
 				}
