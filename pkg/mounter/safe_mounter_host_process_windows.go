@@ -31,22 +31,16 @@ import (
 
 	"sigs.k8s.io/azurefile-csi-driver/pkg/os/filesystem"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/os/smb"
-
-	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 )
 
 var driverGlobalMountPath = "C:\\var\\lib\\kubelet\\plugins\\kubernetes.io\\csi\\file.csi.azure.com"
 
 var _ CSIProxyMounter = &winMounter{}
 
-type winMounter struct {
-	volStatsCache azcache.Resource
-}
+type winMounter struct{}
 
-func NewWinMounter(cache azcache.Resource) *winMounter {
-	return &winMounter{
-		volStatsCache: cache,
-	}
+func NewWinMounter() *winMounter {
+	return &winMounter{}
 }
 
 func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions, sensitiveMountOptions []string) error {
@@ -137,10 +131,10 @@ func (mounter *winMounter) Rmdir(path string) error {
 // Unmount - Removes the directory - equivalent to unmount on Linux.
 func (mounter *winMounter) Unmount(target string) error {
 	target = normalizeWindowsPath(target)
-	remoteServer, err := smb.GetRemoteServerFromTarget(target, mounter.volStatsCache)
+	remoteServer, err := smb.GetRemoteServerFromTarget(target)
 	if err == nil {
 		klog.V(2).Infof("remote server path: %s, local path: %s", remoteServer, target)
-		if hasDupSMBMount, err := smb.CheckForDuplicateSMBMounts(driverGlobalMountPath, target, remoteServer, mounter.volStatsCache); err == nil {
+		if hasDupSMBMount, err := smb.CheckForDuplicateSMBMounts(driverGlobalMountPath, target, remoteServer); err == nil {
 			if !hasDupSMBMount {
 				if err := smb.RemoveSmbGlobalMapping(remoteServer); err != nil {
 					klog.Errorf("RemoveSmbGlobalMapping(%s) failed with %v", target, err)
