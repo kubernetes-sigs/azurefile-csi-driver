@@ -102,7 +102,7 @@ spec:
                 - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
                 - --mode=kubelet-registration-probe
             initialDelaySeconds: 60
-            timeoutSeconds: 30
+            timeoutSeconds: 120
 {{- end }}
           env:
             - name: CSI_ENDPOINT
