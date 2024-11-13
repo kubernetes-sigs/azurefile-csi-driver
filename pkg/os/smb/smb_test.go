@@ -22,15 +22,9 @@ package smb
 import (
 	"fmt"
 	"testing"
-	"time"
-
-	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 )
 
 func TestCheckForDuplicateSMBMounts(t *testing.T) {
-	getter := func(key string) (interface{}, error) { return nil, nil }
-	volStatsCache, _ := azcache.NewTimedCache(10*time.Minute, getter, false)
-
 	tests := []struct {
 		name           string
 		dir            string
@@ -48,7 +42,7 @@ func TestCheckForDuplicateSMBMounts(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		result, err := CheckForDuplicateSMBMounts(test.dir, test.mount, test.remoteServer, volStatsCache)
+		result, err := CheckForDuplicateSMBMounts(test.dir, test.mount, test.remoteServer)
 		if result != test.expectedResult {
 			t.Errorf("Expected %v, got %v", test.expectedResult, result)
 		}
