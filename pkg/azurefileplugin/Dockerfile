@@ -22,7 +22,7 @@ ARG ARCH
 
 RUN apt update \
     && apt install -y curl \
-    && curl -Ls https://azcopyvnext.azureedge.net/releases/release-10.27.0-20241030/azcopy_linux_${ARCH}_10.27.0.tar.gz \
+    && curl -Ls https://azcopyvnext.azureedge.net/releases/release-10.27.1-20241113/azcopy_linux_${ARCH}_10.27.1.tar.gz \
         | tar xvzf - --strip-components=1 -C /usr/local/bin/ --wildcards "*/azcopy"
 
 FROM base
