@@ -1209,10 +1209,12 @@ func (d *Driver) snapshotExists(ctx context.Context, sourceVolumeID, snapshotNam
 		}
 
 		// List share snapshots.
-		listSnapshot, err := d.cloud.FileClient.WithSubscriptionID(subsID).ListFileShare(ctx, rgName, accountName, "", snapshotsExpand)
+		filter := fmt.Sprintf("startswith(name, %s)", fileShareName)
+		listSnapshot, err := d.cloud.FileClient.WithSubscriptionID(subsID).ListFileShare(ctx, rgName, accountName, filter, snapshotsExpand)
 		if err != nil || listSnapshot == nil {
 			return false, "", time.Time{}, 0, err
 		}
+		klog.V(2).Infof("list snapshot of share(%s) under account(%s) rg(%s) subsID(%s) with total number(%d)", fileShareName, accountName, rgName, subsID, len(listSnapshot))
 		for _, share := range listSnapshot {
 			if share.SnapshotTime == nil { //the fileshare is not a snapshot
 				continue
