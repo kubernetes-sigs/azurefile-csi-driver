@@ -10,10 +10,10 @@ updates:
     - "ok-to-test"
   open-pull-requests-limit: 2
   groups:
-    k8s:
+    all:
       applies-to: version-updates
       patterns:
-      - "k8s.io*"
+      - "*"
       update-types:
       - "patch"
       - "minor"
