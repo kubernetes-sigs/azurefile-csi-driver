@@ -2021,7 +2021,7 @@ var _ = ginkgo.Describe("TestControllerExpandVolume", func() {
 
 			d.Cap = []*csi.ControllerServiceCapability{}
 
-			expectedErr := status.Errorf(codes.InvalidArgument, "invalid expand volume request: volume_id:\"vol_1\" capacity_range:<required_bytes:5368709120 > ")
+			expectedErr := status.Errorf(codes.InvalidArgument, "invalid expand volume request: volume_id:\"vol_1\"  capacity_range:{required_bytes:5368709120}")
 			_, err := d.ControllerExpandVolume(ctx, req)
 			gomega.Expect(err).To(gomega.Equal(expectedErr))
 		})
