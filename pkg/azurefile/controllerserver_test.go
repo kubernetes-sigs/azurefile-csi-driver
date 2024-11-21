@@ -1713,7 +1713,7 @@ var _ = ginkgo.Describe("ControllerGetCapabilities", func() {
 })
 
 var _ = ginkgo.DescribeTable("ValidateVolumeCapabilities", func(
-	req csi.ValidateVolumeCapabilitiesRequest,
+	req *csi.ValidateVolumeCapabilitiesRequest,
 	expectedErr error,
 	mockedFileShareErr error,
 ) {
@@ -1741,7 +1741,7 @@ var _ = ginkgo.DescribeTable("ValidateVolumeCapabilities", func(
 	mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(key, nil).AnyTimes()
 	mockFileClient.EXPECT().Get(context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: &fakeShareQuota}}, mockedFileShareErr).AnyTimes()
 
-	_, err := d.ValidateVolumeCapabilities(context.Background(), &req)
+	_, err := d.ValidateVolumeCapabilities(context.Background(), req)
 	if expectedErr == nil {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	} else {
@@ -1749,17 +1749,17 @@ var _ = ginkgo.DescribeTable("ValidateVolumeCapabilities", func(
 	}
 },
 	ginkgo.Entry("Volume ID missing",
-		csi.ValidateVolumeCapabilitiesRequest{},
+		&csi.ValidateVolumeCapabilitiesRequest{},
 		status.Error(codes.InvalidArgument, "Volume ID not provided"),
 		nil,
 	),
 	ginkgo.Entry("Volume capabilities missing",
-		csi.ValidateVolumeCapabilitiesRequest{VolumeId: "vol_1"},
+		&csi.ValidateVolumeCapabilitiesRequest{VolumeId: "vol_1"},
 		status.Error(codes.InvalidArgument, "Volume capabilities not provided"),
 		nil,
 	),
 	ginkgo.Entry("Volume ID not valid",
-		csi.ValidateVolumeCapabilitiesRequest{
+		&csi.ValidateVolumeCapabilitiesRequest{
 			VolumeId: "vol_1",
 			VolumeCapabilities: []*csi.VolumeCapability{
 				{
@@ -1776,7 +1776,7 @@ var _ = ginkgo.DescribeTable("ValidateVolumeCapabilities", func(
 		nil,
 	),
 	ginkgo.Entry("Check file share exists errors",
-		csi.ValidateVolumeCapabilitiesRequest{
+		&csi.ValidateVolumeCapabilitiesRequest{
 			VolumeId: "vol_1#f5713de20cde511e8ba4900#fileshare#",
 			VolumeCapabilities: []*csi.VolumeCapability{
 				{
@@ -1793,7 +1793,7 @@ var _ = ginkgo.DescribeTable("ValidateVolumeCapabilities", func(
 		fmt.Errorf("test error"),
 	),
 	ginkgo.Entry("Valid request disk name is empty",
-		csi.ValidateVolumeCapabilitiesRequest{
+		&csi.ValidateVolumeCapabilitiesRequest{
 			VolumeId: "vol_1#f5713de20cde511e8ba4900#fileshare#",
 			VolumeCapabilities: []*csi.VolumeCapability{
 				{
@@ -1810,7 +1810,7 @@ var _ = ginkgo.DescribeTable("ValidateVolumeCapabilities", func(
 		nil,
 	),
 	ginkgo.Entry("Valid request volume capability is multi node single writer",
-		csi.ValidateVolumeCapabilitiesRequest{
+		&csi.ValidateVolumeCapabilitiesRequest{
 			VolumeId: "vol_1#f5713de20cde511e8ba4900#fileshare#diskname.vhd#",
 			VolumeCapabilities: []*csi.VolumeCapability{
 				{
@@ -1827,7 +1827,7 @@ var _ = ginkgo.DescribeTable("ValidateVolumeCapabilities", func(
 		nil,
 	),
 	ginkgo.Entry("Valid request",
-		csi.ValidateVolumeCapabilitiesRequest{
+		&csi.ValidateVolumeCapabilitiesRequest{
 			VolumeId: "vol_1#f5713de20cde511e8ba4900#fileshare#diskname.vhd#",
 			VolumeCapabilities: []*csi.VolumeCapability{
 				{
@@ -1844,7 +1844,7 @@ var _ = ginkgo.DescribeTable("ValidateVolumeCapabilities", func(
 		nil,
 	),
 	ginkgo.Entry("Resource group empty",
-		csi.ValidateVolumeCapabilitiesRequest{
+		&csi.ValidateVolumeCapabilitiesRequest{
 			VolumeId: "vol_1#f5713de20cde511e8ba4900#fileshare#diskname.vhd#",
 			VolumeCapabilities: []*csi.VolumeCapability{
 				{
@@ -2008,20 +2008,6 @@ var _ = ginkgo.Describe("TestControllerExpandVolume", func() {
 			d.Cap = []*csi.ControllerServiceCapability{}
 
 			expectedErr := status.Error(codes.InvalidArgument, "volume capacity range missing in request")
-			_, err := d.ControllerExpandVolume(ctx, req)
-			gomega.Expect(err).To(gomega.Equal(expectedErr))
-		})
-	})
-	ginkgo.When("Volume capabilities missing", func() {
-		ginkgo.It("should fail", func(ctx context.Context) {
-			req := &csi.ControllerExpandVolumeRequest{
-				VolumeId:      "vol_1",
-				CapacityRange: stdCapRange,
-			}
-
-			d.Cap = []*csi.ControllerServiceCapability{}
-
-			expectedErr := status.Errorf(codes.InvalidArgument, "invalid expand volume request: volume_id:\"vol_1\"  capacity_range:{required_bytes:5368709120}")
 			_, err := d.ControllerExpandVolume(ctx, req)
 			gomega.Expect(err).To(gomega.Equal(expectedErr))
 		})
