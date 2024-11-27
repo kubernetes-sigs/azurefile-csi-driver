@@ -83,7 +83,7 @@ controller:
     csiSnapshotter:
       limits:
         cpu: 1
-        memory: 200Mi
+        memory: 400Mi
       requests:
         cpu: 10m
         memory: 20Mi
@@ -97,7 +97,7 @@ controller:
     azurefile:
       limits:
         cpu: 1
-        memory: 200Mi
+        memory: 400Mi
       requests:
         cpu: 10m
         memory: 20Mi
@@ -149,7 +149,7 @@ snapshot:
     resources:
       limits:
         cpu: 1
-        memory: 300Mi
+        memory: 500Mi
       requests:
         cpu: 10m
         memory: 20Mi
