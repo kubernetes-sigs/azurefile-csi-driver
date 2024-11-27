@@ -107,13 +107,13 @@ The following table lists the configurable parameters of the latest Azure File C
 | `controller.resources.csiResizer.limits.memory`       | csi-resizer memory limits                         | 500Mi                                                          |
 | `controller.resources.csiResizer.requests.cpu`        | csi-resizer cpu requests                   | 10m                                                            |
 | `controller.resources.csiResizer.requests.memory`     | csi-resizer memory requests                | 20Mi                                                           |
-| `controller.resources.csiSnapshotter.limits.memory`   | csi-snapshotter memory limits                         | 500Mi                                                          |
+| `controller.resources.csiSnapshotter.limits.memory`   | csi-snapshotter memory limits                         | 400Mi                                                          |
 | `controller.resources.csiSnapshotter.requests.cpu`    | csi-snapshotter cpu requests                   | 10m                                                            |
 | `controller.resources.csiSnapshotter.requests.memory` | csi-snapshotter memory requests                | 20Mi                                                           |
 | `controller.resources.livenessProbe.limits.memory`    | liveness-probe memory limits                          | 100Mi                                                          |
 | `controller.resources.livenessProbe.requests.cpu`     | liveness-probe cpu requests                    | 10m                                                            |
 | `controller.resources.livenessProbe.requests.memory`  | liveness-probe memory requests                 | 20Mi                                                           |
-| `controller.resources.azurefile.limits.memory`        | azurefile memory limits                         | 200Mi                                                          |
+| `controller.resources.azurefile.limits.memory`        | azurefile memory limits                         | 400Mi                                                          |
 | `controller.resources.azurefile.requests.cpu`         | azurefile cpu requests                   | 10m                                                            |
 | `controller.resources.azurefile.requests.memory`      | azurefile memory requests                | 20Mi                                                           |
 | `controller.kubeconfig`                               | configure kubeconfig path on controller node                | '' (empty, use InClusterConfig by default)
@@ -140,7 +140,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `snapshot.snapshotController.annotations`                          | snapshot controller deployment extra annotations               | `{}`
 | `snapshot.snapshotController.podLabels`                            | snapshot controller pods extra labels                          | `{}`
 | `snapshot.snapshotController.podAnnotations`                       | snapshot controller pods extra annotations                     | `{}`
-| `snapshot.snapshotController.resources.limits.memory`          | csi-snapshot-controller memory limits                          | 100Mi                                                          |
+| `snapshot.snapshotController.resources.limits.memory`          | csi-snapshot-controller memory limits                          | 500Mi                                                          |
 | `snapshot.snapshotController.resources.requests.cpu`           | csi-snapshot-controller cpu requests                    | 10m                                                            |
 | `snapshot.snapshotController.resources.requests.memory`        | csi-snapshot-controller memory requests                 | 20Mi                                                           |
 | `linux.enabled`                                   | whether enable linux feature                               | `true`                                                              |
