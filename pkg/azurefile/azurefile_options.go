@@ -82,7 +82,7 @@ func (o *DriverOptions) AddFlags() *flag.FlagSet {
 	fs.IntVar(&o.VolStatsCacheExpireInMinutes, "vol-stats-cache-expire-in-minutes", 10, "The cache expire time in minutes for volume stats cache")
 	fs.BoolVar(&o.PrintVolumeStatsCallLogs, "print-volume-stats-call-logs", false, "Whether to print volume statfs call logs with log level 2")
 	fs.IntVar(&o.SasTokenExpirationMinutes, "sas-token-expiration-minutes", 1440, "sas token expiration minutes during volume cloning and snapshot restore")
-	fs.IntVar(&o.WaitForAzCopyTimeoutMinutes, "wait-for-azcopy-timeout-minutes", 5, "timeout in minutes for waiting for azcopy to finish")
+	fs.IntVar(&o.WaitForAzCopyTimeoutMinutes, "wait-for-azcopy-timeout-minutes", 19, "timeout in minutes for waiting for azcopy to finish")
 	fs.StringVar(&o.KubeConfig, "kubeconfig", "", "Absolute path to the kubeconfig file. Required only when running out of cluster.")
 	fs.StringVar(&o.Endpoint, "endpoint", "unix://tmp/csi.sock", "CSI endpoint")
 
