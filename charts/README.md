@@ -113,7 +113,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `controller.resources.livenessProbe.limits.memory`    | liveness-probe memory limits                          | 100Mi                                                          |
 | `controller.resources.livenessProbe.requests.cpu`     | liveness-probe cpu requests                    | 10m                                                            |
 | `controller.resources.livenessProbe.requests.memory`  | liveness-probe memory requests                 | 20Mi                                                           |
-| `controller.resources.azurefile.limits.memory`        | azurefile memory limits                         | 400Mi                                                          |
+| `controller.resources.azurefile.limits.memory`        | azurefile memory limits                         | 800Mi                                                          |
 | `controller.resources.azurefile.requests.cpu`         | azurefile cpu requests                   | 10m                                                            |
 | `controller.resources.azurefile.requests.memory`      | azurefile memory requests                | 20Mi                                                           |
 | `controller.kubeconfig`                               | configure kubeconfig path on controller node                | '' (empty, use InClusterConfig by default)
