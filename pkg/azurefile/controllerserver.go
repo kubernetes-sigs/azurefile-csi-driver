@@ -482,7 +482,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				ptr.Deref(createPrivateEndpoint, false), ptr.Deref(allowBlobPublicAccess, false), ptr.Deref(requireInfraEncryption, false),
 				ptr.Deref(enableLFS, false), ptr.Deref(disableDeleteRetentionPolicy, false))
 			// search in cache first
-			cache, err := d.accountSearchCache.Get(lockKey, azcache.CacheReadTypeDefault)
+			cache, err := d.accountSearchCache.Get(ctx, lockKey, azcache.CacheReadTypeDefault)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "%v", err)
 			}
@@ -632,7 +632,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if storeAccountKey && len(req.GetSecrets()) == 0 {
 		secretCacheKey := accountName + secretName + secretNamespace
 		if useSeretCache {
-			cache, err := d.secretCacheMap.Get(secretCacheKey, azcache.CacheReadTypeDefault)
+			cache, err := d.secretCacheMap.Get(ctx, secretCacheKey, azcache.CacheReadTypeDefault)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "get cache key(%s) failed with %v", secretCacheKey, err)
 			}
@@ -715,7 +715,7 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 	}
 
 	secret := req.GetSecrets()
-	if len(secret) == 0 && d.useDataPlaneAPI(volumeID, accountName) {
+	if len(secret) == 0 && d.useDataPlaneAPI(ctx, volumeID, accountName) {
 		reqContext := map[string]string{}
 		if secretNamespace != "" {
 			setKeyValueInMap(reqContext, secretNamespaceField, secretNamespace)
@@ -933,7 +933,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 	klog.V(2).Infof("created share snapshot: %s, time: %v, quota: %dGiB", itemSnapshot, itemSnapshotTime, itemSnapshotQuota)
 	if itemSnapshotQuota == 0 {
 		key := fmt.Sprintf("%s-%s", accountName, fileShareName)
-		cache, err := d.getFileShareSizeCache.Get(key, azcache.CacheReadTypeDefault)
+		cache, err := d.getFileShareSizeCache.Get(ctx, key, azcache.CacheReadTypeDefault)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to get file share size cache(%s): %v", key, err)
 		}
@@ -1150,7 +1150,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 	}
 
 	if accountName != "" {
-		cache, err := d.resizeFileShareFailureCache.Get(accountName, azcache.CacheReadTypeDefault)
+		cache, err := d.resizeFileShareFailureCache.Get(ctx, accountName, azcache.CacheReadTypeDefault)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "resizeFileShareFailureCache(%s) failed with error: %v", accountName, err)
 		}
@@ -1166,7 +1166,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 	}()
 
 	secrets := req.GetSecrets()
-	if len(secrets) == 0 && d.useDataPlaneAPI(volumeID, accountName) {
+	if len(secrets) == 0 && d.useDataPlaneAPI(ctx, volumeID, accountName) {
 		reqContext := map[string]string{}
 		if secretNamespace != "" {
 			setKeyValueInMap(reqContext, secretNamespaceField, secretNamespace)
@@ -1331,6 +1331,7 @@ func isValidVolumeCapabilities(volCaps []*csi.VolumeCapability) error {
 
 func (d *Driver) authorizeAzcopyWithIdentity() ([]string, error) {
 	azureAuthConfig := d.cloud.Config.AzureAuthConfig
+	armClientConfig := d.cloud.Config.ARMClientConfig
 	var authAzcopyEnv []string
 	if azureAuthConfig.UseManagedIdentityExtension {
 		authAzcopyEnv = append(authAzcopyEnv, fmt.Sprintf("%s=%s", azcopyAutoLoginType, MSI))
@@ -1345,14 +1346,13 @@ func (d *Driver) authorizeAzcopyWithIdentity() ([]string, error) {
 	if len(azureAuthConfig.AADClientSecret) > 0 {
 		klog.V(2).Infof("use service principal to authorize azcopy")
 		authAzcopyEnv = append(authAzcopyEnv, fmt.Sprintf("%s=%s", azcopyAutoLoginType, SPN))
-		if azureAuthConfig.AADClientID == "" || azureAuthConfig.TenantID == "" {
+		if azureAuthConfig.AADClientID == "" || armClientConfig.TenantID == "" {
 			return []string{}, fmt.Errorf("AADClientID and TenantID must be set when use service principal")
 		}
 		authAzcopyEnv = append(authAzcopyEnv, fmt.Sprintf("%s=%s", azcopySPAApplicationID, azureAuthConfig.AADClientID))
 		authAzcopyEnv = append(authAzcopyEnv, fmt.Sprintf("%s=%s", azcopySPAClientSecret, azureAuthConfig.AADClientSecret))
-		authAzcopyEnv = append(authAzcopyEnv, fmt.Sprintf("%s=%s", azcopyTenantID, azureAuthConfig.TenantID))
-		klog.V(2).Infof("set AZCOPY_SPA_APPLICATION_ID=%s, AZCOPY_TENANT_ID=%s successfully", azureAuthConfig.AADClientID, azureAuthConfig.TenantID)
-
+		authAzcopyEnv = append(authAzcopyEnv, fmt.Sprintf("%s=%s", azcopyTenantID, armClientConfig.TenantID))
+		klog.V(2).Infof("set AZCOPY_SPA_APPLICATION_ID=%s, AZCOPY_TENANT_ID=%s successfully", azureAuthConfig.AADClientID, armClientConfig.TenantID)
 		return authAzcopyEnv, nil
 	}
 	return []string{}, fmt.Errorf("neither the service principal nor the managed identity has been set")
@@ -1365,9 +1365,9 @@ func (d *Driver) authorizeAzcopyWithIdentity() ([]string, error) {
 func (d *Driver) getAzcopyAuth(ctx context.Context, accountName, accountKey, storageEndpointSuffix string, accountOptions *azure.AccountOptions, secrets map[string]string, secretName, secretNamespace string, useSasToken bool) (string, []string, error) {
 	var authAzcopyEnv []string
 	var err error
-	if !useSasToken && !d.useDataPlaneAPI("", accountName) && len(secrets) == 0 && len(secretName) == 0 {
+	if !useSasToken && !d.useDataPlaneAPI(ctx, "", accountName) && len(secrets) == 0 && len(secretName) == 0 {
 		// search in cache first
-		if cache, err := d.azcopySasTokenCache.Get(accountName, azcache.CacheReadTypeDefault); err == nil && cache != nil {
+		if cache, err := d.azcopySasTokenCache.Get(ctx, accountName, azcache.CacheReadTypeDefault); err == nil && cache != nil {
 			klog.V(2).Infof("use sas token for account(%s) since this account is found in azcopySasTokenCache", accountName)
 			return cache.(string), nil, nil
 		}
@@ -1384,16 +1384,16 @@ func (d *Driver) getAzcopyAuth(ctx context.Context, accountName, accountKey, sto
 			}
 		}
 		klog.V(2).Infof("generate sas token for account(%s)", accountName)
-		sasToken, err := d.generateSASToken(accountName, accountKey, storageEndpointSuffix, d.sasTokenExpirationMinutes)
+		sasToken, err := d.generateSASToken(ctx, accountName, accountKey, storageEndpointSuffix, d.sasTokenExpirationMinutes)
 		return sasToken, nil, err
 	}
 	return "", authAzcopyEnv, nil
 }
 
 // generateSASToken generate a sas token for storage account
-func (d *Driver) generateSASToken(accountName, accountKey, storageEndpointSuffix string, expiryTime int) (string, error) {
+func (d *Driver) generateSASToken(ctx context.Context, accountName, accountKey, storageEndpointSuffix string, expiryTime int) (string, error) {
 	// search in cache first
-	cache, err := d.azcopySasTokenCache.Get(accountName, azcache.CacheReadTypeDefault)
+	cache, err := d.azcopySasTokenCache.Get(ctx, accountName, azcache.CacheReadTypeDefault)
 	if err != nil {
 		return "", fmt.Errorf("get(%s) from azcopySasTokenCache failed with error: %v", accountName, err)
 	}

@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader"
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	azureconfig "sigs.k8s.io/cloud-provider-azure/pkg/provider/config"
 	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
 )
 
@@ -66,7 +67,7 @@ func getRuntimeClassForPod(ctx context.Context, kubeClient clientset.Interface, 
 // getCloudProvider get Azure Cloud Provider
 func getCloudProvider(ctx context.Context, kubeconfig, nodeID, secretName, secretNamespace, userAgent string, allowEmptyCloudConfig, enableWindowsHostProcess bool, kubeAPIQPS float64, kubeAPIBurst int) (*azure.Cloud, error) {
 	var (
-		config     *azure.Config
+		config     *azureconfig.Config
 		kubeClient *clientset.Clientset
 		fromSecret bool
 	)
@@ -97,7 +98,7 @@ func getCloudProvider(ctx context.Context, kubeconfig, nodeID, secretName, secre
 
 	if kubeClient != nil {
 		klog.V(2).Infof("reading cloud config from secret %s/%s", secretNamespace, secretName)
-		config, err = configloader.Load[azure.Config](ctx, &configloader.K8sSecretLoaderConfig{
+		config, err = configloader.Load[azureconfig.Config](ctx, &configloader.K8sSecretLoaderConfig{
 			K8sSecretConfig: configloader.K8sSecretConfig{
 				SecretName:      secretName,
 				SecretNamespace: secretNamespace,
@@ -126,7 +127,7 @@ func getCloudProvider(ctx context.Context, kubeconfig, nodeID, secretName, secre
 			}
 			klog.V(2).Infof("use default %s env var: %v", DefaultAzureCredentialFileEnv, credFile)
 		}
-		config, err = configloader.Load[azure.Config](ctx, nil, &configloader.FileLoaderConfig{
+		config, err = configloader.Load[azureconfig.Config](ctx, nil, &configloader.FileLoaderConfig{
 			FilePath: credFile,
 		})
 		if err != nil {
@@ -221,7 +222,7 @@ func (d *Driver) updateSubnetServiceEndpoints(ctx context.Context, vnetResourceG
 	}
 
 	lockKey := vnetResourceGroup + vnetName + subnetName
-	cache, err := d.subnetCache.Get(lockKey, azcache.CacheReadTypeDefault)
+	cache, err := d.subnetCache.Get(ctx, lockKey, azcache.CacheReadTypeDefault)
 	if err != nil {
 		return nil, err
 	}

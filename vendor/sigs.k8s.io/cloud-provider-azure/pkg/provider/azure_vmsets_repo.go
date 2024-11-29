@@ -17,14 +17,12 @@ limitations under the License.
 package provider
 
 import (
+	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2022-08-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2022-07-01/network"
-
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	cloudprovider "k8s.io/cloud-provider"
@@ -36,11 +34,11 @@ import (
 )
 
 // GetVirtualMachineWithRetry invokes az.getVirtualMachine with exponential backoff retry
-func (az *Cloud) GetVirtualMachineWithRetry(name types.NodeName, crt azcache.AzureCacheReadType) (compute.VirtualMachine, error) {
+func (az *Cloud) GetVirtualMachineWithRetry(ctx context.Context, name types.NodeName, crt azcache.AzureCacheReadType) (compute.VirtualMachine, error) {
 	var machine compute.VirtualMachine
 	var retryErr error
 	err := wait.ExponentialBackoff(az.RequestBackoff(), func() (bool, error) {
-		machine, retryErr = az.getVirtualMachine(name, crt)
+		machine, retryErr = az.getVirtualMachine(ctx, name, crt)
 		if errors.Is(retryErr, cloudprovider.InstanceNotFound) {
 			return true, cloudprovider.InstanceNotFound
 		}
@@ -58,10 +56,7 @@ func (az *Cloud) GetVirtualMachineWithRetry(name types.NodeName, crt azcache.Azu
 }
 
 // ListVirtualMachines invokes az.VirtualMachinesClient.List with exponential backoff retry
-func (az *Cloud) ListVirtualMachines(resourceGroup string) ([]compute.VirtualMachine, error) {
-	ctx, cancel := getContextWithCancel()
-	defer cancel()
-
+func (az *Cloud) ListVirtualMachines(ctx context.Context, resourceGroup string) ([]compute.VirtualMachine, error) {
 	allNodes, rerr := az.VirtualMachinesClient.List(ctx, resourceGroup)
 	if rerr != nil {
 		klog.Errorf("VirtualMachinesClient.List(%v) failure with err=%v", resourceGroup, rerr)
@@ -73,15 +68,15 @@ func (az *Cloud) ListVirtualMachines(resourceGroup string) ([]compute.VirtualMac
 
 // getPrivateIPsForMachine is wrapper for optional backoff getting private ips
 // list of a node by name
-func (az *Cloud) getPrivateIPsForMachine(nodeName types.NodeName) ([]string, error) {
-	return az.getPrivateIPsForMachineWithRetry(nodeName)
+func (az *Cloud) getPrivateIPsForMachine(ctx context.Context, nodeName types.NodeName) ([]string, error) {
+	return az.getPrivateIPsForMachineWithRetry(ctx, nodeName)
 }
 
-func (az *Cloud) getPrivateIPsForMachineWithRetry(nodeName types.NodeName) ([]string, error) {
+func (az *Cloud) getPrivateIPsForMachineWithRetry(ctx context.Context, nodeName types.NodeName) ([]string, error) {
 	var privateIPs []string
 	err := wait.ExponentialBackoff(az.RequestBackoff(), func() (bool, error) {
 		var retryErr error
-		privateIPs, retryErr = az.VMSet.GetPrivateIPsByNodeName(string(nodeName))
+		privateIPs, retryErr = az.VMSet.GetPrivateIPsByNodeName(ctx, string(nodeName))
 		if retryErr != nil {
 			// won't retry since the instance doesn't exist on Azure.
 			if errors.Is(retryErr, cloudprovider.InstanceNotFound) {
@@ -96,16 +91,16 @@ func (az *Cloud) getPrivateIPsForMachineWithRetry(nodeName types.NodeName) ([]st
 	return privateIPs, err
 }
 
-func (az *Cloud) getIPForMachine(nodeName types.NodeName) (string, string, error) {
-	return az.GetIPForMachineWithRetry(nodeName)
+func (az *Cloud) getIPForMachine(ctx context.Context, nodeName types.NodeName) (string, string, error) {
+	return az.GetIPForMachineWithRetry(ctx, nodeName)
 }
 
 // GetIPForMachineWithRetry invokes az.getIPForMachine with exponential backoff retry
-func (az *Cloud) GetIPForMachineWithRetry(name types.NodeName) (string, string, error) {
+func (az *Cloud) GetIPForMachineWithRetry(ctx context.Context, name types.NodeName) (string, string, error) {
 	var ip, publicIP string
-	err := wait.ExponentialBackoff(az.RequestBackoff(), func() (bool, error) {
+	err := wait.ExponentialBackoffWithContext(ctx, az.RequestBackoff(), func(ctx context.Context) (bool, error) {
 		var retryErr error
-		ip, publicIP, retryErr = az.VMSet.GetIPByNodeName(string(name))
+		ip, publicIP, retryErr = az.VMSet.GetIPByNodeName(ctx, string(name))
 		if retryErr != nil {
 			klog.Errorf("GetIPForMachineWithRetry(%s): backoff failure, will retry,err=%v", name, retryErr)
 			return false, nil
@@ -117,15 +112,13 @@ func (az *Cloud) GetIPForMachineWithRetry(name types.NodeName) (string, string, 
 }
 
 func (az *Cloud) newVMCache() (azcache.Resource, error) {
-	getter := func(key string) (interface{}, error) {
+	getter := func(ctx context.Context, key string) (interface{}, error) {
 		// Currently InstanceView request are used by azure_zones, while the calls come after non-InstanceView
 		// request. If we first send an InstanceView request and then a non InstanceView request, the second
 		// request will still hit throttling. This is what happens now for cloud controller manager: In this
 		// case we do get instance view every time to fulfill the azure_zones requirement without hitting
 		// throttling.
 		// Consider adding separate parameter for controlling 'InstanceView' once node update issue #56276 is fixed
-		ctx, cancel := getContextWithCancel()
-		defer cancel()
 
 		resourceGroup, err := az.GetNodeResourceGroup(key)
 		if err != nil {
@@ -161,9 +154,9 @@ func (az *Cloud) newVMCache() (azcache.Resource, error) {
 // getVirtualMachine calls 'VirtualMachinesClient.Get' with a timed cache
 // The service side has throttling control that delays responses if there are multiple requests onto certain vm
 // resource request in short period.
-func (az *Cloud) getVirtualMachine(nodeName types.NodeName, crt azcache.AzureCacheReadType) (vm compute.VirtualMachine, err error) {
+func (az *Cloud) getVirtualMachine(ctx context.Context, nodeName types.NodeName, crt azcache.AzureCacheReadType) (vm compute.VirtualMachine, err error) {
 	vmName := string(nodeName)
-	cachedVM, err := az.vmCache.Get(vmName, crt)
+	cachedVM, err := az.vmCache.Get(ctx, vmName, crt)
 	if err != nil {
 		return vm, err
 	}
@@ -174,21 +167,4 @@ func (az *Cloud) getVirtualMachine(nodeName types.NodeName, crt azcache.AzureCac
 	}
 
 	return *(cachedVM.(*compute.VirtualMachine)), nil
-}
-
-func (az *Cloud) getRouteTable(crt azcache.AzureCacheReadType) (routeTable network.RouteTable, exists bool, err error) {
-	if len(az.RouteTableName) == 0 {
-		return routeTable, false, fmt.Errorf("route table name is not configured")
-	}
-
-	cachedRt, err := az.rtCache.GetWithDeepCopy(az.RouteTableName, crt)
-	if err != nil {
-		return routeTable, false, err
-	}
-
-	if cachedRt == nil {
-		return routeTable, false, nil
-	}
-
-	return *(cachedRt.(*network.RouteTable)), true, nil
 }

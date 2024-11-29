@@ -69,8 +69,8 @@ func NewFakeDriver() *Driver {
 	driver.Name = fakeDriverName
 	driver.Version = vendorVersion
 	driver.cloud = &azure.Cloud{
-		Config: azure.Config{
-			AzureAuthConfig: auth.AzureAuthConfig{
+		Config: auth.Config{
+			AzureClientConfig: auth.AzureClientConfig{
 				SubscriptionID: "subscriptionID",
 			},
 		},
@@ -89,8 +89,8 @@ func NewFakeDriverCustomOptions(opts DriverOptions) *Driver {
 	driver.Name = fakeDriverName
 	driver.Version = vendorVersion
 	driver.cloud = &azure.Cloud{
-		Config: azure.Config{
-			AzureAuthConfig: auth.AzureAuthConfig{
+		Config: auth.Config{
+			AzureClientConfig: auth.AzureClientConfig{
 				SubscriptionID: "subscriptionID",
 			},
 		},

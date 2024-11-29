@@ -37,6 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fake "k8s.io/client-go/kubernetes/fake"
 	azureprovider "sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	azureconfig "sigs.k8s.io/cloud-provider-azure/pkg/provider/config"
 )
 
 func skipIfTestingOnWindows(t *testing.T) {
@@ -272,7 +273,7 @@ users:
 		if cloud == nil {
 			t.Errorf("return value of getCloudProvider should not be nil even there is error")
 		} else {
-			assert.Equal(t, cloud.UserAgent, test.userAgent)
+			assert.Equal(t, test.userAgent, cloud.UserAgent)
 			assert.Equal(t, cloud.AADFederatedTokenFile, test.aadFederatedTokenFile)
 			assert.Equal(t, cloud.UseFederatedWorkloadIdentityExtension, test.useFederatedWorkloadIdentityExtension)
 			assert.Equal(t, cloud.AADClientID, test.aadClientID)
@@ -297,7 +298,7 @@ func TestUpdateSubnetServiceEndpoints(t *testing.T) {
 	defer ctrl.Finish()
 	mockSubnetClient := mocksubnetclient.NewMockInterface(ctrl)
 
-	config := azureprovider.Config{
+	config := azureconfig.Config{
 		ResourceGroup: "rg",
 		Location:      "loc",
 		VnetName:      "fake-vnet",
