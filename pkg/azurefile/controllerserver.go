@@ -583,7 +583,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			d.volMap.Delete(volName)
 			return d.CreateVolume(ctx, req)
 		}
-		return nil, status.Errorf(codes.Internal, "failed to create file share(%s) on account(%s) type(%s) subsID(%s) rg(%s) location(%s) size(%d), error: %v", validFileShareName, account, sku, subsID, resourceGroup, location, fileShareSize, err)
+		if req.GetVolumeContentSource() != nil && strings.Contains(err.Error(), "ShareAlreadyExists") {
+			// for snapshot restore and volume cloning, ignore ShareAlreadyExists error since the file share should be created first
+			klog.Warningf("create file share(%s) on account(%s) type(%s) subID(%s) rg(%s) location(%s) size(%d), ignore ShareAlreadyExists error for snapshot restore and volume cloning, error: %v", validFileShareName, accountName, sku, subsID, resourceGroup, location, fileShareSize, err)
+		} else {
+			return nil, status.Errorf(codes.Internal, "failed to create file share(%s) on account(%s) type(%s) subsID(%s) rg(%s) location(%s) size(%d), error: %v", validFileShareName, account, sku, subsID, resourceGroup, location, fileShareSize, err)
+		}
 	}
 	if req.GetVolumeContentSource() != nil {
 		accountSASToken, authAzcopyEnv, err := d.getAzcopyAuth(ctx, accountName, accountKey, storageEndpointSuffix, accountOptions, secret, secretName, secretNamespace, false)
