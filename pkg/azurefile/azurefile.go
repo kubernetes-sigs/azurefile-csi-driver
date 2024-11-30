@@ -941,22 +941,15 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *azure.Acco
 			if err != nil {
 				return true, err
 			}
-			fileClient, err = newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix(), &retry.Backoff{Steps: 1})
-			if err != nil {
+			if fileClient, err = newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix(), &retry.Backoff{Steps: 1}); err != nil {
 				return true, err
 			}
 		} else {
-			_, _, err := d.cloud.EnsureStorageAccount(ctx, accountOptions, FileShareAccountNamePrefix)
-			if err != nil {
-				return true, fmt.Errorf("could not get storage key for storage account %s: %w", accountOptions.Name, err)
-			}
-			fileClient, err = newAzureFileMgmtClient(d.cloud.ComputeClientFactory, accountOptions)
-			if err != nil {
+			if fileClient, err = newAzureFileMgmtClient(d.cloud.ComputeClientFactory, accountOptions); err != nil {
 				return true, err
 			}
 		}
-		err = fileClient.CreateFileShare(ctx, shareOptions)
-		if err != nil {
+		if err = fileClient.CreateFileShare(ctx, shareOptions); err != nil {
 			if isRetriableError(err) {
 				klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", shareOptions.Name, accountOptions.Name, err)
 				sleepIfThrottled(err, fileOpThrottlingSleepSec)
