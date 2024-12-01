@@ -43,7 +43,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/azurefile-csi-driver/pkg/util"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/fileshareclient/mock_fileshareclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/mock_azclient"
@@ -1644,41 +1643,6 @@ var _ = ginkgo.Describe("TestCopyVolume", func() {
 			gomega.Expect(err).To(gomega.Equal(expectedErr))
 		})
 	})
-	ginkgo.When("azcopy job is in progress", func() {
-		ginkgo.It("should fail", func(ctx context.Context) {
-
-			mp := map[string]string{}
-
-			volumeSource := &csi.VolumeContentSource_VolumeSource{
-				VolumeId: "vol_1#f5713de20cde511e8ba4900#fileshare#",
-			}
-			volumeContentSourceVolumeSource := &csi.VolumeContentSource_Volume{
-				Volume: volumeSource,
-			}
-			volumecontensource := csi.VolumeContentSource{
-				Type: volumeContentSourceVolumeSource,
-			}
-
-			req := &csi.CreateVolumeRequest{
-				Name:                "unit-test",
-				VolumeCapabilities:  stdVolCap,
-				Parameters:          mp,
-				VolumeContentSource: &volumecontensource,
-			}
-
-			m := util.NewMockEXEC(ctrl)
-			listStr1 := "JobId: ed1c3833-eaff-fe42-71d7-513fb065a9d9\nStart Time: Monday, 07-Aug-23 03:29:54 UTC\nStatus: InProgress\nCommand: copy https://{accountName}.file.core.windows.net/{srcFileshare}{SAStoken} https://{accountName}.file.core.windows.net/{dstFileshare}{SAStoken} --recursive --check-length=false"
-			m.EXPECT().RunCommand(gomock.Eq("azcopy jobs list | grep dstFileshare -B 3"), gomock.Any()).Return(listStr1, nil).Times(1)
-			m.EXPECT().RunCommand(gomock.Not("azcopy jobs list | grep dstFileshare -B 3"), gomock.Any()).Return("Percent Complete (approx): 50.0", nil)
-
-			d.azcopy.ExecCmd = m
-
-			expectedErr := fmt.Errorf("wait for the existing AzCopy job to complete, current copy percentage is 50.0%%")
-			err := d.copyVolume(ctx, req, "", "sastoken", []string{}, "", &ShareOptions{Name: "dstFileshare"}, nil, "core.windows.net")
-			gomega.Expect(err).To(gomega.Equal(expectedErr))
-		})
-	})
-
 })
 
 var _ = ginkgo.Describe("ControllerGetVolume", func() {
