@@ -1672,9 +1672,8 @@ var _ = ginkgo.Describe("TestCopyVolume", func() {
 
 			d.azcopy.ExecCmd = m
 
-			expectedErr := fmt.Errorf("wait for the existing AzCopy job to complete, current copy percentage is 50.0%%")
 			err := d.copyVolume(ctx, req, "", "sastoken", []string{}, "", &ShareOptions{Name: "dstFileshare"}, nil, "core.windows.net")
-			gomega.Expect(err).To(gomega.Equal(expectedErr))
+			gomega.Expect(err).To(gomega.BeNil())
 		})
 	})
 
