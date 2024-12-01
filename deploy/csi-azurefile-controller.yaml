@@ -172,7 +172,7 @@ spec:
               name: azure-cred
           resources:
             limits:
-              memory: 400Mi
+              memory: 800Mi
             requests:
               cpu: 10m
               memory: 20Mi
