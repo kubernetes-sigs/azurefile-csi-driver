@@ -96,8 +96,8 @@ controller:
         memory: 20Mi
     azurefile:
       limits:
-        cpu: 1
-        memory: 400Mi
+        cpu: 2
+        memory: 800Mi
       requests:
         cpu: 10m
         memory: 20Mi
