@@ -272,6 +272,8 @@ type Driver struct {
 	azcopySasTokenCache azcache.Resource
 	// a timed cache storing subnet operations
 	subnetCache azcache.Resource
+	// a timed cache storing file share size <accountName-fileShareName, size(int32)>
+	getFileShareSizeCache azcache.Resource
 	// sas expiry time for azcopy in volume clone and snapshot restore
 	sasTokenExpirationMinutes int
 	// azcopy timeout for volume clone and snapshot restore
@@ -367,6 +369,10 @@ func NewDriver(options *DriverOptions) *Driver {
 	}
 
 	if driver.subnetCache, err = azcache.NewTimedCache(10*time.Minute, getter, false); err != nil {
+		klog.Fatalf("%v", err)
+	}
+
+	if driver.getFileShareSizeCache, err = azcache.NewTimedCache(10*time.Minute, getter, false); err != nil {
 		klog.Fatalf("%v", err)
 	}
 
