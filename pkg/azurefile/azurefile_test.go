@@ -68,6 +68,7 @@ func NewFakeDriver() *Driver {
 	driver := NewDriver(&driverOptions)
 	driver.Name = fakeDriverName
 	driver.Version = vendorVersion
+	driver.enableWindowsHostProcess = true
 	driver.cloud = &azure.Cloud{
 		Config: azure.Config{
 			AzureAuthConfig: auth.AzureAuthConfig{
