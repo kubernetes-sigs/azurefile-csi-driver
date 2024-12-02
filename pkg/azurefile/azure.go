@@ -309,7 +309,7 @@ func inClusterConfig(enableWindowsHostProcess bool) (*rest.Config, error) {
 		tokenFile  = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 		rootCAFile = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 	)
-	if enableWindowsHostProcess {
+	if enableWindowsHostProcess && runtime.GOOS == "windows" {
 		containerSandboxMountPath := os.Getenv("CONTAINER_SANDBOX_MOUNT_POINT")
 		if len(containerSandboxMountPath) == 0 {
 			return nil, errors.New("unable to load in-cluster configuration, containerSandboxMountPath must be defined")
