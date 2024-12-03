@@ -935,11 +935,23 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 
 	klog.V(2).Infof("created share snapshot: %s, time: %v, quota: %dGiB", itemSnapshot, itemSnapshotTime, itemSnapshotQuota)
 	if itemSnapshotQuota == 0 {
-		fileshare, err := d.cloud.FileClient.WithSubscriptionID(subsID).GetFileShare(ctx, rgName, accountName, fileShareName, "")
+		key := fmt.Sprintf("%s-%s", accountName, fileShareName)
+		cache, err := d.getFileShareSizeCache.Get(key, azcache.CacheReadTypeDefault)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to get file share(%s) quota: %v", fileShareName, err)
+			return nil, status.Errorf(codes.Internal, "failed to get file share size cache(%s): %v", key, err)
 		}
-		itemSnapshotQuota = pointer.Int32Deref(fileshare.ShareQuota, defaultAzureFileQuota)
+		if cache != nil {
+			klog.V(2).Infof("get file share(%s) account(%s) quota from cache", fileShareName, accountName)
+			itemSnapshotQuota = cache.(int32)
+		} else {
+			klog.V(2).Infof("get file share(%s) account(%s) quota from cloud", fileShareName, accountName)
+			fileshare, err := d.cloud.FileClient.WithSubscriptionID(subsID).GetFileShare(ctx, rgName, accountName, fileShareName, "")
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "failed to get file share(%s) quota: %v", fileShareName, err)
+			}
+			itemSnapshotQuota = pointer.Int32Deref(fileshare.ShareQuota, defaultAzureFileQuota)
+			d.getFileShareSizeCache.Set(key, itemSnapshotQuota)
+		}
 	}
 	createResp := &csi.CreateSnapshotResponse{
 		Snapshot: &csi.Snapshot{
