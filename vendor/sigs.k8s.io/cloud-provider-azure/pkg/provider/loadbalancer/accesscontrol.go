@@ -21,16 +21,15 @@ import (
 	"net/netip"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2022-07-01/network"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"github.com/go-logr/logr"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/cloud-provider-azure/pkg/consts"
-	"sigs.k8s.io/cloud-provider-azure/pkg/provider/loadbalancer/fnutil"
-	"sigs.k8s.io/cloud-provider-azure/pkg/provider/loadbalancer/iputil"
-	"sigs.k8s.io/cloud-provider-azure/pkg/provider/loadbalancer/securitygroup"
+	"sigs.k8s.io/cloud-provider-azure/pkg/provider/securitygroup"
+	fnutil "sigs.k8s.io/cloud-provider-azure/pkg/util/collectionutil"
+	"sigs.k8s.io/cloud-provider-azure/pkg/util/iputil"
 )
 
 var (
@@ -47,34 +46,35 @@ type AccessControl struct {
 	// immutable pre-compute states.
 	SourceRanges                           []netip.Prefix
 	AllowedIPRanges                        []netip.Prefix
-	InvalidRanges                          []string
 	AllowedServiceTags                     []string
-	securityRuleDestinationPortsByProtocol map[network.SecurityRuleProtocol][]int32
+	invalidRanges                          []string
+	securityRuleDestinationPortsByProtocol map[armnetwork.SecurityRuleProtocol][]int32
 }
 
 type accessControlOptions struct {
-	SkipAnnotationValidation bool
+	EventEmitter K8sEventEmitter
 }
 
 var defaultAccessControlOptions = accessControlOptions{
-	SkipAnnotationValidation: false,
+	EventEmitter: noopEventEmitter,
 }
 
 type AccessControlOption func(*accessControlOptions)
 
-func SkipAnnotationValidation() AccessControlOption {
+func WithEventEmitter(emitter K8sEventEmitter) AccessControlOption {
 	return func(o *accessControlOptions) {
-		o.SkipAnnotationValidation = true
+		o.EventEmitter = emitter
 	}
 }
 
-func NewAccessControl(logger logr.Logger, svc *v1.Service, sg *network.SecurityGroup, opts ...AccessControlOption) (*AccessControl, error) {
+func NewAccessControl(logger logr.Logger, svc *v1.Service, sg *armnetwork.SecurityGroup, opts ...AccessControlOption) (*AccessControl, error) {
 	logger = logger.WithName("AccessControl").WithValues("security-group", ptr.To(sg.Name))
 
 	options := defaultAccessControlOptions
 	for _, opt := range opts {
 		opt(&options)
 	}
+	eventEmitter := options.EventEmitter
 
 	sgHelper, err := securitygroup.NewSecurityGroupHelper(logger, sg)
 	if err != nil {
@@ -82,17 +82,20 @@ func NewAccessControl(logger logr.Logger, svc *v1.Service, sg *network.SecurityG
 		return nil, err
 	}
 	sourceRanges, invalidSourceRanges, err := SourceRanges(svc)
-	if err != nil && !options.SkipAnnotationValidation {
+	if err != nil {
 		logger.Error(err, "Failed to parse SourceRange configuration")
+
+		// Backward compatibility: no error but emit a warning event.
+		eventEmitter(svc, v1.EventTypeWarning, "InvalidSourceRanges", EventMessageOfInvalidSourceRanges(invalidSourceRanges))
 	}
 	allowedIPRanges, invalidAllowedIPRanges, err := AllowedIPRanges(svc)
-	if err != nil && !options.SkipAnnotationValidation {
+	if err != nil {
 		logger.Error(err, "Failed to parse AllowedIPRanges configuration")
+
+		// Backward compatibility: no error but emit a warning event.
+		eventEmitter(svc, v1.EventTypeWarning, "InvalidAllowedIPRanges", EventMessageOfInvalidAllowedIPRanges(invalidAllowedIPRanges))
 	}
-	allowedServiceTags, err := AllowedServiceTags(svc)
-	if err != nil && !options.SkipAnnotationValidation {
-		logger.Error(err, "Failed to parse AllowedServiceTags configuration")
-	}
+	allowedServiceTags := AllowedServiceTags(svc)
 	securityRuleDestinationPortsByProtocol, err := SecurityRuleDestinationPortsByProtocol(svc)
 	if err != nil {
 		logger.Error(err, "Failed to parse service spec.Ports")
@@ -103,6 +106,15 @@ func NewAccessControl(logger logr.Logger, svc *v1.Service, sg *network.SecurityG
 		return nil, ErrSetBothLoadBalancerSourceRangesAndAllowedIPRanges
 	}
 
+	if len(sourceRanges) > 0 && len(allowedServiceTags) > 0 {
+		logger.Info(
+			"Service is using both of spec.loadBalancerSourceRanges and annotation service.beta.kubernetes.io/azure-allowed-service-tags",
+		)
+		// Backward compatibility: emit a warning event.
+		// It won't work as expected if both are used at the same time.
+		eventEmitter(svc, v1.EventTypeWarning, "ConflictConfiguration", EventMessageOfConflictLoadBalancerSourceRangesAndAllowedIPRanges())
+	}
+
 	return &AccessControl{
 		logger:                                 logger,
 		svc:                                    svc,
@@ -110,7 +122,7 @@ func NewAccessControl(logger logr.Logger, svc *v1.Service, sg *network.SecurityG
 		SourceRanges:                           sourceRanges,
 		AllowedIPRanges:                        allowedIPRanges,
 		AllowedServiceTags:                     allowedServiceTags,
-		InvalidRanges:                          append(invalidSourceRanges, invalidAllowedIPRanges...),
+		invalidRanges:                          append(invalidSourceRanges, invalidAllowedIPRanges...),
 		securityRuleDestinationPortsByProtocol: securityRuleDestinationPortsByProtocol,
 	}, nil
 }
@@ -129,7 +141,7 @@ func (ac *AccessControl) IsAllowFromInternet() bool {
 	if len(ac.AllowedIPRanges) > 0 && !iputil.IsPrefixesAllowAll(ac.AllowedIPRanges) {
 		return false
 	}
-	if len(ac.InvalidRanges) > 0 {
+	if len(ac.invalidRanges) > 0 {
 		return false
 	}
 	if !IsInternal(ac.svc) {
@@ -145,7 +157,7 @@ func (ac *AccessControl) DenyAllExceptSourceRanges() bool {
 	var (
 		annotationEnabled      = strings.EqualFold(ac.svc.Annotations[consts.ServiceAnnotationDenyAllExceptLoadBalancerSourceRanges], "true")
 		sourceRangeSpecified   = len(ac.SourceRanges) > 0 || len(ac.AllowedIPRanges) > 0
-		invalidRangesSpecified = len(ac.InvalidRanges) > 0
+		invalidRangesSpecified = len(ac.invalidRanges) > 0
 	)
 	return (annotationEnabled && sourceRangeSpecified) || invalidRangesSpecified
 }
@@ -210,10 +222,10 @@ func (ac *AccessControl) PatchSecurityGroup(dstIPv4Addresses, dstIPv6Addresses [
 		"num-allowed-service-tags", len(allowedServiceTags),
 	)
 
-	protocols := []network.SecurityRuleProtocol{
-		network.SecurityRuleProtocolTCP,
-		network.SecurityRuleProtocolUDP,
-		network.SecurityRuleProtocolAsterisk,
+	protocols := []armnetwork.SecurityRuleProtocol{
+		armnetwork.SecurityRuleProtocolTCP,
+		armnetwork.SecurityRuleProtocolUDP,
+		armnetwork.SecurityRuleProtocolAsterisk,
 	}
 
 	for _, protocol := range protocols {
@@ -274,7 +286,7 @@ func (ac *AccessControl) PatchSecurityGroup(dstIPv4Addresses, dstIPv6Addresses [
 // CleanSecurityGroup removes the given IP addresses from the SecurityGroup.
 func (ac *AccessControl) CleanSecurityGroup(
 	dstIPv4Addresses, dstIPv6Addresses []netip.Addr,
-	retainPortRanges map[network.SecurityRuleProtocol][]int32,
+	retainPortRanges map[armnetwork.SecurityRuleProtocol][]int32,
 ) error {
 	logger := ac.logger.WithName("CleanSecurityGroup").
 		WithValues("num-dst-ipv4-addresses", len(dstIPv4Addresses)).
@@ -286,10 +298,10 @@ func (ac *AccessControl) CleanSecurityGroup(
 		ipv6Prefixes = fnutil.Map(func(addr netip.Addr) string { return addr.String() }, dstIPv6Addresses)
 	)
 
-	protocols := []network.SecurityRuleProtocol{
-		network.SecurityRuleProtocolTCP,
-		network.SecurityRuleProtocolUDP,
-		network.SecurityRuleProtocolAsterisk,
+	protocols := []armnetwork.SecurityRuleProtocol{
+		armnetwork.SecurityRuleProtocolTCP,
+		armnetwork.SecurityRuleProtocolUDP,
+		armnetwork.SecurityRuleProtocolAsterisk,
 	}
 
 	for _, protocol := range protocols {
@@ -314,13 +326,13 @@ func (ac *AccessControl) CleanSecurityGroup(
 // 1. `PatchSecurityGroup`: Add rules for the given destination IP addresses.
 // 2. `CleanSecurityGroup`: Remove the given destination IP addresses from all rules.
 // It would return unchanged SecurityGroup and `false` if the operations undo each other.
-func (ac *AccessControl) SecurityGroup() (*network.SecurityGroup, bool, error) {
+func (ac *AccessControl) SecurityGroup() (*armnetwork.SecurityGroup, bool, error) {
 	return ac.sgHelper.SecurityGroup()
 }
 
 // SecurityRuleDestinationPortsByProtocol returns the service ports grouped by SecurityGroup protocol.
-func SecurityRuleDestinationPortsByProtocol(svc *v1.Service) (map[network.SecurityRuleProtocol][]int32, error) {
-	rv := make(map[network.SecurityRuleProtocol][]int32)
+func SecurityRuleDestinationPortsByProtocol(svc *v1.Service) (map[armnetwork.SecurityRuleProtocol][]int32, error) {
+	rv := make(map[armnetwork.SecurityRuleProtocol][]int32)
 	for _, port := range svc.Spec.Ports {
 		protocol, err := securitygroup.ProtocolFromKubernetes(port.Protocol)
 		if err != nil {

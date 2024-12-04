@@ -328,7 +328,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.directVolume = new(directVolume)
 
 	var err error
-	getter := func(_ string) (interface{}, error) { return nil, nil }
+	getter := func(_ context.Context, _ string) (interface{}, error) { return nil, nil }
 
 	if driver.secretCacheMap, err = azcache.NewTimedCache(time.Minute, getter, false); err != nil {
 		klog.Fatalf("%v", err)
@@ -829,7 +829,7 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 	if len(secrets) == 0 {
 		// if request context does not contain secrets, get secrets in the following order:
 		// 1. get account key from cache first
-		cache, errCache := d.accountCacheMap.Get(accountName, azcache.CacheReadTypeDefault)
+		cache, errCache := d.accountCacheMap.Get(ctx, accountName, azcache.CacheReadTypeDefault)
 		if errCache != nil {
 			return rgName, accountName, accountKey, fileShareName, diskName, subsID, errCache
 		}
@@ -982,7 +982,7 @@ func (d *Driver) DeleteFileShare(ctx context.Context, subsID, resourceGroup, acc
 			}
 			err = fileClient.DeleteFileShare(ctx, shareName)
 		} else {
-			err = d.cloud.DeleteFileShare(ctx, subsID, resourceGroup, accountName, shareName)
+			err = d.cloud.FileClient.WithSubscriptionID(subsID).DeleteFileShare(ctx, resourceGroup, accountName, shareName, "")
 		}
 
 		if err != nil {
@@ -1023,7 +1023,7 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 			}
 			err = fileClient.ResizeFileShare(ctx, shareName, sizeGiB)
 		} else {
-			err = d.cloud.ResizeFileShare(ctx, subsID, resourceGroup, accountName, shareName, sizeGiB)
+			err = d.cloud.FileClient.WithSubscriptionID(subsID).ResizeFileShare(ctx, resourceGroup, accountName, shareName, sizeGiB)
 		}
 		if isRetriableError(err) {
 			klog.Warningf("ResizeFileShare(%s) on account(%s) with new size(%d) failed with error(%v), waiting for retrying", shareName, accountName, sizeGiB, err)
@@ -1094,7 +1094,7 @@ func (d *Driver) RemoveStorageAccountTag(ctx context.Context, subsID, resourceGr
 		return fmt.Errorf("cloud or StorageAccountClient is nil")
 	}
 	// search in cache first
-	cache, err := d.skipMatchingTagCache.Get(account, azcache.CacheReadTypeDefault)
+	cache, err := d.skipMatchingTagCache.Get(ctx, account, azcache.CacheReadTypeDefault)
 	if err != nil {
 		return err
 	}
@@ -1123,7 +1123,7 @@ func (d *Driver) GetStorageAccesskey(ctx context.Context, accountOptions *azure.
 
 	accountName := accountOptions.Name
 	// read account key from cache first
-	cache, err := d.accountCacheMap.Get(accountName, azcache.CacheReadTypeDefault)
+	cache, err := d.accountCacheMap.Get(ctx, accountName, azcache.CacheReadTypeDefault)
 	if err != nil {
 		return "", err
 	}
@@ -1188,13 +1188,13 @@ func (d *Driver) getSubnetResourceID(vnetResourceGroup, vnetName, subnetName str
 	return fmt.Sprintf(subnetTemplate, subsID, vnetResourceGroup, vnetName, subnetName)
 }
 
-func (d *Driver) useDataPlaneAPI(volumeID, accountName string) bool {
+func (d *Driver) useDataPlaneAPI(ctx context.Context, volumeID, accountName string) bool {
 	_, useDataPlaneAPI := d.dataPlaneAPIVolMap.Load(volumeID)
 	if useDataPlaneAPI {
 		return true
 	}
 
-	cache, err := d.dataPlaneAPIAccountCache.Get(accountName, azcache.CacheReadTypeDefault)
+	cache, err := d.dataPlaneAPIAccountCache.Get(ctx, accountName, azcache.CacheReadTypeDefault)
 	if err != nil {
 		klog.Errorf("get(%s) from dataPlaneAPIAccountCache failed with error: %v", accountName, err)
 	}

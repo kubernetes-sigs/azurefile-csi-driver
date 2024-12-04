@@ -18,12 +18,31 @@ type AgentPoolsClientBeginAbortLatestOperationOptions struct {
 // AgentPoolsClientBeginCreateOrUpdateOptions contains the optional parameters for the AgentPoolsClient.BeginCreateOrUpdate
 // method.
 type AgentPoolsClientBeginCreateOrUpdateOptions struct {
+	// The request should only proceed if an entity matches this string.
+	IfMatch *string
+
+	// The request should only proceed if no entity matches this string.
+	IfNoneMatch *string
+
+	// Resumes the LRO from the provided token.
+	ResumeToken string
+}
+
+// AgentPoolsClientBeginDeleteMachinesOptions contains the optional parameters for the AgentPoolsClient.BeginDeleteMachines
+// method.
+type AgentPoolsClientBeginDeleteMachinesOptions struct {
 	// Resumes the LRO from the provided token.
 	ResumeToken string
 }
 
 // AgentPoolsClientBeginDeleteOptions contains the optional parameters for the AgentPoolsClient.BeginDelete method.
 type AgentPoolsClientBeginDeleteOptions struct {
+	// The request should only proceed if an entity matches this string.
+	IfMatch *string
+
+	// ignore-pod-disruption-budget=true to delete those pods on a node without considering Pod Disruption Budget
+	IgnorePodDisruptionBudget *bool
+
 	// Resumes the LRO from the provided token.
 	ResumeToken string
 }
@@ -53,6 +72,16 @@ type AgentPoolsClientGetUpgradeProfileOptions struct {
 
 // AgentPoolsClientListOptions contains the optional parameters for the AgentPoolsClient.NewListPager method.
 type AgentPoolsClientListOptions struct {
+	// placeholder for future optional parameters
+}
+
+// MachinesClientGetOptions contains the optional parameters for the MachinesClient.Get method.
+type MachinesClientGetOptions struct {
+	// placeholder for future optional parameters
+}
+
+// MachinesClientListOptions contains the optional parameters for the MachinesClient.NewListPager method.
+type MachinesClientListOptions struct {
 	// placeholder for future optional parameters
 }
 
@@ -90,12 +119,21 @@ type ManagedClustersClientBeginAbortLatestOperationOptions struct {
 // ManagedClustersClientBeginCreateOrUpdateOptions contains the optional parameters for the ManagedClustersClient.BeginCreateOrUpdate
 // method.
 type ManagedClustersClientBeginCreateOrUpdateOptions struct {
+	// The request should only proceed if an entity matches this string.
+	IfMatch *string
+
+	// The request should only proceed if no entity matches this string.
+	IfNoneMatch *string
+
 	// Resumes the LRO from the provided token.
 	ResumeToken string
 }
 
 // ManagedClustersClientBeginDeleteOptions contains the optional parameters for the ManagedClustersClient.BeginDelete method.
 type ManagedClustersClientBeginDeleteOptions struct {
+	// The request should only proceed if an entity matches this string.
+	IfMatch *string
+
 	// Resumes the LRO from the provided token.
 	ResumeToken string
 }
@@ -150,6 +188,9 @@ type ManagedClustersClientBeginStopOptions struct {
 // ManagedClustersClientBeginUpdateTagsOptions contains the optional parameters for the ManagedClustersClient.BeginUpdateTags
 // method.
 type ManagedClustersClientBeginUpdateTagsOptions struct {
+	// The request should only proceed if an entity matches this string.
+	IfMatch *string
+
 	// Resumes the LRO from the provided token.
 	ResumeToken string
 }
