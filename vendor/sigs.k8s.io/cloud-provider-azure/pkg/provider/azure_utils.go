@@ -25,6 +25,7 @@ import (
 	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2022-08-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2022-07-01/network"
 
@@ -42,46 +43,8 @@ const (
 	IPVersionIPv4 bool = false
 )
 
-var strToExtendedLocationType = map[string]network.ExtendedLocationTypes{
-	"edgezone": network.EdgeZone,
-}
-
-// LockMap used to lock on entries
-type LockMap struct {
-	sync.Mutex
-	mutexMap map[string]*sync.Mutex
-}
-
-// NewLockMap returns a new lock map
-func newLockMap() *LockMap {
-	return &LockMap{
-		mutexMap: make(map[string]*sync.Mutex),
-	}
-}
-
-// LockEntry acquires a lock associated with the specific entry
-func (lm *LockMap) LockEntry(entry string) {
-	lm.Lock()
-	// check if entry does not exists, then add entry
-	mutex, exists := lm.mutexMap[entry]
-	if !exists {
-		mutex = &sync.Mutex{}
-		lm.mutexMap[entry] = mutex
-	}
-	lm.Unlock()
-	mutex.Lock()
-}
-
-// UnlockEntry release the lock associated with the specific entry
-func (lm *LockMap) UnlockEntry(entry string) {
-	lm.Lock()
-	defer lm.Unlock()
-
-	mutex, exists := lm.mutexMap[entry]
-	if !exists {
-		return
-	}
-	mutex.Unlock()
+var strToExtendedLocationType = map[string]armnetwork.ExtendedLocationTypes{
+	"edgezone": armnetwork.ExtendedLocationTypesEdgeZone,
 }
 
 func getContextWithCancel() (context.Context, context.CancelFunc) {
@@ -97,6 +60,20 @@ func convertMapToMapPointer(origin map[string]string) map[string]*string {
 	return newly
 }
 
+// parseTags processes and combines tags from a string and a map into a single map of string pointers.
+// It handles tag parsing, trimming, and case-insensitive key conflicts.
+//
+// Parameters:
+//   - tags: A string containing tags in the format "key1=value1,key2=value2"
+//   - tagsMap: A map of string key-value pairs representing additional tags
+//
+// Returns:
+//   - A map[string]*string where keys are tag names and values are pointers to tag values
+//
+// The function prioritizes tags from tagsMap over those from the tags string in case of conflicts.
+// It logs warnings for parsing errors and empty keys, and info messages for case-insensitive key replacements.
+//
+// XXX: return error instead of logging; decouple tag parsing and tag application
 func parseTags(tags string, tagsMap map[string]string) map[string]*string {
 	formatted := make(map[string]*string)
 
@@ -190,12 +167,12 @@ func (az *Cloud) reconcileTags(currentTagsOnResource, newTags map[string]*string
 	return currentTagsOnResource, changed
 }
 
-func getExtendedLocationTypeFromString(extendedLocationType string) network.ExtendedLocationTypes {
+func getExtendedLocationTypeFromString(extendedLocationType string) armnetwork.ExtendedLocationTypes {
 	extendedLocationType = strings.ToLower(extendedLocationType)
 	if val, ok := strToExtendedLocationType[extendedLocationType]; ok {
 		return val
 	}
-	return network.EdgeZone
+	return armnetwork.ExtendedLocationTypesEdgeZone
 }
 
 func getNodePrivateIPAddress(node *v1.Node, isIPv6 bool) string {
@@ -246,7 +223,7 @@ func sameContentInSlices(s1 []string, s2 []string) bool {
 	return true
 }
 
-func removeDuplicatedSecurityRules(rules []network.SecurityRule) []network.SecurityRule {
+func removeDuplicatedSecurityRules(rules []*armnetwork.SecurityRule) []*armnetwork.SecurityRule {
 	ruleNames := make(map[string]bool)
 	for i := len(rules) - 1; i >= 0; i-- {
 		if _, ok := ruleNames[ptr.Deref(rules[i].Name, "")]; ok {
@@ -423,9 +400,12 @@ func getResourceByIPFamily(resource string, isDualStack, isIPv6 bool) string {
 
 // isFIPIPv6 checks if the frontend IP configuration is of IPv6.
 // NOTICE: isFIPIPv6 assumes the FIP is owned by the Service and it is the primary Service.
-func (az *Cloud) isFIPIPv6(service *v1.Service, _ string, fip *network.FrontendIPConfiguration) (bool, error) {
+func (az *Cloud) isFIPIPv6(service *v1.Service, fip *network.FrontendIPConfiguration) (bool, error) {
 	isDualStack := isServiceDualStack(service)
 	if !isDualStack {
+		if len(service.Spec.IPFamilies) == 0 {
+			return false, nil
+		}
 		return service.Spec.IPFamilies[0] == v1.IPv6Protocol, nil
 	}
 	return managedResourceHasIPv6Suffix(ptr.Deref(fip.Name, "")), nil
@@ -440,13 +420,13 @@ func getResourceIDPrefix(id string) string {
 	return id[:idx]
 }
 
-func getLBNameFromBackendPoolID(backendPoolID string) (string, error) {
+func getBackendPoolNameFromBackendPoolID(backendPoolID string) (string, error) {
 	matches := backendPoolIDRE.FindStringSubmatch(backendPoolID)
-	if len(matches) != 2 {
+	if len(matches) != 3 {
 		return "", fmt.Errorf("backendPoolID %q is in wrong format", backendPoolID)
 	}
 
-	return matches[1], nil
+	return matches[2], nil
 }
 
 func countNICsOnBackendPool(backendPool network.BackendAddressPool) int {
@@ -483,15 +463,6 @@ func StringInSlice(s string, list []string) bool {
 		}
 	}
 	return false
-}
-
-// stringSlice returns a string slice value for the passed string slice pointer. It returns a nil
-// slice if the pointer is nil.
-func stringSlice(s *[]string) []string {
-	if s != nil {
-		return *s
-	}
-	return nil
 }
 
 // IntInSlice checks if an int is in a list

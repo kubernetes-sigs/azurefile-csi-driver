@@ -564,7 +564,7 @@ func (d *Driver) NodeGetInfo(_ context.Context, _ *csi.NodeGetInfoRequest) (*csi
 }
 
 // NodeGetVolumeStats get volume stats
-func (d *Driver) NodeGetVolumeStats(_ context.Context, req *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
+func (d *Driver) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
 	if len(req.VolumeId) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "NodeGetVolumeStats volume ID was empty")
 	}
@@ -573,7 +573,7 @@ func (d *Driver) NodeGetVolumeStats(_ context.Context, req *csi.NodeGetVolumeSta
 	}
 
 	// check if the volume stats is cached
-	cache, err := d.volStatsCache.Get(req.VolumeId, azcache.CacheReadTypeDefault)
+	cache, err := d.volStatsCache.Get(ctx, req.VolumeId, azcache.CacheReadTypeDefault)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
@@ -596,7 +596,7 @@ func (d *Driver) NodeGetVolumeStats(_ context.Context, req *csi.NodeGetVolumeSta
 		}
 	}
 
-	if cache, err = d.volStatsCache.Get(newVolID, azcache.CacheReadTypeDefault); err != nil {
+	if cache, err = d.volStatsCache.Get(ctx, newVolID, azcache.CacheReadTypeDefault); err != nil {
 		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
 	if cache != nil {

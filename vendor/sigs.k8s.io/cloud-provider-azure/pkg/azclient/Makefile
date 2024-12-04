@@ -67,8 +67,12 @@ build: ## Build manager binary.
 	pushd client-gen; CGO_ENABLED=0 go build -o ../bin/client-gen ./cmd/client-gen/ ;popd
 	pushd client-gen; CGO_ENABLED=0 go build -o ../bin/typescaffold ./cmd/typescaffold/;popd
 
+.PHONY: test
+test: ## Run tests.
+	go test -v ./...
+
 .PHONY: generate
-generate: install-dependencies build generatecode generateimpl fmt vet-all
+generate: install-dependencies build generatecode generateimpl generateclientfactory generatemock fmt vet-all test
 
 .PHONY: generatecode
 generatecode: build ## Generate client
@@ -88,6 +92,7 @@ generatecode: build ## Generate client
 	$(TYPESCAFFOLD) --package github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6 --package-alias armnetwork --resource Interface --client-name InterfacesClient --verbs get,createorupdate,delete,list --expand --ratelimitkey interfaceRateLimit
 	$(TYPESCAFFOLD) --package github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6 --package-alias armnetwork --resource LoadBalancer --client-name LoadBalancersClient --verbs get,createorupdate,delete,list --expand --ratelimitkey loadBalancerRateLimit
 	$(TYPESCAFFOLD) --package github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6 --package-alias armnetwork --resource PrivateEndpoint --client-name PrivateEndpointsClient --verbs get,createorupdate --expand --ratelimitkey privateEndpointRateLimit
+	$(TYPESCAFFOLD) --package github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6 --package-alias armnetwork --resource PrivateEndpoint --subresource PrivateDNSZoneGroup --client-name PrivateDNSZoneGroupsClient --verbs get,createorupdate,delete
 	$(TYPESCAFFOLD) --package github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6 --package-alias armnetwork --resource PublicIPAddress --client-name PublicIPAddressesClient --verbs get,createorupdate,delete,list --expand --ratelimitkey publicIPAddressRateLimit
 	$(TYPESCAFFOLD) --package github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6 --package-alias armnetwork --resource PublicIPPrefix --client-name PublicIPPrefixesClient --verbs get,createorupdate,delete,list --expand 
 	$(TYPESCAFFOLD) --package github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6 --package-alias armnetwork --resource RouteTable --client-name RouteTablesClient --verbs get,createorupdate,delete,list  --ratelimitkey routeTableRateLimit
@@ -98,6 +103,7 @@ generatecode: build ## Generate client
 	$(TYPESCAFFOLD) --package github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns --package-alias armprivatedns --resource PrivateZone --client-name PrivateZonesClient  --verbs get,createorupdate --ratelimitkey privateDNSRateLimit
 	$(TYPESCAFFOLD) --package github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns --package-alias armprivatedns --resource PrivateZone --subresource VirtualNetworkLink --client-name VirtualNetworkLinksClient --verbs get,createorupdate --ratelimitkey virtualNetworkRateLimit
 	$(TYPESCAFFOLD) --package github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage --package-alias armstorage --resource Account --subresource FileShare --client-name FileSharesClient --verbs get,createorupdate,delete,list
+	$(TYPESCAFFOLD) --package github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage --package-alias armstorage --resource FileServiceProperties --client-name FileServicesClient
 	$(TYPESCAFFOLD) --package github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage --package-alias armstorage --resource Account --subresource BlobContainer --client-name BlobContainersClient --verbs get,list
 	$(TYPESCAFFOLD) --package github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage --package-alias armstorage --resource BlobServiceProperties --client-name BlobServicesClient
 	$(TYPESCAFFOLD) --package github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault --package-alias armkeyvault --resource Vault --subresource Secret --client-name SecretsClient --verbs get,createorupdate,delete,list
@@ -111,6 +117,14 @@ generatecode: build ## Generate client
 .PHONY: generateimpl
 generateimpl: build ## Generate client
 	PATH=$(LOCALBIN):$$PATH $(CLIENTGEN) clientgen:headerFile=../../hack/boilerplate/boilerplate.gomock.txt paths=./...
+
+.PHONY: generatemock
+generatemock: build ## Generate client
+	PATH=$(LOCALBIN):$$PATH $(CLIENTGEN) mockgen:headerFile=../../hack/boilerplate/boilerplate.generatego.txt paths=./...
+
+.PHONY: generateclientfactory
+generateclientfactory: build ## Generate client
+	PATH=$(LOCALBIN):$$PATH $(CLIENTGEN) clientfactorygen:headerFile=../../hack/boilerplate/boilerplate.gomock.txt paths=./... output:dir=.
 
 .PHONY: vet-all
 vet-all: golangci-lint ## Run go vet against code.
