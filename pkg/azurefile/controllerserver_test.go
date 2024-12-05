@@ -50,6 +50,7 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/subnetclient/mocksubnetclient"
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	"sigs.k8s.io/cloud-provider-azure/pkg/provider/config"
+	auth "sigs.k8s.io/cloud-provider-azure/pkg/provider/config"
 
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient/mockfileclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/storageaccountclient/mockstorageaccountclient"
@@ -396,7 +397,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				subnetNameField:          "",
 			}
 			fakeCloud := &azure.Cloud{
-				Config: azure.Config{},
+				Config: config.Config{},
 				Environment: azure2.Environment{
 					StorageEndpointSuffix: "core.windows.net",
 				},
@@ -458,7 +459,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				Parameters:         allParam,
 			}
 			d.cloud = &azure.Cloud{
-				Config: azure.Config{},
+				Config: config.Config{},
 			}
 
 			expectedErr := status.Errorf(codes.InvalidArgument, "resourceGroup must be provided in cross subscription(abc)")
@@ -479,7 +480,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				Parameters:         allParam,
 			}
 			d.cloud = &azure.Cloud{
-				Config: azure.Config{},
+				Config: config.Config{},
 			}
 
 			expectedErr := status.Errorf(codes.InvalidArgument, "invalid selectrandommatchingaccount: invalid in storage class")
@@ -500,7 +501,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				Parameters:         allParam,
 			}
 			d.cloud = &azure.Cloud{
-				Config: azure.Config{},
+				Config: config.Config{},
 			}
 
 			expectedErr := status.Errorf(codes.InvalidArgument, "invalid getlatestaccountkey: invalid in storage class")
@@ -522,7 +523,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				Parameters:         allParam,
 			}
 			d.cloud = &azure.Cloud{
-				Config: azure.Config{},
+				Config: config.Config{},
 			}
 
 			expectedErr := status.Errorf(codes.InvalidArgument, "matchTags must set as false when storageAccount(abc) is provided")
@@ -544,7 +545,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				Parameters:         allParam,
 			}
 			d.cloud = &azure.Cloud{
-				Config: azure.Config{},
+				Config: config.Config{},
 			}
 
 			expectedErr := status.Errorf(codes.InvalidArgument, "subnetName(subnet1,subnet2) can only contain one subnet for private endpoint")
@@ -559,7 +560,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 			}
 
 			fakeCloud := &azure.Cloud{
-				Config: azure.Config{
+				Config: config.Config{
 					ResourceGroup: "rg",
 					Location:      "loc",
 					VnetName:      "fake-vnet",
@@ -604,7 +605,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 			}
 
 			fakeCloud := &azure.Cloud{
-				Config: azure.Config{
+				Config: config.Config{
 					ResourceGroup: "rg",
 					Location:      "loc",
 					VnetName:      "fake-vnet",
@@ -1373,7 +1374,7 @@ var _ = ginkgo.Describe("TestDeleteVolume", func() {
 					},
 				},
 			}
-			d.dataPlaneAPIAccountCache, _ = azcache.NewTimedCache(10*time.Minute, func(_ string) (interface{}, error) { return nil, nil }, false)
+			d.dataPlaneAPIAccountCache, _ = azcache.NewTimedCache(10*time.Minute, func(_ context.Context, _ string) (interface{}, error) { return nil, nil }, false)
 			d.dataPlaneAPIAccountCache.Set("f5713de20cde511e8ba4900", "1")
 
 			expectedErr := status.Errorf(codes.NotFound, "get account info from(vol_1#f5713de20cde511e8ba4900#fileshare#diskname.vhd##secret) failed with error: could not get account key from secret(azure-storage-account-f5713de20cde511e8ba4900-secret): KubeClient is nil")
@@ -2084,11 +2085,11 @@ var _ = ginkgo.Describe("TestControllerExpandVolume", func() {
 		ginkgo.It("should fail", func(ctx context.Context) {
 
 			d.cloud = &azure.Cloud{
-				Config: azure.Config{
+				Config: config.Config{
 					ResourceGroup: "vol_2",
 				},
 			}
-			d.dataPlaneAPIAccountCache, _ = azcache.NewTimedCache(10*time.Minute, func(_ string) (interface{}, error) { return nil, nil }, false)
+			d.dataPlaneAPIAccountCache, _ = azcache.NewTimedCache(10*time.Minute, func(_ context.Context, _ string) (interface{}, error) { return nil, nil }, false)
 			d.dataPlaneAPIAccountCache.Set("f5713de20cde511e8ba4900", "1")
 
 			value := base64.StdEncoding.EncodeToString([]byte("acc_key"))
@@ -2358,7 +2359,7 @@ var _ = ginkgo.Describe("SetAzureCredentials", func() {
 		ginkgo.It("should work", func(_ context.Context) {
 			d := NewFakeDriver()
 			d.cloud = &azure.Cloud{
-				Config: azure.Config{
+				Config: config.Config{
 					ResourceGroup: "rg",
 					Location:      "loc",
 					VnetName:      "fake-vnet",
@@ -2464,7 +2465,7 @@ var _ = ginkgo.Describe("GenerateSASToken", func() {
 				},
 			}
 			for _, tt := range tests {
-				sas, err := d.generateSASToken(tt.accountName, tt.accountKey, storageEndpointSuffix, 30)
+				sas, err := d.generateSASToken(context.Background(), tt.accountName, tt.accountKey, storageEndpointSuffix, 30)
 				if tt.expectedErr == nil {
 					gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				} else {
@@ -2484,8 +2485,8 @@ var _ = ginkgo.Describe("TestAuthorizeAzcopyWithIdentity", func() {
 	ginkgo.When("use service principal to authorize azcopy", func() {
 		ginkgo.It("should fail", func(_ context.Context) {
 			d.cloud = &azure.Cloud{
-				Config: azure.Config{
-					AzureAuthConfig: config.AzureAuthConfig{
+				Config: config.Config{
+					AzureClientConfig: config.AzureClientConfig{
 						ARMClientConfig: azclient.ARMClientConfig{
 							TenantID: "TenantID",
 						},
@@ -2511,8 +2512,8 @@ var _ = ginkgo.Describe("TestAuthorizeAzcopyWithIdentity", func() {
 	ginkgo.When("use service principal to authorize azcopy but client id is empty", func() {
 		ginkgo.It("should fail", func(_ context.Context) {
 			d.cloud = &azure.Cloud{
-				Config: azure.Config{
-					AzureAuthConfig: config.AzureAuthConfig{
+				Config: config.Config{
+					AzureClientConfig: config.AzureClientConfig{
 						ARMClientConfig: azclient.ARMClientConfig{
 							TenantID: "TenantID",
 						},
@@ -2532,8 +2533,8 @@ var _ = ginkgo.Describe("TestAuthorizeAzcopyWithIdentity", func() {
 	ginkgo.When("use user assigned managed identity to authorize azcopy", func() {
 		ginkgo.It("should fail", func(_ context.Context) {
 			d.cloud = &azure.Cloud{
-				Config: azure.Config{
-					AzureAuthConfig: config.AzureAuthConfig{
+				Config: config.Config{
+					AzureClientConfig: config.AzureClientConfig{
 						AzureAuthConfig: azclient.AzureAuthConfig{
 							UseManagedIdentityExtension: true,
 							UserAssignedIdentityID:      "UserAssignedIdentityID",
@@ -2554,10 +2555,9 @@ var _ = ginkgo.Describe("TestAuthorizeAzcopyWithIdentity", func() {
 	})
 	ginkgo.When("use system assigned managed identity to authorize azcopy", func() {
 		ginkgo.It("should fail", func(_ context.Context) {
-
 			d.cloud = &azure.Cloud{
-				Config: azure.Config{
-					AzureAuthConfig: config.AzureAuthConfig{
+				Config: config.Config{
+					AzureClientConfig: auth.AzureClientConfig{
 						AzureAuthConfig: azclient.AzureAuthConfig{
 							UseManagedIdentityExtension: true,
 						},
@@ -2579,8 +2579,8 @@ var _ = ginkgo.Describe("TestAuthorizeAzcopyWithIdentity", func() {
 		ginkgo.It("should fail", func(_ context.Context) {
 
 			d.cloud = &azure.Cloud{
-				Config: azure.Config{
-					AzureAuthConfig: config.AzureAuthConfig{},
+				Config: config.Config{
+					AzureClientConfig: config.AzureClientConfig{},
 				},
 			}
 			expectedAuthAzcopyEnv := []string{}
@@ -2602,7 +2602,7 @@ var _ = ginkgo.Describe("TestGetAzcopyAuth", func() {
 	ginkgo.When("failed to get accountKey in secrets", func() {
 		ginkgo.It("should fail", func(ctx context.Context) {
 			d.cloud = &azure.Cloud{
-				Config: azure.Config{},
+				Config: config.Config{},
 			}
 			secrets := map[string]string{
 				defaultSecretAccountName: "accountName",
@@ -2619,7 +2619,7 @@ var _ = ginkgo.Describe("TestGetAzcopyAuth", func() {
 	ginkgo.When("generate SAS token failed for illegal account key", func() {
 		ginkgo.It("should fail", func(ctx context.Context) {
 			d.cloud = &azure.Cloud{
-				Config: azure.Config{},
+				Config: config.Config{},
 			}
 			secrets := map[string]string{
 				defaultSecretAccountName: "accountName",
