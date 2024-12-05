@@ -2,6 +2,10 @@ module sigs.k8s.io/azurefile-csi-driver
 
 go 1.23.1
 
+godebug winreadlinkvolume=0
+
+godebug winsymlink=0
+
 require (
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.16.0
