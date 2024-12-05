@@ -427,6 +427,31 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		storageEndpointSuffix = d.getStorageEndPointSuffix()
 	}
 
+	var volumeID, sourceID, srcAccountName string
+	requestName := "controller_create_volume"
+	if req.GetVolumeContentSource() != nil {
+		switch req.VolumeContentSource.Type.(type) {
+		case *csi.VolumeContentSource_Snapshot:
+			if req.GetVolumeContentSource().GetSnapshot() != nil {
+				sourceID = req.GetVolumeContentSource().GetSnapshot().GetSnapshotId()
+			}
+			requestName = "controller_create_volume_from_snapshot"
+		case *csi.VolumeContentSource_Volume:
+			if req.GetVolumeContentSource().GetVolume() != nil {
+				sourceID = req.GetVolumeContentSource().GetVolume().GetVolumeId()
+			}
+			requestName = "controller_create_volume_from_volume"
+		}
+	}
+	if sourceID != "" {
+		_, srcAccountName, _, _, _, _, err = GetFileShareInfo(sourceID) //nolint:dogsled
+		if err != nil {
+			klog.Errorf("failed to get source volume info from sourceID(%s), error: %v", sourceID, err)
+		} else {
+			klog.V(2).Infof("source volume account name: %s, sourceID: %s", srcAccountName, sourceID)
+		}
+	}
+
 	accountOptions := &azure.AccountOptions{
 		Name:                                    account,
 		Type:                                    sku,
@@ -454,18 +479,9 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		IsMultichannelEnabled:                   isMultichannelEnabled,
 		PickRandomMatchingAccount:               selectRandomMatchingAccount,
 		GetLatestAccountKey:                     getLatestAccountKey,
+		SourceAccountName:                       srcAccountName,
 	}
 
-	var volumeID string
-	requestName := "controller_create_volume"
-	if req.GetVolumeContentSource() != nil {
-		switch req.VolumeContentSource.Type.(type) {
-		case *csi.VolumeContentSource_Snapshot:
-			requestName = "controller_create_volume_from_snapshot"
-		case *csi.VolumeContentSource_Volume:
-			requestName = "controller_create_volume_from_volume"
-		}
-	}
 	mc := metrics.NewMetricContext(azureFileCSIDriverName, requestName, d.cloud.ResourceGroup, subsID, d.Name)
 	isOperationSucceeded := false
 	defer func() {
@@ -587,8 +603,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to getAzcopyAuth on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
 		}
-		var copyErr error
-		copyErr = d.copyVolume(ctx, req, accountName, accountSASToken, authAzcopyEnv, secretNamespace, shareOptions, accountOptions, storageEndpointSuffix)
+		copyErr := d.copyVolume(ctx, req, accountName, accountSASToken, authAzcopyEnv, secretNamespace, shareOptions, accountOptions, storageEndpointSuffix)
 		if accountSASToken == "" && copyErr != nil && strings.Contains(copyErr.Error(), authorizationPermissionMismatch) {
 			klog.Warningf("azcopy copy failed with AuthorizationPermissionMismatch error, should assign \"Storage File Data Privileged Contributor\" role to controller identity, fall back to use sas token, original error: %v", copyErr)
 			accountSASToken, authAzcopyEnv, err := d.getAzcopyAuth(ctx, accountName, accountKey, storageEndpointSuffix, accountOptions, secret, secretName, secretNamespace, true)
