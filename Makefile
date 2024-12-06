@@ -154,6 +154,7 @@ container-windows:
 ifdef WINDOWS_USE_HOST_PROCESS_CONTAINERS
 ifeq ($(OSVERSION),ltsc2022)
 	$(MAKE) container-windows-hostprocess
+	$(MAKE) container-windows-hostprocess-latest
 endif
 endif
 
