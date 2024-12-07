@@ -2,8 +2,6 @@ module sigs.k8s.io/azurefile-csi-driver
 
 go 1.23.1
 
-godebug winreadlinkvolume=0
-
 godebug winsymlink=0
 
 require (
