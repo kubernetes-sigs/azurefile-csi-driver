@@ -1,6 +1,8 @@
 module sigs.k8s.io/azurefile-csi-driver
 
-go 1.23.1
+go 1.23.2
+
+toolchain go1.23.4
 
 godebug winsymlink=0
 
@@ -41,12 +43,14 @@ require (
 	k8s.io/kubernetes v1.30.3
 	k8s.io/mount-utils v0.29.8
 	k8s.io/pod-security-admission v0.30.3
-	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
-	sigs.k8s.io/cloud-provider-azure v1.31.1-0.20241203125659-88ef46cb15b8
-	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.2.2
+	k8s.io/utils v0.0.0-20241104163129-6fe5fd82f078
+	sigs.k8s.io/cloud-provider-azure v1.31.1-0.20241205183000-684a27059b15
+	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.2.4
 	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.1.8
 	sigs.k8s.io/yaml v1.4.0
 )
+
+require sigs.k8s.io/cloud-provider-azure/pkg/azclient/cache v0.1.0 // indirect
 
 require (
 	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
