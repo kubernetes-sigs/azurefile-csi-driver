@@ -182,7 +182,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `windows.resources.nodeDriverRegistrar.limits.memory`    | csi-node-driver-registrar memory limits               | 150Mi                                                          |
 | `windows.resources.nodeDriverRegistrar.requests.cpu`     | csi-node-driver-registrar cpu requests         | 10m                                                            |
 | `windows.resources.nodeDriverRegistrar.requests.memory`  | csi-node-driver-registrar memory requests      | 40Mi                                                           |
-| `windows.resources.azurefile.limits.memory`              | azurefile memory limits                         | 200Mi                                                         |
+| `windows.resources.azurefile.limits.memory`              | azurefile memory limits                         | 600Mi                                                         |
 | `windows.resources.azurefile.requests.cpu`               | azurefile cpu requests                   | 10m                                                            |
 | `windows.resources.azurefile.requests.memory`            | azurefile memory requests                | 40Mi                                                           |
 | `workloadIdentity.clientID` | client ID of workload identity | ''
