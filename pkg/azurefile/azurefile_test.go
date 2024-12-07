@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient/mockfileclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/storageaccountclient/mockstorageaccountclient"
 	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	azstorage "sigs.k8s.io/cloud-provider-azure/pkg/provider/storage"
 	auth "sigs.k8s.io/cloud-provider-azure/pkg/provider/config"
 )
 
@@ -1019,7 +1020,7 @@ func TestGetFileShareQuota(t *testing.T) {
 		clientFactory.EXPECT().GetFileShareClientForSub(gomock.Any()).Return(mockFileClient, nil).AnyTimes()
 		d.cloud.ComputeClientFactory = clientFactory
 		mockFileClient.EXPECT().Get(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
-		quota, err := d.getFileShareQuota(context.TODO(), &azure.AccountOptions{
+		quota, err := d.getFileShareQuota(context.TODO(), &azstorage.AccountOptions{
 			ResourceGroup:  resourceGroupName,
 			Name:           accountName,
 			SubscriptionID: "subsID",

@@ -55,6 +55,7 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient/mockfileclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/storageaccountclient/mockstorageaccountclient"
 	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	azstorage "sigs.k8s.io/cloud-provider-azure/pkg/provider/storage"
 	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
 )
 
@@ -2610,7 +2611,7 @@ var _ = ginkgo.Describe("TestGetAzcopyAuth", func() {
 
 			expectedAccountSASToken := ""
 			expectedErr := fmt.Errorf("could not find accountkey or azurestorageaccountkey field in secrets")
-			accountSASToken, authAzcopyEnv, err := d.getAzcopyAuth(ctx, "accountName", "", "core.windows.net", &azure.AccountOptions{}, secrets, "secretsName", "secretsNamespace", false)
+			accountSASToken, authAzcopyEnv, err := d.getAzcopyAuth(ctx, "accountName", "", "core.windows.net", &azstorage.AccountOptions{}, secrets, "secretsName", "secretsNamespace", false)
 			gomega.Expect(err).To(gomega.Equal(expectedErr))
 			gomega.Expect(authAzcopyEnv).To(gomega.BeNil())
 			gomega.Expect(accountSASToken).To(gomega.Equal(expectedAccountSASToken))
@@ -2628,7 +2629,7 @@ var _ = ginkgo.Describe("TestGetAzcopyAuth", func() {
 
 			expectedAccountSASToken := ""
 			expectedErr := status.Errorf(codes.Internal, "failed to generate sas token in creating new shared key credential, accountName: %s, err: %s", "accountName", "decode account key: illegal base64 data at input byte 8")
-			accountSASToken, authAzcopyEnv, err := d.getAzcopyAuth(ctx, "accountName", "", "core.windows.net", &azure.AccountOptions{}, secrets, "secretsName", "secretsNamespace", false)
+			accountSASToken, authAzcopyEnv, err := d.getAzcopyAuth(ctx, "accountName", "", "core.windows.net", &azstorage.AccountOptions{}, secrets, "secretsName", "secretsNamespace", false)
 			gomega.Expect(err).To(gomega.Equal(expectedErr))
 			gomega.Expect(authAzcopyEnv).To(gomega.BeNil())
 			gomega.Expect(accountSASToken).To(gomega.Equal(expectedAccountSASToken))

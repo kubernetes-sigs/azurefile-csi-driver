@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/metrics"
 	"sigs.k8s.io/cloud-provider-azure/pkg/provider"
 	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	azstorage "sigs.k8s.io/cloud-provider-azure/pkg/provider/storage"
 )
 
 const (
@@ -75,7 +76,7 @@ var (
 		{Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_SINGLE_WRITER},
 		{Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER},
 	}
-	skipMatchingTag = map[string]*string{azure.SkipMatchingTag: ptr.To("")}
+	skipMatchingTag = map[string]*string{azstorage.SkipMatchingTag: ptr.To("")}
 )
 
 // CreateVolume provisions an azure file
@@ -452,7 +453,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
-	accountOptions := &azure.AccountOptions{
+	accountOptions := &azstorage.AccountOptions{
 		Name:                                    account,
 		Type:                                    sku,
 		Kind:                                    accountKind,
@@ -763,7 +764,7 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 }
 
 // copyVolume copy an azure file
-func (d *Driver) copyVolume(ctx context.Context, req *csi.CreateVolumeRequest, accountName, accountSASToken string, authAzcopyEnv []string, secretNamespace string, shareOptions *ShareOptions, accountOptions *azure.AccountOptions, storageEndpointSuffix string) error {
+func (d *Driver) copyVolume(ctx context.Context, req *csi.CreateVolumeRequest, accountName, accountSASToken string, authAzcopyEnv []string, secretNamespace string, shareOptions *ShareOptions, accountOptions *azstorage.AccountOptions, storageEndpointSuffix string) error {
 	vs := req.VolumeContentSource
 	switch vs.Type.(type) {
 	case *csi.VolumeContentSource_Snapshot:
@@ -801,7 +802,7 @@ func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.Valida
 	if subsID == "" {
 		subsID = d.cloud.SubscriptionID
 	}
-	accountOptions := &azure.AccountOptions{
+	accountOptions := &azstorage.AccountOptions{
 		Name:           accountName,
 		SubscriptionID: subsID,
 		ResourceGroup:  resourceGroupName,
@@ -1039,7 +1040,7 @@ func (d *Driver) ListSnapshots(_ context.Context, _ *csi.ListSnapshotsRequest) (
 }
 
 // restoreSnapshot restores from a snapshot
-func (d *Driver) restoreSnapshot(ctx context.Context, req *csi.CreateVolumeRequest, dstAccountName, dstAccountSasToken string, authAzcopyEnv []string, secretNamespace string, shareOptions *ShareOptions, accountOptions *azure.AccountOptions, storageEndpointSuffix string) error {
+func (d *Driver) restoreSnapshot(ctx context.Context, req *csi.CreateVolumeRequest, dstAccountName, dstAccountSasToken string, authAzcopyEnv []string, secretNamespace string, shareOptions *ShareOptions, accountOptions *azstorage.AccountOptions, storageEndpointSuffix string) error {
 	if shareOptions.Protocol == armstorage.EnabledProtocolsNFS {
 		return fmt.Errorf("protocol nfs is not supported for snapshot restore")
 	}
@@ -1064,7 +1065,7 @@ func (d *Driver) restoreSnapshot(ctx context.Context, req *csi.CreateVolumeReque
 	}
 	srcAccountSasToken := dstAccountSasToken
 	if srcAccountName != dstAccountName && dstAccountSasToken != "" {
-		srcAccountOptions := &azure.AccountOptions{
+		srcAccountOptions := &azstorage.AccountOptions{
 			Name:                srcAccountName,
 			ResourceGroup:       srcResourceGroupName,
 			SubscriptionID:      srcSubscriptionID,
@@ -1082,7 +1083,7 @@ func (d *Driver) restoreSnapshot(ctx context.Context, req *csi.CreateVolumeReque
 	return d.copyFileShareByAzcopy(srcFileShareSnapshotName, dstFileShareName, srcPath, dstPath, snapshot, srcAccountName, dstAccountName, srcAccountSasToken, authAzcopyEnv, accountOptions)
 }
 
-func (d *Driver) copyFileShareByAzcopy(srcFileShareName, dstFileShareName, srcPath, dstPath, snapshot, srcAccountName, dstAccountName, accountSASToken string, authAzcopyEnv []string, accountOptions *azure.AccountOptions) error {
+func (d *Driver) copyFileShareByAzcopy(srcFileShareName, dstFileShareName, srcPath, dstPath, snapshot, srcAccountName, dstAccountName, accountSASToken string, authAzcopyEnv []string, accountOptions *azstorage.AccountOptions) error {
 	azcopyCopyOptions := azcopyCloneVolumeOptions
 	srcPathAuth := srcPath
 	if snapshot != "" {
@@ -1377,7 +1378,7 @@ func (d *Driver) authorizeAzcopyWithIdentity() ([]string, error) {
 // 1. secrets is not empty
 // 2. driver is not using managed identity and service principal
 // 3. parameter useSasToken is true
-func (d *Driver) getAzcopyAuth(ctx context.Context, accountName, accountKey, storageEndpointSuffix string, accountOptions *azure.AccountOptions, secrets map[string]string, secretName, secretNamespace string, useSasToken bool) (string, []string, error) {
+func (d *Driver) getAzcopyAuth(ctx context.Context, accountName, accountKey, storageEndpointSuffix string, accountOptions *azstorage.AccountOptions, secrets map[string]string, secretName, secretNamespace string, useSasToken bool) (string, []string, error) {
 	var authAzcopyEnv []string
 	var err error
 	if !useSasToken && !d.useDataPlaneAPI(ctx, "", accountName) && len(secrets) == 0 && len(secretName) == 0 {

@@ -54,6 +54,7 @@ import (
 	fileutil "sigs.k8s.io/azurefile-csi-driver/pkg/util"
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	azstorage "sigs.k8s.io/cloud-provider-azure/pkg/provider/storage"
 	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
 )
 
@@ -466,7 +467,7 @@ func (d *Driver) Run(ctx context.Context) error {
 }
 
 // getFileShareQuota return (-1, nil) means file share does not exist
-func (d *Driver) getFileShareQuota(ctx context.Context, accountOptions *azure.AccountOptions, fileShareName string, secrets map[string]string) (int, error) {
+func (d *Driver) getFileShareQuota(ctx context.Context, accountOptions *azstorage.AccountOptions, fileShareName string, secrets map[string]string) (int, error) {
 	var fileClient azureFileClient
 	var err error
 	if len(secrets) > 0 {
@@ -937,7 +938,7 @@ func isSupportedFSGroupChangePolicy(policy string) bool {
 }
 
 // CreateFileShare creates a file share
-func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *azure.AccountOptions, shareOptions *ShareOptions, secrets map[string]string) error {
+func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *azstorage.AccountOptions, shareOptions *ShareOptions, secrets map[string]string) error {
 	return wait.ExponentialBackoff(d.cloud.RequestBackoff(), func() (bool, error) {
 		var err error
 		var fileClient azureFileClient
@@ -1035,7 +1036,7 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 }
 
 // copyFileShare copies a fileshare, if dstAccountName is empty, then copy in the same account
-func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest, dstAccountName string, dstAccountSasToken string, authAzcopyEnv []string, secretNamespace string, shareOptions *ShareOptions, accountOptions *azure.AccountOptions, storageEndpointSuffix string) error {
+func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest, dstAccountName string, dstAccountSasToken string, authAzcopyEnv []string, secretNamespace string, shareOptions *ShareOptions, accountOptions *azstorage.AccountOptions, storageEndpointSuffix string) error {
 	if shareOptions.Protocol == armstorage.EnabledProtocolsNFS {
 		return fmt.Errorf("protocol nfs is not supported for volume cloning")
 	}
@@ -1056,7 +1057,7 @@ func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest
 	}
 	srcAccountSasToken := dstAccountSasToken
 	if srcAccountName != dstAccountName && dstAccountSasToken != "" {
-		srcAccountOptions := &azure.AccountOptions{
+		srcAccountOptions := &azstorage.AccountOptions{
 			Name:                srcAccountName,
 			ResourceGroup:       srcResourceGroupName,
 			SubscriptionID:      srcSubscriptionID,
@@ -1115,7 +1116,7 @@ func (d *Driver) RemoveStorageAccountTag(ctx context.Context, subsID, resourceGr
 //  1. secrets (if not empty)
 //  2. use k8s client identity to read from k8s secret
 //  3. use cluster identity to get from storage account directly
-func (d *Driver) GetStorageAccesskey(ctx context.Context, accountOptions *azure.AccountOptions, secrets map[string]string, secretName, secretNamespace string) (string, error) {
+func (d *Driver) GetStorageAccesskey(ctx context.Context, accountOptions *azstorage.AccountOptions, secrets map[string]string, secretName, secretNamespace string) (string, error) {
 	if len(secrets) > 0 {
 		_, accountKey, err := getStorageAccount(secrets)
 		return accountKey, err

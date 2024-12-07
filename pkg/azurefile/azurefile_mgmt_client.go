@@ -26,14 +26,15 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/fileshareclient"
 	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	azstorage "sigs.k8s.io/cloud-provider-azure/pkg/provider/storage"
 )
 
 type azureFileMgmtClient struct {
 	fileShareClient fileshareclient.Interface
-	accountOptions  *azure.AccountOptions
+	accountOptions  *azstorage.AccountOptions
 }
 
-func newAzureFileMgmtClient(clientFactory azclient.ClientFactory, accountOptions *azure.AccountOptions) (azureFileClient, error) {
+func newAzureFileMgmtClient(clientFactory azclient.ClientFactory, accountOptions *azstorage.AccountOptions) (azureFileClient, error) {
 	if clientFactory == nil {
 		return nil, fmt.Errorf("clientFactory is nil")
 	}
