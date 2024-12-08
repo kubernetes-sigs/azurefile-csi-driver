@@ -21,7 +21,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -41,7 +40,8 @@ const (
 	AzcopyJobCompleted AzcopyJobState = "Completed"
 )
 
-var powershellCmdMutex = &sync.Mutex{}
+// control the number of concurrent powershell commands running on Windows node
+var powershellCmdSem = make(chan struct{}, 3)
 
 // RoundUpBytes rounds up the volume size in bytes up to multiplications of GiB
 // in the unit of Bytes
@@ -79,13 +79,13 @@ func roundUpSize(volumeSizeBytes int64, allocationUnitBytes int64) int64 {
 }
 
 func RunPowershellCmd(command string, envs ...string) ([]byte, error) {
-	// only one powershell command can be executed at a time to avoid OOM
-	powershellCmdMutex.Lock()
-	defer powershellCmdMutex.Unlock()
+	// acquire a semaphore to limit the number of concurrent operations
+	powershellCmdSem <- struct{}{}
+	defer func() { <-powershellCmdSem }()
 
 	cmd := exec.Command("powershell", "-Mta", "-NoProfile", "-Command", command)
 	cmd.Env = append(os.Environ(), envs...)
-	klog.V(8).Infof("Executing command: %q", cmd.String())
+	klog.V(6).Infof("Executing command: %q", cmd.String())
 	return cmd.CombinedOutput()
 }
 
