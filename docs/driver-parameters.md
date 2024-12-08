@@ -115,6 +115,12 @@ volumeAttributes.mountPermissions | mounted folder permissions. The default is `
 kubectl create secret generic azure-storage-account-{accountname}-secret --from-literal=azurestorageaccountname="xxx" --from-literal azurestorageaccountkey="xxx" --type=Opaque
  ```
 
+### `VolumeSnapshotClass`
+
+Name | Meaning | Available Value | Mandatory | Default value
+--- | --- | --- | --- | ---
+useDataPlaneAPI | specify whether use [data plane API](https://github.com/Azure/azure-sdk-for-go/blob/master/storage/share.go) for snapshot create/delete, this could solve the SRP API throttling issue since data plane API has almost no limit, while it would fail when there is firewall or vnet setting on storage account | `true`,`false` | No | `false`
+
 ### Tips
   - mounting Azure SMB File share requires account key
     - If you set `storeAccountKey: "false"` in the storage class, the driver will not store the account key as a Kubernetes secret,  the driver will not store the account key as a Kubernetes secret. Instead, it will use the kubelet identity to obtain the account key.
