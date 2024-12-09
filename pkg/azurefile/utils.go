@@ -340,3 +340,17 @@ func isConfidentialRuntimeClass(ctx context.Context, kubeClient clientset.Interf
 	klog.Infof("runtimeClass %s handler: %s", runtimeClassName, runtimeClass.Handler)
 	return runtimeClass.Handler == confidentialRuntimeClassHandler, nil
 }
+
+// getSnapshotID returns snapshotID based on srcVolSubsID, srcVolumeID, itemSnapshot and subsID
+func getSnapshotID(srcVolSubsID, srcVolumeID, itemSnapshot, subsID string) string {
+	snapshotID := srcVolumeID + "#" + itemSnapshot
+	if srcVolSubsID == "" {
+		// if srcVolumeID does not contain subscription id, append it to snapshotID
+		if strings.HasSuffix(srcVolumeID, "#") {
+			snapshotID = srcVolumeID + subsID + "#" + itemSnapshot
+		} else {
+			snapshotID = srcVolumeID + "#" + subsID + "#" + itemSnapshot
+		}
+	}
+	return snapshotID
+}
