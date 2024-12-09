@@ -863,13 +863,14 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		return nil, status.Error(codes.InvalidArgument, "CreateSnapshot Source Volume ID must be provided")
 	}
 
-	rgName, accountName, fileShareName, _, _, subsID, err := GetFileShareInfo(sourceVolumeID) //nolint:dogsled
+	rgName, accountName, fileShareName, _, _, srcVolSubsID, err := GetFileShareInfo(sourceVolumeID) //nolint:dogsled
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("GetFileShareInfo(%s) failed with error: %v", sourceVolumeID, err))
 	}
 	if rgName == "" {
 		rgName = d.cloud.ResourceGroup
 	}
+	subsID := srcVolSubsID
 	if subsID == "" {
 		subsID = d.cloud.SubscriptionID
 	}
@@ -897,12 +898,22 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		}
 		return nil, status.Errorf(codes.Internal, "failed to check if snapshot(%v) exists: %v", snapshotName, err)
 	}
+	snapshotID := sourceVolumeID + "#" + itemSnapshot
+	if srcVolSubsID == "" {
+		// if sourceVolumeID does not contain subscription id, append it to snapshotID
+		if strings.HasSuffix(sourceVolumeID, "#") {
+			snapshotID = sourceVolumeID + subsID + "#" + itemSnapshot
+		} else {
+			snapshotID = sourceVolumeID + "#" + subsID + "#" + itemSnapshot
+		}
+	}
+
 	if exists {
 		klog.V(2).Infof("snapshot(%s) already exists", snapshotName)
 		return &csi.CreateSnapshotResponse{
 			Snapshot: &csi.Snapshot{
 				SizeBytes:      volumehelper.GiBToBytes(int64(itemSnapshotQuota)),
-				SnapshotId:     sourceVolumeID + "#" + itemSnapshot,
+				SnapshotId:     snapshotID,
 				SourceVolumeId: sourceVolumeID,
 				CreationTime:   timestamppb.New(itemSnapshotTime),
 				// Since the snapshot of azurefile has no field of ReadyToUse, here ReadyToUse is always set to true.
@@ -965,10 +976,21 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 			d.getFileShareSizeCache.Set(key, itemSnapshotQuota)
 		}
 	}
+
+	snapshotID = sourceVolumeID + "#" + itemSnapshot
+	if srcVolSubsID == "" {
+		// if sourceVolumeID does not contain subscription id, append it to snapshotID
+		if strings.HasSuffix(sourceVolumeID, "#") {
+			snapshotID = sourceVolumeID + subsID + "#" + itemSnapshot
+		} else {
+			snapshotID = sourceVolumeID + "#" + subsID + "#" + itemSnapshot
+		}
+	}
+
 	createResp := &csi.CreateSnapshotResponse{
 		Snapshot: &csi.Snapshot{
 			SizeBytes:      volumehelper.GiBToBytes(int64(itemSnapshotQuota)),
-			SnapshotId:     sourceVolumeID + "#" + itemSnapshot,
+			SnapshotId:     snapshotID,
 			SourceVolumeId: sourceVolumeID,
 			CreationTime:   timestamppb.New(itemSnapshotTime),
 			// Since the snapshot of azurefile has no field of ReadyToUse, here ReadyToUse is always set to true.
