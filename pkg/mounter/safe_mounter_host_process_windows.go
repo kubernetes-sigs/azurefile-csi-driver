@@ -120,7 +120,7 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 
 // Mount just creates a soft link at target pointing to source.
 func (mounter *winMounter) Mount(source, target, fstype string, options []string) error {
-	return filesystem.LinkPath(normalizeWindowsPath(source), normalizeWindowsPath(target))
+	return os.Symlink(normalizeWindowsPath(source), normalizeWindowsPath(target))
 }
 
 // Rmdir - delete the given directory
@@ -191,7 +191,7 @@ func (mounter *winMounter) IsLikelyNotMountPoint(path string) (bool, error) {
 // Currently the make dir is only used from the staging code path, hence we call it
 // with Plugin context..
 func (mounter *winMounter) MakeDir(path string) error {
-	return filesystem.Mkdir(normalizeWindowsPath(path))
+	return os.MkdirAll(normalizeWindowsPath(path), 0755)
 }
 
 // ExistsPath - Checks if a path exists. Unlike util ExistsPath, this call does not perform follow link.

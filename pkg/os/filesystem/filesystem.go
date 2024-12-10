@@ -117,13 +117,6 @@ func ValidatePathWindows(path string) error {
 	return nil
 }
 
-func Mkdir(path string) error {
-	if err := ValidatePathWindows(path); err != nil {
-		return err
-	}
-	return os.MkdirAll(path, 0755)
-}
-
 func Rmdir(path string, force bool) error {
 	if err := ValidatePathWindows(path); err != nil {
 		return err
@@ -135,26 +128,8 @@ func Rmdir(path string, force bool) error {
 	return os.Remove(path)
 }
 
-func LinkPath(sourcePath, targetPath string) error {
-	return CreateSymlink(sourcePath, targetPath)
-}
-
-func CreateSymlink(sourcePath, targetPath string) error {
-	if err := ValidatePathWindows(targetPath); err != nil {
-		return err
-	}
-	if err := ValidatePathWindows(sourcePath); err != nil {
-		return err
-	}
-	return os.Symlink(sourcePath, targetPath)
-}
-
 func IsMountPoint(path string) (bool, error) {
 	return IsSymlink(path)
-}
-
-func IsSymlink(path string) (bool, error) {
-	return isSymlink(path)
 }
 
 // IsSymlink - returns true if tgt is a mount point.
@@ -164,7 +139,7 @@ func IsSymlink(path string) (bool, error) {
 // - the target path of the link exists.
 // If tgt path does not exist, it returns an error
 // if tgt path exists, but the source path tgt points to does not exist, it returns false without error.
-func isSymlink(tgt string) (bool, error) {
+func IsSymlink(tgt string) (bool, error) {
 	// This code is similar to k8s.io/kubernetes/pkg/util/mount except the pathExists usage.
 	stat, err := os.Lstat(tgt)
 	if err != nil {
