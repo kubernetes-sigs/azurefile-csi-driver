@@ -2171,8 +2171,8 @@ sigs.k8s.io/cloud-provider-azure v1.31.1-0.20241203125659-88ef46cb15b8 h1:fU12bB
 sigs.k8s.io/cloud-provider-azure v1.31.1-0.20241203125659-88ef46cb15b8/go.mod h1:fRhllZZHriqySUa9iN2wmryUlelFuIzvAao+cUfscVo=
 sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.2.2 h1:Cb/7iBFeZKlFLvZCu7oz0O5JYGkZhFojNnPTfZdxVJA=
 sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.2.2/go.mod h1:WSsOhr3Kr9BqIb88mgoEvcreu7vZujsQ31x3HXM+X6Y=
-sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.2.0 h1:8X9X+IW5gqWT7sIvV1JjyjY7vC97pOvQNVd1NkiimM0=
-sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.2.0/go.mod h1:H6nNMmijacuw4TGG5LCkTDBsqyqdXi/y6/l+7kj/7DU=
+sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.2.1 h1:oiGD0blZ6J6bVSe6uw0kSM/E1Ba7D/0G7fNtdT77wgM=
+sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.2.1/go.mod h1:MxAB6L6HUzK2auGiLi1GAXYa0ZLBx2hxhveQruVfMmU=
 sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd h1:EDPBXCAspyGV4jQlpZSudPeMmr1bNJefnuqLsRAsHZo=
 sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd/go.mod h1:B8JuhiUyNFVKdsE8h686QcCxMaH6HrOAZj4vswFpcB0=
 sigs.k8s.io/structured-merge-diff/v4 v4.0.1/go.mod h1:bJZC9H9iH24zzfZ/41RGcq60oK1F7G282QMXDPYydCw=
