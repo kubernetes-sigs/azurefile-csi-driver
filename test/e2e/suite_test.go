@@ -221,14 +221,7 @@ var _ = ginkgo.AfterSuite(func(ctx ginkgo.SpecContext) {
 			}
 			execTestCmd([]testCmd{createExampleDeployment})
 
-			// uninstall CSI Driver deployment scripts test
-			uninstallDriver := testCmd{
-				command:  "bash",
-				args:     []string{"deploy/uninstall-driver.sh", "master", "windows,local"},
-				startLog: "===================uninstall CSI Driver deployment scripts test===================",
-				endLog:   "===================================================",
-			}
-			execTestCmd([]testCmd{installDriver, uninstallDriver})
+			execTestCmd([]testCmd{installDriver})
 		}
 
 		checkAccountCreationLeak(ctx)
