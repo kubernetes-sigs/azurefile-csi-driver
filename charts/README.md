@@ -125,10 +125,10 @@ The following table lists the configurable parameters of the latest Azure File C
 | `node.logLevel`                                   | node driver log level                                                          |`5`                                                           |
 | `snapshot.enabled`                                | whether enable snapshot feature                            | `false`                                                        |
 | `snapshot.image.csiSnapshotter.repository`        | csi-snapshotter container image                               | `/oss/kubernetes-csi/csi-snapshotter`         |
-| `snapshot.image.csiSnapshotter.tag`               | csi-snapshotter container image tag                           | `v8.1.0`                                                       |
+| `snapshot.image.csiSnapshotter.tag`               | csi-snapshotter container image tag                           | `v8.2.0`                                                       |
 | `snapshot.image.csiSnapshotter.pullPolicy`        | csi-snapshotter image pull policy                          | `IfNotPresent`                                                 |
 | `snapshot.image.csiSnapshotController.repository` | snapshot-controller container image                           | `/oss/kubernetes-csi/snapshot-controller`     |
-| `snapshot.image.csiSnapshotController.tag`        | snapshot-controller container image tag                       | `v8.1.0`                                                       |
+| `snapshot.image.csiSnapshotController.tag`        | snapshot-controller container image tag                       | `v8.2.0`                                                       |
 | `snapshot.image.csiSnapshotController.pullPolicy` | snapshot-controller image pull policy                      | `IfNotPresent`                                                 |
 | `snapshot.snapshotController.name`                | snapshot controller name                                   | `csi-snapshot-controller`                                                           |
 | `snapshot.snapshotController.replicas`            | the replicas of snapshot-controller                        | `2`                                                          |
