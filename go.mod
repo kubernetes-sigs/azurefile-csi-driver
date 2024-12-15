@@ -39,14 +39,16 @@ require (
 	k8s.io/component-base v0.32.0-alpha.0
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubernetes v1.30.3
-	k8s.io/mount-utils v0.29.8
+	k8s.io/mount-utils v0.32.0
 	k8s.io/pod-security-admission v0.30.3
-	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
+	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	sigs.k8s.io/cloud-provider-azure v1.31.1-0.20241203125659-88ef46cb15b8
 	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.2.2
 	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.2.1
 	sigs.k8s.io/yaml v1.4.0
 )
+
+require github.com/moby/sys/userns v0.1.0 // indirect
 
 require (
 	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
@@ -113,7 +115,7 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-ieproxy v0.0.11 // indirect
 	github.com/moby/spdystream v0.4.0 // indirect
-	github.com/moby/sys/mountinfo v0.7.1 // indirect
+	github.com/moby/sys/mountinfo v0.7.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
