@@ -15,5 +15,7 @@ spec:
     - Persistent
     - Ephemeral
   fsGroupPolicy: {{ .Values.feature.fsGroupPolicy }}
+{{- if .Values.feature.tokenRequest }}
   tokenRequests:
     - audience: api://AzureADTokenExchange
+{{- end }}

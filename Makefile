@@ -33,6 +33,9 @@ E2E_HELM_OPTIONS += ${EXTRA_HELM_OPTIONS}
 ifdef KUBERNETES_VERSION # disable kubelet-registration-probe on capz cluster testing
 E2E_HELM_OPTIONS += --set linux.enableRegistrationProbe=false --set windows.enableRegistrationProbe=false
 endif
+ifeq ($(AZURE_STORAGE_DRIVER),kubernetes.io/azure-file)
+E2E_HELM_OPTIONS += --set feature.tokenRequest.enabled=false
+endif
 ifdef EXTERNAL_E2E_TEST_NFS
 E2E_HELM_OPTIONS += --set feature.enableVolumeMountGroup=false --set feature.fsGroupPolicy=File
 endif
