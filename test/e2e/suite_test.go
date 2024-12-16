@@ -52,7 +52,7 @@ const (
 
 var (
 	azurefileDriver                *azurefile.Driver
-	isUsingInTreeVolumePlugin      = os.Getenv(driver.AzureDriverNameVar) == inTreeStorageClass
+	isUsingInTreeVolumePlugin      = (os.Getenv(driver.AzureDriverNameVar) == inTreeStorageClass || os.Getenv("runInTreeVolumeTestsOnly") != "")
 	isTestingMigration             = os.Getenv(testMigrationEnvVar) != ""
 	isWindowsCluster               = os.Getenv(testWindowsEnvVar) != ""
 	isCapzTest                     = os.Getenv("NODE_MACHINE_TYPE") != ""
