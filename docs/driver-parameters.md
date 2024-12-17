@@ -37,6 +37,7 @@ protocol | file share protocol | `smb`, `nfs` | No | `smb`
 networkEndpointType | specify network endpoint type for the storage account created by driver. If `privateEndpoint` is specified, a private endpoint will be created for the storage account. For other cases, a service endpoint will be created for `nfs` protocol by default. | "",`privateEndpoint` | No | `` <br>for AKS cluster, make sure cluster Control plane identity (that is, your AKS cluster name) is added to the Contributor role in the resource group hosting the VNet
 location | specify Azure storage account location | `eastus`, `westus`, etc. | No | if empty, driver will use the same location name as current k8s cluster
 resourceGroup | specify the resource group in which Azure file share will be created | existing resource group name | No | if empty, driver will use the same resource group name as current k8s cluster
+subscriptionID | specify Azure subscription ID where Azure file share will be created | Azure subscription ID | No | if not empty, `resourceGroup` must be provided
 shareName | specify Azure file share name | existing or new Azure file name | No | if empty, driver will generate an Azure file share name
 shareNamePrefix | specify Azure file share name prefix created by driver | can only contain lowercase letters, numbers, hyphens, and length should be less than 21 | No |
 folderName | specify folder name in Azure file share | existing folder name in Azure file share | No | if folder name does not exist in file share, mount would fail
@@ -51,7 +52,6 @@ matchTags | whether matching tags when driver tries to find a suitable storage a
 selectRandomMatchingAccount | whether randomly selecting a matching account, by default, the driver would always select the first matching account in alphabetical order(note: this driver uses account search cache, which results in uneven distribution of file creation across multiple accounts) | `true`,`false` | No | `false`
 accountQuota | to limit the quota for an account, you can specify a maximum quota in GB (`102400`GB by default). If the account exceeds the specified quota, the driver would skip selecting the account | `` | No | `102400`
 --- | **Following parameters are only for SMB protocol** | --- | --- |
-subscriptionID | specify Azure subscription ID where Azure file share will be created | Azure subscription ID | No | if not empty, `resourceGroup` must be provided
 storeAccountKey | Should the storage account key be stored in a Kubernetes secret <br> (Note:  if set to `false`, the driver will use the kubelet identity to obtain the account key) | `true`,`false` | No | `true`
 getLatestAccountKey | whether getting the latest account key based on the creation time, this driver would get the first key by default | `true`,`false` | No | `false`
 secretName | specify secret name to store account key | | No |
