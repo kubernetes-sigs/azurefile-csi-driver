@@ -1944,6 +1944,7 @@ func TestCopyVolume(t *testing.T) {
 			testFunc: func(t *testing.T) {
 				d := NewFakeDriver()
 				mp := map[string]string{}
+				accountOptions := azure.AccountOptions{}
 
 				volumeSource := &csi.VolumeContentSource_VolumeSource{
 					VolumeId: "vol_1#f5713de20cde511e8ba4900#fileshare#",
@@ -1968,14 +1969,14 @@ func TestCopyVolume(t *testing.T) {
 
 				m := util.NewMockEXEC(ctrl)
 				listStr1 := "JobId: ed1c3833-eaff-fe42-71d7-513fb065a9d9\nStart Time: Monday, 07-Aug-23 03:29:54 UTC\nStatus: InProgress\nCommand: copy https://{accountName}.file.core.windows.net/{srcFileshare}{SAStoken} https://{accountName}.file.core.windows.net/{dstFileshare}{SAStoken} --recursive --check-length=false"
-				m.EXPECT().RunCommand(gomock.Eq("azcopy jobs list | grep dstFileshare -B 3"), gomock.Any()).Return(listStr1, nil).Times(1)
-				m.EXPECT().RunCommand(gomock.Not("azcopy jobs list | grep dstFileshare -B 3"), gomock.Any()).Return("Percent Complete (approx): 50.0", nil)
+				m.EXPECT().RunCommand(gomock.Eq("azcopy jobs list | grep dstFileshare -B 3"), gomock.Any()).Return(listStr1, nil).AnyTimes()
+				m.EXPECT().RunCommand(gomock.Not("azcopy jobs list | grep dstFileshare -B 3"), gomock.Any()).Return("Percent Complete (approx): 50.0", nil).AnyTimes()
 
 				d.azcopy.ExecCmd = m
+				d.waitForAzCopyTimeoutMinutes = 1
 
-				expectedErr := fmt.Errorf("wait for the existing AzCopy job to complete, current copy percentage is 50.0%%")
-				err := d.copyVolume(ctx, req, "", "sastoken", []string{}, "", &fileclient.ShareOptions{Name: "dstFileshare"}, nil, "core.windows.net")
-				if !reflect.DeepEqual(err, expectedErr) {
+				err := d.copyVolume(ctx, req, "", "sastoken", []string{}, "", &fileclient.ShareOptions{Name: "dstFileshare"}, &accountOptions, "core.windows.net")
+				if !reflect.DeepEqual(err, wait.ErrWaitTimeout) {
 					t.Errorf("Unexpected error: %v", err)
 				}
 			},

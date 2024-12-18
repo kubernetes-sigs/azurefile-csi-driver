@@ -38,6 +38,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 
@@ -1088,30 +1089,41 @@ func (d *Driver) copyFileShareByAzcopy(srcFileShareName, dstFileShareName, srcPa
 
 	jobState, percent, err := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
 	klog.V(2).Infof("azcopy job status: %s, copy percent: %s%%, error: %v", jobState, percent, err)
+
 	switch jobState {
 	case volumehelper.AzcopyJobError, volumehelper.AzcopyJobCompleted:
 		return err
 	case volumehelper.AzcopyJobRunning:
-		return fmt.Errorf("wait for the existing AzCopy job to complete, current copy percentage is %s%%", percent)
+		err = wait.PollImmediate(20*time.Second, time.Duration(d.waitForAzCopyTimeoutMinutes)*time.Minute, func() (bool, error) {
+			jobState, percent, err := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
+			klog.V(2).Infof("azcopy job status: %s, copy percent: %s%%, error: %v", jobState, percent, err)
+			if err != nil {
+				return false, err
+			}
+			if jobState == volumehelper.AzcopyJobRunning {
+				return false, nil
+			}
+			return true, nil
+		})
 	case volumehelper.AzcopyJobNotFound:
 		klog.V(2).Infof("copy fileshare %s:%s to %s:%s", srcAccountName, srcFileShareName, dstAccountName, dstFileShareName)
-		execFuncWithAuth := func() error {
+		execAzcopyJob := func() error {
 			if out, err := d.execAzcopyCopy(srcPathAuth, dstPath, azcopyCopyOptions, authAzcopyEnv); err != nil {
 				return fmt.Errorf("exec error: %v, output: %v", err, string(out))
 			}
 			return nil
 		}
 		timeoutFunc := func() error {
-			_, percent, _ := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
-			return fmt.Errorf("timeout waiting for copy fileshare %s:%s to %s:%s complete, current copy percent: %s%%", srcAccountName, srcFileShareName, dstAccountName, dstFileShareName, percent)
+			jobState, percent, _ := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
+			return fmt.Errorf("azcopy job status: %s, timeout waiting for copy fileshare %s:%s to %s:%s complete, current copy percent: %s%%", jobState, srcAccountName, srcFileShareName, dstAccountName, dstFileShareName, percent)
 		}
-		copyErr := volumehelper.WaitUntilTimeout(time.Duration(d.waitForAzCopyTimeoutMinutes)*time.Minute, execFuncWithAuth, timeoutFunc)
-		if copyErr != nil {
-			klog.Warningf("CopyFileShare(%s, %s, %s) failed with error: %v", accountOptions.ResourceGroup, dstAccountName, dstFileShareName, copyErr)
-		} else {
-			klog.V(2).Infof("copied fileshare %s to %s successfully", srcFileShareName, dstFileShareName)
-		}
-		return copyErr
+		err = volumehelper.WaitUntilTimeout(time.Duration(d.waitForAzCopyTimeoutMinutes)*time.Minute, execAzcopyJob, timeoutFunc)
+	}
+
+	if err != nil {
+		klog.Warningf("CopyFileShare(%s, %s, %s) failed with error: %v", accountOptions.ResourceGroup, dstAccountName, dstFileShareName, err)
+	} else {
+		klog.V(2).Infof("copied fileshare %s to %s successfully", srcFileShareName, dstFileShareName)
 	}
 	return err
 }
