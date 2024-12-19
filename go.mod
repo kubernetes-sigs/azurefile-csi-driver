@@ -32,9 +32,9 @@ require (
 	golang.org/x/sys v0.28.0
 	google.golang.org/grpc v1.69.0
 	google.golang.org/protobuf v1.36.0
-	k8s.io/api v0.32.0-alpha.0
-	k8s.io/apimachinery v0.32.0-alpha.0
-	k8s.io/client-go v0.32.0-alpha.0
+	k8s.io/api v0.32.0
+	k8s.io/apimachinery v0.32.0
+	k8s.io/client-go v0.32.0
 	k8s.io/cloud-provider v0.32.0-alpha.0
 	k8s.io/component-base v0.32.0-alpha.0
 	k8s.io/klog/v2 v2.130.1
@@ -44,7 +44,7 @@ require (
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	sigs.k8s.io/cloud-provider-azure v1.31.1-0.20241203125659-88ef46cb15b8
 	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.2.2
-	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.2.1
+	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.2.2
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -169,12 +169,12 @@ require (
 	k8s.io/component-helpers v0.32.0-alpha.0 // indirect
 	k8s.io/controller-manager v0.32.0-alpha.0 // indirect
 	k8s.io/kms v0.32.0-alpha.0 // indirect
-	k8s.io/kube-openapi v0.0.0-20240730131305-7a9a4e85957e // indirect
+	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect
 	k8s.io/kubectl v0.0.0 // indirect
 	k8s.io/kubelet v0.32.0-alpha.0 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.30.3 // indirect
-	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
+	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.4.2 // indirect
 )
 
 replace (
