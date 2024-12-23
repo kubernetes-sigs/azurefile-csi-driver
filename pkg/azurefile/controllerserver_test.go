@@ -924,7 +924,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				}
 				d := NewFakeDriverCustomOptions(driverOptions)
 				d.cloud.ComputeClientFactory = computeClientFactory
-				d.cloud.KubeClient = fake.NewSimpleClientset()
+				d.kubeClient = fake.NewSimpleClientset()
 
 				tests := []struct {
 					desc          string
@@ -997,7 +997,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 					Parameters:         allParam,
 				}
 
-				d.cloud.KubeClient = fake.NewSimpleClientset()
+				d.kubeClient = fake.NewSimpleClientset()
 
 				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
 				d.cloud.StorageAccountClient = mockStorageAccountsClient
@@ -1038,7 +1038,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 					Parameters:         allParam,
 				}
 
-				d.cloud.KubeClient = fake.NewSimpleClientset()
+				d.kubeClient = fake.NewSimpleClientset()
 
 				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
 				d.cloud.StorageAccountClient = mockStorageAccountsClient
@@ -1081,7 +1081,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 					Parameters:         allParam,
 				}
 
-				d.cloud.KubeClient = fake.NewSimpleClientset()
+				d.kubeClient = fake.NewSimpleClientset()
 
 				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
 				d.cloud.StorageAccountClient = mockStorageAccountsClient
@@ -1132,7 +1132,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 					Parameters:         allParam,
 				}
 				d.cloud = azure.GetTestCloud(ctrl)
-				d.cloud.KubeClient = fake.NewSimpleClientset()
+				d.kubeClient = fake.NewSimpleClientset()
 				d.cloud.ComputeClientFactory = computeClientFactory
 				mockTrack1FileClient := mockfileclient.NewMockInterface(ctrl)
 				d.cloud.FileClient = mockTrack1FileClient
@@ -1736,7 +1736,7 @@ var _ = ginkgo.DescribeTable("ValidateVolumeCapabilities", func(
 	fakeShareQuota := int32(100)
 	mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
 	d.cloud.StorageAccountClient = mockStorageAccountsClient
-	d.cloud.KubeClient = clientSet
+	d.kubeClient = clientSet
 	d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
 	mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(key, nil).AnyTimes()
 	mockFileClient.EXPECT().Get(context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: &fakeShareQuota}}, mockedFileShareErr).AnyTimes()
@@ -1961,7 +1961,7 @@ var _ = ginkgo.Describe("DeleteSnapshot", func() {
 			for _, test := range tests {
 				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
 				d.cloud.StorageAccountClient = mockStorageAccountsClient
-				d.cloud.KubeClient = clientSet
+				d.kubeClient = clientSet
 				d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
 				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), "vol_1", gomock.Any()).Return(key, nil).AnyTimes()
 
@@ -2041,7 +2041,7 @@ var _ = ginkgo.Describe("TestControllerExpandVolume", func() {
 
 			mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
 			d.cloud.StorageAccountClient = mockStorageAccountsClient
-			d.cloud.KubeClient = clientSet
+			d.kubeClient = clientSet
 			d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
 			mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), "vol_1", gomock.Any()).Return(key, nil).AnyTimes()
 
@@ -2067,7 +2067,7 @@ var _ = ginkgo.Describe("TestControllerExpandVolume", func() {
 
 			mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
 			d.cloud.StorageAccountClient = mockStorageAccountsClient
-			d.cloud.KubeClient = clientSet
+			d.kubeClient = clientSet
 			d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
 			mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), "vol_1", gomock.Any()).Return(key, nil).AnyTimes()
 			mockFileClient := mockfileclient.NewMockInterface(ctrl)
@@ -2105,7 +2105,7 @@ var _ = ginkgo.Describe("TestControllerExpandVolume", func() {
 
 			mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
 			d.cloud.StorageAccountClient = mockStorageAccountsClient
-			d.cloud.KubeClient = clientSet
+			d.kubeClient = clientSet
 			d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
 			mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), "vol_2", gomock.Any()).Return(key, &retry.Error{HTTPStatusCode: http.StatusBadGateway, RawError: cloudprovider.InstanceNotFound}).AnyTimes()
 
@@ -2132,7 +2132,7 @@ var _ = ginkgo.Describe("TestControllerExpandVolume", func() {
 
 			mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
 			d.cloud.StorageAccountClient = mockStorageAccountsClient
-			d.cloud.KubeClient = clientSet
+			d.kubeClient = clientSet
 			d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
 			mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), "capz-d18sqm", gomock.Any()).Return(key, nil).AnyTimes()
 			mockFileClient := mockfileclient.NewMockInterface(ctrl)
@@ -2195,7 +2195,7 @@ var _ = ginkgo.Describe("GetShareURL", func() {
 			for _, test := range tests {
 				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
 				d.cloud.StorageAccountClient = mockStorageAccountsClient
-				d.cloud.KubeClient = clientSet
+				d.kubeClient = clientSet
 				d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
 				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), "rg", gomock.Any()).Return(key, nil).AnyTimes()
 				_, err := d.getShareURL(context.Background(), test.sourceVolumeID, validSecret)
@@ -2219,7 +2219,7 @@ var _ = ginkgo.DescribeTable("GetServiceURL", func(sourceVolumeID string, key st
 	clientSet := fake.NewSimpleClientset()
 	mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
 	d.cloud.StorageAccountClient = mockStorageAccountsClient
-	d.cloud.KubeClient = clientSet
+	d.kubeClient = clientSet
 	d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
 	mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), "vol_1", gomock.Any()).Return(key, nil).AnyTimes()
 
@@ -2305,7 +2305,7 @@ var _ = ginkgo.Describe("SnapshotExists", func() {
 			for _, test := range tests {
 				mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
 				d.cloud.StorageAccountClient = mockStorageAccountsClient
-				d.cloud.KubeClient = clientSet
+				d.kubeClient = clientSet
 				d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
 				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), "", gomock.Any()).Return(test.key, nil).AnyTimes()
 
@@ -2423,7 +2423,7 @@ var _ = ginkgo.Describe("SetAzureCredentials", func() {
 			}
 
 			for _, test := range tests {
-				d.cloud.KubeClient = test.kubeClient
+				d.kubeClient = test.kubeClient
 				result, err := d.SetAzureCredentials(context.Background(), test.accountName, test.accountKey, test.secretName, test.secretNamespace)
 				gomega.Expect(result).To(gomega.Equal(test.expectedName))
 				if test.expectedErr == nil {

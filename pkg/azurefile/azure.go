@@ -28,6 +28,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2022-07-01/network"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -65,36 +66,14 @@ func getRuntimeClassForPod(ctx context.Context, kubeClient clientset.Interface, 
 }
 
 // getCloudProvider get Azure Cloud Provider
-func getCloudProvider(ctx context.Context, kubeconfig, nodeID, secretName, secretNamespace, userAgent string, allowEmptyCloudConfig, enableWindowsHostProcess bool, kubeAPIQPS float64, kubeAPIBurst int) (*azure.Cloud, error) {
+func getCloudProvider(ctx context.Context, kubeClient kubernetes.Interface, nodeID, secretName, secretNamespace, userAgent string, allowEmptyCloudConfig bool) (*azure.Cloud, error) {
 	var (
 		config     *azureconfig.Config
-		kubeClient *clientset.Clientset
 		fromSecret bool
 	)
 
 	az := &azure.Cloud{}
 	var err error
-
-	// for sanity test: if kubeconfig is set as "no-need-kubeconfig", kubeClient will be nil
-	if kubeconfig == "no-need-kubeconfig" {
-		klog.V(2).Infof("kubeconfig is set as no-need-kubeconfig, kubeClient will be nil")
-	} else {
-		kubeCfg, err := getKubeConfig(kubeconfig, enableWindowsHostProcess)
-		if err == nil && kubeCfg != nil {
-			klog.V(2).Infof("set QPS(%f) and QPS Burst(%d) for driver kubeClient", float32(kubeAPIQPS), kubeAPIBurst)
-			kubeCfg.QPS = float32(kubeAPIQPS)
-			kubeCfg.Burst = kubeAPIBurst
-			kubeClient, err = clientset.NewForConfig(kubeCfg)
-			if err != nil {
-				klog.Warningf("NewForConfig failed with error: %v", err)
-			}
-		} else {
-			klog.Warningf("get kubeconfig(%s) failed with error: %v", kubeconfig, err)
-			if !os.IsNotExist(err) && !errors.Is(err, rest.ErrNotInCluster) {
-				return az, fmt.Errorf("failed to get KubeClient: %v", err)
-			}
-		}
-	}
 
 	if kubeClient != nil {
 		klog.V(2).Infof("reading cloud config from secret %s/%s", secretNamespace, secretName)

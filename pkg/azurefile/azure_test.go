@@ -35,6 +35,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	fake "k8s.io/client-go/kubernetes/fake"
 	azureprovider "sigs.k8s.io/cloud-provider-azure/pkg/provider"
 	azureconfig "sigs.k8s.io/cloud-provider-azure/pkg/provider/config"
@@ -116,169 +117,114 @@ func TestGetRuntimeClassForPod(t *testing.T) {
 // To run this unit test successfully, need to ensure /etc/kubernetes/azure.json nonexistent.
 func TestGetCloudProvider(t *testing.T) {
 	var (
-		fakeCredFile       = testutil.GetWorkDirPath("fake-cred-file.json", t)
-		fakeKubeConfig     = testutil.GetWorkDirPath("fake-kube-config", t)
-		emptyKubeConfig    = testutil.GetWorkDirPath("empty-kube-config", t)
-		notExistKubeConfig = testutil.GetWorkDirPath("non-exist.json", t)
+		fakeCredFile = testutil.GetWorkDirPath("fake-cred-file.json", t)
 	)
-
-	fakeContent := `apiVersion: v1
-clusters:
-- cluster:
-    server: https://localhost:8080
-  name: foo-cluster
-contexts:
-- context:
-    cluster: foo-cluster
-    user: foo-user
-    namespace: bar
-  name: foo-context
-current-context: foo-context
-kind: Config
-users:
-- name: foo-user
-  user:
-    exec:
-      apiVersion: client.authentication.k8s.io/v1beta1
-      args:
-      - arg-1
-      - arg-2
-      command: foo-command
-`
-
-	if err := createTestFile(emptyKubeConfig); err != nil {
-		t.Error(err)
-	}
-	defer func() {
-		if err := os.Remove(emptyKubeConfig); err != nil {
-			t.Error(err)
-		}
-	}()
-
 	tests := []struct {
 		desc                                  string
 		createFakeCredFile                    bool
-		createFakeKubeConfig                  bool
 		setFederatedWorkloadIdentityEnv       bool
-		kubeconfig                            string
+		kubeclient                            kubernetes.Interface
 		userAgent                             string
 		allowEmptyCloudConfig                 bool
 		aadFederatedTokenFile                 string
 		useFederatedWorkloadIdentityExtension bool
 		aadClientID                           string
 		tenantID                              string
-		expectedErr                           testutil.TestError
+		expectedErr                           *testutil.TestError
 	}{
 		{
 			desc:                  "out of cluster, no kubeconfig, no credential file",
-			kubeconfig:            "",
+			kubeclient:            nil,
 			allowEmptyCloudConfig: true,
-			expectedErr:           testutil.TestError{},
+			expectedErr:           nil,
 		},
 		{
 			desc:                  "[failure][disallowEmptyCloudConfig] out of cluster, no kubeconfig, no credential file",
-			kubeconfig:            "",
+			kubeclient:            nil,
 			allowEmptyCloudConfig: false,
-			expectedErr: testutil.TestError{
+			expectedErr: &testutil.TestError{
 				DefaultError: fmt.Errorf("no cloud config provided, error"),
 			},
 		},
 		{
 			desc:                  "[failure] out of cluster & in cluster, specify a non-exist kubeconfig, no credential file",
-			kubeconfig:            notExistKubeConfig,
+			kubeclient:            nil,
 			allowEmptyCloudConfig: true,
-			expectedErr:           testutil.TestError{},
-		},
-		{
-			desc:                  "[failure] out of cluster & in cluster, specify a empty kubeconfig, no credential file",
-			kubeconfig:            emptyKubeConfig,
-			allowEmptyCloudConfig: true,
-			expectedErr: testutil.TestError{
-				DefaultError: fmt.Errorf("failed to get KubeClient: invalid configuration: no configuration has been provided, try setting KUBERNETES_MASTER environment variable"),
-			},
+			expectedErr:           nil,
 		},
 		{
 			desc:                  "[failure] out of cluster & in cluster, specify a fake kubeconfig, no credential file",
-			createFakeKubeConfig:  true,
-			kubeconfig:            fakeKubeConfig,
+			kubeclient:            fake.NewSimpleClientset(),
 			allowEmptyCloudConfig: true,
-			expectedErr:           testutil.TestError{},
+			expectedErr:           nil,
 		},
 		{
 			desc:                  "[success] out of cluster & in cluster, no kubeconfig, a fake credential file",
 			createFakeCredFile:    true,
-			kubeconfig:            "",
+			kubeclient:            nil,
 			userAgent:             "useragent",
 			allowEmptyCloudConfig: true,
-			expectedErr:           testutil.TestError{},
+			expectedErr:           nil,
 		},
 		{
 			desc:                                  "[success] get azure client with workload identity",
-			createFakeKubeConfig:                  true,
 			createFakeCredFile:                    true,
 			setFederatedWorkloadIdentityEnv:       true,
-			kubeconfig:                            fakeKubeConfig,
+			kubeclient:                            fake.NewSimpleClientset(),
 			userAgent:                             "useragent",
 			useFederatedWorkloadIdentityExtension: true,
 			aadFederatedTokenFile:                 "fake-token-file",
 			aadClientID:                           "fake-client-id",
 			tenantID:                              "fake-tenant-id",
-			expectedErr:                           testutil.TestError{},
+			expectedErr:                           nil,
 		},
 	}
 
 	for _, test := range tests {
-		if test.createFakeKubeConfig {
-			if err := createTestFile(fakeKubeConfig); err != nil {
-				t.Error(err)
-			}
-			defer func() {
-				if err := os.Remove(fakeKubeConfig); err != nil && !os.IsNotExist(err) {
+		t.Run(test.desc, func(t *testing.T) {
+			if test.createFakeCredFile {
+				if err := createTestFile(fakeCredFile); err != nil {
 					t.Error(err)
 				}
-			}()
+				defer func() {
+					if err := os.Remove(fakeCredFile); err != nil && !os.IsNotExist(err) {
+						t.Error(err)
+					}
+				}()
 
-			if err := os.WriteFile(fakeKubeConfig, []byte(fakeContent), 0666); err != nil {
-				t.Error(err)
-			}
-		}
-		if test.createFakeCredFile {
-			if err := createTestFile(fakeCredFile); err != nil {
-				t.Error(err)
-			}
-			defer func() {
-				if err := os.Remove(fakeCredFile); err != nil && !os.IsNotExist(err) {
-					t.Error(err)
+				originalCredFile, ok := os.LookupEnv(DefaultAzureCredentialFileEnv)
+				if ok {
+					defer os.Setenv(DefaultAzureCredentialFileEnv, originalCredFile)
+				} else {
+					defer os.Unsetenv(DefaultAzureCredentialFileEnv)
 				}
-			}()
+				os.Setenv(DefaultAzureCredentialFileEnv, fakeCredFile)
+			}
+			if test.setFederatedWorkloadIdentityEnv {
+				t.Setenv("AZURE_TENANT_ID", test.tenantID)
+				t.Setenv("AZURE_CLIENT_ID", test.aadClientID)
+				t.Setenv("AZURE_FEDERATED_TOKEN_FILE", test.aadFederatedTokenFile)
+			}
 
-			originalCredFile, ok := os.LookupEnv(DefaultAzureCredentialFileEnv)
-			if ok {
-				defer os.Setenv(DefaultAzureCredentialFileEnv, originalCredFile)
+			cloud, err := getCloudProvider(context.Background(), test.kubeclient, "", "", "", test.userAgent, test.allowEmptyCloudConfig)
+			if test.expectedErr != nil {
+				if err == nil {
+					t.Errorf("desc: %s,\n input: %q, getCloudProvider err: %v, expectedErr: %v", test.desc, test.kubeclient, err, test.expectedErr)
+				}
+				if !testutil.AssertError(err, test.expectedErr) && !strings.Contains(err.Error(), test.expectedErr.DefaultError.Error()) {
+					t.Errorf("desc: %s,\n input: %q, getCloudProvider err: %v, expectedErr: %v", test.desc, test.kubeclient, err, test.expectedErr)
+				}
+			}
+			if cloud == nil {
+				t.Errorf("return value of getCloudProvider should not be nil even there is error")
 			} else {
-				defer os.Unsetenv(DefaultAzureCredentialFileEnv)
+				assert.Equal(t, test.userAgent, cloud.UserAgent)
+				assert.Equal(t, cloud.AADFederatedTokenFile, test.aadFederatedTokenFile)
+				assert.Equal(t, cloud.UseFederatedWorkloadIdentityExtension, test.useFederatedWorkloadIdentityExtension)
+				assert.Equal(t, cloud.AADClientID, test.aadClientID)
+				assert.Equal(t, cloud.TenantID, test.tenantID)
 			}
-			os.Setenv(DefaultAzureCredentialFileEnv, fakeCredFile)
-		}
-		if test.setFederatedWorkloadIdentityEnv {
-			t.Setenv("AZURE_TENANT_ID", test.tenantID)
-			t.Setenv("AZURE_CLIENT_ID", test.aadClientID)
-			t.Setenv("AZURE_FEDERATED_TOKEN_FILE", test.aadFederatedTokenFile)
-		}
-
-		cloud, err := getCloudProvider(context.Background(), test.kubeconfig, "", "", "", test.userAgent, test.allowEmptyCloudConfig, false, 5, 10)
-		if !testutil.AssertError(err, &test.expectedErr) && !strings.Contains(err.Error(), test.expectedErr.DefaultError.Error()) {
-			t.Errorf("desc: %s,\n input: %q, getCloudProvider err: %v, expectedErr: %v", test.desc, test.kubeconfig, err, test.expectedErr)
-		}
-		if cloud == nil {
-			t.Errorf("return value of getCloudProvider should not be nil even there is error")
-		} else {
-			assert.Equal(t, test.userAgent, cloud.UserAgent)
-			assert.Equal(t, cloud.AADFederatedTokenFile, test.aadFederatedTokenFile)
-			assert.Equal(t, cloud.UseFederatedWorkloadIdentityExtension, test.useFederatedWorkloadIdentityExtension)
-			assert.Equal(t, cloud.AADClientID, test.aadClientID)
-			assert.Equal(t, cloud.TenantID, test.tenantID)
-		}
+		})
 	}
 }
 

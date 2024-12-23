@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,6 +46,9 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/volume/util"
 	mount "k8s.io/mount-utils"
@@ -231,8 +235,6 @@ type Driver struct {
 	enableVolumeMountGroup                 bool
 	appendMountErrorHelpLink               bool
 	mountPermissions                       uint64
-	kubeAPIQPS                             float64
-	kubeAPIBurst                           int
 	enableWindowsHostProcess               bool
 	removeSMBMountOnWindows                bool
 	appendClosetimeoOption                 bool
@@ -281,7 +283,7 @@ type Driver struct {
 	// azcopy for provide exec mock for ut
 	azcopy *fileutil.Azcopy
 
-	kubeconfig   string
+	kubeClient   kubernetes.Interface
 	endpoint     string
 	resolver     Resolver
 	directVolume DirectVolume
@@ -307,8 +309,6 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.appendMountErrorHelpLink = options.AppendMountErrorHelpLink
 	driver.mountPermissions = options.MountPermissions
 	driver.fsGroupChangePolicy = options.FSGroupChangePolicy
-	driver.kubeAPIQPS = options.KubeAPIQPS
-	driver.kubeAPIBurst = options.KubeAPIBurst
 	driver.enableWindowsHostProcess = options.EnableWindowsHostProcess
 	driver.removeSMBMountOnWindows = options.RemoveSMBMountOnWindows
 	driver.appendClosetimeoOption = options.AppendClosetimeoOption
@@ -322,7 +322,6 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.subnetLockMap = newLockMap()
 	driver.volumeLocks = newVolumeLocks()
 	driver.azcopy = &fileutil.Azcopy{}
-	driver.kubeconfig = options.KubeConfig
 	driver.endpoint = options.Endpoint
 	driver.resolver = new(NetResolver)
 	driver.directVolume = new(directVolume)
@@ -376,6 +375,26 @@ func NewDriver(options *DriverOptions) *Driver {
 		klog.Fatalf("%v", err)
 	}
 
+	// for sanity test: if kubeconfig is set as "no-need-kubeconfig", kubeClient will be nil
+	if options.KubeConfig == "no-need-kubeconfig" {
+		klog.V(2).Infof("kubeconfig is set as no-need-kubeconfig, kubeClient will be nil")
+	} else {
+		kubeCfg, err := getKubeConfig(options.KubeConfig, options.EnableWindowsHostProcess)
+		if err == nil && kubeCfg != nil {
+			klog.V(2).Infof("set QPS(%f) and QPS Burst(%d) for driver kubeClient", float32(options.KubeAPIQPS), options.KubeAPIBurst)
+			kubeCfg.QPS = float32(options.KubeAPIQPS)
+			kubeCfg.Burst = options.KubeAPIBurst
+			driver.kubeClient, err = clientset.NewForConfig(kubeCfg)
+			if err != nil {
+				klog.Warningf("NewForConfig failed with error: %v", err)
+			}
+		} else {
+			klog.Warningf("get kubeconfig(%s) failed with error: %v", options.KubeConfig, err)
+			if !os.IsNotExist(err) && !errors.Is(err, rest.ErrNotInCluster) {
+				klog.Fatalf("failed to get KubeClient: %v", err)
+			}
+		}
+	}
 	return &driver
 }
 
@@ -394,7 +413,7 @@ func (d *Driver) Run(ctx context.Context) error {
 
 	userAgent := GetUserAgent(d.Name, d.customUserAgent, d.userAgentSuffix)
 	klog.V(2).Infof("driver userAgent: %s", userAgent)
-	d.cloud, err = getCloudProvider(context.Background(), d.kubeconfig, d.NodeID, d.cloudConfigSecretName, d.cloudConfigSecretNamespace, userAgent, d.allowEmptyCloudConfig, d.enableWindowsHostProcess, d.kubeAPIQPS, d.kubeAPIBurst)
+	d.cloud, err = getCloudProvider(context.Background(), d.kubeClient, d.NodeID, d.cloudConfigSecretName, d.cloudConfigSecretNamespace, userAgent, d.allowEmptyCloudConfig)
 	if err != nil {
 		klog.Fatalf("failed to get Azure Cloud Provider, error: %v", err)
 	}
@@ -1150,11 +1169,11 @@ func (d *Driver) GetStorageAccesskey(ctx context.Context, accountOptions *azure.
 // GetStorageAccountFromSecret get storage account key from k8s secret
 // return <accountName, accountKey, error>
 func (d *Driver) GetStorageAccountFromSecret(ctx context.Context, secretName, secretNamespace string) (string, string, error) {
-	if d.cloud.KubeClient == nil {
+	if d.kubeClient == nil {
 		return "", "", fmt.Errorf("could not get account key from secret(%s): KubeClient is nil", secretName)
 	}
 
-	secret, err := d.cloud.KubeClient.CoreV1().Secrets(secretNamespace).Get(ctx, secretName, metav1.GetOptions{})
+	secret, err := d.kubeClient.CoreV1().Secrets(secretNamespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil {
 		return "", "", fmt.Errorf("could not get secret(%v): %v", secretName, err)
 	}
@@ -1205,7 +1224,7 @@ func (d *Driver) useDataPlaneAPI(ctx context.Context, volumeID, accountName stri
 }
 
 func (d *Driver) SetAzureCredentials(ctx context.Context, accountName, accountKey, secretName, secretNamespace string) (string, error) {
-	if d.cloud.KubeClient == nil {
+	if d.kubeClient == nil {
 		klog.Warningf("could not create secret: kubeClient is nil")
 		return "", nil
 	}
@@ -1226,7 +1245,7 @@ func (d *Driver) SetAzureCredentials(ctx context.Context, accountName, accountKe
 		},
 		Type: "Opaque",
 	}
-	_, err := d.cloud.KubeClient.CoreV1().Secrets(secretNamespace).Create(ctx, secret, metav1.CreateOptions{})
+	_, err := d.kubeClient.CoreV1().Secrets(secretNamespace).Create(ctx, secret, metav1.CreateOptions{})
 	if apierrors.IsAlreadyExists(err) {
 		err = nil
 	}

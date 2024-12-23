@@ -888,7 +888,7 @@ func TestGetAccountInfo(t *testing.T) {
 	for _, test := range tests {
 		mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
 		d.cloud.StorageAccountClient = mockStorageAccountsClient
-		d.cloud.KubeClient = clientSet
+		d.kubeClient = clientSet
 		d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
 		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), test.rgName, gomock.Any()).Return(key, nil).AnyTimes()
 		rgName, accountName, _, fileShareName, diskName, _, err := d.GetAccountInfo(context.Background(), test.volumeID, test.secrets, test.reqContext)
