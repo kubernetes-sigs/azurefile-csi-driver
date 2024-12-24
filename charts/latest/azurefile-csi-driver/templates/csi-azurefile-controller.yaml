@@ -94,6 +94,7 @@ spec:
             - "--kube-api-qps=50"
             - "--kube-api-burst=100"
             - "--feature-gates=HonorPVReclaimPolicy=true"
+            - "--retry-interval-max=30m"
           env:
             - name: ADDRESS
               value: /csi/csi.sock
@@ -117,6 +118,7 @@ spec:
             - "-leader-election"
             - "--leader-election-namespace={{ .Release.Namespace }}"
             - "-v=2"
+            - "--retry-interval-max=30m"
           env:
             - name: ADDRESS
               value: /csi/csi.sock
@@ -142,6 +144,7 @@ spec:
             - '-handle-volume-inuse-error=false'
             - '-timeout=120s'
             - '-feature-gates=RecoverVolumeExpansionFailure=true'
+            - "--retry-interval-max=30m"
           env:
             - name: ADDRESS
               value: /csi/csi.sock
