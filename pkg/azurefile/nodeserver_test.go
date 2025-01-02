@@ -29,7 +29,6 @@ import (
 	"syscall"
 	"testing"
 
-	azure2 "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	volume "github.com/kata-containers/kata-containers/src/runtime/pkg/direct-volume"
 	"github.com/stretchr/testify/assert"
@@ -41,7 +40,10 @@ import (
 	"k8s.io/utils/exec"
 	testingexec "k8s.io/utils/exec/testing"
 	"sigs.k8s.io/azurefile-csi-driver/test/utils/testutil"
-	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/accountclient/mock_accountclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/mock_azclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/provider/storage"
 )
 
 const (
@@ -121,7 +123,7 @@ func mockIsConfidentialRuntimeClass(_ context.Context, _ clientset.Interface, _ 
 
 func TestNodePublishVolume(t *testing.T) {
 	d := NewFakeDriver()
-	d.cloud = &azure.Cloud{}
+	d.cloud = &storage.AccountRepo{}
 	volumeCap := csi.VolumeCapability_AccessMode{Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER}
 	var (
 		errorMountSource     = testutil.GetWorkDirPath("error_mount_source", t)
@@ -402,7 +404,6 @@ func TestNodeStageVolume(t *testing.T) {
 			},
 		},
 	}
-	d := NewFakeDriver()
 
 	var (
 		errorMountSensSource   = testutil.GetWorkDirPath("error_mount_sens_source", t)
@@ -453,6 +454,7 @@ func TestNodeStageVolume(t *testing.T) {
 		"accountname": "k8s",
 		"accountkey":  "testkey",
 	}
+	d := NewFakeDriver()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -496,18 +498,6 @@ func TestNodeStageVolume(t *testing.T) {
 			req:  &csi.NodeStageVolumeRequest{VolumeId: "vol_1", StagingTargetPath: sourceTest},
 			expectedErr: testutil.TestError{
 				DefaultError: status.Error(codes.InvalidArgument, "Volume capability not provided"),
-			},
-		},
-		{
-			desc: "[Error] GetAccountInfo failed",
-			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1", StagingTargetPath: sourceTest,
-				VolumeCapability: &stdVolCap,
-				VolumeContext: map[string]string{
-					subscriptionIDField: "0",
-					secretNameField:     "secret",
-				}},
-			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.InvalidArgument, "GetAccountInfo(vol_1) failed with error: could not get account key from secret(secret): KubeClient is nil"),
 			},
 		},
 		{
@@ -782,6 +772,7 @@ func TestNodeStageVolume(t *testing.T) {
 
 	// Setup
 	for _, test := range tests {
+
 		if test.setup != nil {
 			test.setup()
 		}
@@ -809,8 +800,13 @@ func TestNodeStageVolume(t *testing.T) {
 		}
 
 		d.mounter = mounter
-		d.cloud = &azure.Cloud{
-			Environment: azure2.Environment{StorageEndpointSuffix: "test_suffix"},
+		clientFactory := mock_azclient.NewMockClientFactory(ctrl)
+		mockAccountClient := mock_accountclient.NewMockInterface(ctrl)
+		clientFactory.EXPECT().GetAccountClientForSub(gomock.Any()).Return(mockAccountClient, nil).AnyTimes()
+		d.cloud = &storage.AccountRepo{
+			Environment:          &azclient.Environment{StorageEndpointSuffix: "test_suffix"},
+			NetworkClientFactory: clientFactory,
+			ComputeClientFactory: clientFactory,
 		}
 
 		_, err = d.NodeStageVolume(context.Background(), test.req)
@@ -846,6 +842,12 @@ func TestNodeUnstageVolume(t *testing.T) {
 	d := NewFakeDriver()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	clientFactory := mock_azclient.NewMockClientFactory(ctrl)
+	d.cloud = &storage.AccountRepo{
+		Environment:          &azclient.Environment{StorageEndpointSuffix: "test_suffix"},
+		ComputeClientFactory: clientFactory,
+		NetworkClientFactory: clientFactory,
+	}
 	mockDirectVolume := NewMockDirectVolume(ctrl)
 	d.directVolume = mockDirectVolume
 
@@ -919,6 +921,7 @@ func TestNodeUnstageVolume(t *testing.T) {
 	d.mounter = mounter
 
 	for _, test := range tests {
+
 		if test.setup != nil {
 			test.setup()
 		}
@@ -973,7 +976,9 @@ func TestNodeGetVolumeStats(t *testing.T) {
 	// Setup
 	_ = makeDir(fakePath, 0755)
 	d := NewFakeDriver()
-
+	d.cloud = &storage.AccountRepo{
+		Environment: &azclient.Environment{StorageEndpointSuffix: "test_suffix"},
+	}
 	for _, test := range tests {
 		if runtime.GOOS == "darwin" {
 			continue

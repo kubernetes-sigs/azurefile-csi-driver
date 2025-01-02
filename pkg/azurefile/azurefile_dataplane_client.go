@@ -27,7 +27,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/utils"
-	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
 )
 
 var (
@@ -47,7 +46,7 @@ type azureFileDataplaneClient struct {
 	*service.Client
 }
 
-func newAzureFileClient(accountName, accountKey, storageEndpointSuffix string, backoff *retry.Backoff) (azureFileClient, error) {
+func newAzureFileClient(accountName, accountKey, storageEndpointSuffix string) (azureFileClient, error) {
 	if storageEndpointSuffix == "" {
 		storageEndpointSuffix = defaultStorageEndPointSuffix
 	}
@@ -57,11 +56,8 @@ func newAzureFileClient(accountName, accountKey, storageEndpointSuffix string, b
 	}
 	storageEndpoint := fmt.Sprintf("https://%s.file."+storageEndpointSuffix, accountName)
 	clientOps := utils.GetDefaultAzCoreClientOption()
-	if backoff != nil {
-		clientOps.Retry.MaxRetries = int32(backoff.Steps)
-		clientOps.Retry.StatusCodes = defaultValidStatusCodes
-		clientOps.Retry.RetryDelay = backoff.Duration
-	}
+	clientOps.Retry.StatusCodes = defaultValidStatusCodes
+
 	fileClient, err := service.NewClientWithSharedKeyCredential(storageEndpoint, keyCred, &service.ClientOptions{
 		ClientOptions: clientOps,
 	})

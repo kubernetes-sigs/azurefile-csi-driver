@@ -24,6 +24,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	compute "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	network "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	resources "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	storage "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
@@ -57,6 +58,10 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 		TenantID:  tenantID,
 		UserAgent: azurefile.GetUserAgent(azurefile.DefaultDriverName, "", "e2e-test"),
 	}
+	clientOps, _, err := azclient.GetAzureCloudConfigAndEnvConfig(armConfig)
+	if err != nil {
+		return nil, err
+	}
 	useFederatedWorkloadIdentityExtension := false
 	if aadFederatedTokenFile != "" {
 		useFederatedWorkloadIdentityExtension = true
@@ -73,7 +78,7 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 	cred := credProvider.GetAzIdentity()
 	factory, err := azclient.NewClientFactory(&azclient.ClientFactoryConfig{
 		SubscriptionID: subscriptionID,
-	}, armConfig, cred)
+	}, armConfig, clientOps, cred)
 	if err != nil {
 		return nil, err
 	}
@@ -236,11 +241,11 @@ func (az *Client) EnsureNIC(ctx context.Context, groupName, location, nicName, v
 		network.Interface{
 			Name:     ptr.To(nicName),
 			Location: ptr.To(location),
-			Properties: &network.InterfacePropertiesFormat{
+			Properties: &armnetwork.InterfacePropertiesFormat{
 				IPConfigurations: []*network.InterfaceIPConfiguration{
 					{
 						Name: ptr.To("ipConfig1"),
-						Properties: &network.InterfaceIPConfigurationPropertiesFormat{
+						Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
 							Subnet:                    subnet,
 							PrivateIPAllocationMethod: to.Ptr(network.IPAllocationMethodDynamic),
 						},
@@ -263,14 +268,14 @@ func (az *Client) EnsureVirtualNetworkAndSubnet(ctx context.Context, groupName, 
 		vnetName,
 		network.VirtualNetwork{
 			Location: ptr.To(location),
-			Properties: &network.VirtualNetworkPropertiesFormat{
-				AddressSpace: &network.AddressSpace{
+			Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+				AddressSpace: &armnetwork.AddressSpace{
 					AddressPrefixes: []*string{to.Ptr("10.0.0.0/8")},
 				},
 				Subnets: []*network.Subnet{
 					{
 						Name: ptr.To(subnetName),
-						Properties: &network.SubnetPropertiesFormat{
+						Properties: &armnetwork.SubnetPropertiesFormat{
 							AddressPrefix: ptr.To("10.0.0.0/16"),
 						},
 					},

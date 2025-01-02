@@ -34,6 +34,8 @@ const (
 	FailedToCreatePodContainer     = "FailedCreatePodContainer"
 	FailedToMakePodDataDirectories = "Failed"
 	NetworkNotReady                = "NetworkNotReady"
+	ResizeDeferred                 = "ResizeDeferred"
+	ResizeInfeasible               = "ResizeInfeasible"
 )
 
 // Image event reason list
@@ -75,6 +77,8 @@ const (
 	FailedStatusPodSandBox               = "FailedPodSandBoxStatus"
 	FailedMountOnFilesystemMismatch      = "FailedMountOnFilesystemMismatch"
 	FailedPrepareDynamicResources        = "FailedPrepareDynamicResources"
+	PossibleMemoryBackedVolumesOnDisk    = "PossibleMemoryBackedVolumesOnDisk"
+	CgroupV1                             = "CgroupV1"
 )
 
 // Image manager event reason list
