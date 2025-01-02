@@ -31,20 +31,18 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-09-01/storage"
-	azure2 "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/accountclient/mock_accountclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/fileshareclient/mock_fileshareclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/mock_azclient"
-	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/fileclient/mockfileclient"
-	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/storageaccountclient/mockstorageaccountclient"
-	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
-	auth "sigs.k8s.io/cloud-provider-azure/pkg/provider/config"
+	azureconfig "sigs.k8s.io/cloud-provider-azure/pkg/provider/config"
+	"sigs.k8s.io/cloud-provider-azure/pkg/provider/storage"
 )
 
 const (
@@ -57,6 +55,7 @@ var (
 )
 
 func NewFakeDriver() *Driver {
+	var err error
 	driverOptions := DriverOptions{
 		NodeID:                      fakeNodeID,
 		DriverName:                  DefaultDriverName,
@@ -68,12 +67,13 @@ func NewFakeDriver() *Driver {
 	driver := NewDriver(&driverOptions)
 	driver.Name = fakeDriverName
 	driver.Version = vendorVersion
-	driver.cloud = &azure.Cloud{
-		Config: auth.Config{
-			AzureClientConfig: auth.AzureClientConfig{
-				SubscriptionID: "subscriptionID",
-			},
+	driver.cloud, err = storage.NewRepository(azureconfig.Config{
+		AzureClientConfig: azureconfig.AzureClientConfig{
+			SubscriptionID: "subscriptionID",
 		},
+	}, nil, nil, nil)
+	if err != nil {
+		panic(err)
 	}
 	driver.AddControllerServiceCapabilities(
 		[]csi.ControllerServiceCapability_RPC_Type{
@@ -84,16 +84,18 @@ func NewFakeDriver() *Driver {
 }
 
 func NewFakeDriverCustomOptions(opts DriverOptions) *Driver {
+	var err error
 	driverOptions := opts
 	driver := NewDriver(&driverOptions)
 	driver.Name = fakeDriverName
 	driver.Version = vendorVersion
-	driver.cloud = &azure.Cloud{
-		Config: auth.Config{
-			AzureClientConfig: auth.AzureClientConfig{
-				SubscriptionID: "subscriptionID",
-			},
+	driver.cloud, err = storage.NewRepository(azureconfig.Config{
+		AzureClientConfig: azureconfig.AzureClientConfig{
+			SubscriptionID: "subscriptionID",
 		},
+	}, nil, nil, nil)
+	if err != nil {
+		panic(err)
 	}
 	driver.AddControllerServiceCapabilities(
 		[]csi.ControllerServiceCapability_RPC_Type{
@@ -781,7 +783,7 @@ func TestGetFileURL(t *testing.T) {
 
 func TestGetAccountInfo(t *testing.T) {
 	d := NewFakeDriver()
-	d.cloud = &azure.Cloud{}
+	d.cloud = &storage.AccountRepo{}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -792,10 +794,8 @@ func TestGetAccountInfo(t *testing.T) {
 	}
 	emptySecret := map[string]string{}
 	value := base64.StdEncoding.EncodeToString([]byte("acc_key"))
-	key := storage.AccountListKeysResult{
-		Keys: &[]storage.AccountKey{
-			{Value: &value},
-		},
+	key := []*armstorage.AccountKey{
+		{Value: &value},
 	}
 
 	clientSet := fake.NewSimpleClientset()
@@ -886,11 +886,12 @@ func TestGetAccountInfo(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		mockStorageAccountsClient := mockstorageaccountclient.NewMockInterface(ctrl)
-		d.cloud.StorageAccountClient = mockStorageAccountsClient
-		d.cloud.KubeClient = clientSet
-		d.cloud.Environment = azure2.Environment{StorageEndpointSuffix: "abc"}
-		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), test.rgName, gomock.Any()).Return(key, nil).AnyTimes()
+		mockStorageAccountsClient := mock_accountclient.NewMockInterface(ctrl)
+		d.cloud.ComputeClientFactory = mock_azclient.NewMockClientFactory(ctrl)
+		d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetAccountClient().Return(mockStorageAccountsClient).AnyTimes()
+		d.kubeClient = clientSet
+		d.cloud.Environment = &azclient.Environment{StorageEndpointSuffix: "abc"}
+		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), test.rgName).Return(key, nil).AnyTimes()
 		rgName, accountName, _, fileShareName, diskName, _, err := d.GetAccountInfo(context.Background(), test.volumeID, test.secrets, test.reqContext)
 		if test.expectErr && err == nil {
 			t.Errorf("Unexpected non-error")
@@ -913,7 +914,7 @@ func TestGetAccountInfo(t *testing.T) {
 func TestCreateDisk(t *testing.T) {
 	skipIfTestingOnWindows(t)
 	d := NewFakeDriver()
-	d.cloud = &azure.Cloud{}
+	d.cloud = &storage.AccountRepo{}
 	tests := []struct {
 		accountName           string
 		accountKey            string
@@ -948,7 +949,7 @@ func TestCreateDisk(t *testing.T) {
 
 func TestGetFileShareQuota(t *testing.T) {
 	d := NewFakeDriver()
-	d.cloud = &azure.Cloud{}
+	d.cloud = &storage.AccountRepo{}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	shareQuota := int32(10)
@@ -1018,8 +1019,8 @@ func TestGetFileShareQuota(t *testing.T) {
 		clientFactory := mock_azclient.NewMockClientFactory(ctrl)
 		clientFactory.EXPECT().GetFileShareClientForSub(gomock.Any()).Return(mockFileClient, nil).AnyTimes()
 		d.cloud.ComputeClientFactory = clientFactory
-		mockFileClient.EXPECT().Get(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
-		quota, err := d.getFileShareQuota(context.TODO(), &azure.AccountOptions{
+		mockFileClient.EXPECT().Get(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
+		quota, err := d.getFileShareQuota(context.TODO(), &storage.AccountOptions{
 			ResourceGroup:  resourceGroupName,
 			Name:           accountName,
 			SubscriptionID: "subsID",
@@ -1108,7 +1109,7 @@ func TestRun(t *testing.T) {
 					time.Sleep(1 * time.Second)
 					cancelFn()
 				}()
-				d.cloud = &azure.Cloud{}
+				d.cloud = &storage.AccountRepo{}
 				d.NodeID = ""
 				if err := d.Run(ctx); err != nil {
 					t.Error(err.Error())
@@ -1291,7 +1292,7 @@ func TestGetSubnetResourceID(t *testing.T) {
 			name: "NetworkResourceSubscriptionID is Empty",
 			testFunc: func(t *testing.T) {
 				d := NewFakeDriver()
-				d.cloud = &azure.Cloud{}
+				d.cloud = &storage.AccountRepo{}
 				d.cloud.SubscriptionID = "fakeSubID"
 				d.cloud.NetworkResourceSubscriptionID = ""
 				d.cloud.ResourceGroup = "foo"
@@ -1305,7 +1306,7 @@ func TestGetSubnetResourceID(t *testing.T) {
 			name: "NetworkResourceSubscriptionID is not Empty",
 			testFunc: func(t *testing.T) {
 				d := NewFakeDriver()
-				d.cloud = &azure.Cloud{}
+				d.cloud = &storage.AccountRepo{}
 				d.cloud.SubscriptionID = "fakeSubID"
 				d.cloud.NetworkResourceSubscriptionID = "fakeNetSubID"
 				d.cloud.ResourceGroup = "foo"
@@ -1319,7 +1320,7 @@ func TestGetSubnetResourceID(t *testing.T) {
 			name: "VnetResourceGroup is Empty",
 			testFunc: func(t *testing.T) {
 				d := NewFakeDriver()
-				d.cloud = &azure.Cloud{}
+				d.cloud = &storage.AccountRepo{}
 				d.cloud.SubscriptionID = "bar"
 				d.cloud.NetworkResourceSubscriptionID = "bar"
 				d.cloud.ResourceGroup = "fakeResourceGroup"
@@ -1333,7 +1334,7 @@ func TestGetSubnetResourceID(t *testing.T) {
 			name: "VnetResourceGroup is not Empty",
 			testFunc: func(t *testing.T) {
 				d := NewFakeDriver()
-				d.cloud = &azure.Cloud{}
+				d.cloud = &storage.AccountRepo{}
 				d.cloud.SubscriptionID = "bar"
 				d.cloud.NetworkResourceSubscriptionID = "bar"
 				d.cloud.ResourceGroup = "fakeResourceGroup"
@@ -1347,7 +1348,7 @@ func TestGetSubnetResourceID(t *testing.T) {
 			name: "VnetResourceGroup, vnetName, subnetName is specified",
 			testFunc: func(t *testing.T) {
 				d := NewFakeDriver()
-				d.cloud = &azure.Cloud{}
+				d.cloud = &storage.AccountRepo{}
 				d.cloud.SubscriptionID = "bar"
 				d.cloud.NetworkResourceSubscriptionID = "bar"
 				d.cloud.ResourceGroup = "fakeResourceGroup"
@@ -1365,19 +1366,19 @@ func TestGetSubnetResourceID(t *testing.T) {
 
 func TestGetTotalAccountQuota(t *testing.T) {
 	d := NewFakeDriver()
-	d.cloud = &azure.Cloud{}
+	d.cloud = &storage.AccountRepo{}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	fileShareItemsWithQuota := []storage.FileShareItem{
+	fileShareItemsWithQuota := []*armstorage.FileShareItem{
 		{
-			FileShareProperties: &storage.FileShareProperties{
+			Properties: &armstorage.FileShareProperties{
 				ShareQuota: to.Int32Ptr(100),
 			},
 		},
 		{
-			FileShareProperties: &storage.FileShareProperties{
+			Properties: &armstorage.FileShareProperties{
 				ShareQuota: to.Int32Ptr(200),
 			},
 		},
@@ -1388,7 +1389,7 @@ func TestGetTotalAccountQuota(t *testing.T) {
 		subsID           string
 		resourceGroup    string
 		accountName      string
-		fileShareItems   []storage.FileShareItem
+		fileShareItems   []*armstorage.FileShareItem
 		listFileShareErr error
 		expectedQuota    int32
 		expectedShareNum int32
@@ -1415,11 +1416,10 @@ func TestGetTotalAccountQuota(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		mockFileClient := mockfileclient.NewMockInterface(ctrl)
-		d.cloud.FileClient = mockFileClient
-
-		mockFileClient.EXPECT().WithSubscriptionID(gomock.Any()).Return(mockFileClient).AnyTimes()
-		mockFileClient.EXPECT().ListFileShare(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.fileShareItems, test.listFileShareErr).AnyTimes()
+		mockFileClient := mock_fileshareclient.NewMockInterface(ctrl)
+		d.cloud.ComputeClientFactory = mock_azclient.NewMockClientFactory(ctrl)
+		d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetFileShareClientForSub(gomock.Any()).Return(mockFileClient, nil).AnyTimes()
+		mockFileClient.EXPECT().List(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.fileShareItems, test.listFileShareErr).AnyTimes()
 
 		quota, fileShareNum, err := d.GetTotalAccountQuota(context.TODO(), test.subsID, test.resourceGroup, test.accountName)
 		assert.Equal(t, test.expectedErr, err, test.name)
@@ -1436,7 +1436,7 @@ func TestGetStorageEndPointSuffix(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		cloud          *azure.Cloud
+		cloud          *storage.AccountRepo
 		expectedSuffix string
 	}{
 		{
@@ -1446,13 +1446,13 @@ func TestGetStorageEndPointSuffix(t *testing.T) {
 		},
 		{
 			name:           "empty cloud",
-			cloud:          &azure.Cloud{},
+			cloud:          &storage.AccountRepo{},
 			expectedSuffix: "core.windows.net",
 		},
 		{
 			name: "cloud with storage endpoint suffix",
-			cloud: &azure.Cloud{
-				Environment: azure2.Environment{
+			cloud: &storage.AccountRepo{
+				Environment: &azclient.Environment{
 					StorageEndpointSuffix: "suffix",
 				},
 			},
@@ -1460,15 +1460,19 @@ func TestGetStorageEndPointSuffix(t *testing.T) {
 		},
 		{
 			name: "public cloud",
-			cloud: &azure.Cloud{
-				Environment: azure2.PublicCloud,
+			cloud: &storage.AccountRepo{
+				Environment: &azclient.Environment{
+					StorageEndpointSuffix: "core.windows.net",
+				},
 			},
 			expectedSuffix: "core.windows.net",
 		},
 		{
 			name: "china cloud",
-			cloud: &azure.Cloud{
-				Environment: azure2.ChinaCloud,
+			cloud: &storage.AccountRepo{
+				Environment: &azclient.Environment{
+					StorageEndpointSuffix: "core.chinacloudapi.cn",
+				},
 			},
 			expectedSuffix: "core.chinacloudapi.cn",
 		},

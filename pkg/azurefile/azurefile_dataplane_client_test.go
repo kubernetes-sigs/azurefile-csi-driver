@@ -37,7 +37,7 @@ func TestCreateFileShare(t *testing.T) {
 					Name:       "devstoreaccount1",
 					RequestGiB: 10,
 				}
-				f, err := newAzureFileClient("test", "dW5pdHRlc3Q=", "ut", nil)
+				f, err := newAzureFileClient("test", "dW5pdHRlc3Q=", "ut")
 				if err != nil {
 					t.Errorf("error creating azure client: %v", err)
 				}
@@ -55,7 +55,7 @@ func TestCreateFileShare(t *testing.T) {
 }
 
 func TestNewAzureFileClient(t *testing.T) {
-	_, actualErr := newAzureFileClient("ut", "ut", "ut", nil)
+	_, actualErr := newAzureFileClient("ut", "ut", "ut")
 	if actualErr != nil {
 		expectedErr := fmt.Errorf("error creating azure client: decode account key: illegal base64 data at input byte 0")
 		if !reflect.DeepEqual(actualErr, expectedErr) {

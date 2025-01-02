@@ -29,7 +29,6 @@ import (
 	"syscall"
 	"testing"
 
-	azure2 "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/mock/gomock"
 	volume "github.com/kata-containers/kata-containers/src/runtime/pkg/direct-volume"
@@ -41,7 +40,8 @@ import (
 	"k8s.io/utils/exec"
 	testingexec "k8s.io/utils/exec/testing"
 	"sigs.k8s.io/azurefile-csi-driver/test/utils/testutil"
-	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/provider/storage"
 )
 
 const (
@@ -121,7 +121,7 @@ func mockIsConfidentialRuntimeClass(_ context.Context, _ clientset.Interface, _ 
 
 func TestNodePublishVolume(t *testing.T) {
 	d := NewFakeDriver()
-	d.cloud = &azure.Cloud{}
+	d.cloud = &storage.AccountRepo{}
 	volumeCap := csi.VolumeCapability_AccessMode{Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER}
 	var (
 		errorMountSource     = testutil.GetWorkDirPath("error_mount_source", t)
@@ -809,8 +809,8 @@ func TestNodeStageVolume(t *testing.T) {
 		}
 
 		d.mounter = mounter
-		d.cloud = &azure.Cloud{
-			Environment: azure2.Environment{StorageEndpointSuffix: "test_suffix"},
+		d.cloud = &storage.AccountRepo{
+			Environment: &azclient.Environment{StorageEndpointSuffix: "test_suffix"},
 		}
 
 		_, err = d.NodeStageVolume(context.Background(), test.req)
