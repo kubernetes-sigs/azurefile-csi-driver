@@ -3,9 +3,6 @@
 ## Feature Status: GA
 Refer to [Windows-CSI-Support](https://github.com/kubernetes/enhancements/blob/master/keps/sig-windows/20190714-windows-csi-support.md) for more details.
 
-## Prerequisite
-- [Install CSI-Proxy on Windows Node](https://github.com/Azure/aks-engine/blob/master/docs/topics/csi-proxy-windows.md)
-
 ## Deploy a Windows pod with PVC mount
 ### Create storage class
 
