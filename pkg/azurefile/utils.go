@@ -135,11 +135,16 @@ func isRetriableError(err error) bool {
 	return false
 }
 
-func sleepIfThrottled(err error, defaultSleepSec int) {
-	if err == nil {
-		return
+func isThrottlingError(err error) bool {
+	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+		return strings.Contains(errMsg, strings.ToLower(tooManyRequests)) || strings.Contains(errMsg, clientThrottled)
 	}
-	if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tooManyRequests)) || strings.Contains(strings.ToLower(err.Error()), clientThrottled) {
+	return false
+}
+
+func sleepIfThrottled(err error, defaultSleepSec int) {
+	if isThrottlingError(err) {
 		retryAfter := getRetryAfterSeconds(err)
 		if retryAfter == 0 {
 			retryAfter = defaultSleepSec
