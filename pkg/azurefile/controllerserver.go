@@ -886,6 +886,10 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		}
 	}
 
+	if !useDataPlaneAPI {
+		useDataPlaneAPI = d.useDataPlaneAPI(ctx, sourceVolumeID, accountName)
+	}
+
 	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_create_snapshot", rgName, subsID, d.Name)
 	isOperationSucceeded := false
 	defer func() {
@@ -935,6 +939,10 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 	} else {
 		snapshotShare, err := d.cloud.FileClient.WithSubscriptionID(subsID).CreateFileShare(ctx, rgName, accountName, &fileclient.ShareOptions{Name: fileShareName, Metadata: map[string]*string{snapshotNameKey: &snapshotName}}, snapshotsExpand)
 		if err != nil {
+			if isThrottlingError(err) {
+				klog.Warningf("switch to use data plane API instead for account %s since it's throttled", accountName)
+				d.dataPlaneAPIAccountCache.Set(accountName, "")
+			}
 			return nil, status.Errorf(codes.Internal, "create snapshot from(%s) failed with %v, accountName: %q", sourceVolumeID, err, accountName)
 		}
 
