@@ -968,7 +968,7 @@ func (d *Driver) DeleteFileShare(ctx context.Context, subsID, resourceGroup, acc
 
 		if isRetriableError(err) {
 			klog.Warningf("DeleteFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", shareName, accountName, err)
-			if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tooManyRequests)) {
+			if isThrottlingError(err) {
 				klog.Warningf("switch to use data plane API instead for account %s since it's throttled", accountName)
 				d.dataPlaneAPIAccountCache.Set(accountName, "")
 				return true, err

@@ -676,3 +676,45 @@ func TestReplaceWithMap(t *testing.T) {
 		}
 	}
 }
+
+func TestIsThrottlingError(t *testing.T) {
+	tests := []struct {
+		desc     string
+		err      error
+		expected bool
+	}{
+		{
+			desc:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+		{
+			desc:     "no match",
+			err:      errors.New("no match"),
+			expected: false,
+		},
+		{
+			desc:     "match error message",
+			err:      errors.New("could not list storage accounts for account type Premium_LRS: Retriable: true, RetryAfter: 217s, HTTPStatusCode: 0, RawError: azure cloud provider throttled for operation StorageAccountListByResourceGroup with reason \"client throttled\""),
+			expected: true,
+		},
+		{
+			desc:     "match error message exceeds 1200s",
+			err:      errors.New("could not list storage accounts for account type Premium_LRS: Retriable: true, RetryAfter: 2170s, HTTPStatusCode: 0, RawError: azure cloud provider throttled for operation StorageAccountListByResourceGroup with reason \"client throttled\""),
+			expected: true,
+		},
+		{
+			desc:     "match error message with TooManyRequests throttling",
+			err:      errors.New("could not list storage accounts for account type Premium_LRS: Retriable: true, RetryAfter: 2170s, HTTPStatusCode: 429, RawError: azure cloud provider throttled for operation StorageAccountListByResourceGroup with reason \"TooManyRequests\""),
+			expected: true,
+		},
+	}
+
+	for _, test := range tests {
+		result := isThrottlingError(test.err)
+		if result != test.expected {
+			t.Errorf("desc: (%s), input: err(%v), IsThrottlingError returned with bool(%t), not equal to expected(%t)",
+				test.desc, test.err, result, test.expected)
+		}
+	}
+}
