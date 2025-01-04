@@ -25,19 +25,20 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2022-07-01/network"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
-	"k8s.io/utils/ptr"
-
-	"sigs.k8s.io/azurefile-csi-driver/test/utils/testutil"
-	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/subnetclient/mocksubnetclient"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fake "k8s.io/client-go/kubernetes/fake"
-	azureprovider "sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/azurefile-csi-driver/test/utils/testutil"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/mock_azclient"
+
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/subnetclient/mock_subnetclient"
 	azureconfig "sigs.k8s.io/cloud-provider-azure/pkg/provider/config"
+	"sigs.k8s.io/cloud-provider-azure/pkg/provider/storage"
 )
 
 func skipIfTestingOnWindows(t *testing.T) {
@@ -293,24 +294,10 @@ func createTestFile(path string) error {
 }
 
 func TestUpdateSubnetServiceEndpoints(t *testing.T) {
-	d := NewFakeDriver()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockSubnetClient := mocksubnetclient.NewMockInterface(ctrl)
-
-	config := azureconfig.Config{
-		ResourceGroup: "rg",
-		Location:      "loc",
-		VnetName:      "fake-vnet",
-		SubnetName:    "fake-subnet",
-	}
-
-	d.cloud = &azureprovider.Cloud{
-		SubnetsClient: mockSubnetClient,
-		Config:        config,
-	}
-	ctx := context.TODO()
-
+	var mockSubnetClient *mock_subnetclient.MockInterface
+	var mockClientFactory *mock_azclient.MockClientFactory
+	var ctx context.Context
+	var d *Driver
 	testCases := []struct {
 		name     string
 		testFunc func(t *testing.T)
@@ -318,8 +305,8 @@ func TestUpdateSubnetServiceEndpoints(t *testing.T) {
 		{
 			name: "[fail] subnet name is nil",
 			testFunc: func(t *testing.T) {
-				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(network.Subnet{}, nil).Times(1)
-				mockSubnetClient.EXPECT().CreateOrUpdate(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
+				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armnetwork.Subnet{}, nil).Times(1)
+				mockSubnetClient.EXPECT().CreateOrUpdate(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).Times(1)
 
 				_, err := d.updateSubnetServiceEndpoints(ctx, "", "", "subnetname")
 				expectedErr := fmt.Errorf("subnet name is nil")
@@ -331,9 +318,9 @@ func TestUpdateSubnetServiceEndpoints(t *testing.T) {
 		{
 			name: "[success] ServiceEndpoints is nil",
 			testFunc: func(t *testing.T) {
-				fakeSubnet := network.Subnet{
-					SubnetPropertiesFormat: &network.SubnetPropertiesFormat{},
-					Name:                   ptr.To("subnetName"),
+				fakeSubnet := &armnetwork.Subnet{
+					Properties: &armnetwork.SubnetPropertiesFormat{},
+					Name:       ptr.To("subnetName"),
 				}
 
 				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeSubnet, nil).Times(1)
@@ -346,9 +333,9 @@ func TestUpdateSubnetServiceEndpoints(t *testing.T) {
 		{
 			name: "[success] storageService does not exists",
 			testFunc: func(t *testing.T) {
-				fakeSubnet := network.Subnet{
-					SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
-						ServiceEndpoints: &[]network.ServiceEndpointPropertiesFormat{},
+				fakeSubnet := &armnetwork.Subnet{
+					Properties: &armnetwork.SubnetPropertiesFormat{
+						ServiceEndpoints: []*armnetwork.ServiceEndpointPropertiesFormat{},
 					},
 					Name: ptr.To("subnetName"),
 				}
@@ -364,9 +351,9 @@ func TestUpdateSubnetServiceEndpoints(t *testing.T) {
 		{
 			name: "[success] storageService already exists",
 			testFunc: func(t *testing.T) {
-				fakeSubnet := network.Subnet{
-					SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
-						ServiceEndpoints: &[]network.ServiceEndpointPropertiesFormat{
+				fakeSubnet := &armnetwork.Subnet{
+					Properties: &armnetwork.SubnetPropertiesFormat{
+						ServiceEndpoints: []*armnetwork.ServiceEndpointPropertiesFormat{
 							{
 								Service: &storageService,
 							},
@@ -383,21 +370,32 @@ func TestUpdateSubnetServiceEndpoints(t *testing.T) {
 				}
 			},
 		},
-		{
-			name: "[fail] SubnetsClient is nil",
-			testFunc: func(t *testing.T) {
-				d.cloud.SubnetsClient = nil
-				expectedErr := fmt.Errorf("SubnetsClient is nil")
-				_, err := d.updateSubnetServiceEndpoints(ctx, "", "", "")
-				if !reflect.DeepEqual(err, expectedErr) {
-					t.Errorf("Unexpected error: %v", err)
-				}
-			},
-		},
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.name, tc.testFunc)
+		t.Run(tc.name, func(t *testing.T) {
+			ctx = context.TODO()
+			d := NewFakeDriver()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockSubnetClient = mock_subnetclient.NewMockInterface(ctrl)
+			mockClientFactory = mock_azclient.NewMockClientFactory(ctrl)
+			config := azureconfig.Config{
+				ResourceGroup: "rg",
+				Location:      "loc",
+				VnetName:      "fake-vnet",
+				SubnetName:    "fake-subnet",
+			}
+
+			var err error
+			d.cloud, err = storage.NewRepository(config, &azclient.Environment{
+				StorageEndpointSuffix: "fake-endpoint",
+			}, mockClientFactory, mockClientFactory)
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			tc.testFunc(t)
+		})
 	}
 }
 
