@@ -11,8 +11,8 @@ parameters:
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
 mountOptions:
-  - dir_mode=0777
-  - file_mode=0777
+  - dir_mode=0775
+  - file_mode=0775
   - mfsymlinks
   - cache=strict  # https://linux.die.net/man/8/mount.cifs
   - nosharesock  # reduce probability of reconnect race

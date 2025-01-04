@@ -61,7 +61,7 @@ enableMultichannel | specify whether enable [SMB multi-channel](https://learn.mi
 --- | **Following parameters are only for NFS protocol** | --- | --- |
 allowSharedKeyAccess | Allow or disallow shared key access for storage account created by driver | `true`,`false` | No | `true`
 rootSquashType | specify root squashing behavior on the share. The default is `NoRootSquash` | `AllSquash`, `NoRootSquash`, `RootSquash` | No |
-mountPermissions | mounted folder permissions. The default is `0777`, if set as `0`, driver will not perform `chmod` after mount | `0777` | No |
+mountPermissions | mounted folder permissions. The default is `0775`, if set as `0`, driver will not perform `chmod` after mount | `0775` | No |
 --- | **Following parameters are only for vnet setting, e.g. NFS, private endpoint** | --- | --- |
 vnetResourceGroup | specify vnet resource group where virtual network is | existing resource group name | No | if empty, driver will use the `vnetResourceGroup` value in azure cloud config file
 vnetName | virtual network name | existing virtual network name | No | if empty, driver will use the `vnetName` value in azure cloud config file
@@ -108,7 +108,7 @@ nodeStageSecretRef.name | secret name that stores storage account name and key |
 nodeStageSecretRef.namespace | secret namespace | k8s namespace  |  Yes  |
 --- | **Following parameters are only for NFS protocol** | --- | --- |
 volumeAttributes.fsGroupChangePolicy | indicates how volume's ownership will be changed by the driver, pod `securityContext.fsGroupChangePolicy` is ignored  | `OnRootMismatch`(by default), `Always`, `None` | No | `OnRootMismatch`
-volumeAttributes.mountPermissions | mounted folder permissions. The default is `0777` |  | No |
+volumeAttributes.mountPermissions | mounted folder permissions. The default is `0775` |  | No |
 
  - create a Kubernetes secret for `nodeStageSecretRef.name`
  ```console

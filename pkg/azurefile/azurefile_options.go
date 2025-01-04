@@ -71,7 +71,7 @@ func (o *DriverOptions) AddFlags() *flag.FlagSet {
 	fs.BoolVar(&o.EnableGetVolumeStats, "enable-get-volume-stats", true, "allow GET_VOLUME_STATS on agent node")
 	fs.BoolVar(&o.EnableKataCCMount, "enable-kata-cc-mount", false, "enable Kata Confidential Containers mount")
 	fs.BoolVar(&o.AppendMountErrorHelpLink, "append-mount-error-help-link", true, "Whether to include a link for help with mount errors when a mount error occurs.")
-	fs.Uint64Var(&o.MountPermissions, "mount-permissions", 0777, "mounted folder permissions")
+	fs.Uint64Var(&o.MountPermissions, "mount-permissions", 0775, "mounted folder permissions")
 	fs.StringVar(&o.FSGroupChangePolicy, "fsgroup-change-policy", "", "indicates how the volume's ownership will be changed by the driver, OnRootMismatch is the default value")
 	fs.Float64Var(&o.KubeAPIQPS, "kube-api-qps", 25.0, "QPS to use while communicating with the kubernetes apiserver.")
 	fs.IntVar(&o.KubeAPIBurst, "kube-api-burst", 50, "Burst to use while communicating with the kubernetes apiserver.")

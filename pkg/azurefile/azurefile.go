@@ -70,8 +70,8 @@ const (
 	actimeo            = "actimeo"
 	noResvPort         = "noresvport"
 	mfsymlinks         = "mfsymlinks"
-	defaultFileMode    = "0777"
-	defaultDirMode     = "0777"
+	defaultFileMode    = "0775"
+	defaultDirMode     = "0775"
 	defaultActimeo     = "30"
 
 	// See https://docs.microsoft.com/en-us/rest/api/storageservices/naming-and-referencing-shares--directories--files--and-metadata#share-names

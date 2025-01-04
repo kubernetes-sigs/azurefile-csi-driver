@@ -41,5 +41,5 @@ curl -skSL https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-drive
 git clone https://github.com/kubernetes-sigs/azurefile-csi-driver.git
 cd azurefile-csi-driver
 git checkout master
-./deploy/install-driver.sh master local
+./deploy/uninstall-driver.sh master local
 ```

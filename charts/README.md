@@ -145,7 +145,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `linux.kubelet`                                   | configure kubelet directory path on Linux agent node node                  | `/var/lib/kubelet`                                                |
 | `linux.kubeconfig`                                | configure kubeconfig path on Linux agent node                | '' (empty, use InClusterConfig by default)                                            |
 | `linux.distro`                                    | configure ssl certificates for different Linux distribution(available values: `debian`, `fedora`)                  |
-| `linux.mountPermissions`                          | mounted folder permissions                 | `0777`
+| `linux.mountPermissions`                          | mounted folder permissions                 | `0775`
 | `linux.enableRegistrationProbe`                   | enable [kubelet-registration-probe](https://github.com/kubernetes-csi/node-driver-registrar#health-check-with-an-exec-probe) on Linux driver config     | `true`
 | `linux.tolerations`                               | linux node driver tolerations                            |
 | `linux.affinity`                                  | linux node pod affinity                                     | `{}`                                                             |
