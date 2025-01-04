@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 
 	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
@@ -65,6 +66,9 @@ func main() {
 }
 
 func handle() {
+	runtime.GOMAXPROCS(driverOptions.GoMaxProcs)
+	klog.Infof("Sys info: NumCPU: %v MAXPROC: %v", runtime.NumCPU(), runtime.GOMAXPROCS(0))
+
 	driver := azurefile.NewDriver(&driverOptions)
 	if driver == nil {
 		klog.Fatalln("Failed to initialize azurefile CSI Driver")
