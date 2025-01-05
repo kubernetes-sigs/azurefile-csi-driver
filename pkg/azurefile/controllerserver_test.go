@@ -104,6 +104,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 		d.cloud, err = storage.NewRepository(
 			config.Config{},
 			&azclient.Environment{},
+			nil,
 			computeClientFactory,
 			networkClientFactory,
 		)
@@ -1186,7 +1187,7 @@ var _ = ginkgo.Describe("TestDeleteVolume", func() {
 		computeClientFactory.EXPECT().GetFileShareClient().Return(mockFileClient).AnyTimes()
 		networkClientFactory := mock_azclient.NewMockClientFactory(ctrl)
 		networkClientFactory.EXPECT().GetSubnetClient().Return(mock_subnetclient.NewMockInterface(ctrl)).AnyTimes()
-		d.cloud, err = storage.NewRepository(config.Config{}, &azclient.Environment{}, computeClientFactory, networkClientFactory)
+		d.cloud, err = storage.NewRepository(config.Config{}, &azclient.Environment{}, nil, computeClientFactory, networkClientFactory)
 		gomega.Expect(err).To(gomega.BeNil())
 
 		d.kubeClient = fake.NewSimpleClientset()
@@ -1735,7 +1736,7 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 		computeClientFactory.EXPECT().GetFileShareClient().Return(mockFileClient).AnyTimes()
 		networkClientFactory := mock_azclient.NewMockClientFactory(ctrl)
 		networkClientFactory.EXPECT().GetSubnetClient().Return(mock_subnetclient.NewMockInterface(ctrl)).AnyTimes()
-		d.cloud, err = storage.NewRepository(config.Config{}, &azclient.Environment{}, computeClientFactory, networkClientFactory)
+		d.cloud, err = storage.NewRepository(config.Config{}, &azclient.Environment{}, nil, computeClientFactory, networkClientFactory)
 		gomega.Expect(err).To(gomega.BeNil())
 
 		d.kubeClient = fake.NewSimpleClientset()
