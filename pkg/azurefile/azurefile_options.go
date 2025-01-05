@@ -48,6 +48,7 @@ type DriverOptions struct {
 	PrintVolumeStatsCallLogs               bool
 	SasTokenExpirationMinutes              int
 	WaitForAzCopyTimeoutMinutes            int
+	GoMaxProcs                             int
 	KubeConfig                             string
 	Endpoint                               string
 }
@@ -87,6 +88,7 @@ func (o *DriverOptions) AddFlags() *flag.FlagSet {
 	fs.IntVar(&o.WaitForAzCopyTimeoutMinutes, "wait-for-azcopy-timeout-minutes", 19, "timeout in minutes for waiting for azcopy to finish")
 	fs.StringVar(&o.KubeConfig, "kubeconfig", "", "Absolute path to the kubeconfig file. Required only when running out of cluster.")
 	fs.StringVar(&o.Endpoint, "endpoint", "unix://tmp/csi.sock", "CSI endpoint")
+	fs.IntVar(&o.GoMaxProcs, "max-procs", 2, "maximum number of CPUs that can be executing simultaneously in golang runtime")
 
 	return fs
 }
