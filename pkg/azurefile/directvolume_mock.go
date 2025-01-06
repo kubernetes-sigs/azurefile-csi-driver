@@ -19,8 +19,8 @@ package azurefile
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	volume "github.com/kata-containers/kata-containers/src/runtime/pkg/direct-volume"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockDirectVolume is a mock of DirectVolume interface.

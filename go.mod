@@ -16,13 +16,13 @@ require (
 	github.com/Azure/go-autorest/autorest v0.11.29
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/container-storage-interface/spec v1.10.0
-	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.1
 	github.com/kubernetes-csi/csi-lib-utils v0.14.1
 	github.com/kubernetes-csi/csi-proxy/client v1.0.1
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
+	github.com/moby/sys/userns v0.1.0 // indirect
 	github.com/onsi/ginkgo/v2 v2.22.1
 	github.com/onsi/gomega v1.36.2
 	github.com/rubiojr/go-vhd v0.0.0-20200706105327-02e210299021
@@ -47,8 +47,6 @@ require (
 	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.2.1
 	sigs.k8s.io/yaml v1.4.0
 )
-
-require github.com/moby/sys/userns v0.1.0 // indirect
 
 require (
 	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
