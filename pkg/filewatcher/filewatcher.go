@@ -25,7 +25,17 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// exit is a separate function to handle program termination
+var exit = func(code int) {
+	os.Exit(code)
+}
+
 var watchCertificateFileOnce sync.Once
+
+// resetWatchCertificateFileOnce resets the watchCertificateFileOnce variable. This is used for testing purposes.
+func resetWatchCertificateFileOnce() {
+	watchCertificateFileOnce = sync.Once{}
+}
 
 // WatchFileForChanges watches the file, fileToWatch, for changes. If the file contents have changed, the pod this
 // function is running on will be restarted.
@@ -44,9 +54,7 @@ func WatchFileForChanges(fileToWatch string) error {
 		klog.V(2).Infof("Watching file, %s", fileToWatch)
 
 		// Start the file watcher to monitor file changes
-		go func() {
-			err = checkForFileChanges(fileToWatch)
-		}()
+		err = checkForFileChanges(fileToWatch)
 	})
 	return err
 }
@@ -64,7 +72,7 @@ func checkForFileChanges(path string) error {
 			case event, ok := <-watcher.Events:
 				if ok && (event.Has(fsnotify.Write) || event.Has(fsnotify.Chmod) || event.Has(fsnotify.Remove)) {
 					klog.V(2).Infof("file, %s, was modified, exiting...", event.Name)
-					os.Exit(0)
+					exit(0)
 				}
 			case err, ok := <-watcher.Errors:
 				if ok {
