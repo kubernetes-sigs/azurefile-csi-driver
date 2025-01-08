@@ -815,48 +815,6 @@ func TestIsConfidentialRuntimeClass(t *testing.T) {
 	}
 }
 
-func TestGetSnapshotID(t *testing.T) {
-	tests := []struct {
-		desc            string
-		srcVolumeSubsID string
-		srcVolumeID     string
-		itemSnapshot    string
-		subsID          string
-		expected        string
-	}{
-		{
-			desc:            "srcVolumeSubsID contains subsID",
-			srcVolumeSubsID: "subsID",
-			srcVolumeID:     "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID",
-			itemSnapshot:    "snapshot",
-			expected:        "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID#snapshot",
-		},
-		{
-			desc:            "srcVolumeSubsID is empty",
-			srcVolumeSubsID: "",
-			srcVolumeID:     "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace",
-			itemSnapshot:    "snapshot",
-			subsID:          "subsID",
-			expected:        "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID#snapshot",
-		},
-		{
-			desc:            "srcVolumeSubsID is empty but contains # at the end",
-			srcVolumeSubsID: "",
-			srcVolumeID:     "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#",
-			itemSnapshot:    "snapshot",
-			subsID:          "subsID",
-			expected:        "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID#snapshot",
-		},
-	}
-
-	for _, test := range tests {
-		result := getSnapshotID(test.srcVolumeSubsID, test.srcVolumeID, test.itemSnapshot, test.subsID)
-		if result != test.expected {
-			t.Errorf("test[%s]: unexpected output: %v, expected result: %v", test.desc, result, test.expected)
-		}
-	}
-}
-
 func TestIsThrottlingError(t *testing.T) {
 	tests := []struct {
 		desc     string
