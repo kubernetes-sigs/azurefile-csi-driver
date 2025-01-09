@@ -13,7 +13,7 @@ spec:
   persistentVolumeReclaimPolicy: Retain  # if set as "Delete" file share would be removed in pvc deletion
   storageClassName: azurefile-csi
   mountOptions:
-    - dir_mode=0777
+    - dir_mode=0777 # modify this permission if you want to enhance the security
     - file_mode=0777
     - uid=0
     - gid=0
