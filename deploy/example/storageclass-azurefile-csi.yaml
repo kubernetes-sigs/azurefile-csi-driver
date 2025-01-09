@@ -10,7 +10,7 @@ parameters:
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
 mountOptions:
-  - dir_mode=0777 # modify this permission if you want to enhance the security
+  - dir_mode=0777  # modify this permission if you want to enhance the security
   - file_mode=0777
   - mfsymlinks
   - cache=strict  # https://linux.die.net/man/8/mount.cifs
