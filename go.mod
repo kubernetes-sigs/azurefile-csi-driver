@@ -31,7 +31,7 @@ require (
 	golang.org/x/net v0.34.0
 	golang.org/x/sys v0.29.0
 	google.golang.org/grpc v1.69.2
-	google.golang.org/protobuf v1.36.1
+	google.golang.org/protobuf v1.36.2
 	k8s.io/api v0.32.0-alpha.0
 	k8s.io/apimachinery v0.32.0-alpha.0
 	k8s.io/client-go v0.32.0-alpha.0
