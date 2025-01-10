@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"context"
 	"flag"
+	"os"
+	"runtime"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -300,5 +302,67 @@ func TestGetLogLevel(t *testing.T) {
 		if level != test.level {
 			t.Errorf("returned level: (%v), expected level: (%v)", level, test.level)
 		}
+	}
+}
+
+func TestListenEndpoint(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skip test on Windows")
+	}
+
+	originalKlogFatalf := klogFatalf
+	klogFatalf = func(_ string, _ ...interface{}) {}
+	defer func() { klogFatalf = originalKlogFatalf }()
+
+	tests := []struct {
+		name     string
+		endpoint string
+		filePath string
+		wantErr  bool
+	}{
+		{
+			name:     "unix socket",
+			endpoint: "unix:///tmp/csi.sock",
+			filePath: "/tmp/csi.sock",
+			wantErr:  false,
+		},
+		{
+			name:     "tcp socket",
+			endpoint: "tcp://127.0.0.1:0",
+			wantErr:  false,
+		},
+		{
+			name:     "invalid endpoint",
+			endpoint: "invalid://",
+			wantErr:  true,
+		},
+		{
+			name:     "invalid unix socket",
+			endpoint: "unix://does/not/exist",
+			wantErr:  true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r != nil {
+					if !tt.wantErr {
+						t.Errorf("ListenEndpoint() panicked unexpectedly: %v", r)
+					}
+				}
+			}()
+
+			got, err := ListenEndpoint(tt.endpoint)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Listen() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err == nil {
+				got.Close()
+				if tt.filePath != "" {
+					os.Remove(tt.filePath)
+				}
+			}
+		})
 	}
 }
