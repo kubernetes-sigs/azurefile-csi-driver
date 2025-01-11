@@ -41,10 +41,16 @@ func parseEndpoint(ep string) (string, string, error) {
 	}
 	return "", "", fmt.Errorf("Invalid endpoint: %v", ep)
 }
+
+var klogFatalf = func(format string, args ...interface{}) {
+	klog.Fatalf(format, args...)
+}
+
 func ListenEndpoint(endpoint string) (net.Listener, error) {
 	proto, addr, err := parseEndpoint(endpoint)
 	if err != nil {
-		klog.Fatal(err.Error())
+		klogFatalf("Invalid endpoint: %v", err)
+		return nil, err
 	}
 
 	if proto == "unix" {
@@ -52,13 +58,15 @@ func ListenEndpoint(endpoint string) (net.Listener, error) {
 			addr = "/" + addr
 		}
 		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
-			klog.Fatalf("Failed to remove %s, error: %s", addr, err.Error())
+			klogFatalf("Failed to remove %s, error: %s", addr, err.Error())
+			return nil, err
 		}
 	}
 
 	listener, err := net.Listen(proto, addr)
 	if err != nil {
-		klog.Fatalf("Failed to listen: %v", err)
+		klogFatalf("Failed to listen: %v", err)
+		return nil, err
 	}
 	return listener, err
 }
