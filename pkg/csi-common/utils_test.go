@@ -310,10 +310,6 @@ func TestListenEndpoint(t *testing.T) {
 		t.Skip("Skip test on Windows")
 	}
 
-	originalKlogFatalf := klogFatalf
-	klogFatalf = func(_ string, _ ...interface{}) {}
-	defer func() { klogFatalf = originalKlogFatalf }()
-
 	tests := []struct {
 		name     string
 		endpoint string
@@ -344,14 +340,6 @@ func TestListenEndpoint(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			defer func() {
-				if r := recover(); r != nil {
-					if !tt.wantErr {
-						t.Errorf("ListenEndpoint() panicked unexpectedly: %v", r)
-					}
-				}
-			}()
-
 			got, err := ListenEndpoint(tt.endpoint)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Listen() error = %v, wantErr %v", err, tt.wantErr)
