@@ -24,7 +24,7 @@ import (
 	"go.uber.org/mock/gomock"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/fileshareclient/mock_fileshareclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/mock_azclient"
-	"sigs.k8s.io/cloud-provider-azure/pkg/provider"
+	"sigs.k8s.io/cloud-provider-azure/pkg/provider/storage"
 )
 
 func TestNewAzureMgmtFileClientClientFactoryNil(t *testing.T) {
@@ -54,7 +54,7 @@ func TestNewAzureMgmtFileClient(t *testing.T) {
 	clientFactory := mock_azclient.NewMockClientFactory(cntl)
 	fileClient := mock_fileshareclient.NewMockInterface(cntl)
 	clientFactory.EXPECT().GetFileShareClientForSub("testsub").Return(fileClient, nil)
-	_, actualErr := newAzureFileMgmtClient(clientFactory, &provider.AccountOptions{
+	_, actualErr := newAzureFileMgmtClient(clientFactory, &storage.AccountOptions{
 		SubscriptionID: "testsub",
 		ResourceGroup:  "testrg",
 	})

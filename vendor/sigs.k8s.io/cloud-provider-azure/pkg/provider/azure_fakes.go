@@ -17,9 +17,6 @@ limitations under the License.
 package provider
 
 import (
-	"context"
-	"time"
-
 	"go.uber.org/mock/gomock"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
@@ -27,27 +24,30 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/availabilitysetclient/mock_availabilitysetclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/backendaddresspoolclient/mock_backendaddresspoolclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/diskclient/mock_diskclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/interfaceclient/mock_interfaceclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/loadbalancerclient/mock_loadbalancerclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/mock_azclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/privateendpointclient/mock_privateendpointclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/privatelinkserviceclient/mock_privatelinkserviceclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/privatezoneclient/mock_privatezoneclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/publicipaddressclient/mock_publicipaddressclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/routetableclient/mock_routetableclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/securitygroupclient/mock_securitygroupclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/subnetclient/mock_subnetclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/virtualmachineclient/mock_virtualmachineclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/virtualmachinescalesetclient/mock_virtualmachinescalesetclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/virtualmachinescalesetvmclient/mock_virtualmachinescalesetvmclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/virtualnetworklinkclient/mock_virtualnetworklinkclient"
-	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/diskclient/mockdiskclient"
-	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/interfaceclient/mockinterfaceclient"
-	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/loadbalancerclient/mockloadbalancerclient"
-	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/publicipclient/mockpublicipclient"
-	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/subnetclient/mocksubnetclient"
-	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/vmclient/mockvmclient"
-	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/vmssclient/mockvmssclient"
-	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/vmssvmclient/mockvmssvmclient"
-	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	"sigs.k8s.io/cloud-provider-azure/pkg/consts"
 	"sigs.k8s.io/cloud-provider-azure/pkg/provider/config"
 	"sigs.k8s.io/cloud-provider-azure/pkg/provider/privatelinkservice"
 	"sigs.k8s.io/cloud-provider-azure/pkg/provider/routetable"
 	"sigs.k8s.io/cloud-provider-azure/pkg/provider/securitygroup"
 	"sigs.k8s.io/cloud-provider-azure/pkg/provider/subnet"
-	"sigs.k8s.io/cloud-provider-azure/pkg/util/lockmap"
+	"sigs.k8s.io/cloud-provider-azure/pkg/provider/zone"
 	utilsets "sigs.k8s.io/cloud-provider-azure/pkg/util/sets"
 )
 
@@ -111,19 +111,33 @@ func GetTestCloud(ctrl *gomock.Controller) (az *Cloud) {
 		nodePrivateIPs:           map[string]*utilsets.IgnoreCaseSet{},
 		routeCIDRs:               map[string]string{},
 		eventRecorder:            &record.FakeRecorder{},
-		lockMap:                  lockmap.NewLockMap(),
+		Environment:              &azclient.Environment{},
 	}
-	az.DisksClient = mockdiskclient.NewMockInterface(ctrl)
-	az.InterfacesClient = mockinterfaceclient.NewMockInterface(ctrl)
-	az.LoadBalancerClient = mockloadbalancerclient.NewMockInterface(ctrl)
-	az.PublicIPAddressesClient = mockpublicipclient.NewMockInterface(ctrl)
-	az.SubnetsClient = mocksubnetclient.NewMockInterface(ctrl)
-	az.VirtualMachineScaleSetsClient = mockvmssclient.NewMockInterface(ctrl)
-	az.VirtualMachineScaleSetVMsClient = mockvmssvmclient.NewMockInterface(ctrl)
-	az.VirtualMachinesClient = mockvmclient.NewMockInterface(ctrl)
 	clientFactory := mock_azclient.NewMockClientFactory(ctrl)
 	az.ComputeClientFactory = clientFactory
 	az.NetworkClientFactory = clientFactory
+	disksClient := mock_diskclient.NewMockInterface(ctrl)
+	clientFactory.EXPECT().GetDiskClient().Return(disksClient).AnyTimes()
+	interfacesClient := mock_interfaceclient.NewMockInterface(ctrl)
+	clientFactory.EXPECT().GetInterfaceClient().Return(interfacesClient).AnyTimes()
+	loadBalancerClient := mock_loadbalancerclient.NewMockInterface(ctrl)
+	clientFactory.EXPECT().GetLoadBalancerClient().Return(loadBalancerClient).AnyTimes()
+	publicIPAddressesClient := mock_publicipaddressclient.NewMockInterface(ctrl)
+	clientFactory.EXPECT().GetPublicIPAddressClient().Return(publicIPAddressesClient).AnyTimes()
+	subnetsClient := mock_subnetclient.NewMockInterface(ctrl)
+	clientFactory.EXPECT().GetSubnetClient().Return(subnetsClient).AnyTimes()
+	bpClient := mock_backendaddresspoolclient.NewMockInterface(ctrl)
+	clientFactory.EXPECT().GetBackendAddressPoolClient().Return(bpClient).AnyTimes()
+	vmasClient := mock_availabilitysetclient.NewMockInterface(ctrl)
+	clientFactory.EXPECT().GetAvailabilitySetClient().Return(vmasClient).AnyTimes()
+	virtualMachineScaleSetsClient := mock_virtualmachinescalesetclient.NewMockInterface(ctrl)
+	clientFactory.EXPECT().GetVirtualMachineScaleSetClient().Return(virtualMachineScaleSetsClient).AnyTimes()
+	virtualMachineScaleSetVMsClient := mock_virtualmachinescalesetvmclient.NewMockInterface(ctrl)
+	clientFactory.EXPECT().GetVirtualMachineScaleSetVMClient().Return(virtualMachineScaleSetVMsClient).AnyTimes()
+
+	virtualMachinesClient := mock_virtualmachineclient.NewMockInterface(ctrl)
+	clientFactory.EXPECT().GetVirtualMachineClient().Return(virtualMachinesClient).AnyTimes()
+
 	securtyGrouptrack2Client := mock_securitygroupclient.NewMockInterface(ctrl)
 	clientFactory.EXPECT().GetSecurityGroupClient().Return(securtyGrouptrack2Client).AnyTimes()
 	mockPrivateDNSClient := mock_privatezoneclient.NewMockInterface(ctrl)
@@ -132,6 +146,12 @@ func GetTestCloud(ctrl *gomock.Controller) (az *Cloud) {
 	clientFactory.EXPECT().GetVirtualNetworkLinkClient().Return(virtualNetworkLinkClient).AnyTimes()
 	subnetTrack2Client := mock_subnetclient.NewMockInterface(ctrl)
 	clientFactory.EXPECT().GetSubnetClient().Return(subnetTrack2Client).AnyTimes()
+	privatelinkserviceClient := mock_privatelinkserviceclient.NewMockInterface(ctrl)
+	clientFactory.EXPECT().GetPrivateLinkServiceClient().Return(privatelinkserviceClient).AnyTimes()
+	routetableClient := mock_routetableclient.NewMockInterface(ctrl)
+	clientFactory.EXPECT().GetRouteTableClient().Return(routetableClient).AnyTimes()
+	privateendpointTrack2Client := mock_privateendpointclient.NewMockInterface(ctrl)
+	clientFactory.EXPECT().GetPrivateEndpointClient().Return(privateendpointTrack2Client).AnyTimes()
 	az.AuthProvider = &azclient.AuthProvider{
 		ComputeCredential: mock_azclient.NewMockTokenCredential(ctrl),
 	}
@@ -145,11 +165,7 @@ func GetTestCloud(ctrl *gomock.Controller) (az *Cloud) {
 
 	az.plsRepo = privatelinkservice.NewMockRepository(ctrl)
 	az.routeTableRepo = routetable.NewMockRepository(ctrl)
-
-	getter := func(_ context.Context, _ string) (interface{}, error) { return nil, nil }
-	az.storageAccountCache, _ = azcache.NewTimedCache(time.Minute, getter, az.Config.DisableAPICallCache)
-	az.fileServicePropertiesCache, _ = azcache.NewTimedCache(5*time.Minute, getter, az.Config.DisableAPICallCache)
-
+	az.zoneRepo = zone.NewMockRepository(ctrl)
 	az.regionZonesMap = map[string][]string{az.Location: {"1", "2", "3"}}
 
 	{
@@ -159,7 +175,6 @@ func GetTestCloud(ctrl *gomock.Controller) (az *Cloud) {
 		informerFactory.Start(wait.NeverStop)
 		informerFactory.WaitForCacheSync(wait.NeverStop)
 	}
-
 	return az
 }
 

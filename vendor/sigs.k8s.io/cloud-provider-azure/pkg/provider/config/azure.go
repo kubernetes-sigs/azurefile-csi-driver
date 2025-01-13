@@ -89,7 +89,7 @@ type Config struct {
 	SystemTags string `json:"systemTags,omitempty" yaml:"systemTags,omitempty"`
 	// Sku of Load Balancer and Public IP. Candidate values are: basic and standard.
 	// If not set, it will be default to basic.
-	LoadBalancerSku string `json:"loadBalancerSku,omitempty" yaml:"loadBalancerSku,omitempty"`
+	LoadBalancerSKU string `json:"loadBalancerSku,omitempty" yaml:"loadBalancerSku,omitempty"`
 	// LoadBalancerName determines the specific name of the load balancer user want to use, working with
 	// LoadBalancerResourceGroup
 	LoadBalancerName string `json:"loadBalancerName,omitempty" yaml:"loadBalancerName,omitempty"`
@@ -108,10 +108,6 @@ type Config struct {
 	DisableAvailabilitySetNodes bool `json:"disableAvailabilitySetNodes,omitempty" yaml:"disableAvailabilitySetNodes,omitempty"`
 	// EnableVmssFlexNodes enables vmss flex nodes support when "VMType" is set to "vmss".
 	EnableVmssFlexNodes bool `json:"enableVmssFlexNodes,omitempty" yaml:"enableVmssFlexNodes,omitempty"`
-	// DisableAzureStackCloud disables AzureStackCloud support. It should be used
-	// when setting AzureAuthConfig.Cloud with "AZURESTACKCLOUD" to customize ARM endpoints
-	// while the cluster is not running on AzureStack.
-	DisableAzureStackCloud bool `json:"disableAzureStackCloud,omitempty" yaml:"disableAzureStackCloud,omitempty"`
 	// Use instance metadata service where possible
 	UseInstanceMetadata bool `json:"useInstanceMetadata,omitempty" yaml:"useInstanceMetadata,omitempty"`
 
@@ -188,7 +184,7 @@ func (az *Config) GetPutVMSSVMBatchSize() int {
 }
 
 func (az *Config) UseStandardLoadBalancer() bool {
-	return strings.EqualFold(az.LoadBalancerSku, consts.LoadBalancerSkuStandard)
+	return strings.EqualFold(az.LoadBalancerSKU, consts.LoadBalancerSKUStandard)
 }
 
 func (az *Config) ExcludeMasterNodesFromStandardLB() bool {
