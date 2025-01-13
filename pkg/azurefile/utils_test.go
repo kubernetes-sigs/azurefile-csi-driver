@@ -29,8 +29,10 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	nodev1 "k8s.io/api/node/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	fake "k8s.io/client-go/kubernetes/fake"
 	utiltesting "k8s.io/client-go/util/testing"
+	azureconfig "sigs.k8s.io/cloud-provider-azure/pkg/provider/config"
 )
 
 func TestSimpleLockEntry(t *testing.T) {
@@ -853,6 +855,57 @@ func TestIsThrottlingError(t *testing.T) {
 		if result != test.expected {
 			t.Errorf("desc: (%s), input: err(%v), IsThrottlingError returned with bool(%t), not equal to expected(%t)",
 				test.desc, test.err, result, test.expected)
+		}
+	}
+}
+
+func TestGetBackOff(t *testing.T) {
+	tests := []struct {
+		desc     string
+		config   azureconfig.Config
+		expected wait.Backoff
+	}{
+		{
+			desc: "default backoff",
+			config: azureconfig.Config{
+				AzureClientConfig: azureconfig.AzureClientConfig{
+					CloudProviderBackoffRetries:  0,
+					CloudProviderBackoffDuration: 5,
+				},
+				CloudProviderBackoffExponent: 2,
+				CloudProviderBackoffJitter:   1,
+			},
+			expected: wait.Backoff{
+				Steps:    1,
+				Duration: 5 * time.Second,
+				Factor:   2,
+				Jitter:   1,
+			},
+		},
+		{
+			desc: "backoff with retries > 1",
+			config: azureconfig.Config{
+				AzureClientConfig: azureconfig.AzureClientConfig{
+					CloudProviderBackoffRetries:  3,
+					CloudProviderBackoffDuration: 4,
+				},
+				CloudProviderBackoffExponent: 2,
+				CloudProviderBackoffJitter:   1,
+			},
+			expected: wait.Backoff{
+				Steps:    3,
+				Duration: 4 * time.Second,
+				Factor:   2,
+				Jitter:   1,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		result := getBackOff(test.config)
+		if !reflect.DeepEqual(result, test.expected) {
+			t.Errorf("desc: (%s), input: config(%v), getBackOff returned with backoff(%v), not equal to expected(%v)",
+				test.desc, test.config, result, test.expected)
 		}
 	}
 }
