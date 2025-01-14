@@ -943,16 +943,7 @@ func isSupportedFSGroupChangePolicy(policy string) bool {
 
 // CreateFileShare creates a file share
 func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *storage.AccountOptions, shareOptions *ShareOptions, secrets map[string]string) error {
-	steps := d.cloud.Config.CloudProviderBackoffRetries
-	if steps < 1 {
-		steps = 1
-	}
-	return wait.ExponentialBackoff(wait.Backoff{
-		Steps:    steps,
-		Factor:   d.cloud.Config.CloudProviderBackoffExponent,
-		Jitter:   d.cloud.Config.CloudProviderBackoffJitter,
-		Duration: time.Duration(d.cloud.Config.CloudProviderBackoffDuration) * time.Second,
-	}, func() (bool, error) {
+	return wait.ExponentialBackoff(getBackOff(d.cloud.Config), func() (bool, error) {
 		var err error
 		var fileClient azureFileClient
 		if len(secrets) > 0 {
@@ -983,13 +974,7 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *storage.Ac
 
 // DeleteFileShare deletes a file share using storage account name and key
 func (d *Driver) DeleteFileShare(ctx context.Context, subsID, resourceGroup, accountName, shareName string, secrets map[string]string) error {
-	steps := d.cloud.Config.CloudProviderBackoffRetries
-	if steps < 1 {
-		steps = 1
-	}
-	return wait.ExponentialBackoff(wait.Backoff{
-		Steps: steps,
-	}, func() (bool, error) {
+	return wait.ExponentialBackoff(getBackOff(d.cloud.Config), func() (bool, error) {
 		var err error
 		if len(secrets) > 0 {
 			accountName, accountKey, rerr := getStorageAccount(secrets)
@@ -1035,13 +1020,7 @@ func (d *Driver) DeleteFileShare(ctx context.Context, subsID, resourceGroup, acc
 
 // ResizeFileShare resizes a file share
 func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, accountName, shareName string, sizeGiB int, secrets map[string]string) error {
-	steps := d.cloud.Config.CloudProviderBackoffRetries
-	if steps < 1 {
-		steps = 1
-	}
-	return wait.ExponentialBackoff(wait.Backoff{
-		Steps: steps,
-	}, func() (bool, error) {
+	return wait.ExponentialBackoff(getBackOff(d.cloud.Config), func() (bool, error) {
 		var err error
 		if len(secrets) > 0 {
 			accountName, accountKey, rerr := getStorageAccount(secrets)

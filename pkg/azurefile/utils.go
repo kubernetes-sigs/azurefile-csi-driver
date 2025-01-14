@@ -29,9 +29,11 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/volume"
+	azureconfig "sigs.k8s.io/cloud-provider-azure/pkg/provider/config"
 )
 
 const (
@@ -344,4 +346,18 @@ func isConfidentialRuntimeClass(ctx context.Context, kubeClient clientset.Interf
 	}
 	klog.Infof("runtimeClass %s handler: %s", runtimeClassName, runtimeClass.Handler)
 	return runtimeClass.Handler == confidentialRuntimeClassHandler, nil
+}
+
+// getBackOff returns a backoff object based on the config
+func getBackOff(config azureconfig.Config) wait.Backoff {
+	steps := config.CloudProviderBackoffRetries
+	if steps < 1 {
+		steps = 1
+	}
+	return wait.Backoff{
+		Steps:    steps,
+		Factor:   config.CloudProviderBackoffExponent,
+		Jitter:   config.CloudProviderBackoffJitter,
+		Duration: time.Duration(config.CloudProviderBackoffDuration) * time.Second,
+	}
 }
