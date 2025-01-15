@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	fake "k8s.io/client-go/kubernetes/fake"
 	utiltesting "k8s.io/client-go/util/testing"
+	"k8s.io/kubernetes/pkg/volume"
 	azureconfig "sigs.k8s.io/cloud-provider-azure/pkg/provider/config"
 )
 
@@ -907,5 +908,43 @@ func TestGetBackOff(t *testing.T) {
 			t.Errorf("desc: (%s), input: config(%v), getBackOff returned with backoff(%v), not equal to expected(%v)",
 				test.desc, test.config, result, test.expected)
 		}
+	}
+}
+
+func TestVolumeMounter(t *testing.T) {
+	path := "/mnt/data"
+	attributes := volume.Attributes{}
+
+	mounter := &VolumeMounter{
+		path:       path,
+		attributes: attributes,
+	}
+
+	if mounter.GetPath() != path {
+		t.Errorf("Expected path %s, but got %s", path, mounter.GetPath())
+	}
+
+	if mounter.GetAttributes() != attributes {
+		t.Errorf("Expected attributes %v, but got %v", attributes, mounter.GetAttributes())
+	}
+
+	if err := mounter.CanMount(); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if err := mounter.SetUp(volume.MounterArgs{}); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if err := mounter.SetUpAt("", volume.MounterArgs{}); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	metrics, err := mounter.GetMetrics()
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if metrics != nil {
+		t.Errorf("Expected nil metrics, but got %v", metrics)
 	}
 }

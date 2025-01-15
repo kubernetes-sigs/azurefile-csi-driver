@@ -33,4 +33,4 @@ jobs:
     - name: Send coverage
       env:
         COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: goveralls -coverprofile=profile.cov -service=github -ignore=./pkg/azurefile/azurefile_interface_mock.go,./pkg/azurefile/directvolume_mock.go,./pkg/azurefile/directvolume_interface.go
+      run: goveralls -coverprofile=profile.cov -service=github -ignore=pkg/azurefile/azurefile_interface_mock.go,pkg/azurefile/directvolume_mock.go,pkg/azurefile/directvolume_interface.go,pkg/azurefile/resolver_interface.go
