@@ -40,9 +40,6 @@ const (
 	AzcopyJobCompleted AzcopyJobState = "Completed"
 )
 
-// control the number of concurrent powershell commands running on Windows node
-var powershellCmdSem = make(chan struct{}, 3)
-
 // RoundUpBytes rounds up the volume size in bytes up to multiplications of GiB
 // in the unit of Bytes
 func RoundUpBytes(volumeSizeBytes int64) int64 {
@@ -78,23 +75,11 @@ func roundUpSize(volumeSizeBytes int64, allocationUnitBytes int64) int64 {
 	return roundedUp
 }
 
-func RunPowershellCmd(command string, envs ...string) ([]byte, error) {
-	// acquire a semaphore to limit the number of concurrent operations
-	powershellCmdSem <- struct{}{}
-	defer func() { <-powershellCmdSem }()
-
-	cmd := exec.Command("powershell", "-Mta", "-NoProfile", "-Command", command)
-	cmd.Env = append(os.Environ(), envs...)
-	klog.V(6).Infof("Executing command: %q", cmd.String())
-	return cmd.CombinedOutput()
-}
-
 type EXEC interface {
 	RunCommand(string, []string) (string, error)
 }
 
-type ExecCommand struct {
-}
+type ExecCommand struct{}
 
 func (ec *ExecCommand) RunCommand(cmdStr string, authEnv []string) (string, error) {
 	cmd := exec.Command("sh", "-c", cmdStr)
