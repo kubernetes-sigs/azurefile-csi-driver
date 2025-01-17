@@ -63,3 +63,82 @@ func TestNewAzureFileClient(t *testing.T) {
 		}
 	}
 }
+
+func TestDeleteFileShare(t *testing.T) {
+	testCases := []struct {
+		name     string
+		testFunc func(t *testing.T)
+	}{
+		{
+			name: "expect error on delete",
+			testFunc: func(t *testing.T) {
+				f, err := newAzureFileClient("test", "dW5pdHRlc3Q=", "ut")
+				if err != nil {
+					t.Errorf("error creating azure client: %v", err)
+				}
+				shareName := "nonexistent"
+				actualErr := f.DeleteFileShare(context.Background(), shareName)
+				expectedErr := fmt.Errorf("Delete \"https://test.file.ut/%s?restype=share\"", shareName)
+				if actualErr == nil || !strings.HasPrefix(actualErr.Error(), expectedErr.Error()) {
+					t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
+				}
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, tc.testFunc)
+	}
+}
+
+func TestResizeFileShare(t *testing.T) {
+	testCases := []struct {
+		name     string
+		testFunc func(t *testing.T)
+	}{
+		{
+			name: "expect error on resize",
+			testFunc: func(t *testing.T) {
+				f, err := newAzureFileClient("test", "dW5pdHRlc3Q=", "ut")
+				if err != nil {
+					t.Errorf("error creating azure client: %v", err)
+				}
+				shareName := "nonexistent"
+				actualErr := f.ResizeFileShare(context.Background(), shareName, 20)
+				expectedErr := fmt.Errorf("failed to set quota on file share %s", shareName)
+				if actualErr == nil || !strings.HasPrefix(actualErr.Error(), expectedErr.Error()) {
+					t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
+				}
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, tc.testFunc)
+	}
+}
+
+func TestGetFileShareQuotaDataPlane(t *testing.T) {
+	testCases := []struct {
+		name     string
+		testFunc func(t *testing.T)
+	}{
+		{
+			name: "expect error on resize",
+			testFunc: func(t *testing.T) {
+				f, err := newAzureFileClient("test", "dW5pdHRlc3Q=", "ut")
+				if err != nil {
+					t.Errorf("error creating azure client: %v", err)
+				}
+				shareName := "nonexistent"
+				actualQuota, actualErr := f.GetFileShareQuota(context.Background(), shareName)
+				expectedErr := fmt.Errorf("Get \"https://test.file.ut/%s?restype=share\"", shareName)
+				expectedQuota := -1
+				if actualErr == nil || !strings.HasPrefix(actualErr.Error(), expectedErr.Error()) || actualQuota != -1 {
+					t.Errorf("actualErr: (%v), expectedErr: (%v), actualQuota: (%v), expectedQuota: (%v)", actualErr, expectedErr, actualQuota, expectedQuota)
+				}
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, tc.testFunc)
+	}
+}
