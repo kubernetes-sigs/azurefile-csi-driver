@@ -43,6 +43,7 @@ import (
 
 var getRuntimeClassForPodFunc = getRuntimeClassForPod
 var isConfidentialRuntimeClassFunc = isConfidentialRuntimeClass
+var isKataNodeFunc = isKataNode
 
 // NodePublishVolume mount the volume from staging to target path
 func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
@@ -101,8 +102,8 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		}
 
 		if d.enableKataCCMount {
-			enableKataCCMount := getValueInMap(context, enableKataCCMountField)
-			if strings.EqualFold(enableKataCCMount, trueValue) && context[podNameField] != "" && context[podNamespaceField] != "" {
+			enableKataCCMount := isKataNodeFunc(ctx, d.NodeID, d.kubeClient)
+			if enableKataCCMount && context[podNameField] != "" && context[podNamespaceField] != "" {
 				runtimeClass, err := getRuntimeClassForPodFunc(ctx, d.kubeClient, context[podNameField], context[podNamespaceField])
 				if err != nil {
 					return nil, status.Errorf(codes.Internal, "failed to get runtime class for pod %s/%s: %v", context[podNamespaceField], context[podNameField], err)
@@ -252,7 +253,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	// don't respect fsType from req.GetVolumeCapability().GetMount().GetFsType()
 	// since it's ext4 by default on Linux
 	var fsType, server, protocol, ephemeralVolMountOptions, storageEndpointSuffix, folderName string
-	var ephemeralVol, enableKataCCMount bool
+	var ephemeralVol bool
 	fileShareNameReplaceMap := map[string]string{}
 
 	mountPermissions := d.mountPermissions
@@ -284,11 +285,6 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			fileShareNameReplaceMap[pvcNameMetadata] = v
 		case pvNameKey:
 			fileShareNameReplaceMap[pvNameMetadata] = v
-		case enableKataCCMountField:
-			enableKataCCMount, err = strconv.ParseBool(v)
-			if err != nil {
-				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", enableKataCCMountField, v)
-			}
 		case mountPermissionsField:
 			if v != "" {
 				var err error
@@ -423,7 +419,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}
 		klog.V(2).Infof("volume(%s) mount %s on %s succeeded", volumeID, source, cifsMountPath)
 	}
-
+	enableKataCCMount := isKataNodeFunc(ctx, d.NodeID, d.kubeClient)
 	// If runtime OS is not windows and protocol is not nfs, save mountInfo.json
 	if d.enableKataCCMount && enableKataCCMount {
 		if runtime.GOOS != "windows" && protocol != nfs {
