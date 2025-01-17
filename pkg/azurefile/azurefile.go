@@ -48,6 +48,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
 	"k8s.io/utils/ptr"
@@ -195,7 +196,6 @@ const (
 	FSGroupChangeNone = "None"
 	// define tag value delimiter and default is comma
 	tagValueDelimiterField = "tagvaluedelimiter"
-	enableKataCCMountField = "enablekataccmount"
 )
 
 var (
@@ -453,7 +453,12 @@ func (d *Driver) Run(ctx context.Context) error {
 	csi.RegisterControllerServer(server, d)
 	csi.RegisterNodeServer(server, d)
 	d.server = server
+	val, val2, err := getNodeInfoFromLabels(ctx, d.NodeID, d.kubeClient)
+	if err != nil {
+		klog.Warningf("failed to get node info from labels: %v", err)
+	}
 
+	klog.V(2).Infof("Node info from labels: %s, %s", val, val2)
 	listener, err := csicommon.ListenEndpoint(d.endpoint)
 	if err != nil {
 		klog.Fatalf("failed to listen endpoint: %v", err)
@@ -1281,4 +1286,29 @@ func (d *Driver) getFileShareClientForSub(subscriptionID string) (fileshareclien
 		return nil, fmt.Errorf("cloud or ComputeClientFactory is nil")
 	}
 	return d.cloud.ComputeClientFactory.GetFileShareClientForSub(subscriptionID)
+}
+
+func getNodeInfoFromLabels(ctx context.Context, nodeID string, kubeClient clientset.Interface) (string, string, error) {
+	if kubeClient == nil || kubeClient.CoreV1() == nil {
+		return "", "", fmt.Errorf("kubeClient is nil")
+	}
+
+	node, err := kubeClient.CoreV1().Nodes().Get(ctx, nodeID, metav1.GetOptions{})
+	if err != nil {
+		return "", "", fmt.Errorf("get node(%s) failed with %v", nodeID, err)
+	}
+
+	if len(node.Labels) == 0 {
+		return "", "", fmt.Errorf("node(%s) label is empty", nodeID)
+	}
+	return node.Labels["kubernetes.azure.com/kata-mshv-vm-isolation"], node.Labels["katacontainers.io/kata-runtime"], nil
+}
+
+func isKataNode(ctx context.Context, nodeID string, kubeClient clientset.Interface) bool {
+	val, val2, err := getNodeInfoFromLabels(ctx, nodeID, kubeClient)
+	if err != nil {
+		klog.Warningf("get node(%s) confidential label failed with %v", nodeID, err)
+		return false
+	}
+	return val == "true" || val2 == "true"
 }
