@@ -404,6 +404,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
+	// use v2 account kind for v2 sku
+	if strings.Contains(strings.ToLower(sku), "v2") {
+		accountKind = string(armstorage.KindFileStorage)
+	}
+
 	// replace pv/pvc name namespace metadata in fileShareName
 	validFileShareName := replaceWithMap(fileShareName, fileShareNameReplaceMap)
 	if validFileShareName == "" {
