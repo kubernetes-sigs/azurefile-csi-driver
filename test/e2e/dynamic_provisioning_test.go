@@ -251,6 +251,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			scParameters["secretName"] = fmt.Sprintf("secret-%d", time.Now().Unix())
 			scParameters["enableLargeFileshares"] = "true"
 			scParameters["networkEndpointType"] = "privateEndpoint"
+			scParameters["privateDNSZoneName"] = "privatednszone"
 			scParameters["accessTier"] = "Hot"
 			scParameters["selectRandomMatchingAccount"] = "true"
 			scParameters["folderName"] = "${pvc.metadata.namespace}/${pvc.metadata.name}/${pv.metadata.name}"
@@ -1490,6 +1491,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			"protocol":            "nfs",
 			"networkEndpointType": "privateEndpoint",
 			"publicNetworkAccess": "Disabled",
+			"privateDNSZoneName":  "privatednszone",
 			"skuName":             "Premium_LRS",
 			"rootSquashType":      "AllSquash",
 			"mountPermissions":    "0",
