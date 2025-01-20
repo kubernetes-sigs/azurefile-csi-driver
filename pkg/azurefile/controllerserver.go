@@ -116,7 +116,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		parameters = make(map[string]string)
 	}
 	var sku, subsID, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
-	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, shareAccessTier, accountAccessTier, rootSquashType, tagValueDelimiter string
+	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, privateDNSZoneName, shareAccessTier, accountAccessTier, rootSquashType, tagValueDelimiter string
 	var createAccount, useDataPlaneAPI, useSeretCache, matchTags, selectRandomMatchingAccount, getLatestAccountKey bool
 	var vnetResourceGroup, vnetName, subnetName, shareNamePrefix, fsGroupChangePolicy string
 	var requireInfraEncryption, disableDeleteRetentionPolicy, enableLFS, isMultichannelEnabled, allowSharedKeyAccess *bool
@@ -195,6 +195,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			storageEndpointSuffix = v
 		case networkEndpointTypeField:
 			networkEndpointType = v
+		case privateDNSZoneNameField:
+			if len(v) > 0 {
+				privateDNSZoneName = v
+			}
 		case accessTierField:
 			shareAccessTier = v
 		case shareAccessTierField:
@@ -335,7 +339,15 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			return nil, status.Errorf(codes.InvalidArgument, "subnetName(%s) can only contain one subnet for private endpoint", subnetName)
 		}
 		createPrivateEndpoint = ptr.To(true)
+		if privateDNSZoneName == "" {
+			privateDNSZoneName = "privatelink"
+		}
+	} else {
+		if privateDNSZoneName != "" {
+			return nil, status.Errorf(codes.InvalidArgument, "privateDNSZoneName(%s) is only supported with private endpoint", privateDNSZoneName)
+		}
 	}
+
 	var vnetResourceIDs []string
 	if fsType == nfs || protocol == nfs {
 		if sku == "" {
@@ -474,6 +486,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		VirtualNetworkResourceIDs:               vnetResourceIDs,
 		CreateAccount:                           createAccount,
 		CreatePrivateEndpoint:                   createPrivateEndpoint,
+		PrivateDNSZoneName:                      privateDNSZoneName,
 		EnableLargeFileShare:                    enableLFS,
 		DisableFileServiceDeleteRetentionPolicy: disableDeleteRetentionPolicy,
 		AllowBlobPublicAccess:                   allowBlobPublicAccess,
