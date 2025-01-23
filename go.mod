@@ -10,7 +10,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6 v6.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage v1.6.0
-	github.com/Azure/azure-sdk-for-go/sdk/storage/azfile v1.4.0
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azfile v1.5.0
 	github.com/container-storage-interface/spec v1.10.0
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/golang/protobuf v1.5.4
