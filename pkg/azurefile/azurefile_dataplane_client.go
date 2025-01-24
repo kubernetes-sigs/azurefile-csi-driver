@@ -43,7 +43,26 @@ var (
 type azureFileDataplaneClient struct {
 	accountName string
 	accountKey  string
+	Client      serviceClientInterface
+}
+
+type serviceClientInterface interface {
+	NewShareClient(shareName string) shareClientInterface
+}
+
+type serviceClient_impl struct {
 	*service.Client
+}
+
+func (m *serviceClient_impl) NewShareClient(shareName string) shareClientInterface {
+	return m.NewShareClient(shareName)
+}
+
+type shareClientInterface interface {
+	Create(ctx context.Context, options *share.CreateOptions) (share.CreateResponse, error)
+	Delete(ctx context.Context, options *share.DeleteOptions) (share.DeleteResponse, error)
+	GetProperties(ctx context.Context, options *share.GetPropertiesOptions) (share.GetPropertiesResponse, error)
+	SetProperties(ctx context.Context, options *share.SetPropertiesOptions) (share.SetPropertiesResponse, error)
 }
 
 func newAzureFileClient(accountName, accountKey, storageEndpointSuffix string) (azureFileClient, error) {
@@ -68,7 +87,7 @@ func newAzureFileClient(accountName, accountKey, storageEndpointSuffix string) (
 	return &azureFileDataplaneClient{
 		accountName: accountName,
 		accountKey:  accountKey,
-		Client:      fileClient,
+		Client:      &serviceClient_impl{fileClient},
 	}, nil
 }
 
@@ -76,7 +95,7 @@ func (f *azureFileDataplaneClient) CreateFileShare(ctx context.Context, shareOpt
 	if shareOptions == nil {
 		return fmt.Errorf("shareOptions of account(%s) is nil", f.accountName)
 	}
-	shareClient := f.Client.NewShareClient(shareOptions.Name)
+	shareClient := newShareClient(f, shareOptions.Name)
 	_, err := shareClient.Create(ctx, &share.CreateOptions{
 		Quota: to.Ptr(int32(shareOptions.RequestGiB)),
 	})
@@ -89,12 +108,12 @@ func (f *azureFileDataplaneClient) CreateFileShare(ctx context.Context, shareOpt
 
 // delete a file share
 func (f *azureFileDataplaneClient) DeleteFileShare(ctx context.Context, shareName string) error {
-	_, err := f.Client.NewShareClient(shareName).Delete(ctx, nil)
+	_, err := newShareClient(f, shareName).Delete(ctx, nil)
 	return err
 }
 
 func (f *azureFileDataplaneClient) ResizeFileShare(ctx context.Context, shareName string, sizeGiB int) error {
-	shareClient := f.Client.NewShareClient(shareName)
+	shareClient := newShareClient(f, shareName)
 	shareProps, err := shareClient.GetProperties(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to set quota on file share %s, err: %v", shareName, err)
@@ -114,7 +133,7 @@ func (f *azureFileDataplaneClient) ResizeFileShare(ctx context.Context, shareNam
 }
 
 func (f *azureFileDataplaneClient) GetFileShareQuota(ctx context.Context, name string) (int, error) {
-	shareClient := f.Client.NewShareClient(name)
+	shareClient := newShareClient(f, name)
 	shareProps, err := shareClient.GetProperties(ctx, nil)
 	if err != nil {
 		return -1, err
