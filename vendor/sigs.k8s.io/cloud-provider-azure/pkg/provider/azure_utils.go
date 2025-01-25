@@ -32,7 +32,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 	utilnet "k8s.io/utils/net"
-	"k8s.io/utils/ptr"
+	"k8s.io/utils/pointer"
 
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	"sigs.k8s.io/cloud-provider-azure/pkg/consts"
@@ -85,18 +85,27 @@ func parseTags(tags string, tagsMap map[string]string) map[string]*string {
 				klog.Warningf("parseTags: error when parsing key-value pair %s, would ignore this one", kv)
 				continue
 			}
+			// Avoid generate `Null` string after TrimSpace operation, (e.g. " null", " Null " -> "null"/"Null")
+			// `Null` is a reserved tag value by ARM, so the leading/trailing spaces must be preserved.
+			// Refer to https://github.com/kubernetes-sigs/cloud-provider-azure/issues/7048.
 			k, v := strings.TrimSpace(res[0]), strings.TrimSpace(res[1])
+			if strings.EqualFold(v, "null") {
+				v = res[1]
+			}
 			if k == "" {
 				klog.Warning("parseTags: empty key, ignoring this key-value pair")
 				continue
 			}
-			formatted[k] = ptr.To(v)
+			formatted[k] = pointer.String(v)
 		}
 	}
 
 	if len(tagsMap) > 0 {
-		for key, value := range tagsMap {
-			key, value := strings.TrimSpace(key), strings.TrimSpace(value)
+		for k, v := range tagsMap {
+			key, value := strings.TrimSpace(k), strings.TrimSpace(v)
+			if strings.EqualFold(value, "null") {
+				value = v
+			}
 			if key == "" {
 				klog.Warningf("parseTags: empty key, ignoring this key-value pair")
 				continue
@@ -106,7 +115,7 @@ func parseTags(tags string, tagsMap map[string]string) map[string]*string {
 				klog.V(4).Infof("parseTags: found identical keys: %s from tags and %s from tagsMap (case-insensitive), %s will replace %s", k, key, key, k)
 				delete(formatted, k)
 			}
-			formatted[key] = ptr.To(value)
+			formatted[key] = pointer.String(value)
 		}
 	}
 
@@ -134,7 +143,7 @@ func (az *Cloud) reconcileTags(currentTagsOnResource, newTags map[string]*string
 		}
 
 		for _, systemTag := range systemTags {
-			systemTagsMap[systemTag] = ptr.To("")
+			systemTagsMap[systemTag] = pointer.String("")
 		}
 	}
 
@@ -145,7 +154,7 @@ func (az *Cloud) reconcileTags(currentTagsOnResource, newTags map[string]*string
 		if !found {
 			currentTagsOnResource[k] = v
 			changed = true
-		} else if !strings.EqualFold(ptr.Deref(v, ""), ptr.Deref(currentTagsOnResource[key], "")) {
+		} else if !strings.EqualFold(pointer.StringDeref(v, ""), pointer.StringDeref(currentTagsOnResource[key], "")) {
 			currentTagsOnResource[key] = v
 			changed = true
 		}
@@ -156,7 +165,7 @@ func (az *Cloud) reconcileTags(currentTagsOnResource, newTags map[string]*string
 		for k := range currentTagsOnResource {
 			if _, ok := newTags[k]; !ok {
 				if found, _ := findKeyInMapCaseInsensitive(systemTagsMap, k); !found {
-					klog.V(2).Infof("reconcileTags: delete tag %s: %s", k, ptr.Deref(currentTagsOnResource[k], ""))
+					klog.V(2).Infof("reconcileTags: delete tag %s: %s", k, pointer.StringDeref(currentTagsOnResource[k], ""))
 					delete(currentTagsOnResource, k)
 					changed = true
 				}
@@ -226,11 +235,11 @@ func sameContentInSlices(s1 []string, s2 []string) bool {
 func removeDuplicatedSecurityRules(rules []*armnetwork.SecurityRule) []*armnetwork.SecurityRule {
 	ruleNames := make(map[string]bool)
 	for i := len(rules) - 1; i >= 0; i-- {
-		if _, ok := ruleNames[ptr.Deref(rules[i].Name, "")]; ok {
-			klog.Warningf("Found duplicated rule %s, will be removed.", ptr.Deref(rules[i].Name, ""))
+		if _, ok := ruleNames[pointer.StringDeref(rules[i].Name, "")]; ok {
+			klog.Warningf("Found duplicated rule %s, will be removed.", pointer.StringDeref(rules[i].Name, ""))
 			rules = append(rules[:i], rules[i+1:]...)
 		}
-		ruleNames[ptr.Deref(rules[i].Name, "")] = true
+		ruleNames[pointer.StringDeref(rules[i].Name, "")] = true
 	}
 	return rules
 }
@@ -408,7 +417,7 @@ func (az *Cloud) isFIPIPv6(service *v1.Service, fip *network.FrontendIPConfigura
 		}
 		return service.Spec.IPFamilies[0] == v1.IPv6Protocol, nil
 	}
-	return managedResourceHasIPv6Suffix(ptr.Deref(fip.Name, "")), nil
+	return managedResourceHasIPv6Suffix(pointer.StringDeref(fip.Name, "")), nil
 }
 
 // getResourceIDPrefix returns a substring from the provided one between beginning and the last "/".
@@ -447,7 +456,7 @@ func countIPsOnBackendPool(backendPool network.BackendAddressPool) int {
 	var ipsCount int
 	for _, loadBalancerBackendAddress := range *backendPool.LoadBalancerBackendAddresses {
 		if loadBalancerBackendAddress.LoadBalancerBackendAddressPropertiesFormat != nil &&
-			ptr.Deref(loadBalancerBackendAddress.IPAddress, "") != "" {
+			pointer.StringDeref(loadBalancerBackendAddress.IPAddress, "") != "" {
 			ipsCount++
 		}
 	}

@@ -28,7 +28,7 @@ import (
 
 	"k8s.io/client-go/util/flowcontrol"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/ptr"
+	"k8s.io/utils/pointer"
 
 	azclients "sigs.k8s.io/cloud-provider-azure/pkg/azureclients"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/armclient"
@@ -203,7 +203,7 @@ func (c *Client) listVMAS(ctx context.Context, resourceGroupName string) ([]comp
 		result = append(result, page.Values()...)
 
 		// Abort the loop when there's no nextLink in the response.
-		if ptr.Deref(page.Response().NextLink, "") == "" {
+		if pointer.StringDeref(page.Response().NextLink, "") == "" {
 			break
 		}
 
@@ -229,12 +229,12 @@ func (c *Client) listResponder(resp *http.Response) (result compute.Availability
 // availabilitySetListResultPreparer prepares a request to retrieve the next set of results.
 // It returns nil if no more results exist.
 func (c *Client) availabilitySetListResultPreparer(ctx context.Context, vmaslr compute.AvailabilitySetListResult) (*http.Request, error) {
-	if vmaslr.NextLink == nil || len(ptr.Deref(vmaslr.NextLink, "")) < 1 {
+	if vmaslr.NextLink == nil || len(pointer.StringDeref(vmaslr.NextLink, "")) < 1 {
 		return nil, nil
 	}
 
 	decorators := []autorest.PrepareDecorator{
-		autorest.WithBaseURL(ptr.Deref(vmaslr.NextLink, "")),
+		autorest.WithBaseURL(pointer.StringDeref(vmaslr.NextLink, "")),
 	}
 	return c.armClient.PrepareGetRequest(ctx, decorators...)
 }

@@ -28,7 +28,7 @@ import (
 
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/ptr"
+	"k8s.io/utils/pointer"
 
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	"sigs.k8s.io/cloud-provider-azure/pkg/consts"
@@ -186,11 +186,11 @@ func (fs *FlexScaleSet) getNodeVmssFlexID(ctx context.Context, nodeName string) 
 		vmssFlexes.Range(func(key, value interface{}) bool {
 			vmssFlexID := key.(string)
 			vmssFlex := value.(*compute.VirtualMachineScaleSet)
-			vmssPrefix := ptr.Deref(vmssFlex.Name, "")
+			vmssPrefix := pointer.StringDeref(vmssFlex.Name, "")
 			if vmssFlex.VirtualMachineProfile != nil &&
 				vmssFlex.VirtualMachineProfile.OsProfile != nil &&
 				vmssFlex.VirtualMachineProfile.OsProfile.ComputerNamePrefix != nil {
-				vmssPrefix = ptr.Deref(vmssFlex.VirtualMachineProfile.OsProfile.ComputerNamePrefix, "")
+				vmssPrefix = pointer.StringDeref(vmssFlex.VirtualMachineProfile.OsProfile.ComputerNamePrefix, "")
 			}
 			if strings.EqualFold(vmssPrefix, nodeName[:len(nodeName)-6]) {
 				// we should check this vmss first since nodeName and vmssFlex.Name or
