@@ -55,6 +55,10 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 		Cloud:    cloud,
 		TenantID: tenantID,
 	}
+	clientOps, _, err := azclient.GetAzureCloudConfigAndEnvConfig(armConfig)
+	if err != nil {
+		return nil, err
+	}
 	useFederatedWorkloadIdentityExtension := false
 	if aadFederatedTokenFile != "" {
 		useFederatedWorkloadIdentityExtension = true
@@ -71,7 +75,7 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 	cred := credProvider.GetAzIdentity()
 	factory, err := azclient.NewClientFactory(&azclient.ClientFactoryConfig{
 		SubscriptionID: subscriptionID,
-	}, armConfig, cred)
+	}, armConfig, clientOps, cred)
 	if err != nil {
 		return nil, err
 	}

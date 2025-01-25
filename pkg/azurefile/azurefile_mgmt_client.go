@@ -82,7 +82,7 @@ func (az *azureFileMgmtClient) CreateFileShare(ctx context.Context, shareOptions
 	if shareOptions.Metadata != nil {
 		shareOps.FileShareProperties.Metadata = shareOptions.Metadata
 	}
-	if _, err := az.fileShareClient.Create(ctx, az.accountOptions.ResourceGroup, az.accountOptions.Name, shareOptions.Name, shareOps); err != nil {
+	if _, err := az.fileShareClient.Create(ctx, az.accountOptions.ResourceGroup, az.accountOptions.Name, shareOptions.Name, shareOps, nil); err != nil {
 		return fmt.Errorf("failed to create share %s in account %s: %w", shareOptions.Name, az.accountOptions.Name, err)
 	}
 	klog.V(4).Infof("created share %s in account %s", shareOptions.Name, az.accountOptions.Name)
@@ -91,7 +91,7 @@ func (az *azureFileMgmtClient) CreateFileShare(ctx context.Context, shareOptions
 
 // DeleteFileShare deletes a file share using storage account name and key
 func (az *azureFileMgmtClient) DeleteFileShare(ctx context.Context, shareName string) error {
-	if err := az.fileShareClient.Delete(ctx, az.accountOptions.ResourceGroup, az.accountOptions.Name, shareName); err != nil {
+	if err := az.fileShareClient.Delete(ctx, az.accountOptions.ResourceGroup, az.accountOptions.Name, shareName, nil); err != nil {
 		return err
 	}
 	klog.V(4).Infof("share %s deleted", shareName)
@@ -100,7 +100,7 @@ func (az *azureFileMgmtClient) DeleteFileShare(ctx context.Context, shareName st
 
 // ResizeFileShare resizes a file share
 func (az *azureFileMgmtClient) ResizeFileShare(ctx context.Context, name string, sizeGiB int) error {
-	fileShare, err := az.fileShareClient.Get(ctx, az.accountOptions.ResourceGroup, az.accountOptions.Name, name)
+	fileShare, err := az.fileShareClient.Get(ctx, az.accountOptions.ResourceGroup, az.accountOptions.Name, name, nil)
 	if err != nil {
 		return err
 	}
@@ -117,7 +117,7 @@ func (az *azureFileMgmtClient) ResizeFileShare(ctx context.Context, name string,
 
 // GetFileShare gets a file share
 func (az *azureFileMgmtClient) GetFileShareQuota(ctx context.Context, name string) (int, error) {
-	share, err := az.fileShareClient.Get(ctx, az.accountOptions.ResourceGroup, az.accountOptions.Name, name)
+	share, err := az.fileShareClient.Get(ctx, az.accountOptions.ResourceGroup, az.accountOptions.Name, name, nil)
 	if err != nil {
 		return -1, err
 	}

@@ -69,7 +69,7 @@ func NewFakeDriver() *Driver {
 	driver.Name = fakeDriverName
 	driver.Version = vendorVersion
 	driver.cloud = &azure.Cloud{
-		Config: auth.Config{
+		Config: azure.Config{
 			AzureClientConfig: auth.AzureClientConfig{
 				SubscriptionID: "subscriptionID",
 			},
@@ -89,7 +89,7 @@ func NewFakeDriverCustomOptions(opts DriverOptions) *Driver {
 	driver.Name = fakeDriverName
 	driver.Version = vendorVersion
 	driver.cloud = &azure.Cloud{
-		Config: auth.Config{
+		Config: azure.Config{
 			AzureClientConfig: auth.AzureClientConfig{
 				SubscriptionID: "subscriptionID",
 			},
@@ -1018,7 +1018,7 @@ func TestGetFileShareQuota(t *testing.T) {
 		clientFactory := mock_azclient.NewMockClientFactory(ctrl)
 		clientFactory.EXPECT().GetFileShareClientForSub(gomock.Any()).Return(mockFileClient, nil).AnyTimes()
 		d.cloud.ComputeClientFactory = clientFactory
-		mockFileClient.EXPECT().Get(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
+		mockFileClient.EXPECT().Get(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
 		quota, err := d.getFileShareQuota(context.TODO(), &azure.AccountOptions{
 			ResourceGroup:  resourceGroupName,
 			Name:           accountName,
