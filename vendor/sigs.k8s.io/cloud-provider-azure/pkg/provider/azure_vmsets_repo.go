@@ -19,15 +19,17 @@ package provider
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2022-08-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2022-07-01/network"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/ptr"
+	"k8s.io/utils/pointer"
 
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	"sigs.k8s.io/cloud-provider-azure/pkg/consts"
@@ -137,7 +139,7 @@ func (az *Cloud) newVMCache() (azcache.Resource, error) {
 		}
 
 		if vm.VirtualMachineProperties != nil &&
-			strings.EqualFold(ptr.Deref(vm.VirtualMachineProperties.ProvisioningState, ""), string(consts.ProvisioningStateDeleting)) {
+			strings.EqualFold(pointer.StringDeref(vm.VirtualMachineProperties.ProvisioningState, ""), string(consts.ProvisioningStateDeleting)) {
 			klog.V(2).Infof("Virtual machine %q is under deleting", key)
 			return nil, nil
 		}
@@ -167,4 +169,21 @@ func (az *Cloud) getVirtualMachine(ctx context.Context, nodeName types.NodeName,
 	}
 
 	return *(cachedVM.(*compute.VirtualMachine)), nil
+}
+
+func (az *Cloud) getRouteTable(ctx context.Context, crt azcache.AzureCacheReadType) (routeTable network.RouteTable, exists bool, err error) {
+	if len(az.RouteTableName) == 0 {
+		return routeTable, false, fmt.Errorf("route table name is not configured")
+	}
+
+	cachedRt, err := az.rtCache.GetWithDeepCopy(ctx, az.RouteTableName, crt)
+	if err != nil {
+		return routeTable, false, err
+	}
+
+	if cachedRt == nil {
+		return routeTable, false, nil
+	}
+
+	return *(cachedRt.(*network.RouteTable)), true, nil
 }

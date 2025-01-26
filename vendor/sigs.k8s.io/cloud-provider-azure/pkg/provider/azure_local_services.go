@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	utilnet "k8s.io/utils/net"
+	"k8s.io/utils/pointer"
 	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/cloud-provider-azure/pkg/consts"
@@ -319,12 +320,12 @@ func (az *Cloud) setUpEndpointSlicesInformer(informerFactory informers.SharedInf
 				var previousIPs, currentIPs, previousNodeNames, currentNodeNames []string
 				if previousES != nil {
 					for _, ep := range previousES.Endpoints {
-						previousNodeNames = append(previousNodeNames, ptr.Deref(ep.NodeName, ""))
+						previousNodeNames = append(previousNodeNames, pointer.StringDeref(ep.NodeName, ""))
 					}
 				}
 				if newES != nil {
 					for _, ep := range newES.Endpoints {
-						currentNodeNames = append(currentNodeNames, ptr.Deref(ep.NodeName, ""))
+						currentNodeNames = append(currentNodeNames, pointer.StringDeref(ep.NodeName, ""))
 					}
 				}
 				for _, previousNodeName := range previousNodeNames {
@@ -356,7 +357,23 @@ func (az *Cloud) setUpEndpointSlicesInformer(informerFactory informers.SharedInf
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				es := obj.(*discovery_v1.EndpointSlice)
+				var es *discovery_v1.EndpointSlice
+				switch v := obj.(type) {
+				case *discovery_v1.EndpointSlice:
+					es = v
+				case cache.DeletedFinalStateUnknown:
+					// We may miss the deletion event if the watch stream is disconnected and the object is deleted.
+					var ok bool
+					es, ok = v.Obj.(*discovery_v1.EndpointSlice)
+					if !ok {
+						klog.Errorf("Cannot convert to *discovery_v1.EndpointSlice: %T", v.Obj)
+						return
+					}
+				default:
+					klog.Errorf("Cannot convert to *discovery_v1.EndpointSlice: %T", v)
+					return
+				}
+
 				az.endpointSlicesCache.Delete(strings.ToLower(fmt.Sprintf("%s/%s", es.Namespace, es.Name)))
 			},
 		})
@@ -408,7 +425,7 @@ func getLocalServiceBackendPoolName(serviceName string, ipv6 bool) string {
 // getBackendPoolNameForService determine the expected backend pool name
 // by checking the external traffic policy of the service.
 func (az *Cloud) getBackendPoolNameForService(service *v1.Service, clusterName string, ipv6 bool) string {
-	if !isLocalService(service) || !az.UseMultipleStandardLoadBalancers() {
+	if !isLocalService(service) || !az.useMultipleStandardLoadBalancers() {
 		return getBackendPoolName(clusterName, ipv6)
 	}
 	return getLocalServiceBackendPoolName(getServiceName(service), ipv6)
@@ -417,7 +434,7 @@ func (az *Cloud) getBackendPoolNameForService(service *v1.Service, clusterName s
 // getBackendPoolNamesForService determine the expected backend pool names
 // by checking the external traffic policy of the service.
 func (az *Cloud) getBackendPoolNamesForService(service *v1.Service, clusterName string) map[bool]string {
-	if !isLocalService(service) || !az.UseMultipleStandardLoadBalancers() {
+	if !isLocalService(service) || !az.useMultipleStandardLoadBalancers() {
 		return getBackendPoolNames(clusterName)
 	}
 	return map[bool]string{
@@ -429,7 +446,7 @@ func (az *Cloud) getBackendPoolNamesForService(service *v1.Service, clusterName 
 // getBackendPoolIDsForService determine the expected backend pool IDs
 // by checking the external traffic policy of the service.
 func (az *Cloud) getBackendPoolIDsForService(service *v1.Service, clusterName, lbName string) map[bool]string {
-	if !isLocalService(service) || !az.UseMultipleStandardLoadBalancers() {
+	if !isLocalService(service) || !az.useMultipleStandardLoadBalancers() {
 		return az.getBackendPoolIDs(clusterName, lbName)
 	}
 	return map[bool]string{
@@ -502,10 +519,10 @@ func (az *Cloud) cleanupLocalServiceBackendPool(
 	var changed bool
 	if lbs != nil {
 		for _, lb := range *lbs {
-			lbName := ptr.Deref(lb.Name, "")
+			lbName := pointer.StringDeref(lb.Name, "")
 			if lb.BackendAddressPools != nil {
 				for _, bp := range *lb.BackendAddressPools {
-					bpName := ptr.Deref(bp.Name, "")
+					bpName := pointer.StringDeref(bp.Name, "")
 					if localServiceOwnsBackendPool(getServiceName(svc), bpName) {
 						if err := az.DeleteLBBackendPool(ctx, lbName, bpName); err != nil {
 							return nil, err
@@ -543,7 +560,7 @@ func (az *Cloud) checkAndApplyLocalServiceBackendPoolUpdates(lb network.LoadBala
 	}
 	currentIPsInBackendPools := make(map[string][]string)
 	for _, bp := range *lb.BackendAddressPools {
-		bpName := ptr.Deref(bp.Name, "")
+		bpName := pointer.StringDeref(bp.Name, "")
 		if localServiceOwnsBackendPool(serviceName, bpName) {
 			var currentIPs []string
 			for _, address := range *bp.LoadBalancerBackendAddresses {

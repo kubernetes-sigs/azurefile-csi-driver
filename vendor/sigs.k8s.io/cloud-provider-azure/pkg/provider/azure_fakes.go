@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/interfaceclient/mockinterfaceclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/loadbalancerclient/mockloadbalancerclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/publicipclient/mockpublicipclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/routetableclient/mockroutetableclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/subnetclient/mocksubnetclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/vmclient/mockvmclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azureclients/vmssclient/mockvmssclient"
@@ -44,7 +45,6 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/consts"
 	"sigs.k8s.io/cloud-provider-azure/pkg/provider/config"
 	"sigs.k8s.io/cloud-provider-azure/pkg/provider/privatelinkservice"
-	"sigs.k8s.io/cloud-provider-azure/pkg/provider/routetable"
 	"sigs.k8s.io/cloud-provider-azure/pkg/provider/securitygroup"
 	"sigs.k8s.io/cloud-provider-azure/pkg/provider/subnet"
 	"sigs.k8s.io/cloud-provider-azure/pkg/util/lockmap"
@@ -79,7 +79,7 @@ func NewTestFlexScaleSet(ctrl *gomock.Controller) (*FlexScaleSet, error) {
 // GetTestCloud returns a fake azure cloud for unit tests in Azure related CSI drivers
 func GetTestCloud(ctrl *gomock.Controller) (az *Cloud) {
 	az = &Cloud{
-		Config: config.Config{
+		Config: Config{
 			AzureClientConfig: config.AzureClientConfig{
 				ARMClientConfig: azclient.ARMClientConfig{
 					TenantID: "TenantID",
@@ -117,6 +117,7 @@ func GetTestCloud(ctrl *gomock.Controller) (az *Cloud) {
 	az.InterfacesClient = mockinterfaceclient.NewMockInterface(ctrl)
 	az.LoadBalancerClient = mockloadbalancerclient.NewMockInterface(ctrl)
 	az.PublicIPAddressesClient = mockpublicipclient.NewMockInterface(ctrl)
+	az.RouteTablesClient = mockroutetableclient.NewMockInterface(ctrl)
 	az.SubnetsClient = mocksubnetclient.NewMockInterface(ctrl)
 	az.VirtualMachineScaleSetsClient = mockvmssclient.NewMockInterface(ctrl)
 	az.VirtualMachineScaleSetVMsClient = mockvmssvmclient.NewMockInterface(ctrl)
@@ -140,11 +141,11 @@ func GetTestCloud(ctrl *gomock.Controller) (az *Cloud) {
 	az.lbCache, _ = az.newLBCache()
 	az.nsgRepo, _ = securitygroup.NewSecurityGroupRepo(az.SecurityGroupResourceGroup, az.SecurityGroupName, az.NsgCacheTTLInSeconds, az.Config.DisableAPICallCache, securtyGrouptrack2Client)
 	az.subnetRepo = subnet.NewMockRepository(ctrl)
+	az.rtCache, _ = az.newRouteTableCache()
 	az.pipCache, _ = az.newPIPCache()
 	az.LoadBalancerBackendPool = NewMockBackendPool(ctrl)
 
 	az.plsRepo = privatelinkservice.NewMockRepository(ctrl)
-	az.routeTableRepo = routetable.NewMockRepository(ctrl)
 
 	getter := func(_ context.Context, _ string) (interface{}, error) { return nil, nil }
 	az.storageAccountCache, _ = azcache.NewTimedCache(time.Minute, getter, az.Config.DisableAPICallCache)

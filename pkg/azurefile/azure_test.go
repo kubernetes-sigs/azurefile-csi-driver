@@ -37,7 +37,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fake "k8s.io/client-go/kubernetes/fake"
 	azureprovider "sigs.k8s.io/cloud-provider-azure/pkg/provider"
-	azureconfig "sigs.k8s.io/cloud-provider-azure/pkg/provider/config"
 )
 
 func skipIfTestingOnWindows(t *testing.T) {
@@ -298,7 +297,7 @@ func TestUpdateSubnetServiceEndpoints(t *testing.T) {
 	defer ctrl.Finish()
 	mockSubnetClient := mocksubnetclient.NewMockInterface(ctrl)
 
-	config := azureconfig.Config{
+	config := azureprovider.Config{
 		ResourceGroup: "rg",
 		Location:      "loc",
 		VnetName:      "fake-vnet",
