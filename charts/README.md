@@ -12,6 +12,8 @@
    - `--set node.cloudConfigSecretName`
    - `--set node.cloudConfigSecretNamesapce`
  - switch to `mcr.azk8s.cn` repository in Azure China: `--set image.baseRepo=mcr.azk8s.cn`
+ - Microk8s based kubernetes recommended settings:
+   - `--set linux.kubelet="/var/snap/microk8s/common/var/lib/kubelet"` - sets correct path to microk8s kubelet even though a user has a folder link to it.
 
 ### install a specific version
 ```console
