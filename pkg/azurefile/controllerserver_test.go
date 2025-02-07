@@ -1723,11 +1723,32 @@ var _ = ginkgo.DescribeTable("ValidateVolumeCapabilities", func(
 	),
 )
 var _ = ginkgo.Describe("CreateSnapshot", func() {
+	var ctrl *gomock.Controller
+	var d *Driver
+	var mockFileClient *mock_fileshareclient.MockInterface
+	ginkgo.BeforeEach(func() {
+		ctrl = gomock.NewController(ginkgo.GinkgoT())
+		d = NewFakeDriver()
+		var err error
+		computeClientFactory := mock_azclient.NewMockClientFactory(ctrl)
+		accountClient := mock_accountclient.NewMockInterface(ctrl)
+		computeClientFactory.EXPECT().GetAccountClientForSub(gomock.Any()).Return(accountClient, nil).AnyTimes()
+		computeClientFactory.EXPECT().GetAccountClient().Return(accountClient).AnyTimes()
+		mockFileClient = mock_fileshareclient.NewMockInterface(ctrl)
+		computeClientFactory.EXPECT().GetFileShareClientForSub(gomock.Any()).Return(mockFileClient, nil).AnyTimes()
+		computeClientFactory.EXPECT().GetFileShareClient().Return(mockFileClient).AnyTimes()
+		networkClientFactory := mock_azclient.NewMockClientFactory(ctrl)
+		networkClientFactory.EXPECT().GetSubnetClient().Return(mock_subnetclient.NewMockInterface(ctrl)).AnyTimes()
+		d.cloud, err = storage.NewRepository(config.Config{}, &azclient.Environment{}, computeClientFactory, networkClientFactory)
+		gomega.Expect(err).To(gomega.BeNil())
+
+		d.kubeClient = fake.NewSimpleClientset()
+	})
+	ginkgo.AfterEach(func() {
+		ctrl.Finish()
+	})
 	ginkgo.When("test", func() {
 		ginkgo.It("should work", func(_ context.Context) {
-
-			d := NewFakeDriver()
-
 			tests := []struct {
 				desc        string
 				req         *csi.CreateSnapshotRequest
@@ -1753,17 +1774,78 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 					},
 					expectedErr: status.Errorf(codes.Internal, `GetFileShareInfo(vol_1) failed with error: error parsing volume id: "vol_1", should at least contain two #`),
 				},
+				{
+					desc: "Snapshot already exists",
+					req: &csi.CreateSnapshotRequest{
+						SourceVolumeId: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID",
+						Name:           "snapname",
+					},
+					expectedErr: nil,
+				},
+				{
+					desc: "Create snapshot success",
+					req: &csi.CreateSnapshotRequest{
+						SourceVolumeId: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID",
+						Name:           "snapname",
+					},
+					expectedErr: nil,
+				},
 			}
 
 			for _, test := range tests {
+				if test.desc == "Snapshot already exists" {
+					mockFileClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return([]*armstorage.FileShareItem{
+						{
+							Name: to.Ptr("fileShareName"),
+							Properties: &armstorage.FileShareProperties{
+								SnapshotTime: to.Ptr(time.Now()),
+							},
+						},
+					}, nil).Times(1)
+					mockFileClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{
+						Name: to.Ptr("fileShareName"),
+						FileShareProperties: &armstorage.FileShareProperties{
+							Metadata: map[string]*string{
+								snapshotNameKey: to.Ptr("snapname"),
+							},
+						},
+					}, nil).Times(1)
+				}
+				if test.desc == "Create snapshot success" {
+					mockFileClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return([]*armstorage.FileShareItem{
+						{
+							Name: to.Ptr("fileShareName"),
+							Properties: &armstorage.FileShareProperties{
+								SnapshotTime: to.Ptr(time.Now()),
+							},
+						},
+					}, nil).Times(1)
+					mockFileClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{
+						Name: to.Ptr("fileShareName"),
+						FileShareProperties: &armstorage.FileShareProperties{
+							ShareQuota: to.Ptr(int32(100)),
+						},
+					}, nil).Times(2)
+					mockFileClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{
+						Name: to.Ptr("fileShareName"),
+						FileShareProperties: &armstorage.FileShareProperties{
+							SnapshotTime: to.Ptr(time.Now()),
+							ShareQuota:   to.Ptr(int32(0)),
+						},
+					}, nil).Times(1)
+				}
+
 				_, err := d.CreateSnapshot(context.Background(), test.req)
-				gomega.Expect(err).To(gomega.Equal(test.expectedErr))
+				if err != nil {
+					gomega.Expect(err).To(gomega.Equal(test.expectedErr))
+				} else {
+					gomega.Expect(err).To(gomega.BeNil())
+				}
 			}
 		})
 	})
 })
 var _ = ginkgo.DescribeTable("DeleteSnapshot", func(req *csi.DeleteSnapshotRequest, expectedErr error) {
-
 	d := NewFakeDriver()
 	d.cloud = &storage.AccountRepo{}
 	ctrl := gomock.NewController(ginkgo.GinkgoT())
@@ -1782,6 +1864,11 @@ var _ = ginkgo.DescribeTable("DeleteSnapshot", func(req *csi.DeleteSnapshotReque
 	d.kubeClient = clientSet
 	d.cloud.Environment = &azclient.Environment{StorageEndpointSuffix: "abc"}
 	mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), "vol_1").Return(key, nil).AnyTimes()
+
+	mockFileClient := mock_fileshareclient.NewMockInterface(ctrl)
+	d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetFileShareClientForSub(gomock.Any()).Return(mockFileClient, nil).AnyTimes()
+	d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetFileShareClient().Return(mockFileClient).AnyTimes()
+	mockFileClient.EXPECT().Delete(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
 
 	_, err := d.DeleteSnapshot(context.Background(), req)
 	if expectedErr == nil {
@@ -1804,6 +1891,10 @@ var _ = ginkgo.DescribeTable("DeleteSnapshot", func(req *csi.DeleteSnapshotReque
 		Secrets:    map[string]string{"accountName": "TestAccountName", "accountKey": base64.StdEncoding.EncodeToString([]byte("TestAccountKey"))},
 	}, status.Error(codes.Internal, "failed to get snapshot name with (testrg#testAccount#testFileShare#testuuid): error parsing volume id: \"testrg#testAccount#testFileShare#testuuid\", should at least contain four #"),
 	),
+	ginkgo.Entry("Delete snapshot success", &csi.DeleteSnapshotRequest{
+		SnapshotId: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#2019-08-22T07:17:53.0000000Z",
+		Secrets:    map[string]string{},
+	}, nil),
 )
 
 var _ = ginkgo.Describe("TestControllerExpandVolume", func() {
