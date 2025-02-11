@@ -1731,9 +1731,6 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 		d = NewFakeDriver()
 		var err error
 		computeClientFactory := mock_azclient.NewMockClientFactory(ctrl)
-		accountClient := mock_accountclient.NewMockInterface(ctrl)
-		computeClientFactory.EXPECT().GetAccountClientForSub(gomock.Any()).Return(accountClient, nil).AnyTimes()
-		computeClientFactory.EXPECT().GetAccountClient().Return(accountClient).AnyTimes()
 		mockFileClient = mock_fileshareclient.NewMockInterface(ctrl)
 		computeClientFactory.EXPECT().GetFileShareClientForSub(gomock.Any()).Return(mockFileClient, nil).AnyTimes()
 		computeClientFactory.EXPECT().GetFileShareClient().Return(mockFileClient).AnyTimes()
