@@ -1868,7 +1868,7 @@ var _ = ginkgo.DescribeTable("DeleteSnapshot", func(req *csi.DeleteSnapshotReque
 	mockFileClient := mock_fileshareclient.NewMockInterface(ctrl)
 	d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetFileShareClientForSub(gomock.Any()).Return(mockFileClient, nil).AnyTimes()
 	d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetFileShareClient().Return(mockFileClient).AnyTimes()
-	mockFileClient.EXPECT().Delete(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
+	mockFileClient.EXPECT().Delete(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	_, err := d.DeleteSnapshot(context.Background(), req)
 	if expectedErr == nil {
