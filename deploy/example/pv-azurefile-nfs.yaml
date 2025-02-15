@@ -17,7 +17,7 @@ spec:
     - actimeo=30
   csi:
     driver: file.csi.azure.com
-    # make sure volumeid is unique for every identical share in the cluster
+    # make sure volumeHandle is unique for every identical share in the cluster
     volumeHandle: "{resource-group-name}#{account-name}#{file-share-name}"
     volumeAttributes:
       resourceGroup: EXISTING_RESOURCE_GROUP_NAME  # optional, only set this when storage account is not in the same resource group as agent node

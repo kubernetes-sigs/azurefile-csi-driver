@@ -24,7 +24,7 @@ spec:
     - nobrl  # disable sending byte range lock requests to the server and for applications which have challenges with posix locks
   csi:
     driver: file.csi.azure.com
-    # make sure volumeid is unique for every identical share in the cluster
+    # make sure volumeHandle is unique for every identical share in the cluster
     volumeHandle: "{resource-group-name}#{account-name}#{file-share-name}"
     volumeAttributes:
       shareName: EXISTING_FILE_SHARE_NAME  # only file share name, don't use full path
