@@ -199,9 +199,9 @@ var (
 	retriableErrors = []string{accountNotProvisioned, tooManyRequests, shareBeingDeleted, clientThrottled}
 
 	// azcopyCloneVolumeOptions used in volume cloning and set --check-length to false because volume data may be in changing state, copy volume is not same as current source volume
-	azcopyCloneVolumeOptions = []string{"--recursive", "--check-length=false"}
+	azcopyCloneVolumeOptions = []string{"--recursive", "--check-length=false", "--log-level=ERROR"}
 	// azcopySnapshotRestoreOptions used in smb snapshot restore and set --check-length to true because snapshot data is changeless
-	azcopySnapshotRestoreOptions = []string{"--recursive", "--check-length=true"}
+	azcopySnapshotRestoreOptions = []string{"--recursive", "--check-length=true", "--log-level=ERROR"}
 )
 
 // Driver implements all interfaces of CSI drivers
