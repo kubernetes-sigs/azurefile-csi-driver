@@ -163,6 +163,12 @@ spec:
                   optional: true
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
+            - name: AZCOPY_CONCURRENCY_VALUE
+              value: "10"
+            - name: AZCOPY_CONCURRENT_FILES
+              value: "20"
+            - name: AZCOPY_BUFFER_GB
+              value: "1"
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
