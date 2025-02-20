@@ -143,13 +143,12 @@ func (ac *Azcopy) GetAzcopyJob(dstFileshare string, authAzcopyEnv []string) (Azc
 	return jobState, percent, nil
 }
 
-// TestListJobs test azcopy jobs list command with authAzcopyEnv
-func (ac *Azcopy) TestListJobs(accountName, storageEndpointSuffix string, authAzcopyEnv []string) (string, error) {
-	cmdStr := fmt.Sprintf("azcopy list %s", fmt.Sprintf("https://%s.file.%s", accountName, storageEndpointSuffix))
+func (ac *Azcopy) CleanJobs() (string, error) {
+	cmdStr := "azcopy jobs clean --with-status=completed"
 	if ac.ExecCmd == nil {
 		ac.ExecCmd = &ExecCommand{}
 	}
-	return ac.ExecCmd.RunCommand(cmdStr, authAzcopyEnv)
+	return ac.ExecCmd.RunCommand(cmdStr, nil)
 }
 
 // parseAzcopyJobList parse command azcopy jobs list, get jobid and state from joblist

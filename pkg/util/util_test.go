@@ -171,6 +171,42 @@ func TestGetAzcopyJob(t *testing.T) {
 	}
 }
 
+func TestCleanJobs(t *testing.T) {
+	tests := []struct {
+		desc        string
+		execStr     string
+		execErr     error
+		expectedErr error
+	}{
+		{
+			desc:        "run exec get error",
+			execStr:     "",
+			execErr:     fmt.Errorf("error"),
+			expectedErr: fmt.Errorf("error"),
+		},
+		{
+			desc:        "run exec succeed",
+			execStr:     "cleaned",
+			execErr:     nil,
+			expectedErr: nil,
+		},
+	}
+	for _, test := range tests {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		m := NewMockEXEC(ctrl)
+		m.EXPECT().RunCommand(gomock.Eq("azcopy jobs clean --with-status=completed"), nil).Return(test.execStr, test.execErr)
+
+		azcopyFunc := &Azcopy{}
+		azcopyFunc.ExecCmd = m
+		_, err := azcopyFunc.CleanJobs()
+		if !reflect.DeepEqual(err, test.expectedErr) {
+			t.Errorf("test[%s]: unexpected err: %v, expected err: %v", test.desc, err, test.expectedErr)
+		}
+	}
+}
+
 func TestParseAzcopyJobList(t *testing.T) {
 	tests := []struct {
 		desc             string
