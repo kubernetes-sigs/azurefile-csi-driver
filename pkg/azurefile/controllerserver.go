@@ -1167,6 +1167,9 @@ func (d *Driver) copyFileShareByAzcopy(srcFileShareName, dstFileShareName, srcPa
 		klog.Warningf("CopyFileShare(%s, %s, %s) failed with error: %v", accountOptions.ResourceGroup, dstAccountName, dstFileShareName, err)
 	} else {
 		klog.V(2).Infof("copied fileshare %s to %s successfully", srcFileShareName, dstFileShareName)
+		if out, err := d.azcopy.CleanJobs(); err != nil {
+			klog.Warningf("clean azcopy jobs failed with error: %v, output: %s", err, string(out))
+		}
 	}
 	return err
 }
