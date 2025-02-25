@@ -138,7 +138,7 @@ Get SMBClient events from Event Viewer under following path:
  
 </details>
 
- - NFSv4
+#### NFS
  
 ```console
 mkdir /tmp/test
