@@ -34,10 +34,13 @@ const (
 type AzcopyJobState string
 
 const (
-	AzcopyJobError     AzcopyJobState = "Error"
-	AzcopyJobNotFound  AzcopyJobState = "NotFound"
-	AzcopyJobRunning   AzcopyJobState = "Running"
-	AzcopyJobCompleted AzcopyJobState = "Completed"
+	AzcopyJobError                         AzcopyJobState = "Error"
+	AzcopyJobNotFound                      AzcopyJobState = "NotFound"
+	AzcopyJobRunning                       AzcopyJobState = "Running"
+	AzcopyJobCompleted                     AzcopyJobState = "Completed"
+	AzcopyJobCompletedWithErrors           AzcopyJobState = "CompletedWithErrors"
+	AzcopyJobCompletedWithSkipped          AzcopyJobState = "CompletedWithSkipped"
+	AzcopyJobCompletedWithErrorsAndSkipped AzcopyJobState = "CompletedWithErrorsAndSkipped"
 )
 
 // RoundUpBytes rounds up the volume size in bytes up to multiplications of GiB
@@ -107,9 +110,6 @@ func (ac *Azcopy) GetAzcopyJob(dstFileshare string, authAzcopyEnv []string) (Azc
 	// Start Time: Wednesday, 09-Aug-23 09:09:03 UTC
 	// Status: Cancelled
 	// Command: copy https://{accountName}.file.core.windows.net/{srcFileshare}{SAStoken} https://{accountName}.file.core.windows.net/{dstFileshare}{SAStoken} --recursive --check-length=false
-	if ac.ExecCmd == nil {
-		ac.ExecCmd = &ExecCommand{}
-	}
 	out, err := ac.ExecCmd.RunCommand(cmdStr, authAzcopyEnv)
 	// if grep command returns nothing, the exec will return exit status 1 error, so filter this error
 	if err != nil && err.Error() != "exit status 1" {
@@ -143,13 +143,8 @@ func (ac *Azcopy) GetAzcopyJob(dstFileshare string, authAzcopyEnv []string) (Azc
 	return jobState, percent, nil
 }
 
-// TestListJobs test azcopy jobs list command with authAzcopyEnv
-func (ac *Azcopy) TestListJobs(accountName, storageEndpointSuffix string, authAzcopyEnv []string) (string, error) {
-	cmdStr := fmt.Sprintf("azcopy list %s", fmt.Sprintf("https://%s.file.%s", accountName, storageEndpointSuffix))
-	if ac.ExecCmd == nil {
-		ac.ExecCmd = &ExecCommand{}
-	}
-	return ac.ExecCmd.RunCommand(cmdStr, authAzcopyEnv)
+func (ac *Azcopy) CleanJobs() (string, error) {
+	return ac.ExecCmd.RunCommand("azcopy jobs clean", nil)
 }
 
 // parseAzcopyJobList parse command azcopy jobs list, get jobid and state from joblist
