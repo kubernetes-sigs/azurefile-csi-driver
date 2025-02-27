@@ -321,7 +321,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.volLockMap = newLockMap()
 	driver.subnetLockMap = newLockMap()
 	driver.volumeLocks = newVolumeLocks()
-	driver.azcopy = &fileutil.Azcopy{}
+	driver.azcopy = &fileutil.Azcopy{ExecCmd: &fileutil.ExecCommand{}}
 	driver.kubeconfig = options.KubeConfig
 	driver.endpoint = options.Endpoint
 	driver.resolver = new(NetResolver)
