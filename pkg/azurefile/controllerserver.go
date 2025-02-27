@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	volumehelper "sigs.k8s.io/azurefile-csi-driver/pkg/util"
+	"sigs.k8s.io/azurefile-csi-driver/pkg/util"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
@@ -95,7 +95,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	capacityBytes := req.GetCapacityRange().GetRequiredBytes()
-	requestGiB := volumehelper.RoundUpGiB(capacityBytes)
+	requestGiB := util.RoundUpGiB(capacityBytes)
 	if requestGiB == 0 {
 		requestGiB = defaultAzureFileQuota
 		klog.Warningf("no quota specified, set as default value(%d GiB)", defaultAzureFileQuota)
@@ -642,7 +642,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			// use uuid as vhd disk name if file share specified
 			diskName = uuid.NewString() + vhdSuffix
 		}
-		diskSizeBytes := volumehelper.GiBToBytes(requestGiB)
+		diskSizeBytes := util.GiBToBytes(requestGiB)
 		klog.V(2).Infof("begin to create vhd file(%s) size(%d) on share(%s) on account(%s) type(%s) rg(%s) location(%s)",
 			diskName, diskSizeBytes, validFileShareName, account, sku, resourceGroup, location)
 		if err := createDisk(ctx, accountName, accountKey, d.getStorageEndPointSuffix(), validFileShareName, diskName, diskSizeBytes); err != nil {
@@ -914,7 +914,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		klog.V(2).Infof("snapshot(%s) already exists", snapshotName)
 		return &csi.CreateSnapshotResponse{
 			Snapshot: &csi.Snapshot{
-				SizeBytes:      volumehelper.GiBToBytes(int64(itemSnapshotQuota)),
+				SizeBytes:      util.GiBToBytes(int64(itemSnapshotQuota)),
 				SnapshotId:     sourceVolumeID + "#" + itemSnapshot,
 				SourceVolumeId: sourceVolumeID,
 				CreationTime:   timestamppb.New(itemSnapshotTime),
@@ -996,7 +996,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 
 	createResp := &csi.CreateSnapshotResponse{
 		Snapshot: &csi.Snapshot{
-			SizeBytes:      volumehelper.GiBToBytes(int64(itemSnapshotQuota)),
+			SizeBytes:      util.GiBToBytes(int64(itemSnapshotQuota)),
 			SnapshotId:     sourceVolumeID + "#" + itemSnapshot,
 			SourceVolumeId: sourceVolumeID,
 			CreationTime:   timestamppb.New(itemSnapshotTime),
@@ -1134,21 +1134,21 @@ func (d *Driver) copyFileShareByAzcopy(srcFileShareName, dstFileShareName, srcPa
 	klog.V(2).Infof("azcopy job status: %s, copy percent: %s%%, error: %v", jobState, percent, err)
 
 	switch jobState {
-	case volumehelper.AzcopyJobError, volumehelper.AzcopyJobCompleted:
+	case util.AzcopyJobError, util.AzcopyJobCompleted, util.AzcopyJobCompletedWithErrors, util.AzcopyJobCompletedWithSkipped, util.AzcopyJobCompletedWithErrorsAndSkipped:
 		return err
-	case volumehelper.AzcopyJobRunning:
+	case util.AzcopyJobRunning:
 		err = wait.PollImmediate(20*time.Second, time.Duration(d.waitForAzCopyTimeoutMinutes)*time.Minute, func() (bool, error) {
 			jobState, percent, err := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
 			klog.V(2).Infof("azcopy job status: %s, copy percent: %s%%, error: %v", jobState, percent, err)
 			if err != nil {
 				return false, err
 			}
-			if jobState == volumehelper.AzcopyJobRunning {
+			if jobState == util.AzcopyJobRunning {
 				return false, nil
 			}
 			return true, nil
 		})
-	case volumehelper.AzcopyJobNotFound:
+	case util.AzcopyJobNotFound:
 		klog.V(2).Infof("copy fileshare %s:%s to %s:%s", srcAccountName, srcFileShareName, dstAccountName, dstFileShareName)
 		execAzcopyJob := func() error {
 			if out, err := d.execAzcopyCopy(srcPathAuth, dstPath, azcopyCopyOptions, authAzcopyEnv); err != nil {
@@ -1160,13 +1160,16 @@ func (d *Driver) copyFileShareByAzcopy(srcFileShareName, dstFileShareName, srcPa
 			jobState, percent, _ := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
 			return fmt.Errorf("azcopy job status: %s, timeout waiting for copy fileshare %s:%s to %s:%s complete, current copy percent: %s%%", jobState, srcAccountName, srcFileShareName, dstAccountName, dstFileShareName, percent)
 		}
-		err = volumehelper.WaitUntilTimeout(time.Duration(d.waitForAzCopyTimeoutMinutes)*time.Minute, execAzcopyJob, timeoutFunc)
+		err = util.WaitUntilTimeout(time.Duration(d.waitForAzCopyTimeoutMinutes)*time.Minute, execAzcopyJob, timeoutFunc)
 	}
 
 	if err != nil {
 		klog.Warningf("CopyFileShare(%s, %s, %s) failed with error: %v", accountOptions.ResourceGroup, dstAccountName, dstFileShareName, err)
 	} else {
 		klog.V(2).Infof("copied fileshare %s to %s successfully", srcFileShareName, dstFileShareName)
+		if out, err := d.azcopy.CleanJobs(); err != nil {
+			klog.Warningf("clean azcopy jobs failed with error: %v, output: %s", err, string(out))
+		}
 	}
 	return err
 }
@@ -1191,7 +1194,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 	if capacityBytes == 0 {
 		return nil, status.Error(codes.InvalidArgument, "volume capacity range missing in request")
 	}
-	requestGiB := volumehelper.RoundUpGiB(capacityBytes)
+	requestGiB := util.RoundUpGiB(capacityBytes)
 	if err := d.ValidateControllerServiceRequest(csi.ControllerServiceCapability_RPC_EXPAND_VOLUME); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid expand volume request: %v", req)
 	}
