@@ -73,11 +73,10 @@ func getCloudProvider(ctx context.Context, kubeconfig, nodeID, secretName, secre
 		config     *azureconfig.Config
 		kubeClient kubernetes.Interface
 		fromSecret bool
+		err        error
 	)
 
-	az := &azure.Cloud{}
 	repo := &storage.AccountRepo{}
-	var err error
 
 	// for sanity test: if kubeconfig is set as "no-need-kubeconfig", kubeClient will be nil
 	if kubeconfig == "no-need-kubeconfig" {
@@ -163,6 +162,7 @@ func getCloudProvider(ctx context.Context, kubeconfig, nodeID, secretName, secre
 			err = filewatcher.WatchFileForChanges(config.AADClientCertPath)
 			klog.Warningf("Failed to watch certificate file for changes: %v", err)
 		}
+		az := &azure.Cloud{}
 		if err = az.InitializeCloudFromConfig(ctx, config, fromSecret, false); err != nil {
 			klog.Warningf("InitializeCloudFromConfig failed with error: %v", err)
 		}
@@ -170,23 +170,21 @@ func getCloudProvider(ctx context.Context, kubeconfig, nodeID, secretName, secre
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to get AzureCloudConfigAndEnvConfig: %v", err)
 		}
+
+		if nodeID == "" {
+			// Disable UseInstanceMetadata for controller to mitigate a timeout issue using IMDS
+			// https://github.com/kubernetes-sigs/azuredisk-csi-driver/issues/168
+			klog.V(2).Infof("disable UseInstanceMetadata for controller server")
+			config.UseInstanceMetadata = false
+			klog.V(2).Infof("starting controller server...")
+		} else {
+			klog.V(2).Infof("starting node server on node(%s)", nodeID)
+		}
+
 		repo, err = storage.NewRepository(*config, env, az.ComputeClientFactory, az.NetworkClientFactory)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create storage repository: %v", err)
 		}
-	}
-
-	isController := (nodeID == "")
-	if isController {
-		if err == nil {
-			// Disable UseInstanceMetadata for controller to mitigate a timeout issue using IMDS
-			// https://github.com/kubernetes-sigs/azuredisk-csi-driver/issues/168
-			klog.V(2).Infof("disable UseInstanceMetadata for controller server")
-			az.Config.UseInstanceMetadata = false
-		}
-		klog.V(2).Infof("starting controller server...")
-	} else {
-		klog.V(2).Infof("starting node server on node(%s)", nodeID)
 	}
 
 	return repo, kubeClient, nil
