@@ -477,13 +477,11 @@ func (d *Driver) getFileShareQuota(ctx context.Context, accountOptions *storage.
 		if err != nil {
 			return -1, err
 		}
-		fileClient, err = newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix())
-		if err != nil {
+		if fileClient, err = newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix()); err != nil {
 			return -1, err
 		}
 	} else {
-		fileClient, err = newAzureFileMgmtClient(d.cloud.ComputeClientFactory, accountOptions)
-		if err != nil {
+		if fileClient, err = newAzureFileMgmtClient(d.cloud, accountOptions); err != nil {
 			return -1, err
 		}
 	}
@@ -950,7 +948,7 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *storage.Ac
 				return true, err
 			}
 		} else {
-			if fileClient, err = newAzureFileMgmtClient(d.cloud.ComputeClientFactory, accountOptions); err != nil {
+			if fileClient, err = newAzureFileMgmtClient(d.cloud, accountOptions); err != nil {
 				return true, err
 			}
 		}
@@ -981,10 +979,9 @@ func (d *Driver) DeleteFileShare(ctx context.Context, subsID, resourceGroup, acc
 			}
 			err = fileClient.DeleteFileShare(ctx, shareName)
 		} else {
-			var fileClient fileshareclient.Interface
-			fileClient, err = d.cloud.ComputeClientFactory.GetFileShareClientForSub(subsID)
-			if err != nil {
-				return true, err
+			fileClient, errGetClient := d.getFileShareClientForSub(subsID)
+			if errGetClient != nil {
+				return true, errGetClient
 			}
 			err = fileClient.Delete(ctx, resourceGroup, accountName, shareName, nil)
 		}
@@ -1027,7 +1024,7 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 			}
 			err = fileClient.ResizeFileShare(ctx, shareName, sizeGiB)
 		} else {
-			fileClient, err := d.cloud.ComputeClientFactory.GetFileShareClientForSub(subsID)
+			fileClient, err := d.getFileShareClientForSub(subsID)
 			if err != nil {
 				return true, err
 			}
@@ -1092,7 +1089,7 @@ func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest
 
 // GetTotalAccountQuota returns the total quota in GB of all file shares in the storage account and the number of file shares
 func (d *Driver) GetTotalAccountQuota(ctx context.Context, subsID, resourceGroup, accountName string) (int32, int32, error) {
-	fileClient, err := d.cloud.ComputeClientFactory.GetFileShareClientForSub(subsID)
+	fileClient, err := d.getFileShareClientForSub(subsID)
 	if err != nil {
 		return -1, -1, err
 	}
@@ -1111,7 +1108,7 @@ func (d *Driver) GetTotalAccountQuota(ctx context.Context, subsID, resourceGroup
 
 // RemoveStorageAccountTag remove tag from storage account
 func (d *Driver) RemoveStorageAccountTag(ctx context.Context, subsID, resourceGroup, account, key string) error {
-	if d.cloud == nil || d.cloud.ComputeClientFactory.GetAccountClient() == nil {
+	if d.cloud == nil {
 		return fmt.Errorf("cloud or StorageAccountClient is nil")
 	}
 	// search in cache first
@@ -1274,4 +1271,11 @@ func (d *Driver) getStorageEndPointSuffix() string {
 		return defaultStorageEndPointSuffix
 	}
 	return d.cloud.Environment.StorageEndpointSuffix
+}
+
+func (d *Driver) getFileShareClientForSub(subscriptionID string) (fileshareclient.Interface, error) {
+	if d.cloud == nil || d.cloud.ComputeClientFactory == nil {
+		return nil, fmt.Errorf("cloud or ComputeClientFactory is nil")
+	}
+	return d.cloud.ComputeClientFactory.GetFileShareClientForSub(subscriptionID)
 }

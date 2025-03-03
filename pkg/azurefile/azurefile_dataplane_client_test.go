@@ -25,7 +25,6 @@ import (
 )
 
 func TestCreateFileShare(t *testing.T) {
-
 	testCases := []struct {
 		name     string
 		testFunc func(t *testing.T)

@@ -37,8 +37,8 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1api "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
@@ -74,6 +74,7 @@ func NewFakeDriver() *Driver {
 			csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 			csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
 		})
+	driver.cloud = &storage.AccountRepo{}
 	return driver
 }
 
@@ -1490,7 +1491,7 @@ func TestGetStorageAccesskey(t *testing.T) {
 		expectedError error
 	}{
 		{
-			name:          "error is not nil", // test case shoudl run first to avoid cache hit
+			name:          "error is not nil", // test case should run first to avoid cache hit
 			secrets:       make(map[string]string),
 			secretName:    "foobar",
 			expectedError: errors.New(""),
@@ -1594,6 +1595,40 @@ func TestGetStorageAccesskeyWithSubsID(t *testing.T) {
 			d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetAccountClientForSub(gomock.Any()).Return(mockStorageAccountsClient, nil).AnyTimes()
 		}
 		_, err := d.GetStorageAccesskeyWithSubsID(context.TODO(), "test-subID", "test-rg", "test-sa", true)
+		assert.Equal(t, tc.expectedError, err)
+	}
+}
+
+func TestGetFileShareClientForSub(t *testing.T) {
+	testCases := []struct {
+		name          string
+		expectedError error
+	}{
+		{
+			name:          "Get file share client error with cloud is nil",
+			expectedError: fmt.Errorf("cloud or ComputeClientFactory is nil"),
+		},
+		{
+			name:          "Get file share client error with ComputeClientFactory is nil",
+			expectedError: fmt.Errorf("cloud or ComputeClientFactory is nil"),
+		},
+		{
+			name:          "Get file share client successfully",
+			expectedError: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		d := NewFakeDriver()
+		d.cloud = &storage.AccountRepo{}
+		if !strings.Contains(tc.name, "is nil") {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockFileClient := mock_fileshareclient.NewMockInterface(ctrl)
+			d.cloud.ComputeClientFactory = mock_azclient.NewMockClientFactory(ctrl)
+			d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetFileShareClientForSub(gomock.Any()).Return(mockFileClient, tc.expectedError).AnyTimes()
+		}
+		_, err := d.getFileShareClientForSub("test-subID")
 		assert.Equal(t, tc.expectedError, err)
 	}
 }

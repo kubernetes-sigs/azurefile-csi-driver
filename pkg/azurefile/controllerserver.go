@@ -382,6 +382,9 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	fileShareSize := int(requestGiB)
 
 	if account != "" && resourceGroup != "" && sku == "" && fileShareSize < minimumPremiumShareSize {
+		if d.cloud == nil || d.cloud.ComputeClientFactory == nil {
+			return nil, status.Errorf(codes.Internal, "cloud provider is not initialized")
+		}
 		client, err := d.cloud.ComputeClientFactory.GetAccountClientForSub(subsID)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to get account client for subscription %s: %v", subsID, err)
@@ -946,7 +949,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		itemSnapshotTime = *properties.Date
 		itemSnapshotQuota = *properties.Quota
 	} else {
-		fileshareClient, err := d.cloud.ComputeClientFactory.GetFileShareClientForSub(subsID)
+		fileshareClient, err := d.getFileShareClientForSub(subsID)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to get snapshot client for subID(%s): %v", subsID, err)
 		}
@@ -981,7 +984,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 			itemSnapshotQuota = cache.(int32)
 		} else {
 			klog.V(2).Infof("get file share(%s) account(%s) quota from cloud", fileShareName, accountName)
-			fileshareClient, err := d.cloud.ComputeClientFactory.GetFileShareClientForSub(subsID)
+			fileshareClient, err := d.getFileShareClientForSub(subsID)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "failed to get file share client for subID(%s): %v", subsID, err)
 			}
@@ -1049,7 +1052,7 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 		}
 		_, deleteErr = client.Delete(ctx, nil)
 	} else {
-		fileshareClient, err := d.cloud.ComputeClientFactory.GetFileShareClientForSub(subsID)
+		fileshareClient, err := d.getFileShareClientForSub(subsID)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to get snapshot client for subID(%s): %v", subsID, err)
 		}
@@ -1341,7 +1344,7 @@ func (d *Driver) snapshotExists(ctx context.Context, sourceVolumeID, snapshotNam
 
 		// List share snapshots.
 		filter := fmt.Sprintf("startswith(name, %s)", fileShareName)
-		fileshareClient, err := d.cloud.ComputeClientFactory.GetFileShareClientForSub(subsID)
+		fileshareClient, err := d.getFileShareClientForSub(subsID)
 		if err != nil {
 			return false, "", time.Time{}, 0, status.Errorf(codes.Internal, "failed to get snapshot client for subID(%s): %v", subsID, err)
 		}

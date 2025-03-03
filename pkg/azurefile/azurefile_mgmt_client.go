@@ -23,24 +23,23 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/fileshareclient"
-	azure "sigs.k8s.io/cloud-provider-azure/pkg/provider/storage"
+	"sigs.k8s.io/cloud-provider-azure/pkg/provider/storage"
 )
 
 type azureFileMgmtClient struct {
 	fileShareClient fileshareclient.Interface
-	accountOptions  *azure.AccountOptions
+	accountOptions  *storage.AccountOptions
 }
 
-func newAzureFileMgmtClient(clientFactory azclient.ClientFactory, accountOptions *azure.AccountOptions) (azureFileClient, error) {
-	if clientFactory == nil {
-		return nil, fmt.Errorf("clientFactory is nil")
+func newAzureFileMgmtClient(cloud *storage.AccountRepo, accountOptions *storage.AccountOptions) (azureFileClient, error) {
+	if cloud == nil || cloud.ComputeClientFactory == nil {
+		return nil, fmt.Errorf("cloud provider is not initialized")
 	}
 	if accountOptions == nil {
 		return nil, fmt.Errorf("accountOptions is nil")
 	}
-	fileShareClient, err := clientFactory.GetFileShareClientForSub(accountOptions.SubscriptionID)
+	fileShareClient, err := cloud.ComputeClientFactory.GetFileShareClientForSub(accountOptions.SubscriptionID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get file share client for subscription %s: %w", accountOptions.SubscriptionID, err)
 	}
