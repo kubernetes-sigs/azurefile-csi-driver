@@ -19,6 +19,7 @@ package azurefile
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -26,6 +27,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -35,6 +37,8 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1api "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
@@ -54,7 +58,6 @@ var (
 )
 
 func NewFakeDriver() *Driver {
-	var err error
 	driverOptions := DriverOptions{
 		NodeID:                      fakeNodeID,
 		DriverName:                  DefaultDriverName,
@@ -66,9 +69,6 @@ func NewFakeDriver() *Driver {
 	driver := NewDriver(&driverOptions)
 	driver.Name = fakeDriverName
 	driver.Version = vendorVersion
-	if err != nil {
-		panic(err)
-	}
 	driver.AddControllerServiceCapabilities(
 		[]csi.ControllerServiceCapability_RPC_Type{
 			csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
@@ -1471,5 +1471,129 @@ func TestGetStorageEndPointSuffix(t *testing.T) {
 		d.cloud = test.cloud
 		suffix := d.getStorageEndPointSuffix()
 		assert.Equal(t, test.expectedSuffix, suffix, test.name)
+	}
+}
+
+func TestGetStorageAccesskey(t *testing.T) {
+	options := &storage.AccountOptions{
+		Name:           "test-sa",
+		SubscriptionID: "test-subID",
+		ResourceGroup:  "test-rg",
+	}
+	fakeAccName := options.Name
+	fakeAccKey := "test-key"
+	secretNamespace := "test-ns"
+	testCases := []struct {
+		name          string
+		secrets       map[string]string
+		secretName    string
+		expectedError error
+	}{
+		{
+			name:          "error is not nil", // test case shoudl run first to avoid cache hit
+			secrets:       make(map[string]string),
+			secretName:    "foobar",
+			expectedError: errors.New(""),
+		},
+		{
+			name: "Secrets is larger than 0",
+			secrets: map[string]string{
+				"accountName":              fakeAccName,
+				"accountNameField":         fakeAccName,
+				"defaultSecretAccountName": fakeAccName,
+				"accountKey":               fakeAccKey,
+				"accountKeyField":          fakeAccKey,
+				"defaultSecretAccountKey":  fakeAccKey,
+			},
+			expectedError: nil,
+		},
+		{
+			name:          "secretName is Empty",
+			secrets:       make(map[string]string),
+			secretName:    "",
+			expectedError: nil,
+		},
+		{
+			name:          "successful input/error is nil",
+			secrets:       make(map[string]string),
+			secretName:    fmt.Sprintf(secretNameTemplate, options.Name),
+			expectedError: nil,
+		},
+	}
+	d := NewFakeDriver()
+	d.cloud = &storage.AccountRepo{}
+	d.kubeClient = fake.NewSimpleClientset()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStorageAccountsClient := mock_accountclient.NewMockInterface(ctrl)
+	d.cloud.ComputeClientFactory = mock_azclient.NewMockClientFactory(gomock.NewController(t))
+	d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetAccountClient().Return(mockStorageAccountsClient).AnyTimes()
+	accountListKeysResult := []*armstorage.AccountKey{}
+	mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(accountListKeysResult, nil).AnyTimes()
+	d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetAccountClientForSub(gomock.Any()).Return(mockStorageAccountsClient, nil).AnyTimes()
+	secret := &v1api.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: secretNamespace,
+			Name:      fmt.Sprintf(secretNameTemplate, options.Name),
+		},
+		Data: map[string][]byte{
+			defaultSecretAccountName: []byte(fakeAccName),
+			defaultSecretAccountKey:  []byte(fakeAccKey),
+		},
+		Type: "Opaque",
+	}
+	secret.Namespace = secretNamespace
+	_, secretCreateErr := d.kubeClient.CoreV1().Secrets(secretNamespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+	if secretCreateErr != nil {
+		t.Error("failed to create secret")
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			accKey, err := d.GetStorageAccesskey(context.TODO(), options, tc.secrets, tc.secretName, secretNamespace)
+			if tc.expectedError != nil {
+				assert.Error(t, err, "there should be an error")
+			} else {
+				assert.Equal(t, nil, err, "error should be nil")
+				assert.Equal(t, fakeAccKey, accKey, "account keys must match")
+			}
+		})
+	}
+}
+
+func TestGetStorageAccesskeyWithSubsID(t *testing.T) {
+	testCases := []struct {
+		name          string
+		expectedError error
+	}{
+		{
+			name:          "Get storage access key error with cloud is nil",
+			expectedError: fmt.Errorf("could not get account key: cloud or ComputeClientFactory is nil"),
+		},
+		{
+			name:          "Get storage access key error with ComputeClientFactory is nil",
+			expectedError: fmt.Errorf("could not get account key: cloud or ComputeClientFactory is nil"),
+		},
+		{
+			name:          "Get storage access key successfully",
+			expectedError: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		d := NewFakeDriver()
+		d.cloud = &storage.AccountRepo{}
+		if !strings.Contains(tc.name, "is nil") {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockStorageAccountsClient := mock_accountclient.NewMockInterface(ctrl)
+			d.cloud.ComputeClientFactory = mock_azclient.NewMockClientFactory(ctrl)
+			d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetAccountClient().Return(mockStorageAccountsClient).AnyTimes()
+			s := "unit-test"
+			accountkey := armstorage.AccountKey{Value: &s}
+			mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return([]*armstorage.AccountKey{&accountkey}, tc.expectedError).AnyTimes()
+			d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetAccountClientForSub(gomock.Any()).Return(mockStorageAccountsClient, nil).AnyTimes()
+		}
+		_, err := d.GetStorageAccesskeyWithSubsID(context.TODO(), "test-subID", "test-rg", "test-sa", true)
+		assert.Equal(t, tc.expectedError, err)
 	}
 }
