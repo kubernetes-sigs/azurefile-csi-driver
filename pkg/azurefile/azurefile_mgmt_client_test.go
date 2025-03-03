@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/fileshareclient/mock_fileshareclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/mock_azclient"
@@ -30,7 +31,7 @@ import (
 func TestNewAzureMgmtFileClientClientFactoryNil(t *testing.T) {
 	_, actualErr := newAzureFileMgmtClient(nil, nil)
 	if actualErr != nil {
-		expectedErr := fmt.Errorf("clientFactory is nil")
+		expectedErr := fmt.Errorf("cloud provider is not initialized")
 		if !reflect.DeepEqual(actualErr, expectedErr) {
 			t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
 		}
@@ -39,7 +40,10 @@ func TestNewAzureMgmtFileClientClientFactoryNil(t *testing.T) {
 func TestNewAzureMgmtFileClientAccountOptionNil(t *testing.T) {
 	cntl := gomock.NewController(t)
 	defer cntl.Finish()
-	_, actualErr := newAzureFileMgmtClient(mock_azclient.NewMockClientFactory(cntl), nil)
+	cloud := &storage.AccountRepo{
+		ComputeClientFactory: mock_azclient.NewMockClientFactory(cntl),
+	}
+	_, actualErr := newAzureFileMgmtClient(cloud, nil)
 	if actualErr != nil {
 		expectedErr := fmt.Errorf("accountOptions is nil")
 		if !reflect.DeepEqual(actualErr, expectedErr) {
@@ -49,19 +53,17 @@ func TestNewAzureMgmtFileClientAccountOptionNil(t *testing.T) {
 }
 
 func TestNewAzureMgmtFileClient(t *testing.T) {
-	cntl := gomock.NewController(t)
-	defer cntl.Finish()
-	clientFactory := mock_azclient.NewMockClientFactory(cntl)
-	fileClient := mock_fileshareclient.NewMockInterface(cntl)
-	clientFactory.EXPECT().GetFileShareClientForSub("testsub").Return(fileClient, nil)
-	_, actualErr := newAzureFileMgmtClient(clientFactory, &storage.AccountOptions{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	computeClientFactory := mock_azclient.NewMockClientFactory(ctrl)
+	mockFileClient := mock_fileshareclient.NewMockInterface(ctrl)
+	computeClientFactory.EXPECT().GetFileShareClientForSub("testsub").Return(mockFileClient, nil).AnyTimes()
+	cloud := &storage.AccountRepo{
+		ComputeClientFactory: computeClientFactory,
+	}
+	_, actualErr := newAzureFileMgmtClient(cloud, &storage.AccountOptions{
 		SubscriptionID: "testsub",
 		ResourceGroup:  "testrg",
 	})
-	if actualErr != nil {
-		expectedErr := fmt.Errorf("accountOptions is nil")
-		if !reflect.DeepEqual(actualErr, expectedErr) {
-			t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
-		}
-	}
+	assert.Equal(t, actualErr, nil, "newAzureFileMgmtClient should return success")
 }

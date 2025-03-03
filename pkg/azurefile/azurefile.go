@@ -54,7 +54,6 @@ import (
 	csicommon "sigs.k8s.io/azurefile-csi-driver/pkg/csi-common"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/mounter"
 	fileutil "sigs.k8s.io/azurefile-csi-driver/pkg/util"
-	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/accountclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/fileshareclient"
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	"sigs.k8s.io/cloud-provider-azure/pkg/provider/storage"
@@ -478,13 +477,11 @@ func (d *Driver) getFileShareQuota(ctx context.Context, accountOptions *storage.
 		if err != nil {
 			return -1, err
 		}
-		fileClient, err = newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix())
-		if err != nil {
+		if fileClient, err = newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix()); err != nil {
 			return -1, err
 		}
 	} else {
-		fileClient, err = newAzureFileMgmtClient(d.cloud.ComputeClientFactory, accountOptions)
-		if err != nil {
+		if fileClient, err = newAzureFileMgmtClient(d.cloud, accountOptions); err != nil {
 			return -1, err
 		}
 	}
@@ -849,14 +846,9 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 				if err != nil {
 					// 3. if failed to get account key from kubernetes secret, use cluster identity to get account key
 					klog.Warningf("GetStorageAccountFromSecret(%s, %s) failed with error: %v", secretName, secretNamespace, err)
-					var accountClient accountclient.Interface
-					accountClient, err = d.cloud.ComputeClientFactory.GetAccountClientForSub(subsID)
-					if err != nil {
-						return rgName, accountName, accountKey, fileShareName, diskName, subsID, err
-					}
-					if !getAccountKeyFromSecret && accountClient != nil && accountName != "" {
+					if !getAccountKeyFromSecret && accountName != "" {
 						klog.V(2).Infof("use cluster identity to get account key from (%s, %s, %s)", subsID, rgName, accountName)
-						accountKey, err = d.cloud.GetStorageAccesskey(ctx, accountClient, accountName, rgName, getLatestAccountKey)
+						accountKey, err = d.GetStorageAccesskeyWithSubsID(ctx, subsID, accountName, rgName, getLatestAccountKey)
 						if err != nil {
 							klog.Errorf("GetStorageAccesskey(%s, %s, %s) failed with error: %v", subsID, rgName, accountName, err)
 						}
@@ -956,7 +948,7 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *storage.Ac
 				return true, err
 			}
 		} else {
-			if fileClient, err = newAzureFileMgmtClient(d.cloud.ComputeClientFactory, accountOptions); err != nil {
+			if fileClient, err = newAzureFileMgmtClient(d.cloud, accountOptions); err != nil {
 				return true, err
 			}
 		}
@@ -987,10 +979,9 @@ func (d *Driver) DeleteFileShare(ctx context.Context, subsID, resourceGroup, acc
 			}
 			err = fileClient.DeleteFileShare(ctx, shareName)
 		} else {
-			var fileClient fileshareclient.Interface
-			fileClient, err = d.cloud.ComputeClientFactory.GetFileShareClientForSub(subsID)
-			if err != nil {
-				return true, err
+			fileClient, errGetClient := d.getFileShareClientForSub(subsID)
+			if errGetClient != nil {
+				return true, errGetClient
 			}
 			err = fileClient.Delete(ctx, resourceGroup, accountName, shareName, nil)
 		}
@@ -1033,7 +1024,7 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 			}
 			err = fileClient.ResizeFileShare(ctx, shareName, sizeGiB)
 		} else {
-			fileClient, err := d.cloud.ComputeClientFactory.GetFileShareClientForSub(subsID)
+			fileClient, err := d.getFileShareClientForSub(subsID)
 			if err != nil {
 				return true, err
 			}
@@ -1098,7 +1089,7 @@ func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest
 
 // GetTotalAccountQuota returns the total quota in GB of all file shares in the storage account and the number of file shares
 func (d *Driver) GetTotalAccountQuota(ctx context.Context, subsID, resourceGroup, accountName string) (int32, int32, error) {
-	fileClient, err := d.cloud.ComputeClientFactory.GetFileShareClientForSub(subsID)
+	fileClient, err := d.getFileShareClientForSub(subsID)
 	if err != nil {
 		return -1, -1, err
 	}
@@ -1117,7 +1108,7 @@ func (d *Driver) GetTotalAccountQuota(ctx context.Context, subsID, resourceGroup
 
 // RemoveStorageAccountTag remove tag from storage account
 func (d *Driver) RemoveStorageAccountTag(ctx context.Context, subsID, resourceGroup, account, key string) error {
-	if d.cloud == nil || d.cloud.ComputeClientFactory.GetAccountClient() == nil {
+	if d.cloud == nil {
 		return fmt.Errorf("cloud or StorageAccountClient is nil")
 	}
 	// search in cache first
@@ -1165,18 +1156,25 @@ func (d *Driver) GetStorageAccesskey(ctx context.Context, accountOptions *storag
 	_, accountKey, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
 	if err != nil {
 		klog.V(2).Infof("could not get account(%s) key from secret(%s), error: %v, use cluster identity to get account key instead", accountOptions.Name, secretName, err)
-		var accountClient accountclient.Interface
-		accountClient, err = d.cloud.ComputeClientFactory.GetAccountClientForSub(accountOptions.SubscriptionID)
-		if err != nil {
-			return "", err
-		}
-		accountKey, err = d.cloud.GetStorageAccesskey(ctx, accountClient, accountName, accountOptions.ResourceGroup, accountOptions.GetLatestAccountKey)
+		accountKey, err = d.GetStorageAccesskeyWithSubsID(ctx, accountOptions.SubscriptionID, accountOptions.Name, accountOptions.ResourceGroup, accountOptions.GetLatestAccountKey)
 	}
 
 	if err == nil && accountKey != "" {
 		d.accountCacheMap.Set(accountName, accountKey)
 	}
 	return accountKey, err
+}
+
+// GetStorageAccesskeyWithSubsID get Azure storage account key from storage account directly
+func (d *Driver) GetStorageAccesskeyWithSubsID(ctx context.Context, subsID, account, resourceGroup string, getLatestAccountKey bool) (string, error) {
+	if d.cloud == nil || d.cloud.ComputeClientFactory == nil {
+		return "", fmt.Errorf("could not get account key: cloud or ComputeClientFactory is nil")
+	}
+	accountClient, err := d.cloud.ComputeClientFactory.GetAccountClientForSub(subsID)
+	if err != nil {
+		return "", err
+	}
+	return d.cloud.GetStorageAccesskey(ctx, accountClient, account, resourceGroup, getLatestAccountKey)
 }
 
 // GetStorageAccountFromSecret get storage account key from k8s secret
@@ -1273,4 +1271,11 @@ func (d *Driver) getStorageEndPointSuffix() string {
 		return defaultStorageEndPointSuffix
 	}
 	return d.cloud.Environment.StorageEndpointSuffix
+}
+
+func (d *Driver) getFileShareClientForSub(subscriptionID string) (fileshareclient.Interface, error) {
+	if d.cloud == nil || d.cloud.ComputeClientFactory == nil {
+		return nil, fmt.Errorf("cloud or ComputeClientFactory is nil")
+	}
+	return d.cloud.ComputeClientFactory.GetFileShareClientForSub(subscriptionID)
 }
