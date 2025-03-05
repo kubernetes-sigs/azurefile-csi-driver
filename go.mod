@@ -40,7 +40,7 @@ require (
 	k8s.io/pod-security-admission v0.32.1
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	sigs.k8s.io/cloud-provider-azure v1.29.1-0.20250305024401-4c771d529327
-	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.5.4
+	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.5.5
 	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.4.0
 	sigs.k8s.io/yaml v1.4.0
 )
