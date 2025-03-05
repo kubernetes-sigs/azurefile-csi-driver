@@ -136,7 +136,7 @@ func (ac *Azcopy) GetAzcopyJob(dstFileshare string, authAzcopyEnv []string) (Azc
 		klog.Warningf("failed to get azcopy job with error: %v, jobState: %v", err, jobState)
 		return AzcopyJobError, "", fmt.Errorf("couldn't parse azcopy job list in azcopy %v", err)
 	}
-	if jobState == AzcopyJobCompleted {
+	if jobState == AzcopyJobCompleted || jobState == AzcopyJobCompletedWithErrors || jobState == AzcopyJobCompletedWithSkipped || jobState == AzcopyJobCompletedWithErrorsAndSkipped {
 		return jobState, "100.0", err
 	}
 	if jobid == "" {
@@ -185,6 +185,12 @@ func parseAzcopyJobList(joblist string) (string, AzcopyJobState, error) {
 			jobid = segments[0]
 		case "Completed":
 			return jobid, AzcopyJobCompleted, nil
+		case "CompletedWithErrors":
+			return jobid, AzcopyJobCompletedWithErrors, nil
+		case "CompletedWithSkipped":
+			return jobid, AzcopyJobCompletedWithSkipped, nil
+		case "CompletedWithErrorsAndSkipped":
+			return jobid, AzcopyJobCompletedWithErrorsAndSkipped, nil
 		}
 	}
 	if jobid == "" {
