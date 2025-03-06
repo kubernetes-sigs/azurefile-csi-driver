@@ -3,10 +3,11 @@
 
 - supported from v1.28.6, v1.29.1
 - SMB file share is supported, NFS file share is not supported
-- use of private endpoints is not supported due to the 'DenyAll' default network rules in the storage account's VNet settings
+- use of private endpoints is not supported due to the `DenyAll` default network rules in the storage account's VNet settings
 
 ## Prerequisites
 - make sure that the virtual network hosting the driver controller pod is added to the list of allowed virtual networks in the storage account's VNet settings
+  - if the driver controller pod is managed by AKS, you need to set `Enable from all networks` in the storage account's VNet settings
 
 ## Create a Source PVC
 
