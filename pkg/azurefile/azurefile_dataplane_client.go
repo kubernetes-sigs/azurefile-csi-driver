@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/service"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
@@ -70,6 +71,56 @@ func newAzureFileClient(accountName, accountKey, storageEndpointSuffix string) (
 		accountKey:  accountKey,
 		Client:      fileClient,
 	}, nil
+}
+
+func newAzureFileClientWithOAuth(cred azcore.TokenCredential, accountName, storageEndpointSuffix string, backoff *retry.Backoff) (azureFileClient, error) {
+	if storageEndpointSuffix == "" {
+		storageEndpointSuffix = defaultStorageEndPointSuffix
+	}
+	storageEndpoint := fmt.Sprintf("https://%s.file."+storageEndpointSuffix, accountName)
+	clientOps := utils.GetDefaultAzCoreClientOption()
+	if backoff != nil {
+		clientOps.Retry.MaxRetries = int32(backoff.Steps)
+		clientOps.Retry.StatusCodes = defaultValidStatusCodes
+		clientOps.Retry.RetryDelay = backoff.Duration
+	}
+	fileClient, err := service.NewClient(storageEndpoint, cred, &service.ClientOptions{
+		ClientOptions: clientOps,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error creating azure client: %v", err)
+	}
+
+	klog.V(2).Infof("created azure file client with oauth, accountName: %s", accountName)
+
+	return &azureFileDataplaneClient{
+		accountName: accountName,
+		Client:      fileClient,
+	}, nil
+}
+
+func CreateFileShareWithOAuth(ctx context.Context, cred azcore.TokenCredential, accountName string, shareOptions *ShareOptions, storageEndpointSuffix string, backoff *retry.Backoff) error {
+	if storageEndpointSuffix == "" {
+		storageEndpointSuffix = defaultStorageEndPointSuffix
+	}
+	storageEndpoint := fmt.Sprintf("https://%s.file.%s/%s", accountName, storageEndpointSuffix, shareOptions.Name)
+	clientOps := utils.GetDefaultAzCoreClientOption()
+	if backoff != nil {
+		clientOps.Retry.MaxRetries = int32(backoff.Steps)
+		clientOps.Retry.StatusCodes = defaultValidStatusCodes
+		clientOps.Retry.RetryDelay = backoff.Duration
+	}
+	shareClient, err := share.NewClient(storageEndpoint, cred, &share.ClientOptions{
+		ClientOptions: clientOps,
+	})
+	if err != nil {
+		return fmt.Errorf("error creating azure client: %v", err)
+	}
+	klog.V(2).Infof("created azure file share %s with oauth, accountName: %s", shareOptions.Name, accountName)
+	_, err = shareClient.Create(ctx, &share.CreateOptions{
+		Quota: to.Ptr(int32(shareOptions.RequestGiB)),
+	})
+	return err
 }
 
 func (f *azureFileDataplaneClient) CreateFileShare(ctx context.Context, shareOptions *ShareOptions) error {
