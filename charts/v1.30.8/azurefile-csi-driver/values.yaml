@@ -2,7 +2,7 @@ image:
   baseRepo: mcr.microsoft.com
   azurefile:
     repository: /oss/kubernetes-csi/azurefile-csi
-    tag: v1.32.0
+    tag: v1.30.8
     pullPolicy: IfNotPresent
   csiProvisioner:
     repository: /oss/kubernetes-csi/csi-provisioner
@@ -119,7 +119,6 @@ node:
   cloudConfigSecretNamespace: kube-system
   allowEmptyCloudConfig: true
   allowInlineVolumeKeyAccessWithIdentity: false
-  enableKataCCMount: false
   metricsPort: 29615
   livenessProbe:
     healthPort: 29613

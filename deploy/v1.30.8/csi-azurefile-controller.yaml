@@ -19,9 +19,6 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux  # add "kubernetes.io/role: master" to run controller on master node
       priorityClassName: system-cluster-critical
-      securityContext:
-        seccompProfile:
-          type: RuntimeDefault
       tolerations:
         - key: "node-role.kubernetes.io/master"
           operator: "Exists"
@@ -137,7 +134,7 @@ spec:
               drop:
                 - ALL
         - name: azurefile
-          image: mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.32.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.8
           imagePullPolicy: IfNotPresent
           args:
             - "--v=5"
