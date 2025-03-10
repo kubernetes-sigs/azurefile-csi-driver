@@ -10,7 +10,7 @@ image:
     pullPolicy: IfNotPresent
   csiResizer:
     repository: /oss/kubernetes-csi/csi-resizer
-    tag: v1.13.1
+    tag: v1.13.2
     pullPolicy: IfNotPresent
   livenessProbe:
     repository: /oss/kubernetes-csi/livenessprobe
