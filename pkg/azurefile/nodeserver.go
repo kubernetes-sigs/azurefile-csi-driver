@@ -114,7 +114,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 					return nil, status.Errorf(codes.Internal, "failed to check if runtime class %s is confidential: %v", runtimeClass, err)
 				}
 				if isConfidentialRuntimeClass {
-					klog.V(2).Infof("NodePublishVolume for volume(%s) where runtimeClass %s is kata-cc", volumeID, runtimeClass)
+					klog.V(2).Infof("NodePublishVolume for volume(%s) where runtimeClass is %s", volumeID, runtimeClass)
 					source := req.GetStagingTargetPath()
 					if len(source) == 0 {
 						return nil, status.Error(codes.InvalidArgument, "Staging target not provided")
