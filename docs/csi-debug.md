@@ -66,12 +66,6 @@ kubectl exec -it csi-azurefile-node-win-xxxxx -n kube-system -c azurefile cmd
 type c:\k\azure.json
 ```
 
- - get Windows csi-proxy logs inside driver
-```console
-kubectl exec -it csi-azurefile-node-win-xxxxx -n kube-system -c azurefile cmd
-type c:\k\csi-proxy.err.log
-```
-
 #### Update driver version quickly by editing driver deployment directly
  - update controller deployment
 ```console
@@ -118,6 +112,10 @@ kubectl delete po node-debugger-{node-name-xxxx}
 
  - On Windows node
 ```console
+# ssh to the node and then open powershell window:
+kubectl exec -it csi-azurefile-node-win-xxxxx -n kube-system -c azurefile cmd
+> Powershell
+# mount Azure file share on the node
 $User = "AZURE\accountname"
 $PWord = ConvertTo-SecureString -String "xxx" -AsPlainText -Force
 $Credential = New-Object –TypeName System.Management.Automation.PSCredential –ArgumentList $User, $Pword
