@@ -50,6 +50,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
+	"k8s.io/utils/ptr"
 
 	csicommon "sigs.k8s.io/azurefile-csi-driver/pkg/csi-common"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/mounter"
@@ -1032,12 +1033,14 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 			if err != nil {
 				return true, err
 			}
+			if ptr.Deref(fileShare.FileShareProperties.ShareQuota, 0) >= int32(sizeGiB) {
+				klog.Warningf("file share size(%dGi) is already greater or equal than requested size(%dGi), accountName: %s, shareName: %s",
+					fileShare.FileShareProperties.ShareQuota, sizeGiB, accountName, shareName)
+				return true, nil
+			}
 			fileShare.FileShareProperties.ShareQuota = to.Ptr(int32(sizeGiB))
 			_, err = fileClient.Update(ctx, resourceGroup, accountName, shareName, *fileShare)
-			if err != nil {
-				return true, err
-			}
-			return true, nil
+			return true, err
 		}
 		if isRetriableError(err) {
 			klog.Warningf("ResizeFileShare(%s) on account(%s) with new size(%d) failed with error(%v), waiting for retrying", shareName, accountName, sizeGiB, err)
