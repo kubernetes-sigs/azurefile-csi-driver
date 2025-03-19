@@ -139,6 +139,7 @@ func TestNodePublishVolume(t *testing.T) {
 	mockDirectVolume := NewMockDirectVolume(ctrl)
 	getRuntimeClassForPodFunc = mockGetRuntimeClassForPod
 	isConfidentialRuntimeClassFunc = mockIsConfidentialRuntimeClass
+	d.isKataNode = false
 
 	tests := []struct {
 		desc        string
@@ -262,9 +263,10 @@ func TestNodePublishVolume(t *testing.T) {
 				TargetPath:        targetTest,
 				StagingTargetPath: sourceTest,
 				Readonly:          true,
-				VolumeContext:     map[string]string{mountPermissionsField: "0755", podNameField: "testPod", podNamespaceField: "testNamespace", enableKataCCMountField: "true"},
+				VolumeContext:     map[string]string{mountPermissionsField: "0755", podNameField: "testPod", podNamespaceField: "testNamespace"},
 			},
 			setup: func() {
+				d.isKataNode = true
 				d.directVolume = mockDirectVolume
 				mockDirectVolume.EXPECT().VolumeMountInfo(sourceTest).Return(&volume.MountInfo{}, nil)
 				mockDirectVolume.EXPECT().Add(targetTest, gomock.Any()).Return(nil)
@@ -460,6 +462,7 @@ func TestNodeStageVolume(t *testing.T) {
 	defer ctrl.Finish()
 	mockResolver := NewMockResolver(ctrl)
 	mockDirectVolume := NewMockDirectVolume(ctrl)
+	d.isKataNode = false
 
 	tests := []struct {
 		desc          string
@@ -749,6 +752,7 @@ func TestNodeStageVolume(t *testing.T) {
 				d.resolver = mockResolver
 				d.directVolume = mockDirectVolume
 				if runtime.GOOS != "windows" {
+					d.isKataNode = true
 					mockIPAddr := &net.IPAddr{IP: net.ParseIP("192.168.1.1")}
 					mockDirectVolume.EXPECT().VolumeMountInfo(sourceTest).Return(nil, nil)
 					mockResolver.EXPECT().ResolveIPAddr("ip", "test_servername").Return(mockIPAddr, nil)
@@ -758,12 +762,11 @@ func TestNodeStageVolume(t *testing.T) {
 			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
 				VolumeCapability: &stdVolCap,
 				VolumeContext: map[string]string{
-					fsTypeField:            "smb",
-					diskNameField:          "test_disk.vhd",
-					shareNameField:         "test_sharename",
-					serverNameField:        "test_servername",
-					mountPermissionsField:  "0755",
-					enableKataCCMountField: trueValue,
+					fsTypeField:           "smb",
+					diskNameField:         "test_disk.vhd",
+					shareNameField:        "test_sharename",
+					serverNameField:       "test_servername",
+					mountPermissionsField: "0755",
 				},
 				Secrets: secrets},
 			skipOnWindows: true,
