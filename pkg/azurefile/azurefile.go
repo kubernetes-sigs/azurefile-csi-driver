@@ -1035,7 +1035,7 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 			}
 			if ptr.Deref(fileShare.FileShareProperties.ShareQuota, 0) >= int32(sizeGiB) {
 				klog.Warningf("file share size(%dGi) is already greater or equal than requested size(%dGi), accountName: %s, shareName: %s",
-					fileShare.FileShareProperties.ShareQuota, sizeGiB, accountName, shareName)
+					ptr.Deref(fileShare.FileShareProperties.ShareQuota, 0), sizeGiB, accountName, shareName)
 				return true, nil
 			}
 			fileShare.FileShareProperties.ShareQuota = to.Ptr(int32(sizeGiB))
