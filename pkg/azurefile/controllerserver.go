@@ -1385,16 +1385,16 @@ func isValidVolumeCapabilities(volCaps []*csi.VolumeCapability) error {
 	if len(volCaps) == 0 {
 		return fmt.Errorf("CreateVolume Volume capabilities must be provided")
 	}
-	hasSupport := func(cap *csi.VolumeCapability) error {
-		if blk := cap.GetBlock(); blk != nil {
+	hasSupport := func(c *csi.VolumeCapability) error {
+		if blk := c.GetBlock(); blk != nil {
 			return fmt.Errorf("driver does not support block volumes")
 		}
-		for _, c := range volumeCaps {
-			if c.GetMode() == cap.AccessMode.GetMode() {
+		for _, vc := range volumeCaps {
+			if vc.GetMode() == c.AccessMode.GetMode() {
 				return nil
 			}
 		}
-		return fmt.Errorf("driver does not support access mode %v", cap.AccessMode.GetMode())
+		return fmt.Errorf("driver does not support access mode %v", c.AccessMode.GetMode())
 	}
 
 	for _, c := range volCaps {
