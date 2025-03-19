@@ -43,7 +43,6 @@ import (
 
 var getRuntimeClassForPodFunc = getRuntimeClassForPod
 var isConfidentialRuntimeClassFunc = isConfidentialRuntimeClass
-var isKataNodeFunc = isKataNode
 
 // NodePublishVolume mount the volume from staging to target path
 func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
@@ -101,42 +100,40 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 			}
 		}
 
-		if d.enableKataCCMount {
-			enableKataCCMount := isKataNodeFunc(ctx, d.NodeID, d.kubeClient)
-			if enableKataCCMount && context[podNameField] != "" && context[podNamespaceField] != "" {
-				runtimeClass, err := getRuntimeClassForPodFunc(ctx, d.kubeClient, context[podNameField], context[podNamespaceField])
+		enableKataCCMount := d.isKataNode && d.enableKataCCMount
+		if enableKataCCMount && context[podNameField] != "" && context[podNamespaceField] != "" {
+			runtimeClass, err := getRuntimeClassForPodFunc(ctx, d.kubeClient, context[podNameField], context[podNamespaceField])
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "failed to get runtime class for pod %s/%s: %v", context[podNamespaceField], context[podNameField], err)
+			}
+			klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with runtimeClass %s", volumeID, target, runtimeClass)
+			isConfidentialRuntimeClass, err := isConfidentialRuntimeClassFunc(ctx, d.kubeClient, runtimeClass)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "failed to check if runtime class %s is confidential: %v", runtimeClass, err)
+			}
+			if isConfidentialRuntimeClass {
+				klog.V(2).Infof("NodePublishVolume for volume(%s) where runtimeClass is %s", volumeID, runtimeClass)
+				source := req.GetStagingTargetPath()
+				if len(source) == 0 {
+					return nil, status.Error(codes.InvalidArgument, "Staging target not provided")
+				}
+				// Load the mount info from staging area
+				mountInfo, err := d.directVolume.VolumeMountInfo(source)
 				if err != nil {
-					return nil, status.Errorf(codes.Internal, "failed to get runtime class for pod %s/%s: %v", context[podNamespaceField], context[podNameField], err)
+					return nil, status.Errorf(codes.Internal, "failed to load mount info from %s: %v", source, err)
 				}
-				klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with runtimeClass %s", volumeID, target, runtimeClass)
-				isConfidentialRuntimeClass, err := isConfidentialRuntimeClassFunc(ctx, d.kubeClient, runtimeClass)
+				if mountInfo == nil {
+					return nil, status.Errorf(codes.Internal, "mount info is nil for volume %s", volumeID)
+				}
+				data, err := json.Marshal(mountInfo)
 				if err != nil {
-					return nil, status.Errorf(codes.Internal, "failed to check if runtime class %s is confidential: %v", runtimeClass, err)
+					return nil, status.Errorf(codes.Internal, "failed to marshal mount info %s: %v", source, err)
 				}
-				if isConfidentialRuntimeClass {
-					klog.V(2).Infof("NodePublishVolume for volume(%s) where runtimeClass is %s", volumeID, runtimeClass)
-					source := req.GetStagingTargetPath()
-					if len(source) == 0 {
-						return nil, status.Error(codes.InvalidArgument, "Staging target not provided")
-					}
-					// Load the mount info from staging area
-					mountInfo, err := d.directVolume.VolumeMountInfo(source)
-					if err != nil {
-						return nil, status.Errorf(codes.Internal, "failed to load mount info from %s: %v", source, err)
-					}
-					if mountInfo == nil {
-						return nil, status.Errorf(codes.Internal, "mount info is nil for volume %s", volumeID)
-					}
-					data, err := json.Marshal(mountInfo)
-					if err != nil {
-						return nil, status.Errorf(codes.Internal, "failed to marshal mount info %s: %v", source, err)
-					}
-					if err = d.directVolume.Add(target, string(data)); err != nil {
-						return nil, status.Errorf(codes.Internal, "failed to save mount info %s: %v", target, err)
-					}
-					klog.V(2).Infof("NodePublishVolume: direct volume mount %s at %s successfully", source, target)
-					return &csi.NodePublishVolumeResponse{}, nil
+				if err = d.directVolume.Add(target, string(data)); err != nil {
+					return nil, status.Errorf(codes.Internal, "failed to save mount info %s: %v", target, err)
 				}
+				klog.V(2).Infof("NodePublishVolume: direct volume mount %s at %s successfully", source, target)
+				return &csi.NodePublishVolumeResponse{}, nil
 			}
 		}
 	}
@@ -419,9 +416,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}
 		klog.V(2).Infof("volume(%s) mount %s on %s succeeded", volumeID, source, cifsMountPath)
 	}
-	enableKataCCMount := isKataNodeFunc(ctx, d.NodeID, d.kubeClient)
+	enableKataCCMount := d.isKataNode && d.enableKataCCMount
 	// If runtime OS is not windows and protocol is not nfs, save mountInfo.json
-	if d.enableKataCCMount && enableKataCCMount {
+	if enableKataCCMount {
 		if runtime.GOOS != "windows" && protocol != nfs {
 			// Check if mountInfo.json is already present at the targetPath
 			isMountInfoPresent, err := d.directVolume.VolumeMountInfo(cifsMountPath)

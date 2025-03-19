@@ -289,6 +289,7 @@ type Driver struct {
 	endpoint     string
 	resolver     Resolver
 	directVolume DirectVolume
+	isKataNode   bool
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -330,6 +331,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.endpoint = options.Endpoint
 	driver.resolver = new(NetResolver)
 	driver.directVolume = new(directVolume)
+	driver.isKataNode = false
 
 	var err error
 	getter := func(_ context.Context, _ string) (interface{}, error) { return nil, nil }
@@ -453,12 +455,8 @@ func (d *Driver) Run(ctx context.Context) error {
 	csi.RegisterControllerServer(server, d)
 	csi.RegisterNodeServer(server, d)
 	d.server = server
-	val, val2, err := getNodeInfoFromLabels(ctx, d.NodeID, d.kubeClient)
-	if err != nil {
-		klog.Warningf("failed to get node info from labels: %v", err)
-	}
+	d.isKataNode = isKataNode(ctx, d.NodeID, d.kubeClient)
 
-	klog.V(2).Infof("Node info from labels: %s, %s", val, val2)
 	listener, err := csicommon.ListenEndpoint(d.endpoint)
 	if err != nil {
 		klog.Fatalf("failed to listen endpoint: %v", err)
@@ -1305,10 +1303,14 @@ func getNodeInfoFromLabels(ctx context.Context, nodeID string, kubeClient client
 }
 
 func isKataNode(ctx context.Context, nodeID string, kubeClient clientset.Interface) bool {
-	val, val2, err := getNodeInfoFromLabels(ctx, nodeID, kubeClient)
+	kataVMIsolationLabel, kataRuntimeLabel, err := getNodeInfoFromLabels(ctx, nodeID, kubeClient)
+
 	if err != nil {
-		klog.Warningf("get node(%s) confidential label failed with %v", nodeID, err)
+		klog.Warningf("failed to get node info from labels: %v", err)
 		return false
 	}
-	return val == "true" || val2 == "true"
+
+	klog.V(4).Infof("node(%s) labels: kataVMIsolationLabel(%s), kataRuntimeLabel(%s)", nodeID, kataVMIsolationLabel, kataRuntimeLabel)
+
+	return strings.EqualFold(kataVMIsolationLabel, "true") || strings.EqualFold(kataRuntimeLabel, "true")
 }

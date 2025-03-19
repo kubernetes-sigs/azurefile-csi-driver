@@ -1632,3 +1632,97 @@ func TestGetFileShareClientForSub(t *testing.T) {
 		assert.Equal(t, tc.expectedError, err)
 	}
 }
+
+func TestGetNodeInfoFromLabels(t *testing.T) {
+	ctx := context.TODO()
+
+	// Test case where kubeClient is nil
+	_, _, err := getNodeInfoFromLabels(ctx, "test-node", nil)
+	if err == nil || err.Error() != "kubeClient is nil" {
+		t.Fatalf("expected error 'kubeClient is nil', got %v", err)
+	}
+
+	// Create a fake clientset
+	clientset := fake.NewSimpleClientset()
+
+	// Test case where the node does not exist
+	_, _, err = getNodeInfoFromLabels(ctx, "nonexistent-node", clientset)
+	if err == nil {
+		t.Fatalf("expected an error, got nil")
+	}
+
+	// Test case where node exists but has no labels
+	node := &v1api.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "test-node",
+			Labels: map[string]string{},
+		},
+	}
+	_, err = clientset.CoreV1().Nodes().Create(ctx, node, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	_, _, err = getNodeInfoFromLabels(ctx, "test-node", clientset)
+	if err == nil || err.Error() != "node(test-node) label is empty" {
+		t.Fatalf("expected error 'node(test-node) label is empty', got %v", err)
+	}
+
+	// Test case where node has kata labels
+	node.Labels = map[string]string{
+		"kubernetes.azure.com/kata-mshv-vm-isolation": "true",
+		"katacontainers.io/kata-runtime":              "false",
+	}
+	_, err = clientset.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	kataVMIsolation, kataRuntime, err := getNodeInfoFromLabels(ctx, "test-node", clientset)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if kataVMIsolation != "true" || kataRuntime != "false" {
+		t.Fatalf("expected (true, false), got (%v, %v)", kataVMIsolation, kataRuntime)
+	}
+}
+
+func TestIsKataNode(t *testing.T) {
+	ctx := context.TODO()
+	clientset := fake.NewSimpleClientset()
+
+	// Test case where node does not exist
+	if isKataNode(ctx, "nonexistent-node", clientset) {
+		t.Fatalf("expected false, got true")
+	}
+
+	// Create node without kata labels
+	node := &v1api.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-node",
+			Labels: map[string]string{
+				"some-other-label": "value",
+			},
+		},
+	}
+	_, err := clientset.CoreV1().Nodes().Create(ctx, node, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if isKataNode(ctx, "test-node", clientset) {
+		t.Fatalf("expected false, got true")
+	}
+
+	// Update node with kata labels
+	node.Labels["kubernetes.azure.com/kata-mshv-vm-isolation"] = "true"
+	_, err = clientset.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if !isKataNode(ctx, "test-node", clientset) {
+		t.Fatalf("expected true, got false")
+	}
+}
