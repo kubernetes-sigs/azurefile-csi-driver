@@ -29,7 +29,7 @@ require (
 	k8s.io/cloud-provider v0.31.0
 	k8s.io/component-base v0.31.0
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/kubernetes v1.29.7
+	k8s.io/kubernetes v1.29.14
 	k8s.io/mount-utils v0.29.8
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 	sigs.k8s.io/cloud-provider-azure v1.27.1-0.20240830150011-9a1cd8741c79
@@ -178,25 +178,25 @@ replace (
 	github.com/google/cel-go => github.com/google/cel-go v0.17.7
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.16.0
 	github.com/prometheus/common => github.com/prometheus/common v0.44.0
-	k8s.io/api => k8s.io/api v0.29.7
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.29.7
-	k8s.io/apimachinery => k8s.io/apimachinery v0.29.7
-	k8s.io/apiserver => k8s.io/apiserver v0.29.7
-	k8s.io/client-go => k8s.io/client-go v0.29.7
-	k8s.io/cloud-provider => k8s.io/cloud-provider v0.29.7
-	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.29.7
-	k8s.io/component-base => k8s.io/component-base v0.29.7
-	k8s.io/component-helpers => k8s.io/component-helpers v0.29.7
-	k8s.io/controller-manager => k8s.io/controller-manager v0.29.7
-	k8s.io/cri-api => k8s.io/cri-api v0.29.7
-	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.29.7
-	k8s.io/dynamic-resource-allocation => k8s.io/dynamic-resource-allocation v0.29.7
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.29.7
-	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.29.7
-	k8s.io/kube-proxy => k8s.io/kube-proxy v0.29.7
-	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.29.7
-	k8s.io/kubectl => k8s.io/kubectl v0.29.7
-	k8s.io/kubelet => k8s.io/kubelet v0.29.7
-	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.29.7
-	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.29.7
+	k8s.io/api => k8s.io/api v0.29.14
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.29.14
+	k8s.io/apimachinery => k8s.io/apimachinery v0.29.14
+	k8s.io/apiserver => k8s.io/apiserver v0.29.14
+	k8s.io/client-go => k8s.io/client-go v0.29.14
+	k8s.io/cloud-provider => k8s.io/cloud-provider v0.29.14
+	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.29.14
+	k8s.io/component-base => k8s.io/component-base v0.29.14
+	k8s.io/component-helpers => k8s.io/component-helpers v0.29.14
+	k8s.io/controller-manager => k8s.io/controller-manager v0.29.14
+	k8s.io/cri-api => k8s.io/cri-api v0.29.14
+	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.29.14
+	k8s.io/dynamic-resource-allocation => k8s.io/dynamic-resource-allocation v0.29.14
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.29.14
+	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.29.14
+	k8s.io/kube-proxy => k8s.io/kube-proxy v0.29.14
+	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.29.14
+	k8s.io/kubectl => k8s.io/kubectl v0.29.14
+	k8s.io/kubelet => k8s.io/kubelet v0.29.14
+	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.29.14
+	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.29.14
 )
