@@ -84,8 +84,6 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
 		os.Setenv(kubeconfigEnvVar, kubeconfig)
 	}
-	handleFlags()
-	framework.AfterReadingAllFlags(&framework.TestContext)
 
 	// Default storage driver configuration is CSI. Freshly built
 	// CSI driver is installed for that case.
@@ -228,6 +226,12 @@ var _ = ginkgo.AfterSuite(func(ctx ginkgo.SpecContext) {
 	}
 })
 
+func TestMain(m *testing.M) {
+	handleFlags()
+	framework.AfterReadingAllFlags(&framework.TestContext)
+	os.Exit(m.Run())
+}
+
 func TestE2E(t *testing.T) {
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	reportDir := os.Getenv(reportDirEnv)
@@ -278,7 +282,7 @@ func checkAccountCreationLeak(ctx context.Context) {
 	ginkgo.By(fmt.Sprintf("GetAccountNumByResourceGroup(%s) returns %d accounts", creds.ResourceGroup, accountNum))
 
 	accountLimitInTest := 13
-	framework.ExpectEqual(accountNum >= accountLimitInTest, false, fmt.Sprintf("current account num %d should not exceed %d", accountNum, accountLimitInTest))
+	gomega.Expect(accountNum >= accountLimitInTest).To(gomega.BeFalse())
 }
 
 func skipIfTestingInWindowsCluster() {

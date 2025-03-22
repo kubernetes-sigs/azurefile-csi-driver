@@ -75,7 +75,7 @@ func (t *DynamicallyProvisionedAccountWithTags) Run(ctx context.Context, client 
 		for k, v := range specifiedTags {
 			_, ok := resultTags[k]
 			if ok {
-				framework.ExpectEqual(*resultTags[k], v)
+				gomega.Expect(*resultTags[k]).To(gomega.Equal(v))
 			} else {
 				framework.Failf("the specified key(%s) does exist in result tags", k)
 			}
