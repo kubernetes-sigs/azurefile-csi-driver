@@ -988,6 +988,12 @@ func (d *Driver) DeleteFileShare(ctx context.Context, subsID, resourceGroup, acc
 				return true, rerr
 			}
 			err = fileClient.DeleteFileShare(ctx, shareName)
+		} else if d.cloud != nil && d.cloud.AuthProvider != nil {
+			fileClient, rerr := newAzureFileClientWithOAuth(d.cloud.AuthProvider.GetAzIdentity(), accountName, d.getStorageEndPointSuffix())
+			if rerr != nil {
+				return true, rerr
+			}
+			err = fileClient.DeleteFileShare(ctx, shareName)
 		} else {
 			fileClient, errGetClient := d.getFileShareClientForSub(subsID)
 			if errGetClient != nil {
@@ -1029,6 +1035,12 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 				return true, rerr
 			}
 			fileClient, rerr := newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix())
+			if rerr != nil {
+				return true, rerr
+			}
+			err = fileClient.ResizeFileShare(ctx, shareName, sizeGiB)
+		} else if d.cloud != nil && d.cloud.AuthProvider != nil {
+			fileClient, rerr := newAzureFileClientWithOAuth(d.cloud.AuthProvider.GetAzIdentity(), accountName, d.getStorageEndPointSuffix())
 			if rerr != nil {
 				return true, rerr
 			}
