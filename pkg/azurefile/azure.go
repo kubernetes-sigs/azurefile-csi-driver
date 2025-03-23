@@ -181,7 +181,7 @@ func getCloudProvider(ctx context.Context, kubeconfig, nodeID, secretName, secre
 			klog.V(2).Infof("starting node server on node(%s)", nodeID)
 		}
 
-		repo, err = storage.NewRepository(*config, env, az.ComputeClientFactory, az.NetworkClientFactory)
+		repo, err = storage.NewRepository(*config, env, az.AuthProvider, az.ComputeClientFactory, az.NetworkClientFactory)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create storage repository: %v", err)
 		}
