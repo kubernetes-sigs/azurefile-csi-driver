@@ -952,12 +952,9 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *storage.Ac
 				return true, err
 			}
 		} else if accountOptions.Name != "" {
-			return true, CreateFileShareWithOAuth(ctx, d.cloud.AuthProvider.GetAzIdentity(), accountOptions.Name, shareOptions, d.getStorageEndPointSuffix(), &retry.Backoff{Steps: 1})
-			/*
-				if fileClient, err = newAzureFileClientWithOAuth(d.cloud.AuthProvider.GetAzIdentity(), accountOptions.Name, d.getStorageEndPointSuffix(), &retry.Backoff{Steps: 1}); err != nil {
-					return true, err
-				}
-			*/
+			if fileClient, err = newAzureFileClientWithOAuth(d.cloud.AuthProvider.GetAzIdentity(), accountOptions.Name, d.getStorageEndPointSuffix()); err != nil {
+				return true, err
+			}
 		} else {
 			if fileClient, err = newAzureFileMgmtClient(d.cloud, accountOptions); err != nil {
 				return true, err
