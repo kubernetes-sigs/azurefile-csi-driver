@@ -945,19 +945,21 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *storage.Ac
 			if err != nil {
 				return true, err
 			}
-			if fileClient, err = newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix()); err != nil {
-				return true, err
-			}
-		} else if accountOptions.Name != "" {
-			if fileClient, err = newAzureFileClientWithOAuth(d.cloud.AuthProvider.GetAzIdentity(), accountOptions.Name, d.getStorageEndPointSuffix()); err != nil {
-				return true, err
-			}
+			fileClient, err = newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix())
+		} else if d.cloud != nil && d.cloud.AuthProvider != nil {
+			fileClient, err = newAzureFileClientWithOAuth(d.cloud.AuthProvider.GetAzIdentity(), accountOptions.Name, d.getStorageEndPointSuffix())
 		} else {
-			if fileClient, err = newAzureFileMgmtClient(d.cloud, accountOptions); err != nil {
-				return true, err
-			}
+			fileClient, err = newAzureFileMgmtClient(d.cloud, accountOptions)
 		}
+		if err != nil {
+			return true, err
+		}
+
 		if err = fileClient.CreateFileShare(ctx, shareOptions); err != nil {
+			if strings.Contains(err.Error(), "ShareAlreadyExists") {
+				klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), return as success", shareOptions.Name, accountOptions.Name, err)
+				return true, nil
+			}
 			if isRetriableError(err) {
 				klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", shareOptions.Name, accountOptions.Name, err)
 				sleepIfThrottled(err, fileOpThrottlingSleepSec)
