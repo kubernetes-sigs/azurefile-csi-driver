@@ -25,6 +25,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/service"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/utils"
 	"sigs.k8s.io/cloud-provider-azure/pkg/retry"
@@ -43,7 +44,6 @@ var (
 
 type azureFileDataplaneClient struct {
 	accountName string
-	accountKey  string
 	*service.Client
 }
 
@@ -71,7 +71,6 @@ func newAzureFileClient(accountName, accountKey, storageEndpointSuffix string, b
 
 	return &azureFileDataplaneClient{
 		accountName: accountName,
-		accountKey:  accountKey,
 		Client:      fileClient,
 	}, nil
 }
@@ -80,15 +79,10 @@ func (f *azureFileDataplaneClient) CreateFileShare(ctx context.Context, shareOpt
 	if shareOptions == nil {
 		return fmt.Errorf("shareOptions of account(%s) is nil", f.accountName)
 	}
-	shareClient := f.Client.NewShareClient(shareOptions.Name)
-	_, err := shareClient.Create(ctx, &share.CreateOptions{
+	_, err := f.Client.NewShareClient(shareOptions.Name).Create(ctx, &share.CreateOptions{
 		Quota: to.Ptr(int32(shareOptions.RequestGiB)),
 	})
-
-	if err != nil {
-		return fmt.Errorf("failed to create file share, err: %v", err)
-	}
-	return nil
+	return err
 }
 
 // delete a file share
@@ -118,10 +112,9 @@ func (f *azureFileDataplaneClient) ResizeFileShare(ctx context.Context, shareNam
 }
 
 func (f *azureFileDataplaneClient) GetFileShareQuota(ctx context.Context, name string) (int, error) {
-	shareClient := f.Client.NewShareClient(name)
-	shareProps, err := shareClient.GetProperties(ctx, nil)
+	shareProps, err := f.Client.NewShareClient(name).GetProperties(ctx, nil)
 	if err != nil {
 		return -1, err
 	}
-	return int(*shareProps.Quota), nil
+	return int(ptr.Deref(shareProps.Quota, 0)), nil
 }

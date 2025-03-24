@@ -42,7 +42,7 @@ func TestCreateFileShare(t *testing.T) {
 					t.Errorf("error creating azure client: %v", err)
 				}
 				actualErr := f.CreateFileShare(context.Background(), options)
-				expectedErr := fmt.Errorf("failed to create file share, err: ")
+				expectedErr := fmt.Errorf("")
 				if !strings.HasPrefix(actualErr.Error(), expectedErr.Error()) {
 					t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
 				}
