@@ -166,7 +166,7 @@ const (
 	accountLimitExceedManagementAPI = "TotalSharesProvisionedCapacityExceedsAccountLimit"
 	accountLimitExceedDataPlaneAPI  = "specified share does not exist"
 
-	fileShareNotFound  = "ErrorCode=ShareNotFound"
+	fileShareNotFound  = "ShareNotFound"
 	statusCodeNotFound = "StatusCode=404"
 	httpCodeNotFound   = "HTTPStatusCode: 404"
 
