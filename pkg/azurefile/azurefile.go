@@ -1303,6 +1303,10 @@ func getNodeInfoFromLabels(ctx context.Context, nodeID string, kubeClient client
 }
 
 func isKataNode(ctx context.Context, nodeID string, kubeClient clientset.Interface) bool {
+	if nodeID == "" {
+		return false
+	}
+
 	kataVMIsolationLabel, kataRuntimeLabel, err := getNodeInfoFromLabels(ctx, nodeID, kubeClient)
 
 	if err != nil {

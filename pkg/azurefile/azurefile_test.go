@@ -39,6 +39,7 @@ import (
 	"go.uber.org/mock/gomock"
 	v1api "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
@@ -1634,95 +1635,134 @@ func TestGetFileShareClientForSub(t *testing.T) {
 }
 
 func TestGetNodeInfoFromLabels(t *testing.T) {
-	ctx := context.TODO()
-
-	// Test case where kubeClient is nil
-	_, _, err := getNodeInfoFromLabels(ctx, "test-node", nil)
-	if err == nil || err.Error() != "kubeClient is nil" {
-		t.Fatalf("expected error 'kubeClient is nil', got %v", err)
-	}
-
-	// Create a fake clientset
-	clientset := fake.NewSimpleClientset()
-
-	// Test case where the node does not exist
-	_, _, err = getNodeInfoFromLabels(ctx, "nonexistent-node", clientset)
-	if err == nil {
-		t.Fatalf("expected an error, got nil")
-	}
-
-	// Test case where node exists but has no labels
-	node := &v1api.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "test-node",
-			Labels: map[string]string{},
+	testCases := []struct {
+		name         string
+		nodeName     string
+		labels       map[string]string
+		setupClient  bool
+		expectedVals [2]string
+		expectedErr  error
+	}{
+		{
+			name:        "Error when kubeClient is nil",
+			nodeName:    "test-node",
+			setupClient: false,
+			expectedErr: fmt.Errorf("kubeClient is nil"),
+		},
+		{
+			name:        "Error when node does not exist",
+			nodeName:    "nonexistent-node",
+			setupClient: true,
+			expectedErr: fmt.Errorf("get node(nonexistent-node) failed with nodes \"nonexistent-node\" not found"),
+		},
+		{
+			name:        "Error when node has no labels",
+			nodeName:    "test-node",
+			setupClient: true,
+			labels:      map[string]string{}, // Node exists but has no labels
+			expectedErr: fmt.Errorf("node(test-node) label is empty"),
+		},
+		{
+			name:        "Success with kata labels",
+			nodeName:    "test-node",
+			setupClient: true,
+			labels: map[string]string{
+				"kubernetes.azure.com/kata-mshv-vm-isolation": "true",
+				"katacontainers.io/kata-runtime":              "false",
+			},
+			expectedVals: [2]string{"true", "false"},
+			expectedErr:  nil,
 		},
 	}
-	_, err = clientset.CoreV1().Nodes().Create(ctx, node, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
 
-	_, _, err = getNodeInfoFromLabels(ctx, "test-node", clientset)
-	if err == nil || err.Error() != "node(test-node) label is empty" {
-		t.Fatalf("expected error 'node(test-node) label is empty', got %v", err)
-	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.TODO()
+			var clientset kubernetes.Interface
 
-	// Test case where node has kata labels
-	node.Labels = map[string]string{
-		"kubernetes.azure.com/kata-mshv-vm-isolation": "true",
-		"katacontainers.io/kata-runtime":              "false",
-	}
-	_, err = clientset.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+			if tc.setupClient {
+				clientset = fake.NewSimpleClientset()
+			}
 
-	kataVMIsolation, kataRuntime, err := getNodeInfoFromLabels(ctx, "test-node", clientset)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+			if tc.labels != nil && tc.setupClient {
+				node := &v1api.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   tc.nodeName,
+						Labels: tc.labels,
+					},
+				}
+				_, err := clientset.CoreV1().Nodes().Create(ctx, node, metav1.CreateOptions{})
+				assert.NoError(t, err)
+			}
 
-	if kataVMIsolation != "true" || kataRuntime != "false" {
-		t.Fatalf("expected (true, false), got (%v, %v)", kataVMIsolation, kataRuntime)
+			kataVMIsolation, kataRuntime, err := getNodeInfoFromLabels(ctx, tc.nodeName, clientset)
+
+			if tc.expectedErr != nil {
+				assert.EqualError(t, err, tc.expectedErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expectedVals[0], kataVMIsolation)
+				assert.Equal(t, tc.expectedVals[1], kataRuntime)
+			}
+		})
 	}
 }
 
 func TestIsKataNode(t *testing.T) {
-	ctx := context.TODO()
-	clientset := fake.NewSimpleClientset()
-
-	// Test case where node does not exist
-	if isKataNode(ctx, "nonexistent-node", clientset) {
-		t.Fatalf("expected false, got true")
-	}
-
-	// Create node without kata labels
-	node := &v1api.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-node",
-			Labels: map[string]string{
+	testCases := []struct {
+		name        string
+		nodeName    string
+		labels      map[string]string
+		setupClient bool
+		expected    bool
+	}{
+		{
+			name:        "Node does not exist",
+			nodeName:    "",
+			setupClient: true,
+			expected:    false,
+		},
+		{
+			name:        "Node exists but has no kata labels",
+			nodeName:    "test-node",
+			setupClient: true,
+			labels: map[string]string{
 				"some-other-label": "value",
 			},
+			expected: false,
+		},
+		{
+			name:        "Node has kata labels",
+			nodeName:    "test-node",
+			setupClient: true,
+			labels: map[string]string{
+				"kubernetes.azure.com/kata-mshv-vm-isolation": "true",
+			},
+			expected: true,
 		},
 	}
-	_, err := clientset.CoreV1().Nodes().Create(ctx, node, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
 
-	if isKataNode(ctx, "test-node", clientset) {
-		t.Fatalf("expected false, got true")
-	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.TODO()
+			var clientset kubernetes.Interface
 
-	// Update node with kata labels
-	node.Labels["kubernetes.azure.com/kata-mshv-vm-isolation"] = "true"
-	_, err = clientset.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+			if tc.setupClient {
+				clientset = fake.NewSimpleClientset()
+			}
 
-	if !isKataNode(ctx, "test-node", clientset) {
-		t.Fatalf("expected true, got false")
+			if tc.labels != nil && tc.setupClient {
+				node := &v1api.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   tc.nodeName,
+						Labels: tc.labels,
+					},
+				}
+				_, err := clientset.CoreV1().Nodes().Create(ctx, node, metav1.CreateOptions{})
+				assert.NoError(t, err)
+			}
+			result := isKataNode(ctx, tc.nodeName, clientset)
+			assert.Equal(t, tc.expected, result)
+		})
 	}
 }
