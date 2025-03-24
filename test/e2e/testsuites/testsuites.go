@@ -470,7 +470,7 @@ func (t *TestDeployment) WaitForPodReady(ctx context.Context) {
 	// always get first pod as there should only be one
 	pod := pods.Items[0]
 	t.podName = pod.Name
-	err = e2epod.WaitForPodRunningInNamespace(ctx, t.client, &pod)
+	err = e2epod.WaitForPodRunningInNamespaceSlow(ctx, t.client, pod.Name, t.namespace.Name)
 	framework.ExpectNoError(err)
 }
 
@@ -605,7 +605,7 @@ func (t *TestStatefulset) WaitForPodReady(ctx context.Context) {
 	// always get first pod as there should only be one
 	pod := statefulSetPods.Items[0]
 	t.podName = pod.Name
-	err = e2epod.WaitForPodRunningInNamespace(ctx, t.client, &pod)
+	err = e2epod.WaitForPodRunningInNamespaceSlow(ctx, t.client, pod.Name, t.namespace.Name)
 	framework.ExpectNoError(err)
 }
 
@@ -712,7 +712,7 @@ func (t *TestPod) WaitForSuccess(ctx context.Context) {
 }
 
 func (t *TestPod) WaitForRunning(ctx context.Context) {
-	err := e2epod.WaitForPodRunningInNamespace(ctx, t.client, t.pod)
+	err := e2epod.WaitForPodRunningInNamespaceSlow(ctx, t.client, t.pod.Name, t.namespace.Name)
 	framework.ExpectNoError(err)
 }
 
