@@ -37,7 +37,7 @@ spec:
     - metadata:
         name: persistent-storage
       spec:
-        storageClassName: azurefile-csi-kata-cc
+        storageClassName: azurefile-csi
         accessModes: ["ReadWriteMany"]
         resources:
           requests:
