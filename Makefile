@@ -88,7 +88,7 @@ e2e-test:
 		bash ./test/external-e2e/run.sh;\
 	else \
 		bash ./hack/parse-prow-creds.sh;\
-		go test -v -timeout=0 ./test/e2e ${GINKGO_FLAGS};\
+		go test -v -timeout=180m ./test/e2e ${GINKGO_FLAGS};\
 	fi
 
 .PHONY: e2e-bootstrap
