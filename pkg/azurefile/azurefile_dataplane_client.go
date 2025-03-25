@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/service"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
@@ -64,6 +65,25 @@ func newAzureFileClient(accountName, accountKey, storageEndpointSuffix string) (
 	if err != nil {
 		return nil, fmt.Errorf("error creating azure client: %v", err)
 	}
+
+	return &azureFileDataplaneClient{
+		accountName: accountName,
+		Client:      fileClient,
+	}, nil
+}
+
+func newAzureFileClientWithOAuth(cred azcore.TokenCredential, accountName, storageEndpointSuffix string) (azureFileClient, error) {
+	if storageEndpointSuffix == "" {
+		storageEndpointSuffix = defaultStorageEndPointSuffix
+	}
+	storageEndpoint := fmt.Sprintf("https://%s.file."+storageEndpointSuffix, accountName)
+	fileClient, err := service.NewClient(storageEndpoint, cred, &service.ClientOptions{
+		ClientOptions: utils.GetDefaultAzCoreClientOption(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error creating azure client with oauth: %v", err)
+	}
+	klog.V(2).Infof("created azure file client with oauth, accountName: %s", accountName)
 
 	return &azureFileDataplaneClient{
 		accountName: accountName,

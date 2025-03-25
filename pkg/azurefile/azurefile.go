@@ -165,7 +165,7 @@ const (
 	accountLimitExceedManagementAPI = "TotalSharesProvisionedCapacityExceedsAccountLimit"
 	accountLimitExceedDataPlaneAPI  = "specified share does not exist"
 
-	fileShareNotFound  = "ErrorCode=ShareNotFound"
+	fileShareNotFound  = "ShareNotFound"
 	statusCodeNotFound = "StatusCode=404"
 	httpCodeNotFound   = "HTTPStatusCode: 404"
 
@@ -945,15 +945,21 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *storage.Ac
 			if err != nil {
 				return true, err
 			}
-			if fileClient, err = newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix()); err != nil {
-				return true, err
-			}
+			fileClient, err = newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix())
+		} else if d.cloud != nil && d.cloud.AuthProvider != nil {
+			fileClient, err = newAzureFileClientWithOAuth(d.cloud.AuthProvider.GetAzIdentity(), accountOptions.Name, d.getStorageEndPointSuffix())
 		} else {
-			if fileClient, err = newAzureFileMgmtClient(d.cloud, accountOptions); err != nil {
-				return true, err
-			}
+			fileClient, err = newAzureFileMgmtClient(d.cloud, accountOptions)
 		}
+		if err != nil {
+			return true, err
+		}
+
 		if err = fileClient.CreateFileShare(ctx, shareOptions); err != nil {
+			if strings.Contains(err.Error(), "ShareAlreadyExists") {
+				klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), return as success", shareOptions.Name, accountOptions.Name, err)
+				return true, nil
+			}
 			if isRetriableError(err) {
 				klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", shareOptions.Name, accountOptions.Name, err)
 				sleepIfThrottled(err, fileOpThrottlingSleepSec)
@@ -975,6 +981,12 @@ func (d *Driver) DeleteFileShare(ctx context.Context, subsID, resourceGroup, acc
 				return true, rerr
 			}
 			fileClient, rerr := newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix())
+			if rerr != nil {
+				return true, rerr
+			}
+			err = fileClient.DeleteFileShare(ctx, shareName)
+		} else if d.cloud != nil && d.cloud.AuthProvider != nil {
+			fileClient, rerr := newAzureFileClientWithOAuth(d.cloud.AuthProvider.GetAzIdentity(), accountName, d.getStorageEndPointSuffix())
 			if rerr != nil {
 				return true, rerr
 			}
@@ -1020,6 +1032,12 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 				return true, rerr
 			}
 			fileClient, rerr := newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix())
+			if rerr != nil {
+				return true, rerr
+			}
+			err = fileClient.ResizeFileShare(ctx, shareName, sizeGiB)
+		} else if d.cloud != nil && d.cloud.AuthProvider != nil {
+			fileClient, rerr := newAzureFileClientWithOAuth(d.cloud.AuthProvider.GetAzIdentity(), accountName, d.getStorageEndPointSuffix())
 			if rerr != nil {
 				return true, rerr
 			}
