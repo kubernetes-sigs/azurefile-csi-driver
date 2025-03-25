@@ -48,6 +48,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
 	"k8s.io/utils/ptr"
@@ -195,7 +196,6 @@ const (
 	FSGroupChangeNone = "None"
 	// define tag value delimiter and default is comma
 	tagValueDelimiterField = "tagvaluedelimiter"
-	enableKataCCMountField = "enablekataccmount"
 )
 
 var (
@@ -289,6 +289,7 @@ type Driver struct {
 	endpoint     string
 	resolver     Resolver
 	directVolume DirectVolume
+	isKataNode   bool
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -330,6 +331,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.endpoint = options.Endpoint
 	driver.resolver = new(NetResolver)
 	driver.directVolume = new(directVolume)
+	driver.isKataNode = false
 
 	var err error
 	getter := func(_ context.Context, _ string) (interface{}, error) { return nil, nil }
@@ -453,6 +455,7 @@ func (d *Driver) Run(ctx context.Context) error {
 	csi.RegisterControllerServer(server, d)
 	csi.RegisterNodeServer(server, d)
 	d.server = server
+	d.isKataNode = isKataNode(ctx, d.NodeID, d.kubeClient)
 
 	listener, err := csicommon.ListenEndpoint(d.endpoint)
 	if err != nil {
@@ -1281,4 +1284,37 @@ func (d *Driver) getFileShareClientForSub(subscriptionID string) (fileshareclien
 		return nil, fmt.Errorf("cloud or ComputeClientFactory is nil")
 	}
 	return d.cloud.ComputeClientFactory.GetFileShareClientForSub(subscriptionID)
+}
+
+func getNodeInfoFromLabels(ctx context.Context, nodeID string, kubeClient clientset.Interface) (string, string, error) {
+	if kubeClient == nil || kubeClient.CoreV1() == nil {
+		return "", "", fmt.Errorf("kubeClient is nil")
+	}
+
+	node, err := kubeClient.CoreV1().Nodes().Get(ctx, nodeID, metav1.GetOptions{})
+	if err != nil {
+		return "", "", fmt.Errorf("get node(%s) failed with %v", nodeID, err)
+	}
+
+	if len(node.Labels) == 0 {
+		return "", "", fmt.Errorf("node(%s) label is empty", nodeID)
+	}
+	return node.Labels["kubernetes.azure.com/kata-mshv-vm-isolation"], node.Labels["katacontainers.io/kata-runtime"], nil
+}
+
+func isKataNode(ctx context.Context, nodeID string, kubeClient clientset.Interface) bool {
+	if nodeID == "" {
+		return false
+	}
+
+	kataVMIsolationLabel, kataRuntimeLabel, err := getNodeInfoFromLabels(ctx, nodeID, kubeClient)
+
+	if err != nil {
+		klog.Warningf("failed to get node info from labels: %v", err)
+		return false
+	}
+
+	klog.V(4).Infof("node(%s) labels: kataVMIsolationLabel(%s), kataRuntimeLabel(%s)", nodeID, kataVMIsolationLabel, kataRuntimeLabel)
+
+	return strings.EqualFold(kataVMIsolationLabel, "true") || strings.EqualFold(kataRuntimeLabel, "true")
 }
