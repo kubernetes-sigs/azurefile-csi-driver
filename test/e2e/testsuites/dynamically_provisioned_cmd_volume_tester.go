@@ -50,13 +50,9 @@ func (t *DynamicallyProvisionedCmdVolumeTest) Run(ctx context.Context, client cl
 		tpod.Create(ctx)
 		defer tpod.Cleanup(ctx)
 		ginkgo.By("checking that the pods command exits with no error")
-		if pod.WinServerVer == "windows-2022" {
-			if err := e2epod.WaitForPodSuccessInNamespaceTimeout(ctx, tpod.client, tpod.pod.Name, tpod.namespace.Name, 15*time.Minute); err != nil {
-				ginkgo.By(fmt.Sprintf("hit error(%v) in first run, give another try", err))
-			}
-			tpod.WaitForSuccess(ctx)
-		} else {
-			tpod.WaitForSuccess(ctx)
+		if err := e2epod.WaitForPodSuccessInNamespaceTimeout(ctx, tpod.client, tpod.pod.Name, tpod.namespace.Name, 15*time.Minute); err != nil {
+			ginkgo.By(fmt.Sprintf("hit error(%v) in first run, give another try", err))
 		}
+		tpod.WaitForSuccess(ctx)
 	}
 }
