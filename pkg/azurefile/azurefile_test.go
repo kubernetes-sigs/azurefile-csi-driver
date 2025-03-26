@@ -1640,7 +1640,7 @@ func TestGetNodeInfoFromLabels(t *testing.T) {
 		nodeName     string
 		labels       map[string]string
 		setupClient  bool
-		expectedVals [2]string
+		expectedVals [3]string
 		expectedErr  error
 	}{
 		{
@@ -1667,10 +1667,11 @@ func TestGetNodeInfoFromLabels(t *testing.T) {
 			nodeName:    "test-node",
 			setupClient: true,
 			labels: map[string]string{
+				"kubernetes.azure.com/kata-cc-isolation":      "true",
 				"kubernetes.azure.com/kata-mshv-vm-isolation": "true",
 				"katacontainers.io/kata-runtime":              "false",
 			},
-			expectedVals: [2]string{"true", "false"},
+			expectedVals: [3]string{"true", "true", "false"},
 			expectedErr:  nil,
 		},
 	}
@@ -1695,14 +1696,15 @@ func TestGetNodeInfoFromLabels(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			kataVMIsolation, kataRuntime, err := getNodeInfoFromLabels(ctx, tc.nodeName, clientset)
+			kataCCIsolation, kataVMIsolation, kataRuntime, err := getNodeInfoFromLabels(ctx, tc.nodeName, clientset)
 
 			if tc.expectedErr != nil {
 				assert.EqualError(t, err, tc.expectedErr.Error())
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tc.expectedVals[0], kataVMIsolation)
-				assert.Equal(t, tc.expectedVals[1], kataRuntime)
+				assert.Equal(t, tc.expectedVals[0], kataCCIsolation)
+				assert.Equal(t, tc.expectedVals[1], kataVMIsolation)
+				assert.Equal(t, tc.expectedVals[2], kataRuntime)
 			}
 		})
 	}
