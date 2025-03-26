@@ -1286,20 +1286,20 @@ func (d *Driver) getFileShareClientForSub(subscriptionID string) (fileshareclien
 	return d.cloud.ComputeClientFactory.GetFileShareClientForSub(subscriptionID)
 }
 
-func getNodeInfoFromLabels(ctx context.Context, nodeID string, kubeClient clientset.Interface) (string, string, error) {
+func getNodeInfoFromLabels(ctx context.Context, nodeID string, kubeClient clientset.Interface) (string, string, string, error) {
 	if kubeClient == nil || kubeClient.CoreV1() == nil {
-		return "", "", fmt.Errorf("kubeClient is nil")
+		return "", "", "", fmt.Errorf("kubeClient is nil")
 	}
 
 	node, err := kubeClient.CoreV1().Nodes().Get(ctx, nodeID, metav1.GetOptions{})
 	if err != nil {
-		return "", "", fmt.Errorf("get node(%s) failed with %v", nodeID, err)
+		return "", "", "", fmt.Errorf("get node(%s) failed with %v", nodeID, err)
 	}
 
 	if len(node.Labels) == 0 {
-		return "", "", fmt.Errorf("node(%s) label is empty", nodeID)
+		return "", "", "", fmt.Errorf("node(%s) label is empty", nodeID)
 	}
-	return node.Labels["kubernetes.azure.com/kata-mshv-vm-isolation"], node.Labels["katacontainers.io/kata-runtime"], nil
+	return node.Labels["kubernetes.azure.com/kata-cc-isolation"], node.Labels["kubernetes.azure.com/kata-mshv-vm-isolation"], node.Labels["katacontainers.io/kata-runtime"], nil
 }
 
 func isKataNode(ctx context.Context, nodeID string, kubeClient clientset.Interface) bool {
@@ -1307,7 +1307,7 @@ func isKataNode(ctx context.Context, nodeID string, kubeClient clientset.Interfa
 		return false
 	}
 
-	kataVMIsolationLabel, kataRuntimeLabel, err := getNodeInfoFromLabels(ctx, nodeID, kubeClient)
+	kataCCIsolationLabel, kataVMIsolationLabel, kataRuntimeLabel, err := getNodeInfoFromLabels(ctx, nodeID, kubeClient)
 
 	if err != nil {
 		klog.Warningf("failed to get node info from labels: %v", err)
@@ -1316,5 +1316,5 @@ func isKataNode(ctx context.Context, nodeID string, kubeClient clientset.Interfa
 
 	klog.V(4).Infof("node(%s) labels: kataVMIsolationLabel(%s), kataRuntimeLabel(%s)", nodeID, kataVMIsolationLabel, kataRuntimeLabel)
 
-	return strings.EqualFold(kataVMIsolationLabel, "true") || strings.EqualFold(kataRuntimeLabel, "true")
+	return strings.EqualFold(kataCCIsolationLabel, "true") || strings.EqualFold(kataVMIsolationLabel, "true") || strings.EqualFold(kataRuntimeLabel, "true")
 }
