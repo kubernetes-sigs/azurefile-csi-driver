@@ -124,8 +124,9 @@ useDataPlaneAPI | specify whether use [data plane API](https://github.com/Azure/
 ### Tips
   - mounting Azure SMB File share requires account key
     - If you set `storeAccountKey: "false"` in the storage class, the driver will not store the account key as a Kubernetes secret,  the driver will not store the account key as a Kubernetes secret. Instead, it will use the kubelet identity to obtain the account key.
-    - if the `nodeStageSecretRef` field is not specified in the persistent volume (PV) configuration, the driver will attempt to retrieve the `azure-storage-account-{accountname}-secret` in the pod namespace. 
+    - if the `nodeStageSecretRef` field is not specified in the persistent volume (PV) configuration, the driver will attempt to retrieve the `azure-storage-account-{accountname}-secret` in the pod namespace.
     - If `azure-storage-account-{accountname}-secret` in the pod namespace does not exist, the driver will use the kubelet identity to retrieve the account key directly from the Azure storage account API, provided that the kubelet identity has reader access to the storage account.
+    > If you have recently rotated the account key, it is important to update the account key stored in the Kubernetes secret. Additionally, the application pods that reference the Azure file volume should be restarted after the secret has been updated. In cases where two pods share the same PVC on the same node, it is necessary to reschedule the pods to a different node without that PVC mounted to ensure that remounting occurs successfully. To safely rotate the account key without experiencing downtime, you can follow the steps outlined [here](https://github.com/kubernetes-sigs/azurefile-csi-driver/issues/1218#issuecomment-1851996062).
   - mounting Azure NFS File share does not require account key, NFS mount access is configured by either of the following settings:
     - `Firewalls and virtual networks`: select `Enabled from selected virtual networks and IP addresses` with same vnet as agent node
     - `Private endpoint connections`
