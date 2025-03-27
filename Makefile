@@ -36,7 +36,7 @@ endif
 ifdef EXTERNAL_E2E_TEST_NFS
 E2E_HELM_OPTIONS += --set feature.enableVolumeMountGroup=false --set feature.fsGroupPolicy=File
 endif
-GINKGO_FLAGS = -ginkgo.v
+GINKGO_FLAGS = -ginkgo.v --ginkgo.timeout=180m
 GO111MODULE = on
 GOPATH ?= $(shell go env GOPATH)
 GOBIN ?= $(GOPATH)/bin
