@@ -2,8 +2,6 @@ module sigs.k8s.io/azurefile-csi-driver
 
 go 1.24
 
-toolchain go1.24.1
-
 godebug winsymlink=0
 
 require (
@@ -27,7 +25,7 @@ require (
 	github.com/rubiojr/go-vhd v0.0.0-20200706105327-02e210299021
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/mock v0.5.0
-	golang.org/x/net v0.37.0
+	golang.org/x/net v0.38.0
 	golang.org/x/sys v0.31.0
 	google.golang.org/grpc v1.71.0
 	google.golang.org/protobuf v1.36.6
