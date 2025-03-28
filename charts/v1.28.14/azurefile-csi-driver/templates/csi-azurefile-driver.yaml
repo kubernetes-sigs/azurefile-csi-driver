@@ -1,0 +1,17 @@
+---
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  name: {{ .Values.driver.name }}
+  labels:
+    {{- include "azurefile.labels" . | nindent 4 }}
+  annotations:
+    csiDriver: "{{ .Values.image.azurefile.tag }}"
+    snapshot: "{{ .Values.snapshot.image.csiSnapshotter.tag }}"
+spec:
+  attachRequired: {{ .Values.controller.attachRequired }}
+  podInfoOnMount: true
+  volumeLifecycleModes:
+    - Persistent
+    - Ephemeral
+  fsGroupPolicy: {{ .Values.feature.fsGroupPolicy }}
