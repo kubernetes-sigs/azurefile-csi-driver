@@ -89,6 +89,7 @@ spec:
             - "--v=2"
             - "--leader-election=true"
             - "--leader-election-namespace={{ .Release.Namespace }}"
+            - "--retry-interval-max=30m"
           resources: {{- toYaml .Values.snapshot.snapshotController.resources | nindent 12 }}
           imagePullPolicy: {{ .Values.snapshot.image.csiSnapshotController.pullPolicy }}
           securityContext:
