@@ -345,7 +345,7 @@ func isConfidentialRuntimeClass(ctx context.Context, kubeClient clientset.Interf
 	if err != nil {
 		return false, err
 	}
-	klog.Infof("runtimeClass %s handler: %s", runtimeClassName, runtimeClass.Handler)
+	klog.V(4).Infof("runtimeClass %s handler: %s", runtimeClassName, runtimeClass.Handler)
 	return runtimeClass.Handler == confidentialRuntimeClassHandler ||
 		runtimeClass.Handler == kataVMIsolationRuntimeClassHandler, nil
 }

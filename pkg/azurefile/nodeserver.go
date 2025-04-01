@@ -190,7 +190,7 @@ func (d *Driver) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVo
 	}
 
 	if d.enableKataCCMount {
-		klog.V(2).Infof("NodeUnstageVolume: remove direct volume mount info %s from %s", volumeID, targetPath)
+		klog.V(2).Infof("NodeUnpublishVolume: remove direct volume mount info %s from %s", volumeID, targetPath)
 		// Remove deletes the direct volume path including all the files inside it.
 		// if there is no kata-cc mountinfo present on this path, it will return nil.
 		if err := d.directVolume.Remove(targetPath); err != nil {
