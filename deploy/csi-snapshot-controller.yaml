@@ -50,6 +50,7 @@ spec:
             - "--v=2"
             - "--leader-election=true"
             - "--leader-election-namespace=kube-system"
+            - "--retry-interval-max=30m"
           resources:
             limits:
               memory: 500Mi
