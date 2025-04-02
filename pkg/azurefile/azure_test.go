@@ -318,7 +318,7 @@ var _ = ginkgo.Describe("AzureFile", func() {
 		var err error
 		d.cloud, err = storage.NewRepository(config, &azclient.Environment{
 			StorageEndpointSuffix: "fake-endpoint",
-		}, mockClientFactory, mockClientFactory)
+		}, nil, mockClientFactory, mockClientFactory)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "Unexpected error:", err)
 	})
 	ginkgo.AfterEach(func() {
