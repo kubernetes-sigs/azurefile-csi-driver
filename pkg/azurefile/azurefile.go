@@ -481,7 +481,11 @@ func (d *Driver) getFileShareQuota(ctx context.Context, accountOptions *storage.
 		if err != nil {
 			return -1, err
 		}
-		if fileClient, err = newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix()); err != nil {
+		storageEndPointSuffix := d.getStorageEndPointSuffix()
+		if accountOptions != nil && accountOptions.StorageEndpointSuffix != "" {
+			storageEndPointSuffix = accountOptions.StorageEndpointSuffix
+		}
+		if fileClient, err = newAzureFileClient(accountName, accountKey, storageEndPointSuffix); err != nil {
 			return -1, err
 		}
 	} else {
@@ -948,7 +952,11 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *storage.Ac
 			if err != nil {
 				return true, err
 			}
-			if fileClient, err = newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix()); err != nil {
+			storageEndPointSuffix := d.getStorageEndPointSuffix()
+			if accountOptions != nil && accountOptions.StorageEndpointSuffix != "" {
+				storageEndPointSuffix = accountOptions.StorageEndpointSuffix
+			}
+			if fileClient, err = newAzureFileClient(accountName, accountKey, storageEndPointSuffix); err != nil {
 				return true, err
 			}
 		} else {
