@@ -22,6 +22,13 @@ Microsoft.Network/privateDnsZones/virtualNetworkLinks/read
 Microsoft.Network/privateDnsZones/read
 Microsoft.Network/privateDnsOperationStatuses/read
 Microsoft.Network/locations/operations/read
+# this is only necessary if the subnet carrying the write permission has these additional resources configured:
+Microsoft.Network/serviceEndpointPolicies/join/action
+Microsoft.Network/natGateways/join/action
+Microsoft.Network/networkIntentPolicies/join/action
+Microsoft.Network/networkSecurityGroups/join/action
+Microsoft.Network/routeTables/join/action
+associateResourcesToPool/action
 </pre>
 </details>
 
