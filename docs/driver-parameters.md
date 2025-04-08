@@ -28,7 +28,7 @@ Microsoft.Network/natGateways/join/action
 Microsoft.Network/networkIntentPolicies/join/action
 Microsoft.Network/networkSecurityGroups/join/action
 Microsoft.Network/routeTables/join/action
-associateResourcesToPool/action
+Microsoft.Network/networkManagers/ipamPools/associateResourcesToPool/action
 </pre>
 </details>
 
