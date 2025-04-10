@@ -36,7 +36,6 @@ import (
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	cloudprovider "k8s.io/cloud-provider"
@@ -1532,7 +1531,7 @@ var _ = ginkgo.Describe("TestCopyVolume", func() {
 			d.waitForAzCopyTimeoutMinutes = 1
 
 			err := d.copyVolume(ctx, req, "", "sastoken", []string{}, "", &ShareOptions{Name: "dstFileshare"}, &accountOptions, "core.windows.net")
-			gomega.Expect(err).To(gomega.Equal(wait.ErrWaitTimeout))
+			gomega.Expect(err).To(gomega.Equal(context.DeadlineExceeded))
 		})
 	})
 })
