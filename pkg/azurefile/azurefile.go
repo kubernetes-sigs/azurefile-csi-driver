@@ -1098,7 +1098,7 @@ func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest
 	srcPath := fmt.Sprintf("https://%s.file.%s/%s%s", srcAccountName, storageEndpointSuffix, srcFileShareName, srcAccountSasToken)
 	dstPath := fmt.Sprintf("https://%s.file.%s/%s%s", dstAccountName, storageEndpointSuffix, dstFileShareName, dstAccountSasToken)
 
-	return d.copyFileShareByAzcopy(srcFileShareName, dstFileShareName, srcPath, dstPath, "", srcAccountName, dstAccountName, srcAccountSasToken, authAzcopyEnv, accountOptions)
+	return d.copyFileShareByAzcopy(ctx, srcFileShareName, dstFileShareName, srcPath, dstPath, "", srcAccountName, dstAccountName, srcAccountSasToken, authAzcopyEnv, accountOptions)
 }
 
 // GetTotalAccountQuota returns the total quota in GB of all file shares in the storage account and the number of file shares
