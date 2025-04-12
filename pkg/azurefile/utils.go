@@ -177,17 +177,6 @@ func getRetryAfterSeconds(err error) int {
 	return 0
 }
 
-func useDataPlaneAPI(volContext map[string]string) bool {
-	useDataPlaneAPI := false
-	for k, v := range volContext {
-		switch strings.ToLower(k) {
-		case useDataPlaneAPIField:
-			useDataPlaneAPI = strings.EqualFold(v, trueValue)
-		}
-	}
-	return useDataPlaneAPI
-}
-
 func createStorageAccountSecret(account, key string) map[string]string {
 	secret := make(map[string]string)
 	secret[defaultSecretAccountName] = account

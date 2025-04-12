@@ -196,6 +196,8 @@ const (
 	FSGroupChangeNone = "None"
 	// define tag value delimiter and default is comma
 	tagValueDelimiterField = "tagvaluedelimiter"
+	// for data plane API
+	oauth = "oauth"
 )
 
 var (
@@ -260,7 +262,7 @@ type Driver struct {
 	accountCacheMap azcache.Resource
 	// a map storing all secret names created by this driver <secretCacheKey, "">
 	secretCacheMap azcache.Resource
-	// a map storing all volumes using data plane API <volumeID, "">
+	// a map storing all volumes using data plane API <volumeID, value>
 	dataPlaneAPIVolMap sync.Map
 	// a timed cache storing all storage accounts that are using data plane API temporarily
 	dataPlaneAPIAccountCache azcache.Resource
@@ -473,25 +475,27 @@ func (d *Driver) Run(ctx context.Context) error {
 }
 
 // getFileShareQuota return (-1, nil) means file share does not exist
-func (d *Driver) getFileShareQuota(ctx context.Context, accountOptions *storage.AccountOptions, fileShareName string, secrets map[string]string) (int, error) {
+func (d *Driver) getFileShareQuota(ctx context.Context, accountOptions *storage.AccountOptions, fileShareName string, secrets map[string]string, useDataPlaneAPI string) (int, error) {
 	var fileClient azureFileClient
 	var err error
 	if len(secrets) > 0 {
-		accountName, accountKey, err := getStorageAccount(secrets)
-		if err != nil {
-			return -1, err
+		accountName, accountKey, rerr := getStorageAccount(secrets)
+		if rerr != nil {
+			return -1, rerr
 		}
 		storageEndPointSuffix := d.getStorageEndPointSuffix()
 		if accountOptions != nil && accountOptions.StorageEndpointSuffix != "" {
 			storageEndPointSuffix = accountOptions.StorageEndpointSuffix
 		}
-		if fileClient, err = newAzureFileClient(accountName, accountKey, storageEndPointSuffix); err != nil {
-			return -1, err
-		}
+		fileClient, err = newAzureFileClient(accountName, accountKey, storageEndPointSuffix)
+	} else if d.cloud != nil && d.cloud.AuthProvider != nil && strings.EqualFold(useDataPlaneAPI, oauth) {
+		fileClient, err = newAzureFileClientWithOAuth(d.cloud.AuthProvider.GetAzIdentity(), accountOptions.Name, d.getStorageEndPointSuffix())
 	} else {
-		if fileClient, err = newAzureFileMgmtClient(d.cloud, accountOptions); err != nil {
-			return -1, err
-		}
+		fileClient, err = newAzureFileMgmtClient(d.cloud, accountOptions)
+	}
+
+	if err != nil {
+		return -1, err
 	}
 	quota, err := fileClient.GetFileShareQuota(ctx, fileShareName)
 	if err != nil {
@@ -942,7 +946,7 @@ func isSupportedFSGroupChangePolicy(policy string) bool {
 }
 
 // CreateFileShare creates a file share
-func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *storage.AccountOptions, shareOptions *ShareOptions, secrets map[string]string) error {
+func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *storage.AccountOptions, shareOptions *ShareOptions, secrets map[string]string, useDataPlaneAPI string) error {
 	return wait.ExponentialBackoff(getBackOff(d.cloud.Config), func() (bool, error) {
 		var err error
 		var fileClient azureFileClient
@@ -959,7 +963,7 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *storage.Ac
 			if fileClient, err = newAzureFileClient(accountName, accountKey, storageEndPointSuffix); err != nil {
 				return true, err
 			}
-		} else if d.cloud != nil && d.cloud.AuthProvider != nil {
+		} else if d.cloud != nil && d.cloud.AuthProvider != nil && strings.EqualFold(useDataPlaneAPI, oauth) {
 			fileClient, err = newAzureFileClientWithOAuth(d.cloud.AuthProvider.GetAzIdentity(), accountOptions.Name, d.getStorageEndPointSuffix())
 		} else {
 			fileClient, err = newAzureFileMgmtClient(d.cloud, accountOptions)
@@ -985,7 +989,7 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *storage.Ac
 }
 
 // DeleteFileShare deletes a file share using storage account name and key
-func (d *Driver) DeleteFileShare(ctx context.Context, subsID, resourceGroup, accountName, shareName string, secrets map[string]string) error {
+func (d *Driver) DeleteFileShare(ctx context.Context, subsID, resourceGroup, accountName, shareName string, secrets map[string]string, useDataPlaneAPI string) error {
 	return wait.ExponentialBackoff(getBackOff(d.cloud.Config), func() (bool, error) {
 		var err error
 		if len(secrets) > 0 {
@@ -998,7 +1002,7 @@ func (d *Driver) DeleteFileShare(ctx context.Context, subsID, resourceGroup, acc
 				return true, rerr
 			}
 			err = fileClient.DeleteFileShare(ctx, shareName)
-		} else if d.cloud != nil && d.cloud.AuthProvider != nil {
+		} else if d.cloud != nil && d.cloud.AuthProvider != nil && strings.EqualFold(useDataPlaneAPI, oauth) {
 			fileClient, rerr := newAzureFileClientWithOAuth(d.cloud.AuthProvider.GetAzIdentity(), accountName, d.getStorageEndPointSuffix())
 			if rerr != nil {
 				return true, rerr
@@ -1036,7 +1040,7 @@ func (d *Driver) DeleteFileShare(ctx context.Context, subsID, resourceGroup, acc
 }
 
 // ResizeFileShare resizes a file share
-func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, accountName, shareName string, sizeGiB int, secrets map[string]string) error {
+func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, accountName, shareName string, sizeGiB int, secrets map[string]string, useDataPlaneAPI string) error {
 	return wait.ExponentialBackoff(getBackOff(d.cloud.Config), func() (bool, error) {
 		var err error
 		if len(secrets) > 0 {
@@ -1049,20 +1053,20 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 				return true, rerr
 			}
 			err = fileClient.ResizeFileShare(ctx, shareName, sizeGiB)
-		} else if d.cloud != nil && d.cloud.AuthProvider != nil {
+		} else if d.cloud != nil && d.cloud.AuthProvider != nil && strings.EqualFold(useDataPlaneAPI, oauth) {
 			fileClient, rerr := newAzureFileClientWithOAuth(d.cloud.AuthProvider.GetAzIdentity(), accountName, d.getStorageEndPointSuffix())
 			if rerr != nil {
 				return true, rerr
 			}
 			err = fileClient.ResizeFileShare(ctx, shareName, sizeGiB)
 		} else {
-			fileClient, err := d.getFileShareClientForSub(subsID)
-			if err != nil {
-				return true, err
+			fileClient, rerr := d.getFileShareClientForSub(subsID)
+			if rerr != nil {
+				return true, rerr
 			}
-			fileShare, err := fileClient.Get(ctx, resourceGroup, accountName, shareName, nil)
-			if err != nil {
-				return true, err
+			fileShare, rerr := fileClient.Get(ctx, resourceGroup, accountName, shareName, nil)
+			if rerr != nil {
+				return true, rerr
 			}
 			if ptr.Deref(fileShare.FileShareProperties.ShareQuota, 0) >= int32(sizeGiB) {
 				klog.Warningf("file share size(%dGi) is already greater or equal than requested size(%dGi), accountName: %s, shareName: %s",
@@ -1071,7 +1075,6 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 			}
 			fileShare.FileShareProperties.ShareQuota = to.Ptr(int32(sizeGiB))
 			_, err = fileClient.Update(ctx, resourceGroup, accountName, shareName, *fileShare)
-			return true, err
 		}
 		if isRetriableError(err) {
 			klog.Warningf("ResizeFileShare(%s) on account(%s) with new size(%d) failed with error(%v), waiting for retrying", shareName, accountName, sizeGiB, err)
@@ -1252,20 +1255,21 @@ func (d *Driver) getSubnetResourceID(vnetResourceGroup, vnetName, subnetName str
 	return fmt.Sprintf(subnetTemplate, subsID, vnetResourceGroup, vnetName, subnetName)
 }
 
-func (d *Driver) useDataPlaneAPI(ctx context.Context, volumeID, accountName string) bool {
-	_, useDataPlaneAPI := d.dataPlaneAPIVolMap.Load(volumeID)
+func (d *Driver) useDataPlaneAPI(ctx context.Context, volumeID, accountName string) string {
+	v, useDataPlaneAPI := d.dataPlaneAPIVolMap.Load(volumeID)
 	if useDataPlaneAPI {
-		return true
+		return v.(string)
 	}
 
 	cache, err := d.dataPlaneAPIAccountCache.Get(ctx, accountName, azcache.CacheReadTypeDefault)
 	if err != nil {
 		klog.Errorf("get(%s) from dataPlaneAPIAccountCache failed with error: %v", accountName, err)
+		return ""
 	}
 	if cache != nil {
-		return true
+		return cache.(string)
 	}
-	return false
+	return ""
 }
 
 func (d *Driver) SetAzureCredentials(ctx context.Context, accountName, accountKey, secretName, secretNamespace string) (string, error) {

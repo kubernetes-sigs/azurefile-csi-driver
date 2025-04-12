@@ -117,8 +117,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 	var sku, subsID, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
 	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, shareAccessTier, accountAccessTier, rootSquashType, tagValueDelimiter string
-	var createAccount, useDataPlaneAPI, useSeretCache, matchTags, selectRandomMatchingAccount, getLatestAccountKey bool
-	var vnetResourceGroup, vnetName, subnetName, shareNamePrefix, fsGroupChangePolicy string
+	var createAccount, useSeretCache, matchTags, selectRandomMatchingAccount, getLatestAccountKey bool
+	var vnetResourceGroup, vnetName, subnetName, shareNamePrefix, fsGroupChangePolicy, useDataPlaneAPI string
 	var requireInfraEncryption, disableDeleteRetentionPolicy, enableLFS, isMultichannelEnabled, allowSharedKeyAccess *bool
 	// set allowBlobPublicAccess as false by default
 	allowBlobPublicAccess := ptr.To(false)
@@ -181,7 +181,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			}
 			enableLFS = &value
 		case useDataPlaneAPIField:
-			useDataPlaneAPI = strings.EqualFold(v, trueValue)
+			if !strings.EqualFold(v, trueValue) && !strings.EqualFold(v, falseValue) && !strings.EqualFold(v, oauth) {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", useDataPlaneAPIField, v)
+			}
+			useDataPlaneAPI = v
 		case disableDeleteRetentionPolicyField:
 			value, err := strconv.ParseBool(v)
 			if err != nil {
@@ -554,7 +557,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	accountOptions.Name = accountName
 	secret := req.GetSecrets()
-	if len(secret) == 0 && useDataPlaneAPI {
+	if len(secret) == 0 && strings.EqualFold(useDataPlaneAPI, trueValue) {
 		if accountKey == "" {
 			if accountKey, err = d.GetStorageAccesskey(ctx, accountOptions, secret, secretName, secretNamespace); err != nil {
 				return nil, status.Errorf(codes.Internal, "failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
@@ -563,7 +566,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		secret = createStorageAccountSecret(accountName, accountKey)
 		// skip validating file share quota if useDataPlaneAPI
 	} else {
-		if quota, err := d.getFileShareQuota(ctx, accountOptions, validFileShareName, secret); err != nil {
+		if quota, err := d.getFileShareQuota(ctx, accountOptions, validFileShareName, secret, useDataPlaneAPI); err != nil {
 			return nil, status.Errorf(codes.Internal, "%v", err)
 		} else if quota != -1 && quota < fileShareSize {
 			return nil, status.Errorf(codes.AlreadyExists, "request file share(%s) already exists, but its capacity %d is smaller than %d", validFileShareName, quota, fileShareSize)
@@ -580,7 +583,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) subID(%s) rg(%s) location(%s) size(%d) protocol(%s)", validFileShareName, accountName, sku, subsID, resourceGroup, location, fileShareSize, shareProtocol)
-	if err := d.CreateFileShare(ctx, accountOptions, shareOptions, secret); err != nil {
+	if err := d.CreateFileShare(ctx, accountOptions, shareOptions, secret, useDataPlaneAPI); err != nil {
 		if strings.Contains(err.Error(), accountLimitExceedManagementAPI) || strings.Contains(err.Error(), accountLimitExceedDataPlaneAPI) {
 			klog.Warningf("create file share(%s) on account(%s) type(%s) subID(%s) rg(%s) location(%s) size(%d), error: %v, skip matching current account", validFileShareName, accountName, sku, subsID, resourceGroup, location, fileShareSize, err)
 			if rerr := d.cloud.AddStorageAccountTags(ctx, subsID, resourceGroup, accountName, skipMatchingTag); rerr != nil {
@@ -689,8 +692,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		volumeID = volumeID + "#" + subsID
 	}
 
-	if useDataPlaneAPI {
-		d.dataPlaneAPIVolMap.Store(volumeID, "")
+	if strings.EqualFold(useDataPlaneAPI, trueValue) || strings.EqualFold(useDataPlaneAPI, oauth) {
+		d.dataPlaneAPIVolMap.Store(volumeID, useDataPlaneAPI)
 	}
 
 	isOperationSucceeded = true
@@ -738,7 +741,8 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 	}
 
 	secret := req.GetSecrets()
-	if len(secret) == 0 && d.useDataPlaneAPI(ctx, volumeID, accountName) {
+	useDataPlaneAPI := d.useDataPlaneAPI(ctx, volumeID, accountName)
+	if len(secret) == 0 && strings.EqualFold(useDataPlaneAPI, trueValue) {
 		reqContext := map[string]string{}
 		if secretNamespace != "" {
 			setKeyValueInMap(reqContext, secretNamespaceField, secretNamespace)
@@ -758,7 +762,7 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
 	}()
 
-	if err := d.DeleteFileShare(ctx, subsID, resourceGroupName, accountName, fileShareName, secret); err != nil {
+	if err := d.DeleteFileShare(ctx, subsID, resourceGroupName, accountName, fileShareName, secret, useDataPlaneAPI); err != nil {
 		return nil, status.Errorf(codes.Internal, "DeleteFileShare %s under account(%s) rg(%s) failed with error: %v", fileShareName, accountName, resourceGroupName, err)
 	}
 	klog.V(2).Infof("azure file(%s) under subsID(%s) rg(%s) account(%s) volume(%s) is deleted successfully", fileShareName, subsID, resourceGroupName, accountName, volumeID)
@@ -815,7 +819,8 @@ func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.Valida
 		ResourceGroup:  resourceGroupName,
 	}
 
-	if quota, err := d.getFileShareQuota(ctx, accountOptions, fileShareName, req.GetSecrets()); err != nil {
+	useDataPlaneAPI := d.useDataPlaneAPI(ctx, volumeID, accountName)
+	if quota, err := d.getFileShareQuota(ctx, accountOptions, fileShareName, req.GetSecrets(), useDataPlaneAPI); err != nil {
 		return nil, status.Errorf(codes.Internal, "error checking if volume(%s) exists: %v", volumeID, err)
 	} else if quota == -1 {
 		return nil, status.Errorf(codes.NotFound, "the requested volume(%s) does not exist.", volumeID)
@@ -893,7 +898,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 	}
 
 	if !useDataPlaneAPI {
-		useDataPlaneAPI = d.useDataPlaneAPI(ctx, sourceVolumeID, accountName)
+		useDataPlaneAPI = strings.EqualFold(d.useDataPlaneAPI(ctx, sourceVolumeID, accountName), trueValue)
 	}
 
 	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_create_snapshot", rgName, subsID, d.Name)
@@ -1230,7 +1235,8 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 	}()
 
 	secrets := req.GetSecrets()
-	if len(secrets) == 0 && d.useDataPlaneAPI(ctx, volumeID, accountName) {
+	useDataPlaneAPI := d.useDataPlaneAPI(ctx, volumeID, accountName)
+	if len(secrets) == 0 && strings.EqualFold(useDataPlaneAPI, trueValue) {
 		reqContext := map[string]string{}
 		if secretNamespace != "" {
 			setKeyValueInMap(reqContext, secretNamespaceField, secretNamespace)
@@ -1243,7 +1249,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 		secrets = createStorageAccountSecret(accountName, accountKey)
 	}
 
-	if err = d.ResizeFileShare(ctx, subsID, resourceGroupName, accountName, fileShareName, int(requestGiB), secrets); err != nil {
+	if err = d.ResizeFileShare(ctx, subsID, resourceGroupName, accountName, fileShareName, int(requestGiB), secrets, useDataPlaneAPI); err != nil {
 		if strings.Contains(err.Error(), accountLimitExceedManagementAPI) || strings.Contains(err.Error(), accountLimitExceedDataPlaneAPI) {
 			if accountName != "" {
 				d.resizeFileShareFailureCache.Set(accountName, "")
@@ -1437,7 +1443,7 @@ func (d *Driver) authorizeAzcopyWithIdentity() ([]string, error) {
 func (d *Driver) getAzcopyAuth(ctx context.Context, accountName, accountKey, storageEndpointSuffix string, accountOptions *storage.AccountOptions, secrets map[string]string, secretName, secretNamespace string, useSasToken bool) (string, []string, error) {
 	var authAzcopyEnv []string
 	var err error
-	if !useSasToken && !d.useDataPlaneAPI(ctx, "", accountName) && len(secrets) == 0 && len(secretName) == 0 {
+	if !useSasToken && !strings.EqualFold(d.useDataPlaneAPI(ctx, "", accountName), trueValue) && len(secrets) == 0 && len(secretName) == 0 {
 		// search in cache first
 		if cache, err := d.azcopySasTokenCache.Get(ctx, accountName, azcache.CacheReadTypeDefault); err == nil && cache != nil {
 			klog.V(2).Infof("use sas token for account(%s) since this account is found in azcopySasTokenCache", accountName)

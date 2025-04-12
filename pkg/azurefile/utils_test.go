@@ -377,14 +377,6 @@ func TestGetRetryAfterSeconds(t *testing.T) {
 	}
 }
 
-func TestUseDataPlaneAPI(t *testing.T) {
-	volumeContext := map[string]string{"usedataplaneapi": "true"}
-	result := useDataPlaneAPI(volumeContext)
-	if result != true {
-		t.Errorf("Expected value(%s), Actual value(%t)", "true", result)
-	}
-}
-
 func TestCreateStorageAccountSecret(t *testing.T) {
 	result := createStorageAccountSecret("TestAccountName", "TestAccountKey")
 	if result[defaultSecretAccountName] != "TestAccountName" || result[defaultSecretAccountKey] != "TestAccountKey" {

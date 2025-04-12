@@ -368,6 +368,23 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 			gomega.Expect(err).To(gomega.Equal(expectedErr))
 		})
 	})
+	ginkgo.When("Invalid useDataPlaneAPI value", func() {
+		ginkgo.It("should fail", func(ctx context.Context) {
+			allParam := map[string]string{
+				useDataPlaneAPIField: "invalid",
+			}
+
+			req := &csi.CreateVolumeRequest{
+				Name:               "random-vol-name-useDataPlaneAPI-invalid",
+				CapacityRange:      stdCapRange,
+				VolumeCapabilities: stdVolCap,
+				Parameters:         allParam,
+			}
+			expectedErr := status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", useDataPlaneAPIField, "invalid")
+			_, err := d.CreateVolume(ctx, req)
+			gomega.Expect(err).To(gomega.Equal(expectedErr))
+		})
+	})
 	ginkgo.When("invalid tags format to convert to map", func() {
 		ginkgo.It("should fail", func(ctx context.Context) {
 			allParam := map[string]string{
@@ -882,6 +899,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 					secretNamespaceField:    "default",
 					mountPermissionsField:   "0755",
 					accountQuotaField:       "1000",
+					useDataPlaneAPIField:    "oauth",
 				}
 
 				req := &csi.CreateVolumeRequest{
@@ -2009,7 +2027,7 @@ var _ = ginkgo.Describe("TestControllerExpandVolume", func() {
 				ComputeClientFactory: mock_azclient.NewMockClientFactory(ctrl),
 			}
 			d.dataPlaneAPIAccountCache, _ = azcache.NewTimedCache(10*time.Minute, func(_ context.Context, _ string) (interface{}, error) { return nil, nil }, false)
-			d.dataPlaneAPIAccountCache.Set("f5713de20cde511e8ba4900", "1")
+			d.dataPlaneAPIAccountCache.Set("f5713de20cde511e8ba4900", "true")
 
 			value := base64.StdEncoding.EncodeToString([]byte("acc_key"))
 			key := []*armstorage.AccountKey{
@@ -2027,6 +2045,11 @@ var _ = ginkgo.Describe("TestControllerExpandVolume", func() {
 			d.kubeClient = clientSet
 			d.cloud.Environment = &azclient.Environment{StorageEndpointSuffix: "abc"}
 			mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), "f5713de20cde511e8ba4900").Return(key, &azcore.ResponseError{StatusCode: http.StatusBadGateway, ErrorCode: cloudprovider.InstanceNotFound.Error()}).AnyTimes()
+			mockFileClient := mock_fileshareclient.NewMockInterface(ctrl)
+			mockFileClient.EXPECT().Update(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+			shareQuota := int32(0)
+			mockFileClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: &shareQuota}}, nil).AnyTimes()
+			d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetFileShareClientForSub(gomock.Any()).Return(mockFileClient, nil).AnyTimes()
 
 			expectErr := status.Error(codes.NotFound, `get account info from(#f5713de20cde511e8ba4900#filename##secret) failed with error: Missing RawResponse
 --------------------------------------------------------------------------------
