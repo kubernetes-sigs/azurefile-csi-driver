@@ -713,7 +713,7 @@ func getDirectoryClient(accountName, accountKey, storageEndpointSuffix, fileShar
 	if u == nil {
 		return nil, fmt.Errorf("parse fileURLTemplate error: url is nil")
 	}
-	serviceURL := fmt.Sprintf("https://%s.file.%s/", accountName, storageEndpointSuffix)
+	serviceURL := getFileServiceURL(accountName, storageEndpointSuffix)
 
 	serviceClient, err := service.NewClientWithSharedKeyCredential(serviceURL, credential, nil)
 	if err != nil {

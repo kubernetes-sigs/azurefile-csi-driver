@@ -940,3 +940,39 @@ func TestVolumeMounter(t *testing.T) {
 		t.Errorf("Expected nil metrics, but got %v", metrics)
 	}
 }
+
+func TestGetFileServiceURL(t *testing.T) {
+	tests := []struct {
+		desc                  string
+		account               string
+		storageEndPointSuffix string
+		expected              string
+	}{
+		{
+			desc:                  "default storage endpoint",
+			account:               "testaccount",
+			storageEndPointSuffix: "",
+			expected:              "https://testaccount.file.core.windows.net",
+		},
+		{
+			desc:                  "custom storage endpoint",
+			account:               "testaccount",
+			storageEndPointSuffix: "core.windows.cn",
+			expected:              "https://testaccount.file.core.windows.cn",
+		},
+		{
+			desc:                  "storage endpoint core.windows.net",
+			account:               "testaccount",
+			storageEndPointSuffix: "core.windows.net",
+			expected:              "https://testaccount.file.core.windows.net",
+		},
+	}
+
+	for _, test := range tests {
+		result := getFileServiceURL(test.account, test.storageEndPointSuffix)
+		if result != test.expected {
+			t.Errorf("desc: (%s), input: account(%s), storageEndPointSuffix(%s), getFileServiceURL returned with string(%s), not equal to expected(%s)",
+				test.desc, test.account, test.storageEndPointSuffix, result, test.expected)
+		}
+	}
+}

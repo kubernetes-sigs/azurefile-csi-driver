@@ -352,3 +352,10 @@ func getBackOff(config azureconfig.Config) wait.Backoff {
 		Duration: time.Duration(config.CloudProviderBackoffDuration) * time.Second,
 	}
 }
+
+func getFileServiceURL(accountName, storageEndpointSuffix string) string {
+	if storageEndpointSuffix == "" {
+		storageEndpointSuffix = defaultStorageEndPointSuffix
+	}
+	return fmt.Sprintf(serviceURLTemplate, accountName, storageEndpointSuffix)
+}

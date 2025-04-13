@@ -859,6 +859,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			StorageClassParameters: map[string]string{
 				"skuName":                     "Standard_LRS",
 				"selectRandomMatchingAccount": "true",
+				"useDataPlaneAPI":             "oauth",
 			},
 		}
 		test.Run(ctx, cs, snapshotrcs, ns)

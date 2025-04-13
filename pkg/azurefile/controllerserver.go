@@ -887,18 +887,21 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		subsID = d.cloud.SubscriptionID
 	}
 
-	var useDataPlaneAPI bool
+	var useDataPlaneAPI string
 	for k, v := range req.GetParameters() {
 		switch strings.ToLower(k) {
 		case useDataPlaneAPIField:
-			useDataPlaneAPI = strings.EqualFold(v, trueValue)
+			if !strings.EqualFold(v, trueValue) && !strings.EqualFold(v, falseValue) && !strings.EqualFold(v, oauth) {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in snapshot storage class", useDataPlaneAPIField, v)
+			}
+			useDataPlaneAPI = v
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, "invalid parameter %q in storage class", k)
 		}
 	}
 
-	if !useDataPlaneAPI {
-		useDataPlaneAPI = strings.EqualFold(d.useDataPlaneAPI(ctx, sourceVolumeID, accountName), trueValue)
+	if useDataPlaneAPI == "" {
+		useDataPlaneAPI = d.useDataPlaneAPI(ctx, sourceVolumeID, accountName)
 	}
 
 	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_create_snapshot", rgName, subsID, d.Name)
@@ -928,20 +931,20 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		}, nil
 	}
 
-	if len(req.GetSecrets()) > 0 || useDataPlaneAPI {
-		shareURL, err := d.getShareURL(ctx, sourceVolumeID, req.GetSecrets())
+	if len(req.GetSecrets()) > 0 || useDataPlaneAPI != "" {
+		shareClient, err := d.getShareClient(ctx, sourceVolumeID, req.GetSecrets(), useDataPlaneAPI)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to get share url with (%s): %v", sourceVolumeID, err)
 		}
 
-		snapshotShare, err := shareURL.CreateSnapshot(ctx, &share.CreateSnapshotOptions{
+		snapshotShare, err := shareClient.CreateSnapshot(ctx, &share.CreateSnapshotOptions{
 			Metadata: map[string]*string{snapshotNameKey: to.Ptr(snapshotName)},
 		})
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "create snapshot from(%s) failed with %v", sourceVolumeID, err)
 		}
 
-		properties, err := shareURL.GetProperties(ctx, nil)
+		properties, err := shareClient.GetProperties(ctx, nil)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to get snapshot properties from (%s): %v", *snapshotShare.Snapshot, err)
 		}
@@ -1041,13 +1044,14 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 
 	var deleteErr error
 	if len(req.GetSecrets()) > 0 {
-		shareURL, err := d.getShareURL(ctx, req.SnapshotId, req.GetSecrets())
+		useDataPlaneAPI := d.useDataPlaneAPI(ctx, req.SnapshotId, accountName)
+		shareClient, err := d.getShareClient(ctx, req.SnapshotId, req.GetSecrets(), useDataPlaneAPI)
 		if err != nil {
 			// According to CSI Driver Sanity Tester, should succeed when an invalid snapshot id is used
 			klog.V(4).Infof("failed to get share url with (%s): %v, returning with success", req.SnapshotId, err)
 			return &csi.DeleteSnapshotResponse{}, nil
 		}
-		client, err := shareURL.WithSnapshot(snapshot)
+		client, err := shareClient.WithSnapshot(snapshot)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to get snapshot client for snapshot(%s): %v", snapshot, err)
 		}
@@ -1263,37 +1267,35 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 	return &csi.ControllerExpandVolumeResponse{CapacityBytes: capacityBytes}, nil
 }
 
-// getShareURL: sourceVolumeID is the id of source file share, returns a ShareURL of source file share.
-// A ShareURL < https://<account>.file.core.windows.net/<fileShareName> > represents a URL to the Azure Storage share allowing you to manipulate its directories and files.
+// getShareClient: sourceVolumeID is the id of source file share, returns a shareClient of source file share.
+// A shareClient < https://<account>.file.core.windows.net/<fileShareName> > represents a URL to the Azure Storage share allowing you to manipulate its directories and files.
 // e.g. The ID of source file share is #fb8fff227be6511e9b24123#createsnapshot-volume-1. Returns https://fb8fff227be6511e9b24123.file.core.windows.net/createsnapshot-volume-1
-func (d *Driver) getShareURL(ctx context.Context, sourceVolumeID string, secrets map[string]string) (*share.Client, error) {
-	serviceURL, fileShareName, err := d.getServiceURL(ctx, sourceVolumeID, secrets)
+func (d *Driver) getShareClient(ctx context.Context, sourceVolumeID string, secrets map[string]string, useDataPlaneAPI string) (*share.Client, error) {
+	fileClient, fileShareName, err := d.getServiceClient(ctx, sourceVolumeID, secrets, useDataPlaneAPI)
 	if err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.Internal, "failed to get share client with (%s): %v", sourceVolumeID, err)
 	}
-	if fileShareName == "" {
-		return nil, fmt.Errorf("failed to get file share from %s", sourceVolumeID)
-	}
-
-	return serviceURL.NewShareClient(fileShareName), nil
+	return fileClient.NewShareClient(fileShareName), nil
 }
 
-func (d *Driver) getServiceURL(ctx context.Context, sourceVolumeID string, secrets map[string]string) (*service.Client, string, error) {
+func (d *Driver) getServiceClient(ctx context.Context, sourceVolumeID string, secrets map[string]string, useDataPlaneAPI string) (*service.Client, string, error) {
 	_, accountName, accountKey, fileShareName, _, _, err := d.GetAccountInfo(ctx, sourceVolumeID, secrets, map[string]string{}) //nolint:dogsled
 	if err != nil {
-		return nil, "", err
+		return nil, fileShareName, err
 	}
-
-	credential, err := service.NewSharedKeyCredential(accountName, accountKey)
+	if accountName == "" || fileShareName == "" {
+		return nil, fileShareName, fmt.Errorf("failed to get account name or file share from %s", sourceVolumeID)
+	}
+	var fileClient azureFileClient
+	if d.cloud != nil && d.cloud.AuthProvider != nil && strings.EqualFold(useDataPlaneAPI, oauth) {
+		fileClient, err = newAzureFileClientWithOAuth(d.cloud.AuthProvider.GetAzIdentity(), accountName, d.getStorageEndPointSuffix())
+	} else {
+		fileClient, err = newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix())
+	}
 	if err != nil {
-		klog.Errorf("NewSharedKeyCredential(%s) in CreateSnapshot failed with error: %v", accountName, err)
-		return nil, "", err
+		return nil, fileShareName, err
 	}
-
-	url := fmt.Sprintf(serviceURLTemplate, accountName, d.getStorageEndPointSuffix())
-
-	serviceURL, err := service.NewClientWithSharedKeyCredential(url, credential, nil)
-	return serviceURL, fileShareName, err
+	return fileClient.(*azureFileDataplaneClient).Client, fileShareName, err
 }
 
 // snapshotExists: sourceVolumeID is the id of source file share, returns the existence of snapshot and its detail info.
@@ -1302,9 +1304,9 @@ func (d *Driver) getServiceURL(ctx context.Context, sourceVolumeID string, secre
 // 2. If it exists, we should judge if its source file share name equals that we specify.
 // As long as the snapshot already exists, returns true. But when the source is different, an error will be returned.
 // If its source file share name equals that we specify, also returns its x-ms-snapshot string, last modeified time and share quota.
-func (d *Driver) snapshotExists(ctx context.Context, sourceVolumeID, snapshotName string, secrets map[string]string, useDataPlaneAPI bool) (bool, string, time.Time, int32, error) {
-	if len(secrets) > 0 || useDataPlaneAPI {
-		serviceURL, fileShareName, err := d.getServiceURL(ctx, sourceVolumeID, secrets)
+func (d *Driver) snapshotExists(ctx context.Context, sourceVolumeID, snapshotName string, secrets map[string]string, useDataPlaneAPI string) (bool, string, time.Time, int32, error) {
+	if len(secrets) > 0 || useDataPlaneAPI != "" {
+		serviceURL, fileShareName, err := d.getServiceClient(ctx, sourceVolumeID, secrets, useDataPlaneAPI)
 		if err != nil {
 			return false, "", time.Time{}, 0, err
 		}
@@ -1486,7 +1488,7 @@ func (d *Driver) generateSASToken(ctx context.Context, accountName, accountKey, 
 	}
 	clientOptions := service.ClientOptions{}
 	clientOptions.InsecureAllowCredentialWithHTTP = true
-	serviceClient, err := service.NewClientWithSharedKeyCredential(fmt.Sprintf("https://%s.file.%s/", accountName, storageEndpointSuffix), credential, &clientOptions)
+	serviceClient, err := service.NewClientWithSharedKeyCredential(getFileServiceURL(accountName, storageEndpointSuffix), credential, &clientOptions)
 	if err != nil {
 		return "", status.Errorf(codes.Internal, "failed to generate sas token in creating new client with shared key credential, accountName: %s, err: %s", accountName, err.Error())
 	}

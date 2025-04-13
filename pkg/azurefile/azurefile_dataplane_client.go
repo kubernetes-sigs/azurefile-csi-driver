@@ -48,18 +48,15 @@ type azureFileDataplaneClient struct {
 }
 
 func newAzureFileClient(accountName, accountKey, storageEndpointSuffix string) (azureFileClient, error) {
-	if storageEndpointSuffix == "" {
-		storageEndpointSuffix = defaultStorageEndPointSuffix
-	}
 	keyCred, err := service.NewSharedKeyCredential(accountName, accountKey)
 	if err != nil {
 		return nil, fmt.Errorf("error creating azure client: %v", err)
 	}
-	storageEndpoint := fmt.Sprintf("https://%s.file."+storageEndpointSuffix, accountName)
+	serviceURL := getFileServiceURL(accountName, storageEndpointSuffix)
 	clientOps := utils.GetDefaultAzCoreClientOption()
 	clientOps.Retry.StatusCodes = defaultValidStatusCodes
 
-	fileClient, err := service.NewClientWithSharedKeyCredential(storageEndpoint, keyCred, &service.ClientOptions{
+	fileClient, err := service.NewClientWithSharedKeyCredential(serviceURL, keyCred, &service.ClientOptions{
 		ClientOptions: clientOps,
 	})
 	if err != nil {
@@ -73,18 +70,14 @@ func newAzureFileClient(accountName, accountKey, storageEndpointSuffix string) (
 }
 
 func newAzureFileClientWithOAuth(cred azcore.TokenCredential, accountName, storageEndpointSuffix string) (azureFileClient, error) {
-	if storageEndpointSuffix == "" {
-		storageEndpointSuffix = defaultStorageEndPointSuffix
-	}
-	storageEndpoint := fmt.Sprintf("https://%s.file."+storageEndpointSuffix, accountName)
-	fileClient, err := service.NewClient(storageEndpoint, cred, &service.ClientOptions{
+	serviceURL := getFileServiceURL(accountName, storageEndpointSuffix)
+	fileClient, err := service.NewClient(serviceURL, cred, &service.ClientOptions{
 		ClientOptions: utils.GetDefaultAzCoreClientOption(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error creating azure client with oauth: %v", err)
 	}
 	klog.V(2).Infof("created azure file client with oauth, accountName: %s", accountName)
-
 	return &azureFileDataplaneClient{
 		accountName: accountName,
 		Client:      fileClient,
