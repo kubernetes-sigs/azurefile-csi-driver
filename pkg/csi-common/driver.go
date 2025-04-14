@@ -65,8 +65,8 @@ func (d *CSIDriver) ValidateControllerServiceRequest(c csi.ControllerServiceCapa
 		return nil
 	}
 
-	for _, cap := range d.Cap {
-		if c == cap.GetRpc().GetType() {
+	for _, capability := range d.Cap {
+		if c == capability.GetRpc().GetType() {
 			return nil
 		}
 	}
@@ -78,8 +78,8 @@ func (d *CSIDriver) ValidateNodeServiceRequest(c csi.NodeServiceCapability_RPC_T
 		return nil
 	}
 
-	for _, cap := range d.NSCap {
-		if c == cap.GetRpc().GetType() {
+	for _, capability := range d.NSCap {
+		if c == capability.GetRpc().GetType() {
 			return nil
 		}
 	}
