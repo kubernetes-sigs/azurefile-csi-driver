@@ -859,6 +859,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			StorageClassParameters: map[string]string{
 				"skuName":                     "Standard_LRS",
 				"selectRandomMatchingAccount": "true",
+				"useDataPlaneAPI":             "oauth",
 			},
 		}
 		test.Run(ctx, cs, snapshotrcs, ns)
@@ -986,7 +987,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(ctx, cs, ns)
 	})
 
-	ginkgo.It("should create a Premium_LRS volume on demand with useDataPlaneAPI [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
+	ginkgo.It("should create a Premium_LRS volume on demand with useDataPlaneAPI(oauth) [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
 		skipIfUsingInTreeVolumePlugin()
 
 		pods := []testsuites.PodDetails{
@@ -1020,7 +1021,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			"skuName":                      "Premium_LRS",
 			"secretNamespace":              "kube-system",
 			"createAccount":                "true",
-			"useDataPlaneAPI":              "true",
+			"useDataPlaneAPI":              "oauth",
 			"disableDeleteRetentionPolicy": "true",
 			"accountAccessTier":            "Premium",
 		}
