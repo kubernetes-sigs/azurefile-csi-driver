@@ -46,6 +46,7 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/accountclient/mock_accountclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/fileshareclient/mock_fileshareclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/mock_azclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	"sigs.k8s.io/cloud-provider-azure/pkg/provider/storage"
 )
 
@@ -1765,6 +1766,122 @@ func TestIsKataNode(t *testing.T) {
 			}
 			result := isKataNode(ctx, tc.nodeName, clientset)
 			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestUseDataPlaneAPI(t *testing.T) {
+	d := NewFakeDriver()
+	d.cloud = &storage.AccountRepo{}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tests := []struct {
+		name                     string
+		volumeID                 string
+		accountName              string
+		dataPlaneAPIVolMap       map[string]string
+		dataPlaneAPIAccountCache map[string]string
+		expectedResult           string
+	}{
+		{
+			name:                     "dataPlaneAPIVolMap & dataPlaneAPIAccountCache is empty",
+			dataPlaneAPIVolMap:       make(map[string]string),
+			dataPlaneAPIAccountCache: make(map[string]string),
+			expectedResult:           "",
+		},
+		{
+			name:                     "dataPlaneAPIVolMap is not empty",
+			volumeID:                 "test-volume",
+			dataPlaneAPIVolMap:       map[string]string{"test-volume": "true"},
+			dataPlaneAPIAccountCache: make(map[string]string),
+			expectedResult:           "true",
+		},
+		{
+			name:                     "dataPlaneAPIAccountCache is not empty",
+			accountName:              "test-account",
+			dataPlaneAPIVolMap:       make(map[string]string),
+			dataPlaneAPIAccountCache: map[string]string{"test-account": "oatuh"},
+			expectedResult:           "oatuh",
+		},
+		{
+			name:                     "dataPlaneAPIVolMap & dataPlaneAPIAccountCache is not empty",
+			volumeID:                 "test-volume",
+			accountName:              "test-account",
+			dataPlaneAPIVolMap:       map[string]string{"test-volume": "true"},
+			dataPlaneAPIAccountCache: map[string]string{"test-account": "oatuh"},
+			expectedResult:           "true",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dataPlaneAPIAccountCache, _ := cache.NewTimedCache(10*time.Minute, func(_ context.Context, _ string) (interface{}, error) { return nil, nil }, false)
+			for k, v := range test.dataPlaneAPIVolMap {
+				d.dataPlaneAPIVolMap.Store(k, v)
+			}
+			for k, v := range test.dataPlaneAPIAccountCache {
+				dataPlaneAPIAccountCache.Set(k, v)
+			}
+			d.dataPlaneAPIAccountCache = dataPlaneAPIAccountCache
+			result := d.useDataPlaneAPI(context.TODO(), test.volumeID, test.accountName)
+			assert.Equal(t, test.expectedResult, result)
+		})
+	}
+}
+
+func TestSetAzureCredentials(t *testing.T) {
+	testCases := []struct {
+		name               string
+		secretName         string
+		seceretNamespace   string
+		accountName        string
+		accountKey         string
+		expectedError      error
+		expectedSecretName string
+	}{
+		{
+			name:          "kubeClient is nil",
+			accountName:   "test-account",
+			accountKey:    "test-key",
+			expectedError: nil,
+		},
+		{
+			name:          "accountName is empty",
+			expectedError: fmt.Errorf("the account info is not enough, accountName(%v), accountKey(%v)", "", ""),
+		},
+		{
+			name:          "accountKey is empty",
+			expectedError: fmt.Errorf("the account info is not enough, accountName(%v), accountKey(%v)", "", ""),
+		},
+		{
+			name:               "success when secretName is empty",
+			accountName:        "test-account",
+			accountKey:         "test-key",
+			expectedError:      nil,
+			expectedSecretName: fmt.Sprintf(secretNameTemplate, "test-account"),
+		},
+		{
+			name:               "success when secretName is not empty",
+			secretName:         "test-secret",
+			accountName:        "test-account",
+			accountKey:         "test-key",
+			expectedError:      nil,
+			expectedSecretName: "test-secret",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			d := NewFakeDriver()
+			if tc.name == "kubeClient is nil" {
+				d.kubeClient = nil
+			} else {
+				d.kubeClient = fake.NewSimpleClientset()
+			}
+			secretName, err := d.SetAzureCredentials(context.TODO(), tc.accountName, tc.accountKey, tc.secretName, tc.seceretNamespace)
+			assert.Equal(t, tc.expectedError, err)
+			assert.Equal(t, tc.expectedSecretName, secretName)
 		})
 	}
 }
