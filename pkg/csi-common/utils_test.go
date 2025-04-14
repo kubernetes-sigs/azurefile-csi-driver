@@ -220,52 +220,52 @@ func TestNewVolumeCapabilityAccessMode(t *testing.T) {
 
 func TestNewControllerServiceCapability(t *testing.T) {
 	tests := []struct {
-		cap csi.ControllerServiceCapability_RPC_Type
+		c csi.ControllerServiceCapability_RPC_Type
 	}{
 		{
-			cap: csi.ControllerServiceCapability_RPC_UNKNOWN,
+			c: csi.ControllerServiceCapability_RPC_UNKNOWN,
 		},
 		{
-			cap: csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+			c: csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 		},
 		{
-			cap: csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
+			c: csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
 		},
 		{
-			cap: csi.ControllerServiceCapability_RPC_LIST_VOLUMES,
+			c: csi.ControllerServiceCapability_RPC_LIST_VOLUMES,
 		},
 		{
-			cap: csi.ControllerServiceCapability_RPC_GET_CAPACITY,
+			c: csi.ControllerServiceCapability_RPC_GET_CAPACITY,
 		},
 		{
-			cap: csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
+			c: csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
 		},
 	}
 	for _, test := range tests {
-		resp := NewControllerServiceCapability(test.cap)
+		resp := NewControllerServiceCapability(test.c)
 		assert.NotNil(t, resp)
 	}
 }
 
 func TestNewNodeServiceCapability(t *testing.T) {
 	tests := []struct {
-		cap csi.NodeServiceCapability_RPC_Type
+		c csi.NodeServiceCapability_RPC_Type
 	}{
 		{
-			cap: csi.NodeServiceCapability_RPC_UNKNOWN,
+			c: csi.NodeServiceCapability_RPC_UNKNOWN,
 		},
 		{
-			cap: csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
+			c: csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
 		},
 		{
-			cap: csi.NodeServiceCapability_RPC_GET_VOLUME_STATS,
+			c: csi.NodeServiceCapability_RPC_GET_VOLUME_STATS,
 		},
 		{
-			cap: csi.NodeServiceCapability_RPC_EXPAND_VOLUME,
+			c: csi.NodeServiceCapability_RPC_EXPAND_VOLUME,
 		},
 	}
 	for _, test := range tests {
-		resp := NewNodeServiceCapability(test.cap)
+		resp := NewNodeServiceCapability(test.c)
 		assert.NotNil(t, resp)
 	}
 }

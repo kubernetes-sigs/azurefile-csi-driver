@@ -1015,7 +1015,7 @@ func TestGetFileShareQuota(t *testing.T) {
 			ResourceGroup:  resourceGroupName,
 			Name:           accountName,
 			SubscriptionID: "subsID",
-		}, fileShareName, test.secrets)
+		}, fileShareName, test.secrets, "")
 		if !reflect.DeepEqual(err, test.expectedError) {
 			t.Errorf("test name: %s, Unexpected error: %v, expected error: %v", test.desc, err, test.expectedError)
 		}

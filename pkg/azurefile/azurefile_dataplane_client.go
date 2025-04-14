@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/service"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
@@ -47,24 +48,36 @@ type azureFileDataplaneClient struct {
 }
 
 func newAzureFileClient(accountName, accountKey, storageEndpointSuffix string) (azureFileClient, error) {
-	if storageEndpointSuffix == "" {
-		storageEndpointSuffix = defaultStorageEndPointSuffix
-	}
 	keyCred, err := service.NewSharedKeyCredential(accountName, accountKey)
 	if err != nil {
 		return nil, fmt.Errorf("error creating azure client: %v", err)
 	}
-	storageEndpoint := fmt.Sprintf("https://%s.file."+storageEndpointSuffix, accountName)
+	serviceURL := getFileServiceURL(accountName, storageEndpointSuffix)
 	clientOps := utils.GetDefaultAzCoreClientOption()
 	clientOps.Retry.StatusCodes = defaultValidStatusCodes
 
-	fileClient, err := service.NewClientWithSharedKeyCredential(storageEndpoint, keyCred, &service.ClientOptions{
+	fileClient, err := service.NewClientWithSharedKeyCredential(serviceURL, keyCred, &service.ClientOptions{
 		ClientOptions: clientOps,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error creating azure client: %v", err)
 	}
 
+	return &azureFileDataplaneClient{
+		accountName: accountName,
+		Client:      fileClient,
+	}, nil
+}
+
+func newAzureFileClientWithOAuth(cred azcore.TokenCredential, accountName, storageEndpointSuffix string) (azureFileClient, error) {
+	serviceURL := getFileServiceURL(accountName, storageEndpointSuffix)
+	fileClient, err := service.NewClient(serviceURL, cred, &service.ClientOptions{
+		ClientOptions: utils.GetDefaultAzCoreClientOption(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error creating azure client with oauth: %v", err)
+	}
+	klog.V(2).Infof("created azure file client with oauth, accountName: %s", accountName)
 	return &azureFileDataplaneClient{
 		accountName: accountName,
 		Client:      fileClient,
