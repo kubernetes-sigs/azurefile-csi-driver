@@ -49,7 +49,7 @@ shareName | specify Azure file share name | existing or new Azure file name | No
 shareNamePrefix | specify Azure file share name prefix created by driver | can only contain lowercase letters, numbers, hyphens, and length should be less than 21 | No |
 folderName | specify folder name in Azure file share | existing folder name in Azure file share | No | if folder name does not exist in file share, mount would fail
 shareAccessTier | [Access tier for file share](https://docs.microsoft.com/en-us/azure/storage/files/storage-files-planning#storage-tiers) (this parameter is ignored when using bring your own account key scenario) | For general-purpose v2 account, the available tiers are `TransactionOptimized`(default), `Hot`, and `Cool`. For file storage account, the available tier is `Premium`. | No | empty(use default setting for different storage account types)
-server | specify Azure storage account server address | existing server address, e.g. `accountname.privatelink.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
+server | specify Azure storage account server address | existing server address, e.g. `accountname.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
 disableDeleteRetentionPolicy | specify whether disable DeleteRetentionPolicy for storage account created by driver | `true`,`false` | No | `false`
 allowBlobPublicAccess | Allow or disallow public access to all blobs or containers for storage account created by driver | `true`,`false` | No | `false`
 requireInfraEncryption | specify whether or not the service applies a secondary layer of encryption with platform managed keys for data at rest for storage account created by driver | `true`,`false` | No | `false`
@@ -105,7 +105,7 @@ volumeAttributes.storageAccount | existing storage account name | existing stora
 volumeAttributes.shareName | Azure file share name | existing Azure file share name | Yes |
 volumeAttributes.folderName | specify folder name in Azure file share | existing folder name in Azure file share | No | if folder name does not exist in file share, mount would fail
 volumeAttributes.protocol | specify file share protocol | `smb`, `nfs` | No | `smb`
-volumeAttributes.server | specify Azure storage account server address | existing server address, e.g. `accountname.privatelink.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
+volumeAttributes.server | specify Azure storage account server address | existing server address, e.g. `accountname.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
 volumeAttributes.storageEndpointSuffix | specify Azure storage endpoint suffix | `core.windows.net`, `core.chinacloudapi.cn`, etc | No | if empty, driver will use default storage endpoint suffix according to cloud environment, e.g. `core.windows.net`
 --- | **Following parameters are only for SMB protocol** | --- | --- |
 volumeAttributes.secretName | secret name that stores storage account name and key | | No |
