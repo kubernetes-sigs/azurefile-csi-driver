@@ -10,6 +10,8 @@ Microsoft.Storage/storageAccounts/write
 Microsoft.Storage/storageAccounts/listKeys/action
 Microsoft.Storage/operations/read
 # this is only necessary if the driver creates the storage account with a private endpoint:
+Microsoft.Network/virtualNetworks/join/action
+Microsoft.Network/virtualNetworks/subnets/join/action
 Microsoft.Network/virtualNetworks/subnets/write
 Microsoft.Network/virtualNetworks/subnets/read
 Microsoft.Network/virtualNetworks/subnets/*/read
@@ -22,6 +24,7 @@ Microsoft.Network/privateDnsZones/virtualNetworkLinks/read
 Microsoft.Network/privateDnsZones/read
 Microsoft.Network/privateDnsOperationStatuses/read
 Microsoft.Network/locations/operations/read
+Microsoft.Storage/storageAccounts/PrivateEndpointConnectionsApproval/action
 # this is only necessary if the subnet carrying the write permission has these additional resources configured:
 Microsoft.Network/serviceEndpointPolicies/join/action
 Microsoft.Network/natGateways/join/action
