@@ -1,6 +1,6 @@
 # Azure File Snapshot feature
 
-> From v1.30.2, the restoration of an SMB file share snapshot is now supported by CSI driver.
+> From v1.30.2, CSI driver now supports the restoration of an SMB file share snapshot, but does not support the restoration of an NFS file share snapshot.
 
 ## Install CSI Driver
 
