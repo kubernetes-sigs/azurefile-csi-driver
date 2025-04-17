@@ -279,7 +279,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	if encryptInTransit {
-		// TODO  enableHTTPSTrafficOnly = false
 		klog.V(2).Infof("encryptInTransit is set to true")
 	}
 

@@ -410,7 +410,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		mountFsType := cifs
 		if protocol == nfs {
 			mountFsType = nfs
-			if encryptInTransit{
+			if encryptInTransit {
 				mountFsType = aznfs
 			}
 		}
