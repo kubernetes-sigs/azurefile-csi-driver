@@ -48,7 +48,7 @@ func TestServerMountAzureFile(t *testing.T) {
 	}
 
 	for i := range testCases {
-		tc := testCases[i]
+		tc := &testCases[i]
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
