@@ -732,21 +732,30 @@ func (d *Driver) ensureMountPoint(target string, perm os.FileMode) (bool, error)
 func (d *Driver) mountWithProxy(ctx context.Context, source, target, fsType string, options, sensitiveMountOptions []string) error {
 	klog.V(2).Infof("start connecting to azurefile proxy")
 	conn, err := grpc.NewClient(d.azurefileProxyEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err == nil {
-		mountClient := NewMountClient(conn)
-		mountreq := mount_azurefile.MountAzureFileRequest{
-			Source:           source,
-			Target:           target,
-			Fstype:           fsType,
-			MountOptions:     options,
-			SensitiveOptions: sensitiveMountOptions,
+	if err != nil {
+		klog.Error("failed to connect to azurefile proxy:", err)
+		return err
+	}
+	defer func() {
+		if err := conn.Close(); err != nil {
+			klog.Error("failed to close connection to azurefile proxy:", err)
 		}
-		klog.V(2).Infof("begin to mount with azurefile proxy, source: %s, target: %s, fstype: %s, mountOptions: %v", source, target, fsType, options)
-		_, err = mountClient.service.MountAzureFile(ctx, &mountreq)
-		if err != nil {
-			klog.Error("GRPC call returned with an error:", err)
-			return err
-		}
+	}()
+	klog.V(2).Infof("connected to azurefile proxy successfully")
+
+	mountClient := NewMountClient(conn)
+	mountreq := mount_azurefile.MountAzureFileRequest{
+		Source:           source,
+		Target:           target,
+		Fstype:           fsType,
+		MountOptions:     options,
+		SensitiveOptions: sensitiveMountOptions,
+	}
+	klog.V(2).Infof("begin to mount with azurefile proxy, source: %s, target: %s, fstype: %s, mountOptions: %v", source, target, fsType, options)
+	_, err = mountClient.service.MountAzureFile(ctx, &mountreq)
+	if err != nil {
+		klog.Error("GRPC call returned with an error:", err)
+		return err
 	}
 
 	return err
