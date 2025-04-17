@@ -123,7 +123,7 @@ e2e-teardown:
 	helm delete azurefile-csi-driver --namespace kube-system
 
 .PHONY: azurefile
-azurefile:
+azurefile: azurefile-proxy
 	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -a -ldflags ${LDFLAGS} -mod vendor -o _output/${ARCH}/azurefileplugin ./pkg/azurefileplugin
 
 .PHONY: azurefile-windows
