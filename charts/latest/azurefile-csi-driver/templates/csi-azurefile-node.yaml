@@ -40,6 +40,7 @@ spec:
 {{- end }}
     spec:
       hostNetwork: true
+      hostPID: true
       dnsPolicy: {{ .Values.linux.dnsPolicy }}
       serviceAccountName: {{ .Values.serviceAccount.node }}
       nodeSelector:
@@ -65,6 +66,35 @@ spec:
       imagePullSecrets:
 {{ toYaml .Values.imagePullSecrets | indent 8 }}
       {{- end }}
+      initContainers:
+        - name: install-azurefile-proxy
+{{- if hasPrefix "/" .Values.image.azurefile.repository }}
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
+{{- else }}
+          image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
+{{- end }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - "/azurefile-proxy/init.sh"
+          securityContext:
+            privileged: true
+            capabilities:
+              drop:
+                - ALL
+          env:
+            - name: DEBIAN_FRONTEND
+              value: "noninteractive"
+            - name: INSTALL_AZUREFILE_PROXY
+              value: "true"
+            - name: INSTALL_AZNFS_MOUNT
+              value: "true"
+          volumeMounts:
+            - name: host-usr
+              mountPath: /host/usr
+            - name: host-usr-local
+              mountPath: /host/usr/local
+            - name: host-etc
+              mountPath: /host/etc
       containers:
         - name: liveness-probe
           volumeMounts:
@@ -113,6 +143,7 @@ spec:
           args:
             - "--v={{ .Values.node.logLevel }}"
             - "--endpoint=$(CSI_ENDPOINT)"
+            - "--azurefile-proxy-endpoint=$(AZUREFILE_PROXY_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
             - "--kubeconfig={{ .Values.linux.kubeconfig }}"
             - "--drivername={{ .Values.driver.name }}"
@@ -160,6 +191,8 @@ spec:
                   fieldPath: spec.nodeName
             - name: AZURE_GO_SDK_LOG_LEVEL
               value: {{ .Values.driver.azureGoSDKLogLevel }}
+            - name: AZUREFILE_PROXY_ENDPOINT
+              value: unix:///csi/azurefile-proxy.sock
           imagePullPolicy: {{ .Values.image.azurefile.pullPolicy }}
           securityContext:
             privileged: true
@@ -190,6 +223,15 @@ spec:
             {{- end }}
           resources: {{- toYaml .Values.linux.resources.azurefile | nindent 12 }}
       volumes:
+        - name: host-usr
+          hostPath:
+            path: /usr
+        - name: host-usr-local
+          hostPath:
+            path: /usr/local
+        - name: host-etc
+          hostPath:
+            path: /etc
         - hostPath:
             path: {{ .Values.linux.kubelet }}/plugins/{{ .Values.driver.name }}
             type: DirectoryOrCreate

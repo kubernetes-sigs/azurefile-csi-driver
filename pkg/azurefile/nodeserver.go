@@ -33,9 +33,12 @@ import (
 	"k8s.io/kubernetes/pkg/volume/util"
 
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	mount_azurefile "sigs.k8s.io/azurefile-csi-driver/pkg/azurefile-proxy/pb"
 	volumehelper "sigs.k8s.io/azurefile-csi-driver/pkg/util"
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	"sigs.k8s.io/cloud-provider-azure/pkg/metrics"
@@ -43,6 +46,16 @@ import (
 
 var getRuntimeClassForPodFunc = getRuntimeClassForPod
 var isConfidentialRuntimeClassFunc = isConfidentialRuntimeClass
+
+type MountClient struct {
+	service mount_azurefile.MountServiceClient
+}
+
+// NewMountClient returns a new mount client
+func NewMountClient(cc *grpc.ClientConn) *MountClient {
+	service := mount_azurefile.NewMountServiceClient(cc)
+	return &MountClient{service}
+}
 
 // NodePublishVolume mount the volume from staging to target path
 func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
@@ -251,6 +264,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	// since it's ext4 by default on Linux
 	var fsType, server, protocol, ephemeralVolMountOptions, storageEndpointSuffix, folderName string
 	var ephemeralVol bool
+	var encryptInTransit bool
 	fileShareNameReplaceMap := map[string]string{}
 
 	mountPermissions := d.mountPermissions
@@ -294,6 +308,12 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 				} else {
 					mountPermissions = perm
 				}
+			}
+		case encryptInTransitField:
+			var err error
+			encryptInTransit, err = strconv.ParseBool(v)
+			if err != nil {
+				return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("Volume context property %q must be a boolean value: %v", k, err))
 			}
 		}
 	}
@@ -390,20 +410,31 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		mountFsType := cifs
 		if protocol == nfs {
 			mountFsType = nfs
+			if encryptInTransit{
+				mountFsType = aznfs
+			}
 		}
 		if err := prepareStagePath(cifsMountPath, d.mounter); err != nil {
 			return nil, status.Errorf(codes.Internal, "prepare stage path failed for %s with error: %v", cifsMountPath, err)
 		}
-		execFunc := func() error {
-			return SMBMount(d.mounter, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions)
-		}
-		timeoutFunc := func() error { return fmt.Errorf("time out") }
-		if err := volumehelper.WaitUntilTimeout(90*time.Second, execFunc, timeoutFunc); err != nil {
-			var helpLinkMsg string
-			if d.appendMountErrorHelpLink {
-				helpLinkMsg = "\nPlease refer to http://aka.ms/filemounterror for possible causes and solutions for mount errors."
+		if mountFsType == aznfs {
+			klog.V(2).Infof("encryptInTransit is enabled, mount by azurefile-proxy")
+			if err := d.mountWithProxy(ctx, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions); err != nil {
+				return nil, status.Errorf(codes.Internal, "mount with proxy failed for %s with error: %v", cifsMountPath, err)
 			}
-			return nil, status.Error(codes.Internal, fmt.Sprintf("volume(%s) mount %s on %s failed with %v%s", volumeID, source, cifsMountPath, err, helpLinkMsg))
+			klog.V(2).Infof("mount with proxy succeeded for %s", cifsMountPath)
+		} else {
+			execFunc := func() error {
+				return SMBMount(d.mounter, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions)
+			}
+			timeoutFunc := func() error { return fmt.Errorf("time out") }
+			if err := volumehelper.WaitUntilTimeout(90*time.Second, execFunc, timeoutFunc); err != nil {
+				var helpLinkMsg string
+				if d.appendMountErrorHelpLink {
+					helpLinkMsg = "\nPlease refer to http://aka.ms/filemounterror for possible causes and solutions for mount errors."
+				}
+				return nil, status.Error(codes.Internal, fmt.Sprintf("volume(%s) mount %s on %s failed with %v%s", volumeID, source, cifsMountPath, err, helpLinkMsg))
+			}
 		}
 		if protocol == nfs {
 			if performChmodOp {
@@ -696,6 +727,29 @@ func (d *Driver) ensureMountPoint(target string, perm os.FileMode) (bool, error)
 		return !notMnt, err
 	}
 	return !notMnt, nil
+}
+
+func (d *Driver) mountWithProxy(ctx context.Context, source, target, fsType string, options, sensitiveMountOptions []string) error {
+	klog.V(2).Infof("start connecting to azurefile proxy")
+	conn, err := grpc.NewClient(d.azurefileProxyEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err == nil {
+		mountClient := NewMountClient(conn)
+		mountreq := mount_azurefile.MountAzureFileRequest{
+			Source:           source,
+			Target:           target,
+			Fstype:           fsType,
+			MountOptions:     options,
+			SensitiveOptions: sensitiveMountOptions,
+		}
+		klog.V(2).Infof("begin to mount with azurefile proxy, source: %s, target: %s, fstype: %s, mountOptions: %v", source, target, fsType, options)
+		_, err = mountClient.service.MountAzureFile(ctx, &mountreq)
+		if err != nil {
+			klog.Error("GRPC call returned with an error:", err)
+			return err
+		}
+	}
+
+	return err
 }
 
 func makeDir(pathname string, perm os.FileMode) error {

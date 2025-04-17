@@ -63,7 +63,7 @@ OUTPUT_TYPE ?= registry
 .EXPORT_ALL_VARIABLES:
 
 .PHONY: all
-all: azurefile
+all: azurefile azurefile-proxy
 
 .PHONY: update
 update:
@@ -135,7 +135,7 @@ azurefile-darwin:
 	CGO_ENABLED=0 GOOS=darwin go build -a -ldflags ${LDFLAGS} -mod vendor -o _output/${ARCH}/azurefileplugin ./pkg/azurefileplugin
 
 .PHONY: container
-container: azurefile
+container: azurefile azurefile-proxy
 	docker build --no-cache -t $(CSI_IMAGE_TAG) --output=type=docker -f ./pkg/azurefileplugin/Dockerfile .
 
 .PHONY: container-linux
@@ -241,3 +241,7 @@ ifdef TEST_WINDOWS
 else
 	kubectl apply -f deploy/example/smb-provisioner/smb-server.yaml
 endif
+
+.PHONY: azurefile-proxy
+azurefile-proxy:
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -mod vendor -ldflags="-s -w" -o _output/${ARCH}/azurefile-proxy ./pkg/azurefile-proxy

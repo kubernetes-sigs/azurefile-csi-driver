@@ -32,7 +32,7 @@ import (
 	"github.com/kubernetes-csi/csi-lib-utils/protosanitizer"
 )
 
-func parseEndpoint(ep string) (string, string, error) {
+func ParseEndpoint(ep string) (string, string, error) {
 	if strings.HasPrefix(strings.ToLower(ep), "unix://") || strings.HasPrefix(strings.ToLower(ep), "tcp://") {
 		s := strings.SplitN(ep, "://", 2)
 		if s[1] != "" {
@@ -42,8 +42,8 @@ func parseEndpoint(ep string) (string, string, error) {
 	return "", "", fmt.Errorf("Invalid endpoint: %v", ep)
 }
 
-func ListenEndpoint(endpoint string) (net.Listener, error) {
-	proto, addr, err := parseEndpoint(endpoint)
+func ListenEndpoint(ctx context.Context, endpoint string) (net.Listener, error) {
+	proto, addr, err := ParseEndpoint(endpoint)
 	if err != nil {
 		klog.Errorf("%v", err)
 		return nil, err
@@ -58,8 +58,8 @@ func ListenEndpoint(endpoint string) (net.Listener, error) {
 			return nil, err
 		}
 	}
-
-	listener, err := net.Listen(proto, addr)
+	listenConfig := net.ListenConfig{}
+	listener, err := listenConfig.Listen(ctx, proto, addr)
 	if err != nil {
 		klog.Errorf("Failed to listen: %v", err)
 		return nil, err
