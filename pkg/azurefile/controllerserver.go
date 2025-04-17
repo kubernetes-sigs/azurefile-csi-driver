@@ -280,6 +280,9 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	if encryptInTransit {
 		klog.V(2).Infof("encryptInTransit is set to true")
+		if !d.enableAzurefileProxy {
+			return nil, status.Errorf(codes.InvalidArgument, "encryptInTransit is only available when azurefile-proxy is enabled")
+		}
 	}
 
 	if matchTags && account != "" {

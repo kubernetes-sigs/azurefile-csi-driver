@@ -414,6 +414,10 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 				mountFsType = aznfs
 			}
 		}
+		if mountFsType == aznfs && !d.enableAzurefileProxy {
+			return nil, status.Error(codes.InvalidArgument, "encryptInTransit is only available when azurefile-proxy is enabled")
+		}
+
 		if err := prepareStagePath(cifsMountPath, d.mounter); err != nil {
 			return nil, status.Errorf(codes.Internal, "prepare stage path failed for %s with error: %v", cifsMountPath, err)
 		}

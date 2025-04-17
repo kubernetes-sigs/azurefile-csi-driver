@@ -227,6 +227,7 @@ type Driver struct {
 
 	cloud                                  *storage.AccountRepo
 	kubeClient                             kubernetes.Interface
+	enableAzurefileProxy                   bool
 	azurefileProxyEndpoint                 string
 	cloudConfigSecretName                  string
 	cloudConfigSecretNamespace             string
@@ -304,6 +305,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.Name = options.DriverName
 	driver.Version = driverVersion
 	driver.NodeID = options.NodeID
+	driver.enableAzurefileProxy = options.EnableAzurefileProxy
 	driver.azurefileProxyEndpoint = options.AzureFileProxyEndpoint
 	driver.cloudConfigSecretName = options.CloudConfigSecretName
 	driver.cloudConfigSecretNamespace = options.CloudConfigSecretNamespace

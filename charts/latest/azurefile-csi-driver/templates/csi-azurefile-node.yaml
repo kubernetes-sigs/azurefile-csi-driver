@@ -40,7 +40,9 @@ spec:
 {{- end }}
     spec:
       hostNetwork: true
+      {{- if .Values.node.azurefileProxy.enabled }}
       hostPID: true
+      {{- end }}
       dnsPolicy: {{ .Values.linux.dnsPolicy }}
       serviceAccountName: {{ .Values.serviceAccount.node }}
       nodeSelector:
@@ -85,9 +87,13 @@ spec:
             - name: DEBIAN_FRONTEND
               value: "noninteractive"
             - name: INSTALL_AZUREFILE_PROXY
-              value: "true"
+              value: "{{ .Values.node.azurefileProxy.enabled }}"
             - name: INSTALL_AZNFS_MOUNT
-              value: "true"
+              value: "{{ .Values.node.azurefileProxy.installAznfsMount }}"
+            - name: KUBELET_PATH
+              value: "{{ .Values.linux.kubelet }}"
+            - name: MIGRATE_K8S_REPO
+              value: "{{ .Values.node.azurefileProxy.migrateK8sRepo }}"
           volumeMounts:
             - name: host-usr
               mountPath: /host/usr
@@ -144,6 +150,7 @@ spec:
             - "--v={{ .Values.node.logLevel }}"
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--azurefile-proxy-endpoint=$(AZUREFILE_PROXY_ENDPOINT)"
+            - "--enable-azurefile-proxy={{ .Values.node.azurefileProxy.enabled }}"
             - "--nodeid=$(KUBE_NODE_NAME)"
             - "--kubeconfig={{ .Values.linux.kubeconfig }}"
             - "--drivername={{ .Values.driver.name }}"

@@ -16,6 +16,8 @@
 
 set -xe
 
+MIGRATE_K8S_REPO=${MIGRATE_K8S_REPO:-false}
+
 KUBELET_PATH=${KUBELET_PATH:-/var/lib/kubelet}
 if [ "$KUBELET_PATH" != "/var/lib/kubelet" ];then
   echo "kubelet path is $KUBELET_PATH, update azurefile-proxy.service...."
