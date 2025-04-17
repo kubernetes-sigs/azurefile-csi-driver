@@ -44,6 +44,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage v1.6.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azfile v0.1.0
 	github.com/onsi/ginkgo/v2 v2.20.2
+	go.uber.org/goleak v1.3.0
 	go.uber.org/mock v0.4.0
 	golang.org/x/sys v0.31.0
 	k8s.io/pod-security-admission v0.27.4
