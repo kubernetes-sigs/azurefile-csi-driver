@@ -22,6 +22,8 @@ import "flag"
 type DriverOptions struct {
 	NodeID                                 string
 	DriverName                             string
+	EnableAzurefileProxy                   bool
+	AzureFileProxyEndpoint                 string
 	CloudConfigSecretName                  string
 	CloudConfigSecretNamespace             string
 	CustomUserAgent                        string
@@ -60,6 +62,8 @@ func (o *DriverOptions) AddFlags() *flag.FlagSet {
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	fs.StringVar(&o.NodeID, "nodeid", "", "node id")
 	fs.StringVar(&o.DriverName, "drivername", DefaultDriverName, "name of the driver")
+	fs.BoolVar(&o.EnableAzurefileProxy, "enable-azurefile-proxy", false, "enable azurefile proxy")
+	fs.StringVar(&o.AzureFileProxyEndpoint, "azurefile-proxy-endpoint", "unix://tmp/azurefile-proxy.sock", "azurefile-proxy endpoint")
 	fs.StringVar(&o.CloudConfigSecretName, "cloud-config-secret-name", "azure-cloud-provider", "secret name of cloud config")
 	fs.StringVar(&o.CloudConfigSecretNamespace, "cloud-config-secret-namespace", "kube-system", "secret namespace of cloud config")
 	fs.StringVar(&o.CustomUserAgent, "custom-user-agent", "", "custom userAgent")

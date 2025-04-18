@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+option go_package = ".;pb";
+
+message MountAzureFileRequest {
+	string source = 1;
+	string target = 2;
+	string fstype = 3;
+	repeated string mountOptions = 4;
+	repeated string sensitiveOptions = 5;
+}
+
+message MountAzureFileResponse {}
+
+service MountService {
+	rpc MountAzureFile(MountAzureFileRequest) returns (MountAzureFileResponse) {};
+}

@@ -1,0 +1,18 @@
+[Unit]
+Description=Azurefile proxy service
+
+[Service]
+ExecStart=/usr/bin/azurefile-proxy --v=5 --azurefile-proxy-endpoint=unix://var/lib/kubelet/plugins/file.csi.azure.com/azurefile-proxy.sock
+Delegate=yes
+KillMode=process
+Restart=always
+OOMScoreAdjust=-999
+# Having non-zero Limit*s causes performance problems due to accounting overhead
+# in the kernel. We recommend using cgroups to do container-local accounting.
+LimitNPROC=infinity
+LimitCORE=infinity
+LimitNOFILE=infinity
+TasksMax=infinity
+
+[Install]
+WantedBy=multi-user.target

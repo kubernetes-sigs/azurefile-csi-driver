@@ -124,6 +124,10 @@ node:
   livenessProbe:
     healthPort: 29613
   logLevel: 5
+  azurefileProxy:
+    enabled: true
+    installAznfsMount: true
+    migrateK8sRepo: false
 
 snapshot:
   enabled: false

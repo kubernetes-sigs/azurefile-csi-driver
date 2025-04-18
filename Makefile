@@ -28,7 +28,7 @@ CSI_IMAGE_TAG ?= $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
 CSI_IMAGE_TAG_LATEST = $(REGISTRY)/$(IMAGE_NAME):latest
 BUILD_DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS ?= "-X ${PKG}/pkg/azurefile.driverVersion=${IMAGE_VERSION} -X ${PKG}/pkg/azurefile.gitCommit=${GIT_COMMIT} -X ${PKG}/pkg/azurefile.buildDate=${BUILD_DATE} -s -w -extldflags '-static'"
-E2E_HELM_OPTIONS ?= --set image.azurefile.repository=$(REGISTRY)/$(IMAGE_NAME) --set image.azurefile.tag=$(IMAGE_VERSION) --set node.enableKataCCMount=true --set linux.dnsPolicy=ClusterFirstWithHostNet --set driver.userAgentSuffix="e2e-test" --set controller.runOnControlPlane=true --set controller.replicas=1 --set snapshot.snapshotController.replicas=1
+E2E_HELM_OPTIONS ?= --set image.azurefile.repository=$(REGISTRY)/$(IMAGE_NAME) --set image.azurefile.tag=$(IMAGE_VERSION) --set node.enableKataCCMount=true --set linux.dnsPolicy=ClusterFirstWithHostNet --set driver.userAgentSuffix="e2e-test" --set controller.runOnControlPlane=true --set controller.replicas=1 --set snapshot.snapshotController.replicas=1 --set node.azurefileProxy.migrateK8sRepo=true
 E2E_HELM_OPTIONS += ${EXTRA_HELM_OPTIONS}
 ifdef KUBERNETES_VERSION # disable kubelet-registration-probe on capz cluster testing
 E2E_HELM_OPTIONS += --set linux.enableRegistrationProbe=false --set windows.enableRegistrationProbe=false
@@ -63,7 +63,7 @@ OUTPUT_TYPE ?= registry
 .EXPORT_ALL_VARIABLES:
 
 .PHONY: all
-all: azurefile
+all: azurefile azurefile-proxy
 
 .PHONY: update
 update:
@@ -123,7 +123,7 @@ e2e-teardown:
 	helm delete azurefile-csi-driver --namespace kube-system
 
 .PHONY: azurefile
-azurefile:
+azurefile: azurefile-proxy
 	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -a -ldflags ${LDFLAGS} -mod vendor -o _output/${ARCH}/azurefileplugin ./pkg/azurefileplugin
 
 .PHONY: azurefile-windows
@@ -135,7 +135,7 @@ azurefile-darwin:
 	CGO_ENABLED=0 GOOS=darwin go build -a -ldflags ${LDFLAGS} -mod vendor -o _output/${ARCH}/azurefileplugin ./pkg/azurefileplugin
 
 .PHONY: container
-container: azurefile
+container: azurefile azurefile-proxy
 	docker build --no-cache -t $(CSI_IMAGE_TAG) --output=type=docker -f ./pkg/azurefileplugin/Dockerfile .
 
 .PHONY: container-linux
@@ -241,3 +241,7 @@ ifdef TEST_WINDOWS
 else
 	kubectl apply -f deploy/example/smb-provisioner/smb-server.yaml
 endif
+
+.PHONY: azurefile-proxy
+azurefile-proxy:
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -mod vendor -ldflags="-s -w" -o _output/${ARCH}/azurefile-proxy ./pkg/azurefile-proxy
