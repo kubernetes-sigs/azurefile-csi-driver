@@ -27,10 +27,11 @@ fi
 if [ "${INSTALL_AZNFS_MOUNT}" = "true" ];then
   echo "install aznfs-mount...."
   # $HOST_CMD curl -fsSL https://github.com/Azure/AZNFS-mount/releases/download/0.1.526/aznfs_install.sh | $HOST_CMD bash
-  $HOST_CMD curl -sSL -O https://packages.microsoft.com/config/$(source /etc/os-release && echo "$ID/$VERSION_ID")/packages-microsoft-prod.deb
+  # shellcheck disable=SC1091
+  $HOST_CMD curl -sSL -O "https://packages.microsoft.com/config/$(. /host/etc/os-release && echo "$ID/$VERSION_ID")/packages-microsoft-prod.deb"
   yes | $HOST_CMD dpkg -i packages-microsoft-prod.deb && $HOST_CMD apt-get update
   $HOST_CMD rm packages-microsoft-prod.deb
-  $HOST_CMD apt-get install -y aznfs=0.3.15
+  $HOST_CMD apt-get install -y --allow-downgrades aznfs=0.3.15
   echo "aznfs-mount installed"
 fi
 
