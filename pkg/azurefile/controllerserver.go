@@ -1021,7 +1021,7 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 	if len(req.SnapshotId) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Snapshot ID must be provided")
 	}
-	rgName, accountName, fileShareName, _, _, _, err := GetFileShareInfo(req.SnapshotId) //nolint:dogsled
+	rgName, accountName, fileShareName, _, _, subsID, err := GetFileShareInfo(req.SnapshotId) //nolint:dogsled
 	if fileShareName == "" || err != nil {
 		// According to CSI Driver Sanity Tester, should succeed when an invalid snapshot id is used
 		klog.V(4).Infof("failed to get share url with (%s): %v, returning with success", req.SnapshotId, err)
@@ -1035,7 +1035,10 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 	if rgName == "" {
 		rgName = d.cloud.ResourceGroup
 	}
-	subsID := d.cloud.SubscriptionID
+	if subsID == "" {
+		subsID = d.cloud.SubscriptionID
+	}
+
 	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_delete_snapshot", rgName, subsID, d.Name)
 	isOperationSucceeded := false
 	defer func() {
