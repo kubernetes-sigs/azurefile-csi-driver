@@ -190,7 +190,6 @@ spec:
           args:
             - "--v={{ .Values.controller.logLevel }}"
             - "--endpoint=$(CSI_ENDPOINT)"
-            - "--enable-azurefile-proxy={{ .Values.node.azurefileProxy.enabled }}"
             - "--metrics-address=0.0.0.0:{{ .Values.controller.metricsPort }}"
             - "--kubeconfig={{ .Values.controller.kubeconfig }}"
             - "--drivername={{ .Values.driver.name }}"

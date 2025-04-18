@@ -31,8 +31,12 @@ if [ "${INSTALL_AZNFS_MOUNT}" = "true" ];then
   $HOST_CMD curl -sSL -O "https://packages.microsoft.com/config/$(. /host/etc/os-release && echo "$ID/$VERSION_ID")/packages-microsoft-prod.deb"
   yes | $HOST_CMD dpkg -i packages-microsoft-prod.deb && $HOST_CMD apt-get update
   $HOST_CMD rm packages-microsoft-prod.deb
-  $HOST_CMD apt-get install -y --allow-downgrades aznfs=0.3.15
+  $HOST_CMD apt-get install -y aznfs=0.3.15
   echo "aznfs-mount installed"
+
+  # TODO: Only install aznfswatchdogv4
+  echo "stop aznfswatchdog, only need aznfswatchdogv4."
+  $HOST_CMD systemctl stop aznfswatchdog
 fi
 
 if [ "${INSTALL_AZUREFILE_PROXY}" = "true" ];then

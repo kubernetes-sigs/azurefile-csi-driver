@@ -278,13 +278,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
-	if encryptInTransit {
-		klog.V(2).Infof("encryptInTransit is set to true")
-		if !d.enableAzurefileProxy {
-			return nil, status.Errorf(codes.InvalidArgument, "encryptInTransit is only available when azurefile-proxy is enabled")
-		}
-	}
-
 	if matchTags && account != "" {
 		return nil, status.Errorf(codes.InvalidArgument, "matchTags must set as false when storageAccount(%s) is provided", account)
 	}
@@ -359,6 +352,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 		protocol = nfs
 		enableHTTPSTrafficOnly = false
+		if encryptInTransit {
+			klog.V(2).Infof("encryptInTransit is enabled, enableHTTPSOnly is set to true for NFS protocol")
+			enableHTTPSTrafficOnly = true
+		}
 		shareProtocol = armstorage.EnabledProtocolsNFS
 		// NFS protocol does not need account key
 		storeAccountKey = false
