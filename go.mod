@@ -13,6 +13,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azfile v1.5.0
 	github.com/container-storage-interface/spec v1.10.0
 	github.com/fsnotify/fsnotify v1.9.0
+	github.com/go-ole/go-ole v1.3.0
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.1
@@ -20,6 +21,7 @@ require (
 	github.com/kubernetes-csi/csi-lib-utils v0.14.1
 	github.com/kubernetes-csi/csi-proxy/client v1.0.1
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
+	github.com/microsoft/wmi v0.31.1
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
 	github.com/rubiojr/go-vhd v0.0.0-20200706105327-02e210299021
