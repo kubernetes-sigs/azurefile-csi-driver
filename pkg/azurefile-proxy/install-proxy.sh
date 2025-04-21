@@ -36,6 +36,7 @@ if [ "${INSTALL_AZNFS_MOUNT}" = "true" ];then
 
   # TODO: Only install aznfswatchdogv4
   echo "stop aznfswatchdog, only need aznfswatchdogv4."
+  $HOST_CMD systemctl disable aznfswatchdog
   $HOST_CMD systemctl stop aznfswatchdog
 fi
 
