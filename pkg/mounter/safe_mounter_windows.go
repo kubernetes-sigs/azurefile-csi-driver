@@ -291,11 +291,11 @@ func NewCSIProxyMounter() (*csiProxyMounter, error) {
 	}, nil
 }
 
-func NewSafeMounter(enableWindowsHostProcess bool) (*mount.SafeFormatAndMount, error) {
+func NewSafeMounter(enableWindowsHostProcess, useWinCIMAPI bool) (*mount.SafeFormatAndMount, error) {
 	if enableWindowsHostProcess {
 		klog.V(2).Infof("using windows host process mounter")
 		return &mount.SafeFormatAndMount{
-			Interface: NewWinMounter(),
+			Interface: NewWinMounter(useWinCIMAPI),
 			Exec:      utilexec.New(),
 		}, nil
 	}

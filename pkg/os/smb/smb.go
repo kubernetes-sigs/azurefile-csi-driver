@@ -29,7 +29,21 @@ import (
 	"sigs.k8s.io/azurefile-csi-driver/pkg/util"
 )
 
-func IsSmbMapped(remotePath string) (bool, error) {
+var _ SMBAPI = &powerShellSMBAPI{}
+
+type powerShellSMBAPI struct{}
+
+func NewPowerShellSMBAPI() *powerShellSMBAPI {
+	return &powerShellSMBAPI{}
+}
+
+type SMBAPI interface {
+	IsSmbMapped(remotePath string) (bool, error)
+	NewSmbGlobalMapping(remotePath, username, password string) error
+	RemoveSmbGlobalMapping(remotePath string) error
+}
+
+func (*powerShellSMBAPI) IsSmbMapped(remotePath string) (bool, error) {
 	cmdLine := `$(Get-SmbGlobalMapping -RemotePath $Env:smbremotepath -ErrorAction Stop).Status`
 	cmdEnv := fmt.Sprintf("smbremotepath=%s", remotePath)
 	out, err := util.RunPowershellCmd(cmdLine, cmdEnv)
@@ -43,7 +57,7 @@ func IsSmbMapped(remotePath string) (bool, error) {
 	return true, nil
 }
 
-func NewSmbGlobalMapping(remotePath, username, password string) error {
+func (*powerShellSMBAPI) NewSmbGlobalMapping(remotePath, username, password string) error {
 	// use PowerShell Environment Variables to store user input string to prevent command line injection
 	// https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_environment_variables?view=powershell-5.1
 	cmdLine := fmt.Sprintf(`$PWord = ConvertTo-SecureString -String $Env:smbpassword -AsPlainText -Force` +
@@ -59,7 +73,7 @@ func NewSmbGlobalMapping(remotePath, username, password string) error {
 	return nil
 }
 
-func RemoveSmbGlobalMapping(remotePath string) error {
+func (*powerShellSMBAPI) RemoveSmbGlobalMapping(remotePath string) error {
 	remotePath = strings.TrimSuffix(remotePath, `\`)
 	cmd := `Remove-SmbGlobalMapping -RemotePath $Env:smbremotepath -Force`
 	klog.V(2).Infof("begin to run RemoveSmbGlobalMapping with %s", remotePath)

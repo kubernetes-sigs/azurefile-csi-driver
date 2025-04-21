@@ -247,6 +247,7 @@ type Driver struct {
 	appendActimeoOption                    bool
 	printVolumeStatsCallLogs               bool
 	enableKataCCMount                      bool
+	useWinCIMAPI                           bool
 	mounter                                *mount.SafeFormatAndMount
 	server                                 *grpc.Server
 	// lock per volume attach (only for vhd disk feature)
@@ -334,6 +335,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.resolver = new(NetResolver)
 	driver.directVolume = new(directVolume)
 	driver.isKataNode = false
+	driver.useWinCIMAPI = options.UseWinCIMAPI
 
 	var err error
 	getter := func(_ context.Context, _ string) (interface{}, error) { return nil, nil }
@@ -408,7 +410,7 @@ func (d *Driver) Run(ctx context.Context) error {
 	}
 	klog.V(2).Infof("cloud: %s, location: %s, rg: %s, VnetName: %s, VnetResourceGroup: %s, SubnetName: %s", d.cloud.Cloud, d.cloud.Location, d.cloud.ResourceGroup, d.cloud.VnetName, d.cloud.VnetResourceGroup, d.cloud.SubnetName)
 
-	d.mounter, err = mounter.NewSafeMounter(d.enableWindowsHostProcess)
+	d.mounter, err = mounter.NewSafeMounter(d.enableWindowsHostProcess, d.useWinCIMAPI)
 	if err != nil {
 		klog.Fatalf("Failed to get safe mounter. Error: %v", err)
 	}
