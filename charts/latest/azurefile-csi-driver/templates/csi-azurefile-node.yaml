@@ -97,8 +97,6 @@ spec:
           volumeMounts:
             - name: host-usr
               mountPath: /host/usr
-            - name: host-usr-local
-              mountPath: /host/usr/local
             - name: host-etc
               mountPath: /host/etc
       containers:
@@ -233,9 +231,6 @@ spec:
         - name: host-usr
           hostPath:
             path: /usr
-        - name: host-usr-local
-          hostPath:
-            path: /usr/local
         - name: host-etc
           hostPath:
             path: /etc
