@@ -26,19 +26,18 @@ import (
 	"strings"
 
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/azurefile-csi-driver/pkg/os/cim"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/util"
 )
 
-func IsSmbMapped(remotePath string) (bool, error) {
-	cmdLine := `$(Get-SmbGlobalMapping -RemotePath $Env:smbremotepath -ErrorAction Stop).Status`
-	cmdEnv := fmt.Sprintf("smbremotepath=%s", remotePath)
-	out, err := util.RunPowershellCmd(cmdLine, cmdEnv)
-	if err != nil {
-		return false, fmt.Errorf("error checking smb mapping. cmd %s, output: %s, err: %v", remotePath, string(out), err)
-	}
+func remotePathForQuery(remotePath string) string {
+	return strings.ReplaceAll(remotePath, "\\", "\\\\")
+}
 
-	if len(out) == 0 || !strings.EqualFold(strings.TrimSpace(string(out)), "OK") {
-		return false, nil
+func IsSmbMapped(remotePath string) (bool, error) {
+	_, err := cim.QuerySmbGlobalMappingByRemotePath(remotePathForQuery(remotePath))
+	if err != nil {
+		return false, err
 	}
 	return true, nil
 }
@@ -60,11 +59,9 @@ func NewSmbGlobalMapping(remotePath, username, password string) error {
 }
 
 func RemoveSmbGlobalMapping(remotePath string) error {
-	remotePath = strings.TrimSuffix(remotePath, `\`)
-	cmd := `Remove-SmbGlobalMapping -RemotePath $Env:smbremotepath -Force`
-	klog.V(2).Infof("begin to run RemoveSmbGlobalMapping with %s", remotePath)
-	if output, err := util.RunPowershellCmd(cmd, fmt.Sprintf("smbremotepath=%s", remotePath)); err != nil {
-		return fmt.Errorf("UnmountSmbShare failed. output: %q, err: %v", string(output), err)
+	err := cim.RemoveSmbGlobalMappingByRemotePath(remotePathForQuery(remotePath))
+	if err != nil {
+		return fmt.Errorf("error remove smb mapping '%s'. err: %v", remotePath, err)
 	}
 	return nil
 }

@@ -34,6 +34,7 @@ import (
 const (
 	WMINamespaceRoot    = "Root\\CimV2"
 	WMINamespaceStorage = "Root\\Microsoft\\Windows\\Storage"
+	WMINamespaceSmb     = "Root\\Microsoft\\Windows\\Smb"
 )
 
 type InstanceHandler func(instance *cim.WmiInstance) (bool, error)
