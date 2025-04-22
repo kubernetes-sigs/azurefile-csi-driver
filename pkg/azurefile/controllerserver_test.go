@@ -1022,7 +1022,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				}
 
 				allParam := map[string]string{
-					encryptInTransitField: "0",
+					encryptInTransitField: "fasle",
 				}
 
 				req := &csi.CreateVolumeRequest{
