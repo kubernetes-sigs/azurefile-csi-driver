@@ -1022,7 +1022,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				}
 
 				allParam := map[string]string{
-					encryptInTransitField: "fasle",
+					encryptInTransitField: "000",
 				}
 
 				req := &csi.CreateVolumeRequest{
@@ -1040,7 +1040,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 				mockFileClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
 
-				expectedErr := status.Errorf(codes.InvalidArgument, "invalid %s %s in storage class", "encryptintransit", "0")
+				expectedErr := status.Errorf(codes.InvalidArgument, "invalid %s %s in storage class", "encryptintransit", "000")
 				_, err := d.CreateVolume(ctx, req)
 				gomega.Expect(err).To(gomega.Equal(expectedErr))
 			})
