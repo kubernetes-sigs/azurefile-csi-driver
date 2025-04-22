@@ -18,6 +18,7 @@ spec:
         app: csi-azurefile-node
     spec:
       hostNetwork: true
+      hostPID: true
       dnsPolicy: Default
       serviceAccountName: csi-azurefile-node-sa
       nodeSelector:
@@ -37,6 +38,29 @@ spec:
           type: RuntimeDefault
       tolerations:
         - operator: "Exists"
+      initContainers:
+        - name: install-azurefile-proxy
+          image: mcr.microsoft.com/k8s/csi/azurefile-csi:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - "/azurefile-proxy/init.sh"
+          securityContext:
+            privileged: true
+            capabilities:
+              drop:
+                - ALL
+          env:
+            - name: DEBIAN_FRONTEND
+              value: "noninteractive"
+            - name: INSTALL_AZUREFILE_PROXY
+              value: "true"
+            - name: INSTALL_AZNFS_MOUNT
+              value: "true"
+          volumeMounts:
+            - name: host-usr
+              mountPath: /host/usr
+            - name: host-etc
+              mountPath: /host/etc
       containers:
         - name: liveness-probe
           volumeMounts:
@@ -90,6 +114,7 @@ spec:
           args:
             - "--v=5"
             - "--endpoint=$(CSI_ENDPOINT)"
+            - "--azurefile-proxy-endpoint=$(AZUREFILE_PROXY_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
             - "--metrics-address=0.0.0.0:29615"
             - "--enable-kata-cc-mount=true"
@@ -111,6 +136,8 @@ spec:
                   optional: true
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
+            - name: AZUREFILE_PROXY_ENDPOINT
+              value: unix:///csi/azurefile-proxy.sock
             - name: KUBE_NODE_NAME
               valueFrom:
                 fieldRef:
@@ -140,6 +167,12 @@ spec:
               cpu: 10m
               memory: 20Mi
       volumes:
+        - name: host-usr
+          hostPath:
+            path: /usr
+        - name: host-etc
+          hostPath:
+            path: /etc
         - hostPath:
             path: /var/lib/kubelet/plugins/file.csi.azure.com
             type: DirectoryOrCreate

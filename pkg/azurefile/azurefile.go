@@ -131,6 +131,7 @@ const (
 	tenantIDField                     = "tenantID"
 	mountOptionsField                 = "mountoptions"
 	mountPermissionsField             = "mountpermissions"
+	encryptInTransitField             = "encryptintransit"
 	falseValue                        = "false"
 	trueValue                         = "true"
 	defaultSecretAccountName          = "azurestorageaccountname"
@@ -139,6 +140,7 @@ const (
 	cifs                              = "cifs"
 	smb                               = "smb"
 	nfs                               = "nfs"
+	aznfs                             = "aznfs"
 	ext4                              = "ext4"
 	ext3                              = "ext3"
 	ext2                              = "ext2"
@@ -225,6 +227,8 @@ type Driver struct {
 
 	cloud                                  *storage.AccountRepo
 	kubeClient                             kubernetes.Interface
+	enableAzurefileProxy                   bool
+	azurefileProxyEndpoint                 string
 	cloudConfigSecretName                  string
 	cloudConfigSecretNamespace             string
 	customUserAgent                        string
@@ -301,6 +305,8 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.Name = options.DriverName
 	driver.Version = driverVersion
 	driver.NodeID = options.NodeID
+	driver.enableAzurefileProxy = options.EnableAzurefileProxy
+	driver.azurefileProxyEndpoint = options.AzureFileProxyEndpoint
 	driver.cloudConfigSecretName = options.CloudConfigSecretName
 	driver.cloudConfigSecretNamespace = options.CloudConfigSecretNamespace
 	driver.customUserAgent = options.CustomUserAgent
@@ -459,7 +465,7 @@ func (d *Driver) Run(ctx context.Context) error {
 	d.server = server
 	d.isKataNode = isKataNode(ctx, d.NodeID, d.kubeClient)
 
-	listener, err := csicommon.ListenEndpoint(d.endpoint)
+	listener, err := csicommon.ListenEndpoint(ctx, d.endpoint)
 	if err != nil {
 		klog.Fatalf("failed to listen endpoint: %v", err)
 	}

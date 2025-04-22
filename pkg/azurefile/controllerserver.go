@@ -117,7 +117,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 	var sku, subsID, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
 	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, shareAccessTier, accountAccessTier, rootSquashType, tagValueDelimiter string
-	var createAccount, useSeretCache, matchTags, selectRandomMatchingAccount, getLatestAccountKey bool
+	var createAccount, useSeretCache, matchTags, selectRandomMatchingAccount, getLatestAccountKey, encryptInTransit bool
 	var vnetResourceGroup, vnetName, subnetName, shareNamePrefix, fsGroupChangePolicy, useDataPlaneAPI string
 	var requireInfraEncryption, disableDeleteRetentionPolicy, enableLFS, isMultichannelEnabled, allowSharedKeyAccess *bool
 	// set allowBlobPublicAccess as false by default
@@ -267,6 +267,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			accountQuota = int32(value)
 		case tagValueDelimiterField:
 			tagValueDelimiter = v
+		case encryptInTransitField:
+			var err error
+			encryptInTransit, err = strconv.ParseBool(v)
+			if err != nil {
+				return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("Volume context property %q must be a boolean value: %v", k, err))
+			}
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, "invalid parameter %q in storage class", k)
 		}
@@ -346,6 +352,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 		protocol = nfs
 		enableHTTPSTrafficOnly = false
+		if encryptInTransit {
+			klog.V(2).Infof("encryptInTransit is enabled, enableHTTPSOnly is set to true for NFS protocol")
+			enableHTTPSTrafficOnly = true
+		}
 		shareProtocol = armstorage.EnabledProtocolsNFS
 		// NFS protocol does not need account key
 		storeAccountKey = false
