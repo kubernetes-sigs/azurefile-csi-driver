@@ -271,7 +271,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			var err error
 			encryptInTransit, err = strconv.ParseBool(v)
 			if err != nil {
-				return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("Volume context property %q must be a boolean value: %v", k, err))
+				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", encryptInTransitField, v)
 			}
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, "invalid parameter %q in storage class", k)

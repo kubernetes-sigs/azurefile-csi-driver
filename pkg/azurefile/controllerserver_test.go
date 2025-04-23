@@ -921,6 +921,69 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			})
 		})
+
+		// Consolidate duplicate test scenarios
+		commonTests := func(ctx context.Context, encryptInTransit string, shouldSucceed bool) {
+			name := "baz"
+			SKU := "SKU"
+			kind := "StorageV2"
+			location := "centralus"
+			value := "foo bar"
+			accounts := []*armstorage.Account{
+				{Name: &name, SKU: &armstorage.SKU{Name: to.Ptr(armstorage.SKUName(SKU))}, Kind: to.Ptr(armstorage.Kind(kind)), Location: &location},
+			}
+			keys := []*armstorage.AccountKey{
+				{Value: &value},
+			}
+
+			allParam := map[string]string{
+				storageAccountField:   "stoacc",
+				encryptInTransitField: encryptInTransit,
+			}
+
+			req := &csi.CreateVolumeRequest{
+				Name:               "random-vol-name-valid-request",
+				VolumeCapabilities: stdVolCap,
+				CapacityRange:      lessThanPremCapRange,
+				Parameters:         allParam,
+			}
+
+			mockStorageAccountsClient := d.cloud.ComputeClientFactory.GetAccountClient().(*mock_accountclient.MockInterface)
+
+			mockFileClient.EXPECT().Create(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
+			mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
+			mockStorageAccountsClient.EXPECT().List(gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
+			mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+			mockFileClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
+
+			_, err := d.CreateVolume(ctx, req)
+			if shouldSucceed {
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			} else {
+				expectedErr := status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", encryptInTransitField, encryptInTransit)
+				gomega.Expect(err).To(gomega.Equal(expectedErr))
+			}
+		}
+
+		// Use the consolidated test function
+		ginkgo.When("encryptInTransit is true", func() {
+			ginkgo.It("should succeed", func(ctx context.Context) {
+				commonTests(ctx, "true", true)
+			})
+		})
+
+		ginkgo.When("encryptInTransit is false", func() {
+			ginkgo.It("should succeed", func(ctx context.Context) {
+				commonTests(ctx, "false", true)
+			})
+		})
+
+		ginkgo.When("encryptInTransit is invalid", func() {
+			ginkgo.It("should fail", func(ctx context.Context) {
+				commonTests(ctx, "invalid", false)
+			})
+		})
+
 		ginkgo.When("invalid mountPermissions", func() {
 			ginkgo.It("should fail", func(ctx context.Context) {
 				name := "baz"
