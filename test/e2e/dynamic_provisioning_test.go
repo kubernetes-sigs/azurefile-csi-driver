@@ -1493,6 +1493,41 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(ctx, cs, ns)
 	})
 
+	ginkgo.It("should create a NFS volume on demand on a storage account with encryptInTransit enabled [file.csi.azure.com] [nfs]", func(ctx ginkgo.SpecContext) {
+		skipIfUsingInTreeVolumePlugin()
+		skipIfTestingInWindowsCluster()
+		if !supportEncryptInTransitwithNFS {
+			ginkgo.Skip("encryptInTransit on nfs file share is not supported on current region")
+		}
+
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize: "100Gi",
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+					},
+				},
+				IsWindows:    isWindowsCluster,
+				WinServerVer: winServerVer,
+			},
+		}
+		scParameters := map[string]string{
+			"protocol":         "nfs",
+			"encryptInTransit": "true",
+		}
+		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
+			CSIDriver:              testDriver,
+			Pods:                   pods,
+			StorageClassParameters: scParameters,
+		}
+		test.Run(ctx, cs, ns)
+	})
+
 	ginkgo.It("should create a pod with multiple NFS volumes [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
 		skipIfTestingInWindowsCluster()
 		skipIfUsingInTreeVolumePlugin()

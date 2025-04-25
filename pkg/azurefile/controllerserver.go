@@ -353,8 +353,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		protocol = nfs
 		enableHTTPSTrafficOnly = false
 		if encryptInTransit {
-			klog.V(2).Infof("encryptInTransit is enabled, enableHTTPSOnly is set to true for NFS protocol")
-			enableHTTPSTrafficOnly = true
+			klog.V(2).Info("encryptInTransit is enabled")
+			// Right now we have to disable secure transfer on accounts to be able to mount an NFS share.
+			// Even though encryptInTransit is enabled.
+			// enableHTTPSTrafficOnly = true
 		}
 		shareProtocol = armstorage.EnabledProtocolsNFS
 		// NFS protocol does not need account key

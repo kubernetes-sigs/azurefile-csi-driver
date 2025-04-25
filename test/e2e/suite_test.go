@@ -61,8 +61,9 @@ var (
 		"csi.storage.k8s.io/provisioner-secret-namespace": "default",
 		"csi.storage.k8s.io/node-stage-secret-namespace":  "default",
 	}
-	supportZRSwithNFS      bool
-	supportSnapshotwithNFS bool
+	supportZRSwithNFS              bool
+	supportSnapshotwithNFS         bool
+	supportEncryptInTransitwithNFS bool
 )
 
 type testCmd struct {
@@ -109,6 +110,15 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		for _, region := range supportedRegions {
 			if creds.Location == region {
 				supportSnapshotwithNFS = true
+			}
+		}
+
+		// check whether current region supports encryptInTransit with NFS protocol
+		supportedRegions = []string{"canadacentral", "canadaeast", "southeastasia", "eastasia", "australiaeast", "europenorth", "francecentral", "francesouth", "germanywestcentral", "uksouth", "ukwest", "uswest", "uswest2", "uswest3", "ussouth", "ussouth2", "australiacentral", "australiacentral2"}
+		for _, region := range supportedRegions {
+			if creds.Location == region {
+				supportEncryptInTransitwithNFS = true
+				log.Printf("region %s supports encryptInTransit with NFS protocol", region)
 			}
 		}
 
