@@ -1,8 +1,8 @@
 module sigs.k8s.io/azurefile-csi-driver
 
-go 1.24
+go 1.23.2
 
-toolchain go1.24.2
+toolchain go1.23.8
 
 godebug winsymlink=0
 
@@ -11,7 +11,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6 v6.4.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6 v6.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0
-	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage v1.7.0
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage v1.8.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azfile v1.5.0
 	github.com/container-storage-interface/spec v1.10.0
 	github.com/fsnotify/fsnotify v1.9.0
@@ -32,18 +32,18 @@ require (
 	golang.org/x/sys v0.32.0
 	google.golang.org/grpc v1.71.0
 	google.golang.org/protobuf v1.36.5
-	k8s.io/api v0.32.3
-	k8s.io/apimachinery v0.32.3
-	k8s.io/client-go v0.32.3
-	k8s.io/cloud-provider v0.32.3
-	k8s.io/component-base v0.32.3
+	k8s.io/api v0.32.4
+	k8s.io/apimachinery v0.32.4
+	k8s.io/client-go v0.32.4
+	k8s.io/cloud-provider v0.32.4
+	k8s.io/component-base v0.32.4
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubernetes v1.32.2
 	k8s.io/mount-utils v0.32.1
 	k8s.io/pod-security-admission v0.32.1
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
-	sigs.k8s.io/cloud-provider-azure v1.29.1-0.20250411033641-95731ae4347d
-	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.5.20
+	sigs.k8s.io/cloud-provider-azure v1.29.1-0.20250425133425-2efcaed305f8
+	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.6.2
 	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.5.2
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -54,8 +54,8 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2 v2.2.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry v1.2.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6 v6.4.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault v1.4.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6 v6.5.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault v1.5.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi v1.2.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns v1.3.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.3.1 // indirect
@@ -169,18 +169,18 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.0.0 // indirect
-	k8s.io/apiserver v0.32.3 // indirect
-	k8s.io/component-helpers v0.32.3 // indirect
-	k8s.io/controller-manager v0.32.3 // indirect
+	k8s.io/apiserver v0.32.4 // indirect
+	k8s.io/component-helpers v0.32.4 // indirect
+	k8s.io/controller-manager v0.32.4 // indirect
 	k8s.io/cri-api v0.32.2 // indirect
 	k8s.io/cri-client v0.0.0 // indirect
 	k8s.io/csi-translation-lib v0.0.0 // indirect
 	k8s.io/dynamic-resource-allocation v0.0.0 // indirect
-	k8s.io/kms v0.32.3 // indirect
+	k8s.io/kms v0.32.4 // indirect
 	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect
 	k8s.io/kube-scheduler v0.0.0 // indirect
 	k8s.io/kubectl v0.0.0 // indirect
-	k8s.io/kubelet v0.32.3 // indirect
+	k8s.io/kubelet v0.32.4 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.0 // indirect
 	sigs.k8s.io/cloud-provider-azure/pkg/azclient/cache v0.6.0 // indirect
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
