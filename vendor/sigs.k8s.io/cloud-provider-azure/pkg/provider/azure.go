@@ -432,13 +432,7 @@ func (az *Cloud) InitializeCloudFromConfig(ctx context.Context, config *config.C
 	networkClientFactory := az.NetworkClientFactory
 
 	if az.nsgRepo == nil {
-		az.nsgRepo, err = securitygroup.NewSecurityGroupRepo(
-			az.SecurityGroupResourceGroup,
-			az.SecurityGroupName,
-			az.NsgCacheTTLInSeconds,
-			az.DisableAPICallCache,
-			networkClientFactory.GetSecurityGroupClient(),
-		)
+		az.nsgRepo, err = securitygroup.NewSecurityGroupRepo(az.SecurityGroupResourceGroup, az.SecurityGroupName, az.NsgCacheTTLInSeconds, az.DisableAPICallCache, networkClientFactory.GetSecurityGroupClient())
 		if err != nil {
 			return err
 		}

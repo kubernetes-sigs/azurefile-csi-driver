@@ -46,11 +46,11 @@ github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6
 # github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry v1.2.0
 ## explicit; go 1.18
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry
-# github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6 v6.4.0
-## explicit; go 1.18
+# github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6 v6.5.0
+## explicit; go 1.23.0
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6
-# github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault v1.4.0
-## explicit; go 1.18
+# github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault v1.5.0
+## explicit; go 1.23.0
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault
 # github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi v1.2.0
 ## explicit; go 1.18
@@ -64,8 +64,8 @@ github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns
 # github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0
 ## explicit; go 1.18
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources
-# github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage v1.7.0
-## explicit; go 1.18
+# github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage v1.8.0
+## explicit; go 1.23.0
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage
 # github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.3.1
 ## explicit; go 1.18
@@ -900,7 +900,7 @@ gopkg.in/natefinch/lumberjack.v2
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# k8s.io/api v0.32.3 => k8s.io/api v0.32.1
+# k8s.io/api v0.32.4 => k8s.io/api v0.32.1
 ## explicit; go 1.23.0
 k8s.io/api/admission/v1
 k8s.io/api/admission/v1beta1
@@ -966,7 +966,7 @@ k8s.io/api/storagemigration/v1alpha1
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/features
-# k8s.io/apimachinery v0.32.3 => k8s.io/apimachinery v0.32.1
+# k8s.io/apimachinery v0.32.4 => k8s.io/apimachinery v0.32.1
 ## explicit; go 1.23.0
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
@@ -1034,7 +1034,7 @@ k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/netutil
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/apiserver v0.32.3 => k8s.io/apiserver v0.32.1
+# k8s.io/apiserver v0.32.4 => k8s.io/apiserver v0.32.1
 ## explicit; go 1.23.0
 k8s.io/apiserver/pkg/admission
 k8s.io/apiserver/pkg/admission/configuration
@@ -1189,7 +1189,7 @@ k8s.io/apiserver/plugin/pkg/audit/webhook
 k8s.io/apiserver/plugin/pkg/authenticator/token/webhook
 k8s.io/apiserver/plugin/pkg/authorizer/webhook
 k8s.io/apiserver/plugin/pkg/authorizer/webhook/metrics
-# k8s.io/client-go v0.32.3 => k8s.io/client-go v0.32.1
+# k8s.io/client-go v0.32.4 => k8s.io/client-go v0.32.1
 ## explicit; go 1.23.0
 k8s.io/client-go/applyconfigurations
 k8s.io/client-go/applyconfigurations/admissionregistration/v1
@@ -1538,7 +1538,7 @@ k8s.io/client-go/util/retry
 k8s.io/client-go/util/testing
 k8s.io/client-go/util/watchlist
 k8s.io/client-go/util/workqueue
-# k8s.io/cloud-provider v0.32.3 => k8s.io/cloud-provider v0.32.1
+# k8s.io/cloud-provider v0.32.4 => k8s.io/cloud-provider v0.32.1
 ## explicit; go 1.23.0
 k8s.io/cloud-provider
 k8s.io/cloud-provider/api
@@ -1556,7 +1556,7 @@ k8s.io/cloud-provider/options
 k8s.io/cloud-provider/service/helpers
 k8s.io/cloud-provider/volume
 k8s.io/cloud-provider/volume/helpers
-# k8s.io/component-base v0.32.3 => k8s.io/component-base v0.32.1
+# k8s.io/component-base v0.32.4 => k8s.io/component-base v0.32.1
 ## explicit; go 1.23.0
 k8s.io/component-base/cli/flag
 k8s.io/component-base/config
@@ -1583,7 +1583,7 @@ k8s.io/component-base/tracing/api/v1
 k8s.io/component-base/version
 k8s.io/component-base/zpages/features
 k8s.io/component-base/zpages/flagz
-# k8s.io/component-helpers v0.32.3 => k8s.io/component-helpers v0.32.1
+# k8s.io/component-helpers v0.32.4 => k8s.io/component-helpers v0.32.1
 ## explicit; go 1.23.0
 k8s.io/component-helpers/node/topology
 k8s.io/component-helpers/node/util
@@ -1593,7 +1593,7 @@ k8s.io/component-helpers/scheduling/corev1
 k8s.io/component-helpers/scheduling/corev1/nodeaffinity
 k8s.io/component-helpers/storage/ephemeral
 k8s.io/component-helpers/storage/volume
-# k8s.io/controller-manager v0.32.3 => k8s.io/controller-manager v0.32.1
+# k8s.io/controller-manager v0.32.4 => k8s.io/controller-manager v0.32.1
 ## explicit; go 1.23.0
 k8s.io/controller-manager/config
 k8s.io/controller-manager/config/v1
@@ -1636,7 +1636,7 @@ k8s.io/klog/v2/internal/severity
 k8s.io/klog/v2/internal/sloghandler
 k8s.io/klog/v2/internal/verbosity
 k8s.io/klog/v2/textlogger
-# k8s.io/kms v0.32.3 => k8s.io/kms v0.32.1
+# k8s.io/kms v0.32.4 => k8s.io/kms v0.32.1
 ## explicit; go 1.23.0
 k8s.io/kms/apis/v1beta1
 k8s.io/kms/apis/v2
@@ -1671,7 +1671,7 @@ k8s.io/kube-scheduler/extender/v1
 ## explicit; go 1.23.0
 k8s.io/kubectl/pkg/scale
 k8s.io/kubectl/pkg/util/podutils
-# k8s.io/kubelet v0.32.3 => k8s.io/kubelet v0.32.2
+# k8s.io/kubelet v0.32.4 => k8s.io/kubelet v0.32.2
 ## explicit; go 1.23.0
 k8s.io/kubelet/pkg/apis
 k8s.io/kubelet/pkg/apis/deviceplugin/v1beta1
@@ -1873,8 +1873,8 @@ sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client/metrics
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/common/metrics
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client
-# sigs.k8s.io/cloud-provider-azure v1.29.1-0.20250411033641-95731ae4347d
-## explicit; go 1.24
+# sigs.k8s.io/cloud-provider-azure v1.29.1-0.20250425133425-2efcaed305f8
+## explicit; go 1.23.2
 sigs.k8s.io/cloud-provider-azure/pkg/cache
 sigs.k8s.io/cloud-provider-azure/pkg/consts
 sigs.k8s.io/cloud-provider-azure/pkg/log
@@ -1903,7 +1903,7 @@ sigs.k8s.io/cloud-provider-azure/pkg/util/string
 sigs.k8s.io/cloud-provider-azure/pkg/util/taints
 sigs.k8s.io/cloud-provider-azure/pkg/util/vm
 sigs.k8s.io/cloud-provider-azure/pkg/version
-# sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.5.20
+# sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.6.2
 ## explicit; go 1.23.0
 sigs.k8s.io/cloud-provider-azure/pkg/azclient
 sigs.k8s.io/cloud-provider-azure/pkg/azclient/accountclient
