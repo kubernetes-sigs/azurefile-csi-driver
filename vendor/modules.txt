@@ -655,8 +655,8 @@ go.uber.org/automaxprocs/maxprocs
 ## explicit; go 1.20
 go.uber.org/goleak
 go.uber.org/goleak/internal/stack
-# go.uber.org/mock v0.5.1
-## explicit; go 1.22
+# go.uber.org/mock v0.5.2
+## explicit; go 1.23
 go.uber.org/mock/gomock
 # go.uber.org/multierr v1.11.0
 ## explicit; go 1.19
