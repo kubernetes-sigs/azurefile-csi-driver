@@ -736,7 +736,7 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 	if resourceGroupName == "" {
 		resourceGroupName = d.cloud.ResourceGroup
 	}
-	if subsID == "" {
+	if !isValidSubscriptionID(subsID) {
 		subsID = d.cloud.SubscriptionID
 	}
 
@@ -883,7 +883,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 	if rgName == "" {
 		rgName = d.cloud.ResourceGroup
 	}
-	if subsID == "" {
+	if !isValidSubscriptionID(subsID) {
 		subsID = d.cloud.SubscriptionID
 	}
 
@@ -1035,7 +1035,7 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 	if rgName == "" {
 		rgName = d.cloud.ResourceGroup
 	}
-	if subsID == "" {
+	if !isValidSubscriptionID(subsID) {
 		subsID = d.cloud.SubscriptionID
 	}
 
@@ -1108,6 +1108,10 @@ func (d *Driver) restoreSnapshot(ctx context.Context, req *csi.CreateVolumeReque
 	dstFileShareName := shareOptions.Name
 	if srcAccountName == "" || srcFileShareName == "" || dstFileShareName == "" {
 		return fmt.Errorf("one or more of srcAccountName(%s), srcFileShareName(%s), dstFileShareName(%s) are empty", srcAccountName, srcFileShareName, dstFileShareName)
+	}
+
+	if !isValidSubscriptionID(srcSubscriptionID) {
+		srcSubscriptionID = d.cloud.SubscriptionID
 	}
 	srcAccountSasToken := dstAccountSasToken
 	if srcAccountName != dstAccountName && dstAccountSasToken != "" {
@@ -1221,7 +1225,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 	if resourceGroupName == "" {
 		resourceGroupName = d.cloud.ResourceGroup
 	}
-	if subsID == "" {
+	if !isValidSubscriptionID(subsID) {
 		subsID = d.cloud.SubscriptionID
 	}
 
