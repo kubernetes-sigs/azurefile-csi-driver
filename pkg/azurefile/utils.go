@@ -359,3 +359,7 @@ func getFileServiceURL(accountName, storageEndpointSuffix string) string {
 	}
 	return fmt.Sprintf(serviceURLTemplate, accountName, storageEndpointSuffix)
 }
+
+func isValidSubscriptionID(subsID string) bool {
+	return regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`).MatchString(subsID)
+}
