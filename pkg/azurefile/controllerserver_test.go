@@ -265,6 +265,23 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 			gomega.Expect(err).To(gomega.Equal(expectedErr))
 		})
 	})
+	ginkgo.When("Invalid PublicNetworkAccess", func() {
+		ginkgo.It("should fail", func(ctx context.Context) {
+			allParam := map[string]string{
+				publicNetworkAccessField: "test_publicNetworkAccess",
+			}
+
+			req := &csi.CreateVolumeRequest{
+				Name:               "PublicNetworkAccess-invalid",
+				CapacityRange:      stdCapRange,
+				VolumeCapabilities: stdVolCap,
+				Parameters:         allParam,
+			}
+			expectedErr := status.Errorf(codes.InvalidArgument, "publicNetworkAccess(%s) is not supported, supported PublicNetworkAccess list: %v", "test_publicNetworkAccess", armstorage.PossiblePublicNetworkAccessValues())
+			_, err := d.CreateVolume(ctx, req)
+			gomega.Expect(err).To(gomega.Equal(expectedErr))
+		})
+	})
 	ginkgo.When("nfs protocol only supports premium storage", func() {
 		ginkgo.It("should fail", func(ctx context.Context) {
 			allParam := map[string]string{
@@ -529,6 +546,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 		ginkgo.It("should fail", func(ctx context.Context) {
 			allParam := map[string]string{
 				networkEndpointTypeField: "privateendpoint",
+				vnetLinkNameField:        "vnetlink",
 				subnetNameField:          "subnet1,subnet2",
 			}
 

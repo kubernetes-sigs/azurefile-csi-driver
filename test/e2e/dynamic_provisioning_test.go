@@ -1480,6 +1480,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		scParameters := map[string]string{
 			"protocol":            "nfs",
 			"networkEndpointType": "privateEndpoint",
+			"publicNetworkAccess": "Disabled",
 			"skuName":             "Premium_LRS",
 			"rootSquashType":      "AllSquash",
 			"mountPermissions":    "0",

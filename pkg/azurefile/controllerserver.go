@@ -118,7 +118,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	var sku, subsID, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
 	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, shareAccessTier, accountAccessTier, rootSquashType, tagValueDelimiter string
 	var createAccount, useSeretCache, matchTags, selectRandomMatchingAccount, getLatestAccountKey, encryptInTransit bool
-	var vnetResourceGroup, vnetName, subnetName, shareNamePrefix, fsGroupChangePolicy, useDataPlaneAPI string
+	var vnetResourceGroup, vnetName, vnetLinkName, publicNetworkAccess, subnetName, shareNamePrefix, fsGroupChangePolicy, useDataPlaneAPI string
 	var requireInfraEncryption, disableDeleteRetentionPolicy, enableLFS, isMultichannelEnabled, allowSharedKeyAccess *bool
 	// set allowBlobPublicAccess as false by default
 	allowBlobPublicAccess := ptr.To(false)
@@ -212,6 +212,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", allowBlobPublicAccessField, v)
 			}
 			allowBlobPublicAccess = &value
+		case publicNetworkAccessField:
+			publicNetworkAccess = v
 		case allowSharedKeyAccessField:
 			value, err := strconv.ParseBool(v)
 			if err != nil {
@@ -237,6 +239,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			vnetResourceGroup = v
 		case vnetNameField:
 			vnetName = v
+		case vnetLinkNameField:
+			vnetLinkName = v
 		case subnetNameField:
 			subnetName = v
 		case shareNamePrefixField:
@@ -326,6 +330,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	if !isSupportedShareNamePrefix(shareNamePrefix) {
 		return nil, status.Errorf(codes.InvalidArgument, "shareNamePrefix(%s) can only contain lowercase letters, numbers, hyphens, and length should be less than 21", shareNamePrefix)
+	}
+
+	if !isSupportedPublicNetworkAccess(publicNetworkAccess) {
+		return nil, status.Errorf(codes.InvalidArgument, "publicNetworkAccess(%s) is not supported, supported PublicNetworkAccess list: %v", publicNetworkAccess, armstorage.PossiblePublicNetworkAccessValues())
 	}
 
 	if protocol == nfs && fsType != "" && fsType != nfs {
@@ -492,8 +500,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		DisableFileServiceDeleteRetentionPolicy: disableDeleteRetentionPolicy,
 		AllowBlobPublicAccess:                   allowBlobPublicAccess,
 		AllowSharedKeyAccess:                    allowSharedKeyAccess,
+		PublicNetworkAccess:                     publicNetworkAccess,
 		VNetResourceGroup:                       vnetResourceGroup,
 		VNetName:                                vnetName,
+		VNetLinkName:                            vnetLinkName,
 		SubnetName:                              subnetName,
 		RequireInfrastructureEncryption:         requireInfraEncryption,
 		AccessTier:                              accountAccessTier,
