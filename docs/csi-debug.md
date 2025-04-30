@@ -83,6 +83,13 @@ change below deployment config, e.g.
 
 ### troubleshooting connection failure on agent node
 > server address of sovereign cloud: accountname.file.core.chinacloudapi.cn
+
+ - check whether Azure file storage account is accessible on the node
+```console
+nslookup accountname.file.core.windows.net
+nc -v -w 2 accountname.file.core.windows.net 443
+```
+ 
 #### SMB
  - On Linux node
 ```console
