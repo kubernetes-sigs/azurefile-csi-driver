@@ -976,3 +976,55 @@ func TestGetFileServiceURL(t *testing.T) {
 		}
 	}
 }
+
+func TestIsValidSubscriptionID(t *testing.T) {
+	tests := []struct {
+		desc     string
+		subsID   string
+		expected bool
+	}{
+		{
+			desc:     "valid subscription ID",
+			subsID:   "c9d2281e-dcd5-4dfd-9a97-0d50377cdf76",
+			expected: true,
+		},
+		{
+			desc:     "invalid subscription ID - missing sections",
+			subsID:   "123e4567-e89b-12d3-a456",
+			expected: false,
+		},
+		{
+			desc:     "invalid subscription ID - invalid characters",
+			subsID:   "123e4567-e89b-12d3-a456-42661417400z",
+			expected: false,
+		},
+		{
+			desc:     "invalid subscription ID - empty string",
+			subsID:   "",
+			expected: false,
+		},
+		{
+			desc:     "invalid subscription ID - too short",
+			subsID:   "123e4567",
+			expected: false,
+		},
+		{
+			desc:     "invalid subscription ID - too long",
+			subsID:   "123e4567-e89b-12d3-a456-426614174000-extra",
+			expected: false,
+		},
+		{
+			desc:     "invalid subscription ID - timestamp",
+			subsID:   "2025-04-15T11:06:21.0000000Z",
+			expected: false,
+		},
+	}
+
+	for _, test := range tests {
+		result := isValidSubscriptionID(test.subsID)
+		if result != test.expected {
+			t.Errorf("desc: (%s), input: subsID(%s), isValidSubscriptionID returned with bool(%v), not equal to expected(%v)",
+				test.desc, test.subsID, result, test.expected)
+		}
+	}
+}

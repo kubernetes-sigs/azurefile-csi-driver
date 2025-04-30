@@ -736,7 +736,7 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 	if resourceGroupName == "" {
 		resourceGroupName = d.cloud.ResourceGroup
 	}
-	if subsID == "" {
+	if !isValidSubscriptionID(subsID) {
 		subsID = d.cloud.SubscriptionID
 	}
 
@@ -883,7 +883,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 	if rgName == "" {
 		rgName = d.cloud.ResourceGroup
 	}
-	if subsID == "" {
+	if !isValidSubscriptionID(subsID) {
 		subsID = d.cloud.SubscriptionID
 	}
 
@@ -1021,7 +1021,7 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 	if len(req.SnapshotId) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Snapshot ID must be provided")
 	}
-	rgName, accountName, fileShareName, _, _, _, err := GetFileShareInfo(req.SnapshotId) //nolint:dogsled
+	rgName, accountName, fileShareName, _, _, subsID, err := GetFileShareInfo(req.SnapshotId) //nolint:dogsled
 	if fileShareName == "" || err != nil {
 		// According to CSI Driver Sanity Tester, should succeed when an invalid snapshot id is used
 		klog.V(4).Infof("failed to get share url with (%s): %v, returning with success", req.SnapshotId, err)
@@ -1035,7 +1035,10 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 	if rgName == "" {
 		rgName = d.cloud.ResourceGroup
 	}
-	subsID := d.cloud.SubscriptionID
+	if !isValidSubscriptionID(subsID) {
+		subsID = d.cloud.SubscriptionID
+	}
+
 	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_delete_snapshot", rgName, subsID, d.Name)
 	isOperationSucceeded := false
 	defer func() {
@@ -1105,6 +1108,10 @@ func (d *Driver) restoreSnapshot(ctx context.Context, req *csi.CreateVolumeReque
 	dstFileShareName := shareOptions.Name
 	if srcAccountName == "" || srcFileShareName == "" || dstFileShareName == "" {
 		return fmt.Errorf("one or more of srcAccountName(%s), srcFileShareName(%s), dstFileShareName(%s) are empty", srcAccountName, srcFileShareName, dstFileShareName)
+	}
+
+	if !isValidSubscriptionID(srcSubscriptionID) {
+		srcSubscriptionID = d.cloud.SubscriptionID
 	}
 	srcAccountSasToken := dstAccountSasToken
 	if srcAccountName != dstAccountName && dstAccountSasToken != "" {
@@ -1218,7 +1225,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 	if resourceGroupName == "" {
 		resourceGroupName = d.cloud.ResourceGroup
 	}
-	if subsID == "" {
+	if !isValidSubscriptionID(subsID) {
 		subsID = d.cloud.SubscriptionID
 	}
 
