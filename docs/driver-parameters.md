@@ -67,6 +67,8 @@ vnetResourceGroup | specify vnet resource group where virtual network is | exist
 vnetName | virtual network name | existing virtual network name | No | if empty, driver will use the `vnetName` value in azure cloud config file
 subnetName | subnet name | existing subnet name(s) of virtual network, if you want to update service endpoints on multiple subnets, separate them using a comma (`,`) | No | if empty, driver will use the `subnetName` value in azure cloud config file
 fsGroupChangePolicy | indicates how volume's ownership will be changed by the driver, pod `securityContext.fsGroupChangePolicy` is ignored  | `OnRootMismatch`(by default), `Always`, `None` | No | `OnRootMismatch`
+vnetLinkName | virtual network link name associated with private dns zone |  | No | if empty, driver will use the `vnetName + "-vnetlink"` by default
+publicNetworkAccess | `PublicNetworkAccess` property of created storage account by the driver | `Enabled`, `Disabled`, `SecuredByPerimeter` | No |
 
  - account tags format created by dynamic provisioning
 ```

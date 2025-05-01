@@ -42,9 +42,9 @@ require (
 	k8s.io/mount-utils v0.32.1
 	k8s.io/pod-security-admission v0.32.1
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
-	sigs.k8s.io/cloud-provider-azure v1.29.1-0.20250425133425-2efcaed305f8
+	sigs.k8s.io/cloud-provider-azure v1.29.1-0.20250430201754-d0603ee5c5a7
 	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.6.2
-	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.5.2
+	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.5.3
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -182,7 +182,7 @@ require (
 	k8s.io/kubectl v0.0.0 // indirect
 	k8s.io/kubelet v0.32.4 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.0 // indirect
-	sigs.k8s.io/cloud-provider-azure/pkg/azclient/cache v0.6.0 // indirect
+	sigs.k8s.io/cloud-provider-azure/pkg/azclient/cache v0.6.1 // indirect
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.2 // indirect
 )
