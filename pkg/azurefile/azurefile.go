@@ -120,6 +120,7 @@ const (
 	getAccountKeyFromSecretField      = "getaccountkeyfromsecret"
 	disableDeleteRetentionPolicyField = "disabledeleteretentionpolicy"
 	allowBlobPublicAccessField        = "allowblobpublicaccess"
+	publicNetworkAccessField          = "publicnetworkaccess"
 	allowSharedKeyAccessField         = "allowsharedkeyaccess"
 	storageEndpointSuffixField        = "storageendpointsuffix"
 	fsGroupChangePolicyField          = "fsgroupchangepolicy"
@@ -150,6 +151,7 @@ const (
 	networkEndpointTypeField          = "networkendpointtype"
 	vnetResourceGroupField            = "vnetresourcegroup"
 	vnetNameField                     = "vnetname"
+	vnetLinkNameField                 = "vnetlinkname"
 	subnetNameField                   = "subnetname"
 	shareNamePrefixField              = "sharenameprefix"
 	requireInfraEncryptionField       = "requireinfraencryption"
@@ -921,6 +923,18 @@ func isSupportedAccountAccessTier(accessTier string) bool {
 	}
 	for _, tier := range armstorage.PossibleAccessTierValues() {
 		if accessTier == string(tier) {
+			return true
+		}
+	}
+	return false
+}
+
+func isSupportedPublicNetworkAccess(publicNetworkAccess string) bool {
+	if publicNetworkAccess == "" {
+		return true
+	}
+	for _, tier := range armstorage.PossiblePublicNetworkAccessValues() {
+		if publicNetworkAccess == string(tier) {
 			return true
 		}
 	}
