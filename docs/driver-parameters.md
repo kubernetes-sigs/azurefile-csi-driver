@@ -14,7 +14,6 @@ Microsoft.Network/virtualNetworks/join/action
 Microsoft.Network/virtualNetworks/subnets/join/action
 Microsoft.Network/virtualNetworks/subnets/write
 Microsoft.Network/virtualNetworks/subnets/read
-Microsoft.Network/virtualNetworks/subnets/*/read
 Microsoft.Network/privateEndpoints/write
 Microsoft.Network/privateEndpoints/read
 Microsoft.Network/privateEndpoints/privateDnsZoneGroups/read
