@@ -36,7 +36,7 @@ if [ "${INSTALL_AZNFS_MOUNT}" = "true" ];then
     $HOST_CMD apt-get install -y aznfs="$AZNFS_VERSION"
     echo "aznfs-mount installed"
   elif [ "$DISTRIBUTION" = "azurelinux" ];then # install aznfs-mount on azure linux 3.0
-    AZNFS_VERSION="0.1.526"
+    AZNFS_VERSION="0.1.548"
     echo "install aznfs v$AZNFS_VERSION...."
     $HOST_CMD curl -fsSL https://github.com/Azure/AZNFS-mount/releases/download/$AZNFS_VERSION/aznfs_install.sh | $HOST_CMD bash
   fi
