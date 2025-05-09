@@ -25,16 +25,23 @@ fi
 
 
 if [ "${INSTALL_AZNFS_MOUNT}" = "true" ];then
-  echo "install aznfs-mount...."
-  # $HOST_CMD curl -fsSL https://github.com/Azure/AZNFS-mount/releases/download/0.1.526/aznfs_install.sh | $HOST_CMD bash
-  # shellcheck disable=SC1091
-  $HOST_CMD curl -sSL -O "https://packages.microsoft.com/config/$(. /host/etc/os-release && echo "$ID/$VERSION_ID")/packages-microsoft-prod.deb"
-  yes | $HOST_CMD dpkg -i packages-microsoft-prod.deb && $HOST_CMD apt-get update
-  $HOST_CMD rm packages-microsoft-prod.deb
-  $HOST_CMD apt-get install -y aznfs=0.3.15
-  echo "aznfs-mount installed"
+  # install aznfs-mount on ubuntu
+  if [ "$DISTRIBUTION" = "ubuntu" ];then
+    AZNFS_VERSION="0.3.15"
+    echo "install aznfs v$AZNFS_VERSION...."
+    # shellcheck disable=SC1091
+    $HOST_CMD curl -sSL -O "https://packages.microsoft.com/config/$(. /host/etc/os-release && echo "$ID/$VERSION_ID")/packages-microsoft-prod.deb"
+    yes | $HOST_CMD dpkg -i packages-microsoft-prod.deb && $HOST_CMD apt-get update
+    $HOST_CMD rm packages-microsoft-prod.deb
+    $HOST_CMD apt-get install -y aznfs="$AZNFS_VERSION"
+    echo "aznfs-mount installed"
+  elif [ "$DISTRIBUTION" = "azurelinux" ];then # install aznfs-mount on azure linux 3.0
+    AZNFS_VERSION="0.1.548"
+    echo "install aznfs v$AZNFS_VERSION...."
+    $HOST_CMD curl -fsSL https://github.com/Azure/AZNFS-mount/releases/download/$AZNFS_VERSION/aznfs_install.sh | $HOST_CMD bash
+  fi
 
-  # TODO: Only install aznfswatchdogv4
+  # Only install aznfswatchdogv4, so aznfswatchdogv3 is not needed
   echo "stop aznfswatchdog, only need aznfswatchdogv4."
   $HOST_CMD systemctl disable aznfswatchdog
   $HOST_CMD systemctl stop aznfswatchdog

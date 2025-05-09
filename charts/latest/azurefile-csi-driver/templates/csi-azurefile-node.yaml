@@ -86,6 +86,8 @@ spec:
           env:
             - name: DEBIAN_FRONTEND
               value: "noninteractive"
+            - name: AZNFS_NONINTERACTIVE_INSTALL
+              value: "1"
             - name: INSTALL_AZUREFILE_PROXY
               value: "{{ .Values.node.azurefileProxy.enabled }}"
             - name: INSTALL_AZNFS_MOUNT
