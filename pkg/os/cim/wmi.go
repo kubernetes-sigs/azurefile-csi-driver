@@ -21,7 +21,6 @@ package cim
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/go-ole/go-ole"
@@ -29,6 +28,7 @@ import (
 	"github.com/microsoft/wmi/pkg/base/query"
 	"github.com/microsoft/wmi/pkg/errors"
 	cim "github.com/microsoft/wmi/pkg/wmiinstance"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -109,8 +109,9 @@ func QueryInstances(namespace string, query *query.WmiQuery) ([]*cim.WmiInstance
 }
 
 // TODO: fix the panic in microsoft/wmi library and remove this workaround
+// Refer to https://github.com/microsoft/wmi/issues/167
 func executeClassMethodParam(classInst *cim.WmiInstance, method *cim.WmiMethod, inParam, outParam cim.WmiMethodParamCollection) (result *cim.WmiMethodResult, err error) {
-	log.Printf("[WMI] - Executing Method [%s]\n", method.Name)
+	klog.V(6).Infof("[WMI] - Executing Method [%s]\n", method.Name)
 
 	iDispatchInstance := classInst.GetIDispatch()
 	if iDispatchInstance == nil {
@@ -163,7 +164,6 @@ func executeClassMethodParam(classInst *cim.WmiInstance, method *cim.WmiMethod, 
 		defer inparams.Clear()
 
 		for _, inp := range inParam {
-			// 	log.Printf("InParam [%s]=>[%+v]\n", inp.Name, inp.Value)
 			addInParam(inparams, inp.Name, inp.Value)
 		}
 
@@ -185,7 +185,7 @@ func executeClassMethodParam(classInst *cim.WmiInstance, method *cim.WmiMethod, 
 	defer returnRaw.Clear()
 	if returnRaw.Value() != nil {
 		result.ReturnValue = returnRaw.Value().(int32)
-		log.Printf("[WMI] - Return [%d] ", result.ReturnValue)
+		klog.V(6).Infof("[WMI] - Return [%d] ", result.ReturnValue)
 	}
 
 	for _, outp := range outParam {
@@ -201,7 +201,6 @@ func executeClassMethodParam(classInst *cim.WmiInstance, method *cim.WmiMethod, 
 			err = err1
 			return
 		}
-		// log.Printf("OutParam [%s]=> [%+v]\n", outp.Name, value)
 
 		result.OutMethodParams[outp.Name] = cim.NewWmiMethodParam(outp.Name, value)
 	}

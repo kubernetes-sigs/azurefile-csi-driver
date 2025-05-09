@@ -12,7 +12,7 @@ func QuerySmbGlobalMappingByRemotePath(remotePath string) (*cim.WmiInstance, err
 	smbQuery := query.NewWmiQuery("MSFT_SmbGlobalMapping", "RemotePath", remotePath)
 	instances, err := QueryInstances(WMINamespaceSmb, smbQuery)
 	if err != nil {
-		return nil, IgnoreNotFound(err)
+		return nil, err
 	}
 
 	return instances[0], err
