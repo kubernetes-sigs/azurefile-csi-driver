@@ -1074,7 +1074,9 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to get snapshot client for subID(%s): %v", subsID, err)
 		}
-		deleteErr = fileshareClient.Delete(ctx, rgName, accountName, fileShareName, nil)
+		deleteErr = fileshareClient.Delete(ctx, rgName, accountName, fileShareName, &armstorage.FileSharesClientDeleteOptions{
+			XMSSnapshot: to.Ptr(snapshot),
+		})
 	}
 
 	if deleteErr != nil {
