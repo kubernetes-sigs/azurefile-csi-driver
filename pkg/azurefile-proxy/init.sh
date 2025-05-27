@@ -31,5 +31,11 @@ DISTRIBUTION=$($HOST_CMD cat /etc/os-release | grep ^ID= | cut -d'=' -f2 | tr -d
 ARCH=$($HOST_CMD uname -m)
 echo "Linux distribution: $DISTRIBUTION, Arch: $ARCH"
 
+# Only install aznfs-mount on ubuntu and azurelinux
+if [ "$DISTRIBUTION" != "azurelinux" ] && [ "$DISTRIBUTION" != "ubuntu" ];then
+  echo "aznfs-mount is not supported on Linux distribution: $DISTRIBUTION"
+  exit 0
+fi
+
 . ./azurefile-proxy/install-proxy.sh
 
