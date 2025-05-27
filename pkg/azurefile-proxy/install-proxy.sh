@@ -41,7 +41,7 @@ if [ "${INSTALL_AZNFS_MOUNT}" = "true" ];then
     $HOST_CMD curl -fsSL https://github.com/Azure/AZNFS-mount/releases/download/$AZNFS_VERSION/aznfs_install.sh | $HOST_CMD bash
   else
     echo "aznfs-mount is not supported on Linux distribution: $DISTRIBUTION"
-    exit 1
+    exit 0
   fi
 
   # Only install aznfswatchdogv4, so aznfswatchdogv3 is not needed
