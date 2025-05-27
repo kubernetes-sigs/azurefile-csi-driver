@@ -1365,5 +1365,5 @@ func isKataNode(ctx context.Context, nodeID string, kubeClient clientset.Interfa
 		return false
 	}
 	klog.V(4).Infof("node(%s) labels: kataVMIsolationLabel(%s), kataRuntimeLabel(%s)", nodeID, kataVMIsolationLabel, kataRuntimeLabel)
-	return strings.EqualFold(kataCCIsolationLabel, "true") || strings.EqualFold(kataVMIsolationLabel, "true") || strings.EqualFold(kataRuntimeLabel, "true")
+	return strings.EqualFold(kataCCIsolationLabel, "true")
 }
