@@ -1739,7 +1739,7 @@ func TestIsKataNode(t *testing.T) {
 			nodeName:    "test-node",
 			setupClient: true,
 			labels: map[string]string{
-				"kubernetes.azure.com/kata-mshv-vm-isolation": "true",
+				"kubernetes.azure.com/kata-cc-isolation": "true",
 			},
 			expected: true,
 		},
