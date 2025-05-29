@@ -73,7 +73,7 @@ enableMultichannel | specify whether enable [SMB multi-channel](https://learn.mi
 allowSharedKeyAccess | Allow or disallow shared key access for storage account created by driver | `true`,`false` | No | `true`
 rootSquashType | specify root squashing behavior on the share. The default is `NoRootSquash` | `AllSquash`, `NoRootSquash`, `RootSquash` | No |
 mountPermissions | mounted folder permissions. The default is `0777`, if set as `0`, driver will not perform `chmod` after mount | `0777` | No |
-encryptInTransit | support encrypt in transit(EiT) for NFS by using [AZNFS-mount helper](https://github.com/Azure/AZNFS-mount) | `true`,`false` | No | `false`
+encryptInTransit | support [Encrypt in Transit(EiT) for NFS (Preview)](https://learn.microsoft.com/en-us/azure/storage/files/encryption-in-transit-for-nfs-shares) by using [AZNFS-mount helper](https://github.com/Azure/AZNFS-mount) | `true`,`false` | No | `false`
 --- | **Following parameters are only for vnet setting, e.g. NFS, private endpoint** | --- | --- |
 vnetResourceGroup | specify vnet resource group where virtual network is | existing resource group name | No | if empty, driver will use the `vnetResourceGroup` value in azure cloud config file
 vnetName | virtual network name | existing virtual network name | No | if empty, driver will use the `vnetName` value in azure cloud config file
@@ -123,7 +123,8 @@ nodeStageSecretRef.namespace | secret namespace | k8s namespace  |  Yes  |
 --- | **Following parameters are only for NFS protocol** | --- | --- |
 volumeAttributes.fsGroupChangePolicy | indicates how volume's ownership will be changed by the driver, pod `securityContext.fsGroupChangePolicy` is ignored  | `OnRootMismatch`(by default), `Always`, `None` | No | `OnRootMismatch`
 volumeAttributes.mountPermissions | mounted folder permissions. The default is `0777` |  | No |
-volumeAttributes.encryptInTransit | support encrypt in transit(EiT) for NFS by using [AZNFS-mount helper](https://github.com/Azure/AZNFS-mount) | `true`,`false` | No | `false`
+volumeAttributes.encryptInTransit | support [Encrypt in Transit(EiT) for NFS (Preview)](https://learn.microsoft.com/en-us/azure/storage/files/encryption-in-transit-for-nfs-shares) by using [AZNFS-mount helper](https://github.com/Azure/AZNFS-mount) | `true`,`false` | No | `false`
+
  - create a Kubernetes secret for `nodeStageSecretRef.name`
  ```console
 kubectl create secret generic azure-storage-account-{accountname}-secret --from-literal=azurestorageaccountname="xxx" --from-literal azurestorageaccountkey="xxx" --type=Opaque
