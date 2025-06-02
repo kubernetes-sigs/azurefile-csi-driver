@@ -37,10 +37,20 @@ var driverGlobalMountPath = "C:\\var\\lib\\kubelet\\plugins\\kubernetes.io\\csi\
 
 var _ CSIProxyMounter = &winMounter{}
 
-type winMounter struct{}
+type winMounter struct {
+	smbAPI smb.SMBAPI
+}
 
-func NewWinMounter() *winMounter {
-	return &winMounter{}
+func NewWinMounter(useWinCIMAPI bool) *winMounter {
+	var smbAPI smb.SMBAPI
+	if useWinCIMAPI {
+		smbAPI = smb.NewCimSMBAPI()
+	} else {
+		smbAPI = smb.NewPowerShellSMBAPI()
+	}
+	return &winMounter{
+		smbAPI: smbAPI,
+	}
 }
 
 func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions, sensitiveMountOptions []string) error {
@@ -75,7 +85,7 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 		return fmt.Errorf("remote path is empty")
 	}
 
-	isMapped, err := smb.IsSmbMapped(remotePath)
+	isMapped, err := mounter.smbAPI.IsSmbMapped(remotePath)
 	if err != nil {
 		isMapped = false
 	}
@@ -88,7 +98,7 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 
 		if !valid {
 			klog.Warningf("RemotePath %s is not valid, removing now", remotePath)
-			if err := smb.RemoveSmbGlobalMapping(remotePath); err != nil {
+			if err := mounter.smbAPI.RemoveSmbGlobalMapping(remotePath); err != nil {
 				klog.Errorf("RemoveSmbGlobalMapping(%s) failed with %v", remotePath, err)
 				return err
 			}
@@ -100,7 +110,7 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 		klog.V(2).Infof("Remote %s not mapped. Mapping now!", remotePath)
 		username := mountOptions[0]
 		password := sensitiveMountOptions[0]
-		if err := smb.NewSmbGlobalMapping(remotePath, username, password); err != nil {
+		if err := mounter.smbAPI.NewSmbGlobalMapping(remotePath, username, password); err != nil {
 			klog.Errorf("NewSmbGlobalMapping(%s) failed with %v", remotePath, err)
 			return err
 		}
@@ -136,7 +146,7 @@ func (mounter *winMounter) Unmount(target string) error {
 		klog.V(2).Infof("remote server path: %s, local path: %s", remoteServer, target)
 		if hasDupSMBMount, err := smb.CheckForDuplicateSMBMounts(driverGlobalMountPath, target, remoteServer); err == nil {
 			if !hasDupSMBMount {
-				if err := smb.RemoveSmbGlobalMapping(remoteServer); err != nil {
+				if err := mounter.smbAPI.RemoveSmbGlobalMapping(remoteServer); err != nil {
 					klog.Errorf("RemoveSmbGlobalMapping(%s) failed with %v", target, err)
 				}
 			} else {
