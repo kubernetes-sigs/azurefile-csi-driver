@@ -21,11 +21,13 @@ package filesystem
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
 	"strings"
 
+	"golang.org/x/sys/windows"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/util"
 )
@@ -84,14 +86,25 @@ func PathExists(path string) (bool, error) {
 }
 
 func PathValid(_ context.Context, path string) (bool, error) {
-	cmd := `Test-Path $Env:remotepath`
-	cmdEnv := fmt.Sprintf("remotepath=%s", path)
-	output, err := util.RunPowershellCmd(cmd, cmdEnv)
+	pathString, err := windows.UTF16PtrFromString(path)
 	if err != nil {
-		return false, fmt.Errorf("returned output: %s, error: %v", string(output), err)
+		klog.V(6).Infof("failed to convert path %s to UTF16: %v", path, err)
+		return false, fmt.Errorf("invalid path: %w", err)
 	}
 
-	return strings.HasPrefix(strings.ToLower(string(output)), "true"), nil
+	attrs, err := windows.GetFileAttributes(pathString)
+	if err != nil {
+		klog.V(6).Infof("failed to get file attributes for path %s: %v", path, err)
+		if errors.Is(err, windows.ERROR_PATH_NOT_FOUND) || errors.Is(err, windows.ERROR_FILE_NOT_FOUND) || errors.Is(err, windows.ERROR_INVALID_NAME) {
+			klog.V(6).Infof("path %s does not exist or is invalid", path)
+			return false, nil
+		}
+
+		// GetFileAttribute returns user or password incorrect for a disconnected SMB connection after the password is changed
+		return false, fmt.Errorf("failed to get path %s attribute: %w", path, err)
+	}
+
+	return attrs != windows.INVALID_FILE_ATTRIBUTES, nil
 }
 
 func ValidatePathWindows(path string) error {
