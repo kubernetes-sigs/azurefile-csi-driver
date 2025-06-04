@@ -86,6 +86,7 @@ func PathExists(path string) (bool, error) {
 }
 
 func PathValid(_ context.Context, path string) (bool, error) {
+	klog.V(6).Infof("PathValid called with path: %s", path)
 	pathString, err := windows.UTF16PtrFromString(path)
 	if err != nil {
 		klog.V(6).Infof("failed to convert path %s to UTF16: %v", path, err)
@@ -96,7 +97,7 @@ func PathValid(_ context.Context, path string) (bool, error) {
 	if err != nil {
 		klog.V(6).Infof("failed to get file attributes for path %s: %v", path, err)
 		if errors.Is(err, windows.ERROR_PATH_NOT_FOUND) || errors.Is(err, windows.ERROR_FILE_NOT_FOUND) || errors.Is(err, windows.ERROR_INVALID_NAME) {
-			klog.V(6).Infof("path %s does not exist or is invalid", path)
+			klog.Warningf("path %s does not exist or is invalid, error: %v", path, err)
 			return false, nil
 		}
 
@@ -104,6 +105,7 @@ func PathValid(_ context.Context, path string) (bool, error) {
 		return false, fmt.Errorf("failed to get path %s attribute: %w", path, err)
 	}
 
+	klog.V(6).Infof("GetFileAttributes for path %s returned attributes: %d", path, attrs)
 	return attrs != windows.INVALID_FILE_ATTRIBUTES, nil
 }
 
