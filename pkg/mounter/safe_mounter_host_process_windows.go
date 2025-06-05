@@ -103,6 +103,8 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 				return err
 			}
 			isMapped = false
+		} else {
+			klog.V(2).Infof("Remote %s already mapped, skipping mapping", remotePath)
 		}
 	}
 
