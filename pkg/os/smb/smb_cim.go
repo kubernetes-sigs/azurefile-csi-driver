@@ -31,6 +31,10 @@ const (
 	credentialDelimiter = ":"
 )
 
+func remotePathForQuery(remotePath string) string {
+	return strings.ReplaceAll(remotePath, "\\", "\\\\")
+}
+
 func escapeUserName(userName string) string {
 	// refer to https://github.com/PowerShell/PowerShell/blob/9303de597da55963a6e26a8fe164d0b256ca3d4d/src/Microsoft.PowerShell.Commands.Management/cimSupport/cmdletization/cim/cimConverter.cs#L169-L170
 	escaped := strings.ReplaceAll(userName, "\\", "\\\\")
@@ -47,7 +51,7 @@ func NewCimSMBAPI() *cimSMBAPI {
 }
 
 func (*cimSMBAPI) IsSmbMapped(remotePath string) (bool, error) {
-	inst, err := cim.QuerySmbGlobalMappingByRemotePath(remotePath)
+	inst, err := cim.QuerySmbGlobalMappingByRemotePath(remotePathForQuery(remotePath))
 	if err != nil {
 		klog.V(6).Infof("error querying smb mapping for remote path %s. err: %v", remotePath, err)
 		if strings.Contains(err.Error(), "not connected to server") {
@@ -85,7 +89,7 @@ func (*cimSMBAPI) NewSmbGlobalMapping(remotePath, username, password string) err
 }
 
 func (*cimSMBAPI) RemoveSmbGlobalMapping(remotePath string) error {
-	err := cim.RemoveSmbGlobalMappingByRemotePath(remotePath)
+	err := cim.RemoveSmbGlobalMappingByRemotePath(remotePathForQuery(remotePath))
 	if err != nil {
 		return fmt.Errorf("error remove smb mapping '%s'. err: %v", remotePath, err)
 	}
