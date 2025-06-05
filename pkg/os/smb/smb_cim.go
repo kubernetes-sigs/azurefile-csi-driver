@@ -50,6 +50,9 @@ func (*cimSMBAPI) IsSmbMapped(remotePath string) (bool, error) {
 	inst, err := cim.QuerySmbGlobalMappingByRemotePath(remotePath)
 	if err != nil {
 		klog.V(6).Infof("error querying smb mapping for remote path %s. err: %v", remotePath, err)
+		if strings.Contains(err.Error(), "not connected to server") {
+			return true, nil
+		}
 		return false, cim.IgnoreNotFound(err)
 	}
 
