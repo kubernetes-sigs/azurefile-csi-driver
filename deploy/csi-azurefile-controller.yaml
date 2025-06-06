@@ -90,7 +90,7 @@ spec:
               drop:
                 - ALL
         - name: csi-resizer
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-resizer:v1.13.2
+          image: mcr.microsoft.com/oss/v2/kubernetes-csi/csi-resizer:v1.13.2
           args:
             - "-csi-address=$(ADDRESS)"
             - "-v=2"
@@ -117,7 +117,7 @@ spec:
               drop:
                 - ALL
         - name: liveness-probe
-          image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.15.0
+          image: mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.15.0
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
