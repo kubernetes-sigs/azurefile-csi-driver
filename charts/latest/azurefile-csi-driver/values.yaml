@@ -9,15 +9,15 @@ image:
     tag: v5.2.0
     pullPolicy: IfNotPresent
   csiResizer:
-    repository: /oss/kubernetes-csi/csi-resizer
+    repository: /oss/v2/kubernetes-csi/csi-resizer
     tag: v1.13.2
     pullPolicy: IfNotPresent
   livenessProbe:
-    repository: /oss/kubernetes-csi/livenessprobe
+    repository: /oss/v2/kubernetes-csi/livenessprobe
     tag: v2.15.0
     pullPolicy: IfNotPresent
   nodeDriverRegistrar:
-    repository: /oss/kubernetes-csi/csi-node-driver-registrar
+    repository: /oss/v2/kubernetes-csi/csi-node-driver-registrar
     tag: v2.13.0
     pullPolicy: IfNotPresent
 
