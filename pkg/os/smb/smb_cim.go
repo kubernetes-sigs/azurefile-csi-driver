@@ -25,6 +25,7 @@ import (
 
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/os/cim"
+	"sigs.k8s.io/azurefile-csi-driver/pkg/util"
 )
 
 const (
@@ -67,24 +68,34 @@ func (*cimSMBAPI) IsSmbMapped(remotePath string) (bool, error) {
 }
 
 func (*cimSMBAPI) NewSmbGlobalMapping(remotePath, username, password string) error {
-	params := map[string]interface{}{
-		"RemotePath":     remotePath,
-		"RequirePrivacy": true,
-	}
-	if username != "" {
-		// refer to https://github.com/PowerShell/PowerShell/blob/9303de597da55963a6e26a8fe164d0b256ca3d4d/src/Microsoft.PowerShell.Commands.Management/cimSupport/cmdletization/cim/cimConverter.cs#L166-L178
-		// on how SMB credential is handled in PowerShell
-		params["Credential"] = escapeUserName(username) + credentialDelimiter + password
-	}
+	cmdLine := fmt.Sprintf(`$PWord = ConvertTo-SecureString -String $Env:smbpassword -AsPlainText -Force` +
+		`;$Credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $Env:smbuser, $PWord` +
+		`;New-SmbGlobalMapping -RemotePath $Env:smbremotepath -Credential $Credential -RequirePrivacy $true`)
 
-	klog.V(2).Infof("Before NewSmbGlobalMapping for remote path %s", remotePath)
-	result, _, err := cim.InvokeCimMethod(cim.WMINamespaceSmb, "MSFT_SmbGlobalMapping", "Create", params)
-	if err != nil {
-		return fmt.Errorf("NewSmbGlobalMapping failed. result: %d, err: %v", result, err)
+	klog.V(2).Infof("begin to run NewSmbGlobalMapping with %s, %s", remotePath, username)
+	if output, err := util.RunPowershellCmd(cmdLine, fmt.Sprintf("smbuser=%s", username),
+		fmt.Sprintf("smbpassword=%s", password),
+		fmt.Sprintf("smbremotepath=%s", remotePath)); err != nil {
+		return fmt.Errorf("NewSmbGlobalMapping failed. output: %q, err: %v", string(output), err)
 	}
-
-	klog.V(2).Infof("NewSmbGlobalMapping for remote path %s created successfully", remotePath)
 	return nil
+
+	//params := map[string]interface{}{
+	//	"RemotePath":     remotePath,
+	//	"RequirePrivacy": true,
+	//}
+	//// refer to https://github.com/PowerShell/PowerShell/blob/9303de597da55963a6e26a8fe164d0b256ca3d4d/src/Microsoft.PowerShell.Commands.Management/cimSupport/cmdletization/cim/cimConverter.cs#L166-L178
+	//// on how SMB credential is handled in PowerShell
+	//params["Credential"] = escapeUserName(username) + credentialDelimiter + password
+	//
+	//klog.V(2).Infof("Before NewSmbGlobalMapping for remote path %s", remotePath)
+	//result, _, err := cim.InvokeCimMethod(cim.WMINamespaceSmb, "MSFT_SmbGlobalMapping", "Create", params)
+	//if err != nil {
+	//	return fmt.Errorf("NewSmbGlobalMapping failed. result: %d, err: %v", result, err)
+	//}
+	//
+	//klog.V(2).Infof("NewSmbGlobalMapping for remote path %s created successfully", remotePath)
+	//return nil
 }
 
 func (*cimSMBAPI) RemoveSmbGlobalMapping(remotePath string) error {
