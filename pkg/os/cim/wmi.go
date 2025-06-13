@@ -21,6 +21,7 @@ package cim
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/go-ole/go-ole"
 	"github.com/go-ole/go-ole/oleutil"
@@ -37,9 +38,6 @@ const (
 )
 
 type InstanceHandler func(instance *cim.WmiInstance) (bool, error)
-
-// An InstanceIndexer provides index key to a WMI Instance in a map
-type InstanceIndexer func(instance *cim.WmiInstance) (string, error)
 
 // NewWMISession creates a new local WMI session for the given namespace, defaulting
 // to root namespace if none specified.
@@ -261,4 +259,31 @@ func IgnoreNotFound(err error) error {
 		return nil
 	}
 	return err
+}
+
+// WithCOMThread runs the given function `fn` on a locked OS thread
+// with COM initialized using COINIT_MULTITHREADED.
+//
+// This is necessary for using COM/OLE APIs directly (e.g., via go-ole),
+// because COM requires that initialization and usage occur on the same thread.
+//
+// It performs the following steps:
+//   - Locks the current goroutine to its OS thread
+//   - Calls ole.CoInitializeEx with COINIT_MULTITHREADED
+//   - Executes the user-provided function
+//   - Uninitializes COM
+//   - Unlocks the thread
+//
+// If COM initialization fails, or if the user's function returns an error,
+// that error is returned by WithCOMThread.
+func WithCOMThread(fn func() error) error {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	if err := ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED); err != nil {
+		return err
+	}
+	defer ole.CoUninitialize()
+
+	return fn()
 }
