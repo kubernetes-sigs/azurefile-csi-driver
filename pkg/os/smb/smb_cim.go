@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/os/cim"
 )
 
@@ -50,8 +51,10 @@ func NewCimSMBAPI() *cimSMBAPI {
 }
 
 func (*cimSMBAPI) IsSmbMapped(remotePath string) (bool, error) {
+	klog.V(2).Infof("Before: IsSmbMapped for %s", remotePath)
 	inst, err := cim.QuerySmbGlobalMappingByRemotePath(remotePathForQuery(remotePath))
 	if err != nil {
+		klog.V(2).Infof("err: IsSmbMapped for %s failed %v", err)
 		return false, cim.IgnoreNotFound(err)
 	}
 
@@ -74,18 +77,22 @@ func (*cimSMBAPI) NewSmbGlobalMapping(remotePath, username, password string) err
 		params["Credential"] = escapeUserName(username) + credentialDelimiter + password
 	}
 
+	klog.V(2).Infof("Before NewSmbGlobalMapping for remote path %s", remotePath)
 	result, _, err := cim.InvokeCimMethod(cim.WMINamespaceSmb, "MSFT_SmbGlobalMapping", "Create", params)
 	if err != nil {
 		return fmt.Errorf("NewSmbGlobalMapping failed. result: %d, err: %v", result, err)
 	}
 
+	klog.V(2).Infof("NewSmbGlobalMapping for remote path %s created successfully", remotePath)
 	return nil
 }
 
 func (*cimSMBAPI) RemoveSmbGlobalMapping(remotePath string) error {
+	klog.V(2).Infof("Before RemoveSmbGlobalMapping for remote path %s", remotePath)
 	err := cim.RemoveSmbGlobalMappingByRemotePath(remotePathForQuery(remotePath))
 	if err != nil {
 		return fmt.Errorf("error remove smb mapping '%s'. err: %v", remotePath, err)
 	}
+	klog.V(2).Infof("SmbGlobalMapping remote path %s removed successfully", remotePath)
 	return nil
 }

@@ -239,6 +239,7 @@ func executeClassMethodParam(classInst *cim.WmiInstance, method *cim.WmiMethod, 
 func InvokeCimMethod(namespace, class, methodName string, inputParameters map[string]interface{}) (int, map[string]interface{}, error) {
 	session, err := NewWMISession(namespace)
 	if err != nil {
+		klog.V(2).Infof("InvokeCimMethod: failed to get session %v", err)
 		return -1, nil, err
 	}
 
@@ -246,16 +247,19 @@ func InvokeCimMethod(namespace, class, methodName string, inputParameters map[st
 
 	rawResult, err := session.Session.CallMethod("Get", class)
 	if err != nil {
+		klog.V(2).Infof("InvokeCimMethod: failed to Call Method Get %v", err)
 		return -1, nil, err
 	}
 
 	classInst, err := cim.CreateWmiInstance(rawResult, session)
 	if err != nil {
+		klog.V(2).Infof("InvokeCimMethod: failed to Create WMI Instance %v", err)
 		return -1, nil, err
 	}
 
 	method, err := cim.NewWmiMethod(methodName, classInst)
 	if err != nil {
+		klog.V(2).Infof("InvokeCimMethod: failed to New WMI Method %v", err)
 		return -1, nil, err
 	}
 
@@ -271,6 +275,7 @@ func InvokeCimMethod(namespace, class, methodName string, inputParameters map[st
 	var result *cim.WmiMethodResult
 	result, err = executeClassMethodParam(classInst, method, inParam, outParam)
 	if err != nil {
+		klog.V(2).Infof("InvokeCimMethod: failed to execute class method %v", err)
 		return -1, nil, err
 	}
 
