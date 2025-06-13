@@ -64,6 +64,34 @@ func NewWMISession(namespace string) (*cim.WmiSession, error) {
 	return session, nil
 }
 
+func QueryInstancesFromSession(c *cim.WmiSession, queryExpression string) ([]*cim.WmiInstance, error) {
+	enum, err := c.PerformRawQuery(queryExpression)
+	if err != nil {
+		klog.V(2).Infof("error perform raw query %s: %v", queryExpression, err)
+		return nil, err
+	}
+	defer enum.Release()
+
+	wmiInstances := []*cim.WmiInstance{}
+	for tmp, length, err := enum.Next(1); length > 0; tmp, length, err = enum.Next(1) {
+		if err != nil {
+			klog.V(2).Infof("error getting next enumeration: %v", err)
+			return nil, err
+		}
+
+		wmiInstance, err := cim.CreateWmiInstance(&tmp, c)
+		if err != nil {
+			klog.V(2).Infof("error creating WMI instance: %v", err)
+			return nil, err
+		}
+
+		wmiInstances = append(wmiInstances, wmiInstance)
+	}
+
+	klog.V(2).Infof("[WMI] QueryInstances [%s]=> [%d]\n", queryExpression, len(wmiInstances))
+	return wmiInstances, nil
+}
+
 // QueryFromWMI executes a WMI query in the specified namespace and processes each result
 // through the provided handler function. Stops processing if handler returns false or encounters an error.
 func QueryFromWMI(namespace string, query *query.WmiQuery, handler InstanceHandler) error {
@@ -74,7 +102,7 @@ func QueryFromWMI(namespace string, query *query.WmiQuery, handler InstanceHandl
 
 	defer session.Close()
 
-	instances, err := session.QueryInstances(query.String())
+	instances, err := QueryInstancesFromSession(session, query.String())
 	if err != nil {
 		return fmt.Errorf("failed to query WMI class %s. error: %w", query.ClassName, err)
 	}
