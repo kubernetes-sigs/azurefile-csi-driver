@@ -410,6 +410,11 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		mountFsType := cifs
 		if protocol == nfs {
 			mountFsType = nfs
+			if newOptions, exists := removeOptionIfExists(mountOptions, encryptInTransitField); exists {
+				klog.V(2).Infof("encryptInTransit is set in mountOptions(%v), enabling encryptInTransit", mountOptions)
+				encryptInTransit = true
+				mountOptions = newOptions
+			}
 			if encryptInTransit {
 				mountFsType = aznfs
 			}
