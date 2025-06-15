@@ -244,9 +244,10 @@ func chmodIfPermissionMismatch(targetPath string, mode os.FileMode) error {
 		return err
 	}
 	perm := info.Mode() & os.ModePerm
-	if perm != mode {
-		klog.V(2).Infof("chmod targetPath(%s, mode:0%o) with permissions(0%o)", targetPath, info.Mode(), mode)
-		if err := os.Chmod(targetPath, mode); err != nil {
+	expectedPerms := mode & os.ModePerm
+	if perm != expectedPerms {
+		klog.V(2).Infof("chmod targetPath(%s, mode:0%o) with permissions(0%o)", targetPath, info.Mode(), expectedPerms)
+		if err := os.Chmod(targetPath, expectedPerms); err != nil {
 			return err
 		}
 	} else {
