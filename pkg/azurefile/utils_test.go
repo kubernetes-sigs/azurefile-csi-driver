@@ -1028,3 +1028,71 @@ func TestIsValidSubscriptionID(t *testing.T) {
 		}
 	}
 }
+
+func TestRemoveOptionIfExists(t *testing.T) {
+	tests := []struct {
+		desc            string
+		options         []string
+		removeOption    string
+		expectedOptions []string
+		expected        bool
+	}{
+		{
+			desc:         "nil options",
+			removeOption: "option",
+			expected:     false,
+		},
+		{
+			desc:            "empty options",
+			options:         []string{},
+			removeOption:    "option",
+			expectedOptions: []string{},
+			expected:        false,
+		},
+		{
+			desc:            "option not found",
+			options:         []string{"option1", "option2"},
+			removeOption:    "option",
+			expectedOptions: []string{"option1", "option2"},
+			expected:        false,
+		},
+		{
+			desc:            "option found in the last element",
+			options:         []string{"option1", "option2", "option"},
+			removeOption:    "option",
+			expectedOptions: []string{"option1", "option2"},
+			expected:        true,
+		},
+		{
+			desc:            "option found in the first element",
+			options:         []string{"option", "option1", "option2"},
+			removeOption:    "option",
+			expectedOptions: []string{"option1", "option2"},
+			expected:        true,
+		},
+		{
+			desc:            "option found in the middle element",
+			options:         []string{"option1", "option", "option2"},
+			removeOption:    "option",
+			expectedOptions: []string{"option1", "option2"},
+			expected:        true,
+		},
+		{
+			desc:            "option found with case insensitive match",
+			options:         []string{"option1", "encryptInTransit", "option2"},
+			removeOption:    "encryptintransit",
+			expectedOptions: []string{"option1", "option2"},
+			expected:        true,
+		},
+	}
+
+	for _, test := range tests {
+		result, exists := removeOptionIfExists(test.options, test.removeOption)
+		if !reflect.DeepEqual(result, test.expectedOptions) {
+			t.Errorf("test[%s]: unexpected output: %v, expected result: %v", test.desc, result, test.expectedOptions)
+		}
+		if exists != test.expected {
+			t.Errorf("test[%s]: unexpected output: %v, expected result: %v", test.desc, exists, test.expected)
+		}
+	}
+}
