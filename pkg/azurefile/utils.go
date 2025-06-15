@@ -361,3 +361,14 @@ func getFileServiceURL(accountName, storageEndpointSuffix string) string {
 func isValidSubscriptionID(subsID string) bool {
 	return regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`).MatchString(subsID)
 }
+
+// RemoveOptionIfExists removes the given option from the list of options
+// return the new list and a boolean indicating whether the option was found.
+func removeOptionIfExists(options []string, removeOption string) ([]string, bool) {
+	for i, option := range options {
+		if strings.EqualFold(option, removeOption) {
+			return append(options[:i], options[i+1:]...), true
+		}
+	}
+	return options, false
+}
