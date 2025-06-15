@@ -86,7 +86,7 @@ func (o *DriverOptions) AddFlags() *flag.FlagSet {
 	fs.BoolVar(&o.AppendNoShareSockOption, "append-nosharesock-option", true, "Whether appending nosharesock option to smb mount command")
 	fs.BoolVar(&o.AppendNoResvPortOption, "append-noresvport-option", true, "Whether appending noresvport option to nfs mount command")
 	fs.BoolVar(&o.AppendActimeoOption, "append-actimeo-option", true, "Whether appending actimeo=0 option to nfs mount command")
-	fs.BoolVar(&o.UseWinCIMAPI, "use-win-cim-api", false, "Whether performing azure file operations using CIM API or Powershell command on Windows node")
+	fs.BoolVar(&o.UseWinCIMAPI, "use-win-cim-api", true, "Whether performing azure file operations using CIM API or Powershell command on Windows node")
 	fs.IntVar(&o.SkipMatchingTagCacheExpireInMinutes, "skip-matching-tag-cache-expire-in-minutes", 30, "The cache expire time in minutes for skipMatchingTagCache")
 	fs.IntVar(&o.VolStatsCacheExpireInMinutes, "vol-stats-cache-expire-in-minutes", 10, "The cache expire time in minutes for volume stats cache")
 	fs.BoolVar(&o.PrintVolumeStatsCallLogs, "print-volume-stats-call-logs", false, "Whether to print volume statfs call logs with log level 2")
