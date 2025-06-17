@@ -432,6 +432,7 @@ func TestConvertTagsToMap(t *testing.T) {
 }
 
 func TestChmodIfPermissionMismatch(t *testing.T) {
+	skipIfTestingOnWindows(t)
 	permissionMatchingPath, _ := getWorkDirPath("permissionMatchingPath")
 	_ = makeDir(permissionMatchingPath, 0755)
 	defer os.RemoveAll(permissionMatchingPath)
