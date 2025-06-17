@@ -37,5 +37,10 @@ if [ "$DISTRIBUTION" != "azurelinux" ] && [ "$DISTRIBUTION" != "ubuntu" ];then
   exit 0
 fi
 
+if [ "$ARCH" = "aarch64" ];then
+  echo "aznfs-mount is not supported on architecture: $ARCH"
+  exit 0
+fi
+
 . ./azurefile-proxy/install-proxy.sh
 
