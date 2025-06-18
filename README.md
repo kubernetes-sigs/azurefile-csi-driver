@@ -17,7 +17,7 @@ Disclaimer: Deploying this driver manually is not an officially supported Micros
 |Driver Version  |Image                                                      | supported k8s version |
 |----------------|---------------------------------------------------------- |-----------------------|
 |master branch   |mcr.microsoft.com/k8s/csi/azurefile-csi:latest             | 1.21+                 |
-|v1.33.1         |mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.33.1 | 1.21+                 |
+|v1.33.2         |mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.33.2 | 1.21+                 |
 |v1.32.4         |mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.32.4 | 1.21+                 |
 |v1.31.6         |mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.31.6 | 1.21+                 |
 
