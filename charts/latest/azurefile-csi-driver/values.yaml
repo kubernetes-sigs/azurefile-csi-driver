@@ -5,7 +5,7 @@ image:
     tag: v1.33.2
     pullPolicy: IfNotPresent
   csiProvisioner:
-    repository: /oss/kubernetes-csi/csi-provisioner
+    repository: /oss/v2/kubernetes-csi/csi-provisioner
     tag: v5.2.0
     pullPolicy: IfNotPresent
   csiResizer:
@@ -133,7 +133,7 @@ snapshot:
   enabled: false
   image:
     csiSnapshotter:
-      repository: /oss/kubernetes-csi/csi-snapshotter
+      repository: /oss/v2/kubernetes-csi/csi-snapshotter
       tag: v8.2.1
       pullPolicy: IfNotPresent
     csiSnapshotController:
