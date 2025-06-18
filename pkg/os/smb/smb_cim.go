@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/os/cim"
 )
 
@@ -52,11 +53,16 @@ func NewCimSMBAPI() *cimSMBAPI {
 func (*cimSMBAPI) IsSmbMapped(remotePath string) (bool, error) {
 	inst, err := cim.QuerySmbGlobalMappingByRemotePath(remotePathForQuery(remotePath))
 	if err != nil {
+		klog.V(6).Infof("error querying smb mapping for remote path %s. err: %v", remotePath, err)
+		if strings.Contains(err.Error(), "not connected to server") {
+			return true, nil
+		}
 		return false, cim.IgnoreNotFound(err)
 	}
 
 	status, err := inst.GetProperty("Status")
 	if err != nil {
+		klog.V(6).Infof("error getting smb mapping status for remote path %s. err: %v", remotePath, err)
 		return false, err
 	}
 

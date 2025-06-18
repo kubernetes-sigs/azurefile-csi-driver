@@ -87,6 +87,7 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 
 	isMapped, err := mounter.smbAPI.IsSmbMapped(remotePath)
 	if err != nil {
+		klog.Errorf("IsSmbMapped(%s) failed with %v", remotePath, err)
 		isMapped = false
 	}
 
@@ -103,6 +104,8 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 				return err
 			}
 			isMapped = false
+		} else {
+			klog.V(2).Infof("Remote %s already mapped, skipping mapping", remotePath)
 		}
 	}
 
