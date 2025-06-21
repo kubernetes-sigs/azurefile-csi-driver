@@ -20,32 +20,32 @@ limitations under the License.
 package cim
 
 import (
+	"errors"
 	"fmt"
+	"runtime"
 
 	"github.com/go-ole/go-ole"
 	"github.com/go-ole/go-ole/oleutil"
 	"github.com/microsoft/wmi/pkg/base/query"
-	"github.com/microsoft/wmi/pkg/errors"
+	wmierrors "github.com/microsoft/wmi/pkg/errors"
 	cim "github.com/microsoft/wmi/pkg/wmiinstance"
+	"golang.org/x/sys/windows"
 	"k8s.io/klog/v2"
 )
 
 const (
-	WMINamespaceRoot    = "Root\\CimV2"
+	WMINamespaceCimV2   = "Root\\CimV2"
 	WMINamespaceStorage = "Root\\Microsoft\\Windows\\Storage"
 	WMINamespaceSmb     = "Root\\Microsoft\\Windows\\Smb"
 )
 
 type InstanceHandler func(instance *cim.WmiInstance) (bool, error)
 
-// An InstanceIndexer provides index key to a WMI Instance in a map
-type InstanceIndexer func(instance *cim.WmiInstance) (string, error)
-
 // NewWMISession creates a new local WMI session for the given namespace, defaulting
 // to root namespace if none specified.
 func NewWMISession(namespace string) (*cim.WmiSession, error) {
 	if namespace == "" {
-		namespace = WMINamespaceRoot
+		namespace = WMINamespaceCimV2
 	}
 
 	sessionManager := cim.NewWmiSessionManager()
@@ -80,7 +80,7 @@ func QueryFromWMI(namespace string, query *query.WmiQuery, handler InstanceHandl
 	}
 
 	if len(instances) == 0 {
-		return errors.NotFound
+		return wmierrors.NotFound
 	}
 
 	var cont bool
@@ -114,7 +114,7 @@ func executeClassMethodParam(classInst *cim.WmiInstance, method *cim.WmiMethod, 
 
 	iDispatchInstance := classInst.GetIDispatch()
 	if iDispatchInstance == nil {
-		return nil, errors.Wrapf(errors.InvalidInput, "InvalidInstance")
+		return nil, wmierrors.Wrapf(wmierrors.InvalidInput, "InvalidInstance")
 	}
 	rawResult, err := iDispatchInstance.GetProperty("Methods_")
 	if err != nil {
@@ -254,11 +254,52 @@ func InvokeCimMethod(namespace, class, methodName string, inputParameters map[st
 	return int(result.ReturnValue), outputParameters, nil
 }
 
+// IsNotFound returns true if it's a "not found" error.
+func IsNotFound(err error) bool {
+	return wmierrors.IsNotFound(err)
+}
+
 // IgnoreNotFound returns nil if the error is nil or a "not found" error,
 // otherwise returns the original error.
 func IgnoreNotFound(err error) error {
-	if err == nil || errors.IsNotFound(err) {
+	if err == nil || IsNotFound(err) {
 		return nil
 	}
 	return err
+}
+
+// WithCOMThread runs the given function `fn` on a locked OS thread
+// with COM initialized using COINIT_MULTITHREADED.
+//
+// This is necessary for using COM/OLE APIs directly (e.g., via go-ole),
+// because COM requires that initialization and usage occur on the same thread.
+//
+// It performs the following steps:
+//   - Locks the current goroutine to its OS thread
+//   - Calls ole.CoInitializeEx with COINIT_MULTITHREADED
+//   - Executes the user-provided function
+//   - Uninitializes COM
+//   - Unlocks the thread
+//
+// If COM initialization fails, or if the user's function returns an error,
+// that error is returned by WithCOMThread.
+func WithCOMThread(fn func() error) error {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	if err := ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED); err != nil {
+		var oleError *ole.OleError
+		if errors.As(err, &oleError) && oleError != nil && oleError.Code() == uintptr(windows.S_FALSE) {
+			klog.V(10).Infof("COM library has been already initialized for the calling thread, proceeding to the function with no error")
+			err = nil
+		}
+		if err != nil {
+			return err
+		}
+	} else {
+		klog.V(10).Infof("COM library is initialized for the calling thread")
+	}
+	defer ole.CoUninitialize()
+
+	return fn()
 }
