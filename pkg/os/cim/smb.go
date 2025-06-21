@@ -71,7 +71,17 @@ func QuerySmbGlobalMappingByRemotePath(remotePath string) (*cim.WmiInstance, err
 	return instances[0], err
 }
 
-// RemoveSmbGlobalMappingByRemotePath removes a SMB global mapping matching to the remote path.
+// GetSmbGlobalMappingStatus returns the status of an SMB global mapping.
+func GetSmbGlobalMappingStatus(inst *cim.WmiInstance) (int32, error) {
+	statusProp, err := inst.GetProperty("Status")
+	if err != nil {
+		return SmbMappingStatusUnavailable, err
+	}
+
+	return statusProp.(int32), nil
+}
+
+// RemoveSmbGlobalMappingByRemotePath removes an SMB global mapping matching to the remote path.
 //
 // Refer to https://pkg.go.dev/github.com/microsoft/wmi/server2019/root/microsoft/windows/smb#MSFT_SmbGlobalMapping
 // for the WMI class definition.

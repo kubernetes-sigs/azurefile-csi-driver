@@ -33,7 +33,7 @@ func NewCimSMBAPI() *cimSMBAPI {
 }
 
 func (*cimSMBAPI) IsSmbMapped(remotePath string) (bool, error) {
-	var status int32
+	var isMapped bool
 	err := cim.WithCOMThread(func() error {
 		inst, err := cim.QuerySmbGlobalMappingByRemotePath(remotePath)
 		if err != nil {
@@ -41,20 +41,16 @@ func (*cimSMBAPI) IsSmbMapped(remotePath string) (bool, error) {
 			return err
 		}
 
-		statusProp, err := inst.GetProperty("Status")
+		status, err := cim.GetSmbGlobalMappingStatus(inst)
 		if err != nil {
 			klog.V(6).Infof("error getting smb mapping status for remote path %s. err: %v", remotePath, err)
 			return err
 		}
 
-		status = statusProp.(int32)
+		isMapped = status == cim.SmbMappingStatusOK
 		return nil
 	})
-	if err != nil {
-		return false, cim.IgnoreNotFound(err)
-	}
-
-	return status == cim.SmbMappingStatusOK, nil
+	return isMapped, cim.IgnoreNotFound(err)
 }
 
 func (*cimSMBAPI) NewSmbGlobalMapping(remotePath, username, password string) error {
