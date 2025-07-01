@@ -268,7 +268,7 @@ func SetVolumeOwnership(path, gid, policy string) error {
 	if policy != "" {
 		fsGroupChangePolicy = v1.PodFSGroupChangePolicy(policy)
 	}
-	return volume.SetVolumeOwnership(&VolumeMounter{path: path}, path, &gidInt64, &fsGroupChangePolicy, nil)
+	return volume.NewVolumeOwnership(&VolumeMounter{path: path}, path, &gidInt64, &fsGroupChangePolicy, nil).ChangePermissions()
 }
 
 // setKeyValueInMap set key/value pair in map
