@@ -4,7 +4,7 @@
 - supported from v1.28.6, v1.29.1
 - SMB file share is supported, NFS file share is not supported
 - use of private endpoints is not supported due to the `DenyAll` default network rules in the storage account's VNet settings
-- ensure that you have granted the Storage File Data Privileged Contributor role to the CSI driver controller identity; otherwise, the driver will utilize an SAS key for volume cloning operations.
+- ensure that you have granted the `Storage File Data Privileged Contributor` role to the CSI driver controller identity; otherwise, the driver will utilize an SAS key for volume cloning operations.
 
 ## Prerequisites
 - make sure that the virtual network hosting the driver controller pod is added to the list of allowed virtual networks in the storage account's VNet settings
