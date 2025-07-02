@@ -75,27 +75,36 @@ func (c *WmiMethod) Execute(inParam, outParam WmiMethodParamCollection) (result 
 	}
 	defer rawMethod.Clear()
 
-	inparamsRaw, err := rawMethod.ToIDispatch().GetProperty("InParameters")
-	if err != nil {
-		return nil, err
-	}
-	defer inparamsRaw.Clear()
+	params := []interface{}{c.Name}
 
-	inparams, err := oleutil.CallMethod(inparamsRaw.ToIDispatch(), "SpawnInstance_")
-	if err != nil {
-		return nil, err
-	}
-	defer inparams.Clear()
+	if len(inParam) > 0 {
+		inparamsRaw, err := rawMethod.ToIDispatch().GetProperty("InParameters")
+		if err != nil {
+			return nil, err
+		}
+		defer inparamsRaw.Clear()
 
-	for _, inp := range inParam {
-		// 	log.Printf("InParam [%s]=>[%+v]\n", inp.Name, inp.Value)
-		c.addInParam(inparams, inp.Name, inp.Value)
+		// Method with no parameters may return a VARIANT with nil IDispatch
+		if inparamsRaw.Val != 0 {
+			inparams, err := oleutil.CallMethod(inparamsRaw.ToIDispatch(), "SpawnInstance_")
+			if err != nil {
+				return nil, err
+			}
+			defer inparams.Clear()
+
+			for _, inp := range inParam {
+				// 	log.Printf("InParam [%s]=>[%+v]\n", inp.Name, inp.Value)
+				c.addInParam(inparams, inp.Name, inp.Value)
+			}
+
+			params = append(params, inparams)
+		}
 	}
 
 	result = &WmiMethodResult{
 		OutMethodParams: map[string]*WmiMethodParam{},
 	}
-	outparams, err := c.classInstance.GetIDispatch().CallMethod("ExecMethod_", c.Name, inparams)
+	outparams, err := c.classInstance.GetIDispatch().CallMethod("ExecMethod_", params...)
 	if err != nil {
 		return
 	}
