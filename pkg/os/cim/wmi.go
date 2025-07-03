@@ -25,7 +25,6 @@ import (
 	"runtime"
 
 	"github.com/go-ole/go-ole"
-	"github.com/go-ole/go-ole/oleutil"
 	"github.com/microsoft/wmi/pkg/base/query"
 	wmierrors "github.com/microsoft/wmi/pkg/errors"
 	cim "github.com/microsoft/wmi/pkg/wmiinstance"
@@ -107,105 +106,6 @@ func QueryInstances(namespace string, query *query.WmiQuery) ([]*cim.WmiInstance
 	return instances, err
 }
 
-// TODO: fix the panic in microsoft/wmi library and remove this workaround
-// Refer to https://github.com/microsoft/wmi/issues/167
-func executeClassMethodParam(classInst *cim.WmiInstance, method *cim.WmiMethod, inParam, outParam cim.WmiMethodParamCollection) (result *cim.WmiMethodResult, err error) {
-	klog.V(6).Infof("[WMI] - Executing Method [%s]\n", method.Name)
-
-	iDispatchInstance := classInst.GetIDispatch()
-	if iDispatchInstance == nil {
-		return nil, wmierrors.Wrapf(wmierrors.InvalidInput, "InvalidInstance")
-	}
-	rawResult, err := iDispatchInstance.GetProperty("Methods_")
-	if err != nil {
-		return nil, err
-	}
-	defer rawResult.Clear()
-	// Retrieve the method
-	rawMethod, err := rawResult.ToIDispatch().CallMethod("Item", method.Name)
-	if err != nil {
-		return nil, err
-	}
-	defer rawMethod.Clear()
-
-	addInParam := func(inparamVariant *ole.VARIANT, paramName string, paramValue interface{}) error {
-		rawProperties, err := inparamVariant.ToIDispatch().GetProperty("Properties_")
-		if err != nil {
-			return err
-		}
-		defer rawProperties.Clear()
-		rawProperty, err := rawProperties.ToIDispatch().CallMethod("Item", paramName)
-		if err != nil {
-			return err
-		}
-		defer rawProperty.Clear()
-
-		p, err := rawProperty.ToIDispatch().PutProperty("Value", paramValue)
-		if err != nil {
-			return err
-		}
-		defer p.Clear()
-		return nil
-	}
-
-	params := []interface{}{method.Name}
-	if len(inParam) > 0 {
-		inparamsRaw, err := rawMethod.ToIDispatch().GetProperty("InParameters")
-		if err != nil {
-			return nil, err
-		}
-		defer inparamsRaw.Clear()
-
-		inparams, err := oleutil.CallMethod(inparamsRaw.ToIDispatch(), "SpawnInstance_")
-		if err != nil {
-			return nil, err
-		}
-		defer inparams.Clear()
-
-		for _, inp := range inParam {
-			addInParam(inparams, inp.Name, inp.Value)
-		}
-
-		params = append(params, inparams)
-	}
-
-	result = &cim.WmiMethodResult{
-		OutMethodParams: map[string]*cim.WmiMethodParam{},
-	}
-	outparams, err := classInst.GetIDispatch().CallMethod("ExecMethod_", params...)
-	if err != nil {
-		return
-	}
-	defer outparams.Clear()
-	returnRaw, err := outparams.ToIDispatch().GetProperty("ReturnValue")
-	if err != nil {
-		return
-	}
-	defer returnRaw.Clear()
-	if returnRaw.Value() != nil {
-		result.ReturnValue = returnRaw.Value().(int32)
-		klog.V(6).Infof("[WMI] - Return [%d] ", result.ReturnValue)
-	}
-
-	for _, outp := range outParam {
-		returnRawIn, err1 := outparams.ToIDispatch().GetProperty(outp.Name)
-		if err1 != nil {
-			err = err1
-			return
-		}
-		defer returnRawIn.Clear()
-
-		value, err1 := cim.GetVariantValue(returnRawIn)
-		if err1 != nil {
-			err = err1
-			return
-		}
-
-		result.OutMethodParams[outp.Name] = cim.NewWmiMethodParam(outp.Name, value)
-	}
-	return
-}
-
 // InvokeCimMethod calls a static method on a specific WMI class with given input parameters,
 // returning the method's return value, output parameters, and any error encountered.
 func InvokeCimMethod(namespace, class, methodName string, inputParameters map[string]interface{}) (int, map[string]interface{}, error) {
@@ -241,7 +141,7 @@ func InvokeCimMethod(namespace, class, methodName string, inputParameters map[st
 
 	var outParam cim.WmiMethodParamCollection
 	var result *cim.WmiMethodResult
-	result, err = executeClassMethodParam(classInst, method, inParam, outParam)
+	result, err = method.Execute(inParam, outParam)
 	if err != nil {
 		return -1, nil, err
 	}
