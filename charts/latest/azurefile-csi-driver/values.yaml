@@ -133,12 +133,12 @@ snapshot:
   enabled: false
   image:
     csiSnapshotter:
-      repository: /oss/v2/kubernetes-csi/csi-snapshotter
-      tag: v8.2.1
+      repository: /oss/kubernetes-csi/csi-snapshotter
+      tag: v8.3.0
       pullPolicy: IfNotPresent
     csiSnapshotController:
       repository: /oss/kubernetes-csi/snapshot-controller
-      tag: v8.2.1
+      tag: v8.3.0
       pullPolicy: IfNotPresent
   snapshotController:
     name: csi-snapshot-controller
