@@ -96,11 +96,16 @@ spec:
               value: "{{ .Values.linux.kubelet }}"
             - name: MIGRATE_K8S_REPO
               value: "{{ .Values.node.azurefileProxy.migrateK8sRepo }}"
+            - name: SETUP_MI_AUTH
+              value: "{{ .Values.node.azurefileProxy.setUpMIAuth }}"
           volumeMounts:
             - name: host-usr
               mountPath: /host/usr
             - name: host-etc
               mountPath: /host/etc
+            - name: mountpoint-dir
+              mountPath: /var/lib/kubelet/
+              mountPropagation: Bidirectional
       containers:
         - name: liveness-probe
           volumeMounts:
@@ -140,6 +145,27 @@ spec:
             - name: registration-dir
               mountPath: /registration
           resources: {{- toYaml .Values.linux.resources.nodeDriverRegistrar | nindent 12 }}
+        - name: azfilesrefresh
+{{- if hasPrefix "/" .Values.image.azurefile.repository }}
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
+{{- else }}
+          image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.image.azurefile.pullPolicy }}
+          command:
+            - "azfilesrefresh"
+          securityContext:
+            privileged: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - mountPath: /var/lib/kubelet/
+              mountPropagation: Bidirectional
+              name: mountpoint-dir
+            - name: host-etc
+              mountPath: /etc
+          resources: {{- toYaml .Values.linux.resources.azfilesrefresh | nindent 12 }}
         - name: azurefile
 {{- if hasPrefix "/" .Values.image.azurefile.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"

@@ -58,11 +58,16 @@ spec:
               value: "true"
             - name: INSTALL_AZNFS_MOUNT
               value: "true"
+            - name: SETUP_MI_AUTH
+              value: "true"
           volumeMounts:
             - name: host-usr
               mountPath: /host/usr
             - name: host-etc
               mountPath: /host/etc
+            - name: mountpoint-dir
+              mountPath: /var/lib/kubelet/
+              mountPropagation: Bidirectional
       containers:
         - name: liveness-probe
           volumeMounts:
@@ -163,9 +168,33 @@ spec:
               name: device-dir
             - mountPath: /run/kata-containers/shared/direct-volumes
               name: kata-direct-volumes
+            - name: host-etc
+              mountPath: /etc
           resources:
             limits:
               memory: 400Mi
+            requests:
+              cpu: 10m
+              memory: 20Mi
+        - name: azfilesrefresh
+          image: mcr.microsoft.com/k8s/csi/azurefile-csi:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - "azfilesrefresh"
+          securityContext:
+            privileged: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - mountPath: /var/lib/kubelet/
+              mountPropagation: Bidirectional
+              name: mountpoint-dir
+            - name: host-etc
+              mountPath: /etc
+          resources:
+            limits:
+              memory: 100Mi
             requests:
               cpu: 10m
               memory: 20Mi
