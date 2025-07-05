@@ -378,6 +378,6 @@ func removeOptionIfExists(options []string, removeOption string) ([]string, bool
 
 func setCredentialCache(server, clientID string) ([]byte, error) {
 	klog.V(2).Infof("setCredentialCache for server %s with clientID %s", server, clientID)
-	cmd := exec.Command("azfilesauthmanager", "set", server, "--imds-client-id", clientID)
+	cmd := exec.Command("sudo", "azfilesauthmanager", "set", server, "--imds-client-id", clientID)
 	return cmd.CombinedOutput()
 }

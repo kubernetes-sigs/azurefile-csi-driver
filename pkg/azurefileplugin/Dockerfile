@@ -34,7 +34,7 @@ ARG binary=./_output/${ARCH}/azurefileplugin
 COPY ${binary} /azurefileplugin
 COPY --from=builder --chown=root:root /usr/local/bin/azcopy /usr/local/bin/azcopy
 
-RUN apt update && apt upgrade -y && apt-mark unhold libcap2 && clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase python3-requests
+RUN apt update && apt upgrade -y && apt-mark unhold libcap2 && clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase curl sudo python3-requests
 
 COPY ./pkg/azurefile-proxy/init.sh /azurefile-proxy/
 COPY ./pkg/azurefile-proxy/install-proxy.sh /azurefile-proxy/
