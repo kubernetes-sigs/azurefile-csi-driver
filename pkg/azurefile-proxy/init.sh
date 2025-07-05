@@ -32,6 +32,7 @@ mkdir -p /var/lib/kubelet/kerberos
 echo -e '[libdefaults]\ndefault_ccache_name = FILE:/var/lib/kubelet/kerberos/krb5cc_%{uid}' > /var/lib/kubelet/kerberos/krb5.conf
 
 echo "set up /etc/azfilesauth/config.yaml"
+mkdir -p /etc/azfilesauth
 echo -e 'USER_UID: 0\nKRB5_CC_NAME: /var/lib/kubelet/kerberos/krb5cc_0' > /etc/azfilesauth/config.yaml
 
 DISTRIBUTION=$($HOST_CMD cat /etc/os-release | grep ^ID= | cut -d'=' -f2 | tr -d '"')
