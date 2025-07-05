@@ -382,8 +382,8 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		mountOptions = appendDefaultNfsMountOptions(mountOptions, d.appendNoResvPortOption, d.appendActimeoOption)
 	} else {
 		if mountWithManagedIdentity && runtime.GOOS != "windows" {
-			mountOptions = []string{"sec=krb5,cruid=0,upcall_target=mount", fmt.Sprintf("username=%s", d.cloud.Config.AzureAuthConfig.UserAssignedIdentityID)}
-			klog.V(2).Infof("using managed identity %s for volume %s with mount options: %v", d.cloud.Config.AzureAuthConfig.UserAssignedIdentityID, volumeID, mountOptions)
+			sensitiveMountOptions = []string{"sec=krb5,cruid=0,upcall_target=mount", fmt.Sprintf("username=%s", d.cloud.Config.AzureAuthConfig.UserAssignedIdentityID)}
+			klog.V(2).Infof("using managed identity %s for volume %s with mount options: %v", d.cloud.Config.AzureAuthConfig.UserAssignedIdentityID, volumeID, sensitiveMountOptions)
 		} else {
 			if accountName == "" || accountKey == "" {
 				return nil, status.Errorf(codes.Internal, "accountName(%s) or accountKey is empty", accountName)
@@ -397,11 +397,14 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 				}
 				// parameters suggested by https://azure.microsoft.com/en-us/documentation/articles/storage-how-to-use-files-linux/
 				sensitiveMountOptions = []string{fmt.Sprintf("username=%s,password=%s", accountName, accountKey)}
-				if ephemeralVol {
-					cifsMountFlags = util.JoinMountOptions(cifsMountFlags, strings.Split(ephemeralVolMountOptions, ","))
-				}
-				mountOptions = appendDefaultCifsMountOptions(cifsMountFlags, d.appendNoShareSockOption, d.appendClosetimeoOption)
 			}
+		}
+
+		if runtime.GOOS != "windows" {
+			if ephemeralVol {
+				cifsMountFlags = util.JoinMountOptions(cifsMountFlags, strings.Split(ephemeralVolMountOptions, ","))
+			}
+			mountOptions = appendDefaultCifsMountOptions(cifsMountFlags, d.appendNoShareSockOption, d.appendClosetimeoOption)
 		}
 	}
 
