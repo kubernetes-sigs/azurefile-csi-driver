@@ -23,9 +23,15 @@ if [ "$KUBELET_PATH" != "/var/lib/kubelet" ];then
   echo "kubelet path is $KUBELET_PATH, update azurefile-proxy.service...."
   sed -i "s#--azurefile-proxy-endpoint[^ ]*#--azurefile-proxy-endpoint=unix:/${KUBELET_PATH}/plugins/file.csi.azure.com/azurefile-proxy.sock#" /azurefile-proxy/azurefile-proxy.service
   echo "azurefile-proxy endpoint is updated to unix:/$KUBELET_PATH/plugins/file.csi.azure.com/azurefile-proxy.sock"
-fi 
+fi
 
 HOST_CMD="nsenter --mount=/proc/1/ns/mnt"
+
+echo "set up /var/lib/kubelet/kerberos/krb5.conf"
+echo -e '[libdefaults]\ndefault_ccache_name = FILE:/var/lib/kubelet/kerberos/krb5cc_%{uid}' > /var/lib/kubelet/kerberos/krb5.conf
+
+echo "set up /etc/azfilesauth/config.yaml"
+echo -e 'USER_UID: 0\nKRB5_CC_NAME: /var/lib/kubelet/kerberos/krb5cc_0' > /etc/azfilesauth/config.yaml
 
 DISTRIBUTION=$($HOST_CMD cat /etc/os-release | grep ^ID= | cut -d'=' -f2 | tr -d '"')
 ARCH=$($HOST_CMD uname -m)
