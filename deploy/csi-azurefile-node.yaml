@@ -65,7 +65,7 @@ spec:
               mountPath: /host/etc
             - mountPath: /var/lib/kubelet/
               mountPropagation: Bidirectional
-              name: kubelet-dir
+              name: mountpoint-dir
       containers:
         - name: liveness-probe
           volumeMounts:
