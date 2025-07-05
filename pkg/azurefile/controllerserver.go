@@ -227,6 +227,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			fileShareNameReplaceMap[pvNameMetadata] = v
 		case serverNameField:
 		case folderNameField:
+		case mountWithManagedIdentityField:
 		case clientIDField:
 		case confidentialContainerLabelField:
 		case runtimeClassHandlerField:
