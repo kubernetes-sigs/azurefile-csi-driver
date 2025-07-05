@@ -28,6 +28,7 @@ fi
 HOST_CMD="nsenter --mount=/proc/1/ns/mnt"
 
 echo "set up /var/lib/kubelet/kerberos/krb5.conf"
+mkdir -p /var/lib/kubelet/kerberos
 echo -e '[libdefaults]\ndefault_ccache_name = FILE:/var/lib/kubelet/kerberos/krb5cc_%{uid}' > /var/lib/kubelet/kerberos/krb5.conf
 
 echo "set up /etc/azfilesauth/config.yaml"
