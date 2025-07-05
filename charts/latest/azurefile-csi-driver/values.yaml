@@ -88,6 +88,13 @@ controller:
       requests:
         cpu: 10m
         memory: 20Mi
+    azfilesrefresh:
+      limits:
+        cpu: 1
+        memory: 100Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
     azurefile:
       limits:
         cpu: 2
@@ -128,6 +135,7 @@ node:
     enabled: true
     installAznfsMount: true
     migrateK8sRepo: false
+    setUpMIAuth: true
 
 snapshot:
   enabled: false

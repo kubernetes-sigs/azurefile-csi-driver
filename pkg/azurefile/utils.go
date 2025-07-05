@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -371,4 +372,11 @@ func removeOptionIfExists(options []string, removeOption string) ([]string, bool
 		}
 	}
 	return options, false
+}
+
+func setCredentialCache(server, clientID string) ([]byte, error) {
+	cmd := exec.Command("azfilesauthmanager", "set", "https://"+server, "--imds-client-id", clientID)
+	cmd.Env = append(os.Environ(), cmd.Env...)
+	klog.V(2).Infof("Executing command: %q", cmd.String())
+	return cmd.CombinedOutput()
 }
