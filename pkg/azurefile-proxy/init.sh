@@ -17,6 +17,7 @@
 set -xe
 
 MIGRATE_K8S_REPO=${MIGRATE_K8S_REPO:-false}
+SETUP_MI_AUTH=${SETUP_MI_AUTH:-true}
 
 KUBELET_PATH=${KUBELET_PATH:-/var/lib/kubelet}
 if [ "$KUBELET_PATH" != "/var/lib/kubelet" ];then
@@ -27,14 +28,16 @@ fi
 
 HOST_CMD="nsenter --mount=/proc/1/ns/mnt"
 
-echo "set up /etc/krb5.conf on host"
-printf '[libdefaults]\ndefault_ccache_name = FILE:/var/lib/kubelet/kerberos/krb5cc_%s\n' "%{uid}" > /host/etc/krb5.conf
+if [ "$SETUP_MI_AUTH" = "true" ];then
+  echo "set up /etc/krb5.conf on host"
+  printf '[libdefaults]\ndefault_ccache_name = FILE:/var/lib/kubelet/kerberos/krb5cc_%s\n' "%{uid}" > /host/etc/krb5.conf
 
-mkdir -p /var/lib/kubelet/kerberos
+  mkdir -p /var/lib/kubelet/kerberos
 
-echo "set up /etc/azfilesauth/config.yaml on host"
-mkdir -p /host/etc/azfilesauth
-printf 'USER_UID: 0\nKRB5_CC_NAME: /var/lib/kubelet/kerberos/krb5cc_0\n' > /host/etc/azfilesauth/config.yaml
+  echo "set up /etc/azfilesauth/config.yaml on host"
+  mkdir -p /host/etc/azfilesauth
+  printf 'USER_UID: 0\nKRB5_CC_NAME: /var/lib/kubelet/kerberos/krb5cc_0\n' > /host/etc/azfilesauth/config.yaml
+fi
 
 DISTRIBUTION=$($HOST_CMD cat /etc/os-release | grep ^ID= | cut -d'=' -f2 | tr -d '"')
 ARCH=$($HOST_CMD uname -m)

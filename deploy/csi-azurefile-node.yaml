@@ -58,6 +58,8 @@ spec:
               value: "true"
             - name: INSTALL_AZNFS_MOUNT
               value: "true"
+            - name: SETUP_MI_AUTH
+              value: "true"
           volumeMounts:
             - name: host-usr
               mountPath: /host/usr
