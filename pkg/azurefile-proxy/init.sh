@@ -27,13 +27,14 @@ fi
 
 HOST_CMD="nsenter --mount=/proc/1/ns/mnt"
 
-echo "set up /var/lib/kubelet/kerberos/krb5.conf"
-mkdir -p /var/lib/kubelet/kerberos
-printf '[libdefaults]\ndefault_ccache_name = FILE:/var/lib/kubelet/kerberos/krb5cc_%s\n' "%{uid}" > /var/lib/kubelet/kerberos/krb5.conf
+echo "set up /etc/krb5.conf on host"
+printf '[libdefaults]\ndefault_ccache_name = FILE:/var/lib/kubelet/kerberos/krb5cc_%s\n' "%{uid}" > /host/etc/krb5.conf
 
-echo "set up /etc/azfilesauth/config.yaml"
-mkdir -p /etc/azfilesauth
-printf 'USER_UID: 0\nKRB5_CC_NAME: /var/lib/kubelet/kerberos/krb5cc_0\n' > /etc/azfilesauth/config.yaml
+mkdir -p /var/lib/kubelet/kerberos
+
+echo "set up /etc/azfilesauth/config.yaml on host"
+mkdir -p /host/etc/azfilesauth
+printf 'USER_UID: 0\nKRB5_CC_NAME: /var/lib/kubelet/kerberos/krb5cc_0\n' > /host/etc/azfilesauth/config.yaml
 
 DISTRIBUTION=$($HOST_CMD cat /etc/os-release | grep ^ID= | cut -d'=' -f2 | tr -d '"')
 ARCH=$($HOST_CMD uname -m)

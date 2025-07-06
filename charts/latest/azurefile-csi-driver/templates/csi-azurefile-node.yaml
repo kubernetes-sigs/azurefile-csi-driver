@@ -101,9 +101,9 @@ spec:
               mountPath: /host/usr
             - name: host-etc
               mountPath: /host/etc
-            - mountPath: /var/lib/kubelet/
+            - name: mountpoint-dir
+              mountPath: /var/lib/kubelet/
               mountPropagation: Bidirectional
-              name: mountpoint-dir
       containers:
         - name: liveness-probe
           volumeMounts:
