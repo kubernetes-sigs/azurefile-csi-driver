@@ -298,8 +298,8 @@ github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e/go.mod h1:C1wdFJiN
 github.com/mailru/easyjson v0.7.0/go.mod h1:KAzv3t3aY1NaHWoQz1+4F1ccyAH66Jk7yos7ldAVICs=
 github.com/mailru/easyjson v0.7.7 h1:UGYAvKxe3sBsEDzO8ZeWOSlIQfWFlxbzLZe7hwFURr0=
 github.com/mailru/easyjson v0.7.7/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJJLY9Nlc=
-github.com/microsoft/wmi v0.31.2 h1:yRu5Jys/vedyV7aHb/mR2HA0n9WECi3CFw+af4CdR5k=
-github.com/microsoft/wmi v0.31.2/go.mod h1:uImvBuQss3NEnzU5bcwq0DsUh54seU3Sl//oBn62LDw=
+github.com/microsoft/wmi v0.32.0 h1:8DbWxwqOg98knfLJ0QccLKXR6gWr7nRMllnUn84whxs=
+github.com/microsoft/wmi v0.32.0/go.mod h1:uImvBuQss3NEnzU5bcwq0DsUh54seU3Sl//oBn62LDw=
 github.com/mistifyio/go-zfs v2.1.2-0.20190413222219-f784269be439+incompatible h1:aKW/4cBs+yK6gpqU3K/oIwk9Q/XICqd3zOX/UFuvqmk=
 github.com/mistifyio/go-zfs v2.1.2-0.20190413222219-f784269be439+incompatible/go.mod h1:8AuVvqP/mXw1px98n46wfvcGfQ4ci2FwoAjKYxuo3Z4=
 github.com/moby/docker-image-spec v1.3.1 h1:jMKff3w6PgbfSa69GfNg+zN/XLhfXJGnEx3Nl2EsFP0=
