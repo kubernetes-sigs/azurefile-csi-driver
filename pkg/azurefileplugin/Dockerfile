@@ -22,7 +22,7 @@ ARG ARCH
 
 RUN apt update \
     && apt install -y curl \
-    && curl -Lso /tmp/azfilesauth_amd64.deb https://raw.githubusercontent.com/andyzhangx/demo/refs/heads/master/aks/azfilesauth_1.0-2_amd64.deb \
+    && curl -Lso /tmp/azfilesauth_amd64.deb https://raw.githubusercontent.com/andyzhangx/demo/refs/heads/master/aks/azfilesauth_1.0-4_${ARCH}.deb \
     && curl -Ls https://azcopyvnext-awgzd8g7aagqhzhe.b02.azurefd.net/releases/release-10.29.1-20250515/azcopy_linux_${ARCH}_10.29.1.tar.gz \
         | tar xvzf - --strip-components=1 -C /usr/local/bin/ --wildcards "*/azcopy"
 
