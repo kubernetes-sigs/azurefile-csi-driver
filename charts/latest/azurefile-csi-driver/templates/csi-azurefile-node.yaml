@@ -96,11 +96,16 @@ spec:
               value: "{{ .Values.linux.kubelet }}"
             - name: MIGRATE_K8S_REPO
               value: "{{ .Values.node.azurefileProxy.migrateK8sRepo }}"
+            - name: SETUP_MI_AUTH
+              value: "{{ .Values.node.azurefileProxy.setUpMIAuth }}"
           volumeMounts:
             - name: host-usr
               mountPath: /host/usr
             - name: host-etc
               mountPath: /host/etc
+            - name: mountpoint-dir
+              mountPath: /var/lib/kubelet/
+              mountPropagation: Bidirectional
       containers:
         - name: liveness-probe
           volumeMounts:
