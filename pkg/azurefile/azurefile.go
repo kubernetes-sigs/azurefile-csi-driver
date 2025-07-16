@@ -128,8 +128,8 @@ const (
 	podNameField                      = "csi.storage.k8s.io/pod.name"
 	podNamespaceField                 = "csi.storage.k8s.io/pod.namespace"
 	serviceAccountTokenField          = "csi.storage.k8s.io/serviceAccount.tokens"
-	clientIDField                     = "clientID"
-	tenantIDField                     = "tenantID"
+	clientIDField                     = "clientid"
+	tenantIDField                     = "tenantid"
 	mountOptionsField                 = "mountoptions"
 	mountPermissionsField             = "mountpermissions"
 	falseValue                        = "false"
@@ -799,9 +799,9 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 			if getLatestAccountKey, err = strconv.ParseBool(v); err != nil {
 				return rgName, accountName, accountKey, fileShareName, diskName, subsID, fmt.Errorf("invalid %s: %s in volume context", getLatestAccountKeyField, v)
 			}
-		case strings.ToLower(clientIDField):
+		case clientIDField:
 			clientID = v
-		case strings.ToLower(tenantIDField):
+		case tenantIDField:
 			tenantID = v
 		case strings.ToLower(serviceAccountTokenField):
 			serviceAccountToken = v
