@@ -919,6 +919,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 					mountPermissionsField:   "0755",
 					accountQuotaField:       "1000",
 					useDataPlaneAPIField:    "oauth",
+					clientIDField:           "client-id",
 				}
 
 				req := &csi.CreateVolumeRequest{
