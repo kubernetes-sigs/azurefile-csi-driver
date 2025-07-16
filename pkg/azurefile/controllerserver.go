@@ -228,6 +228,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			// no op, only used in NodeStageVolume
 		case folderNameField:
 			// no op, only used in NodeStageVolume
+		case clientIDField:
+			// no op, only used in NodeStageVolume
 		case fsGroupChangePolicyField:
 			fsGroupChangePolicy = v
 		case mountPermissionsField:
