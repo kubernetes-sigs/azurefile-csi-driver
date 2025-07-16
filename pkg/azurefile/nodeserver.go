@@ -77,7 +77,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	context := req.GetVolumeContext()
 	if context != nil {
 		// token request
-		if context[serviceAccountTokenField] != "" && getValueInMap(context, clientIDField) != "" {
+		if getValueInMap(context, serviceAccountTokenField) != "" && getValueInMap(context, clientIDField) != "" {
 			klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with service account token, clientID: %s", volumeID, target, getValueInMap(context, clientIDField))
 			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
 				StagingTargetPath: target,
@@ -233,7 +233,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	volumeID := req.GetVolumeId()
 	context := req.GetVolumeContext()
 
-	if getValueInMap(context, clientIDField) != "" && context[serviceAccountTokenField] == "" {
+	if getValueInMap(context, clientIDField) != "" && getValueInMap(context, serviceAccountTokenField) == "" {
 		klog.V(2).Infof("Skip NodeStageVolume for volume(%s) since clientID %s is provided but service account token is empty", volumeID, getValueInMap(context, clientIDField))
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
