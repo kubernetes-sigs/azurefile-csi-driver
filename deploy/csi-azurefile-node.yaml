@@ -170,6 +170,8 @@ spec:
               name: kata-direct-volumes
             - name: host-etc
               mountPath: /etc
+            - name: log-dir
+              mountPath: /var/log/
           resources:
             limits:
               memory: 400Mi
@@ -192,6 +194,8 @@ spec:
               name: mountpoint-dir
             - name: host-etc
               mountPath: /etc
+            - name: log-dir
+              mountPath: /var/log/
           resources:
             limits:
               memory: 100Mi
@@ -229,4 +233,8 @@ spec:
           hostPath:
             path: /run/kata-containers/shared/direct-volumes/
             type: DirectoryOrCreate
+        - hostPath:
+            path: /var/log/
+            type: DirectoryOrCreate
+          name: log-dir
 ---
