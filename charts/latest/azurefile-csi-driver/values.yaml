@@ -127,6 +127,7 @@ node:
   allowEmptyCloudConfig: true
   allowInlineVolumeKeyAccessWithIdentity: false
   enableKataCCMount: false
+  enableManagedIdentityAuth: true
   metricsPort: 29615
   livenessProbe:
     healthPort: 29613
@@ -135,7 +136,6 @@ node:
     enabled: true
     installAznfsMount: true
     migrateK8sRepo: false
-    setUpMIAuth: true
 
 snapshot:
   enabled: false

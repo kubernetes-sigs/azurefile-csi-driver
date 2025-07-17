@@ -97,15 +97,17 @@ spec:
             - name: MIGRATE_K8S_REPO
               value: "{{ .Values.node.azurefileProxy.migrateK8sRepo }}"
             - name: SETUP_MI_AUTH
-              value: "{{ .Values.node.azurefileProxy.setUpMIAuth }}"
+              value: "{{ .Values.node.enableManagedIdentityAuth }}"
           volumeMounts:
             - name: host-usr
               mountPath: /host/usr
             - name: host-etc
               mountPath: /host/etc
+            {{- if .Values.node.enableManagedIdentityAuth }}
             - name: mountpoint-dir
               mountPath: /var/lib/kubelet/
               mountPropagation: Bidirectional
+            {{- end }}
       containers:
         - name: liveness-probe
           volumeMounts:
@@ -145,6 +147,7 @@ spec:
             - name: registration-dir
               mountPath: /registration
           resources: {{- toYaml .Values.linux.resources.nodeDriverRegistrar | nindent 12 }}
+{{- if .Values.node.enableManagedIdentityAuth }}
         - name: azfilesrefresh
 {{- if hasPrefix "/" .Values.image.azurefile.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
@@ -165,7 +168,10 @@ spec:
               name: mountpoint-dir
             - name: host-etc
               mountPath: /etc
+            - name: log-dir
+              mountPath: /var/log/
           resources: {{- toYaml .Values.linux.resources.azfilesrefresh | nindent 12 }}
+{{- end }}
         - name: azurefile
 {{- if hasPrefix "/" .Values.image.azurefile.repository }}
           image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
@@ -254,6 +260,10 @@ spec:
             - mountPath: /run/kata-containers/shared/direct-volumes
               name: kata-direct-volumes
             {{- end }}
+            {{- if .Values.node.enableManagedIdentityAuth }}
+            - name: log-dir
+              mountPath: /var/log/
+            {{- end }}
           resources: {{- toYaml .Values.linux.resources.azurefile | nindent 12 }}
       volumes:
         - name: host-usr
@@ -295,5 +305,11 @@ spec:
           hostPath:
             path: /run/kata-containers/shared/direct-volumes/
             type: DirectoryOrCreate
+        {{- end }}
+        {{- if .Values.node.enableManagedIdentityAuth }}
+        - hostPath:
+            path: /var/log/
+            type: DirectoryOrCreate
+          name: log-dir
         {{- end }}
 {{- end -}}
