@@ -107,7 +107,7 @@ spec:
             - name: mountpoint-dir
               mountPath: /var/lib/kubelet/
               mountPropagation: Bidirectional
-            {{- else }}
+            {{- end }}
       containers:
         - name: liveness-probe
           volumeMounts:
