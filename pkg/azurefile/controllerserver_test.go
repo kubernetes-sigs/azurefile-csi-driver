@@ -906,20 +906,22 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				}
 
 				allParam := map[string]string{
-					skuNameField:            "premium",
-					storageAccountTypeField: "stoacctype",
-					locationField:           "loc",
-					storageAccountField:     "stoacc",
-					resourceGroupField:      "rg",
-					shareNameField:          "",
-					diskNameField:           "diskname.vhd",
-					fsTypeField:             "",
-					storeAccountKeyField:    "storeaccountkey",
-					secretNamespaceField:    "default",
-					mountPermissionsField:   "0755",
-					accountQuotaField:       "1000",
-					useDataPlaneAPIField:    "oauth",
-					clientIDField:           "client-id",
+					skuNameField:              "premium",
+					storageAccountTypeField:   "stoacctype",
+					locationField:             "loc",
+					storageAccountField:       "stoacc",
+					resourceGroupField:        "rg",
+					shareNameField:            "",
+					diskNameField:             "diskname.vhd",
+					fsTypeField:               "",
+					storeAccountKeyField:      "storeaccountkey",
+					secretNamespaceField:      "default",
+					mountPermissionsField:     "0755",
+					accountQuotaField:         "1000",
+					useDataPlaneAPIField:      "oauth",
+					clientIDField:             "client-id",
+					provisionedBandwidthField: "100",
+					provisionedIopsField:      "800",
 				}
 
 				req := &csi.CreateVolumeRequest{
@@ -1005,42 +1007,55 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 
 		ginkgo.When("invalid mountPermissions", func() {
 			ginkgo.It("should fail", func(ctx context.Context) {
-				name := "baz"
-				SKU := "SKU"
-				kind := "StorageV2"
-				location := "centralus"
-				value := "foo bar"
-				accounts := []*armstorage.Account{
-					{Name: &name, SKU: &armstorage.SKU{Name: to.Ptr(armstorage.SKUName(SKU))}, Kind: to.Ptr(armstorage.Kind(kind)), Location: &location},
-				}
-				keys := []*armstorage.AccountKey{
-					{Value: &value},
-				}
-
-				allParam := map[string]string{
-					mountPermissionsField: "0abc",
-				}
-
 				req := &csi.CreateVolumeRequest{
 					Name:               "random-vol-name-valid-request",
 					VolumeCapabilities: stdVolCap,
 					CapacityRange:      lessThanPremCapRange,
-					Parameters:         allParam,
+					Parameters: map[string]string{
+						mountPermissionsField: "0abc",
+					},
 				}
-
-				mockStorageAccountsClient := d.cloud.ComputeClientFactory.GetAccountClient().(*mock_accountclient.MockInterface)
-
-				mockFileClient.EXPECT().Create(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
-				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
-				mockStorageAccountsClient.EXPECT().List(gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
-				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
-				mockFileClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
 
 				expectedErr := status.Errorf(codes.InvalidArgument, "invalid %s %s in storage class", "mountPermissions", "0abc")
 				_, err := d.CreateVolume(ctx, req)
 				gomega.Expect(err).To(gomega.Equal(expectedErr))
 			})
 		})
+
+		ginkgo.When("invalid provisionedBandwidth", func() {
+			ginkgo.It("should fail", func(ctx context.Context) {
+				req := &csi.CreateVolumeRequest{
+					Name:               "invalid-provisionedBandwidth",
+					VolumeCapabilities: stdVolCap,
+					CapacityRange:      lessThanPremCapRange,
+					Parameters: map[string]string{
+						provisionedBandwidthField: "abc",
+					},
+				}
+
+				expectedErr := status.Errorf(codes.InvalidArgument, "invalid %s %s in storage class", "provisionedBandwidth", "abc")
+				_, err := d.CreateVolume(ctx, req)
+				gomega.Expect(err).To(gomega.Equal(expectedErr))
+			})
+		})
+
+		ginkgo.When("invalid provisionedIops", func() {
+			ginkgo.It("should fail", func(ctx context.Context) {
+				req := &csi.CreateVolumeRequest{
+					Name:               "invalid-provisionedIops",
+					VolumeCapabilities: stdVolCap,
+					CapacityRange:      lessThanPremCapRange,
+					Parameters: map[string]string{
+						provisionedIopsField: "abc",
+					},
+				}
+
+				expectedErr := status.Errorf(codes.InvalidArgument, "invalid %s %s in storage class", "provisionedIops", "abc")
+				_, err := d.CreateVolume(ctx, req)
+				gomega.Expect(err).To(gomega.Equal(expectedErr))
+			})
+		})
+
 		ginkgo.When("invalid parameter", func() {
 			ginkgo.It("should fail", func(ctx context.Context) {
 				name := "baz"
