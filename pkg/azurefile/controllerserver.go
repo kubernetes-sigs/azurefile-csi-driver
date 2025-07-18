@@ -120,6 +120,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	var createAccount, useSeretCache, matchTags, selectRandomMatchingAccount, getLatestAccountKey, encryptInTransit bool
 	var vnetResourceGroup, vnetName, vnetLinkName, publicNetworkAccess, subnetName, shareNamePrefix, fsGroupChangePolicy, useDataPlaneAPI string
 	var requireInfraEncryption, disableDeleteRetentionPolicy, enableLFS, isMultichannelEnabled, allowSharedKeyAccess *bool
+	var provisionedBandwidthMibps, provisionedIops *int32
 	// set allowBlobPublicAccess as false by default
 	allowBlobPublicAccess := ptr.To(false)
 
@@ -279,6 +280,18 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			if err != nil {
 				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", encryptInTransitField, v)
 			}
+		case provisionedBandwidthField:
+			value, err := strconv.ParseInt(v, 10, 32)
+			if err != nil || value < 0 {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid provisionedBandwidth %s in storage class", v)
+			}
+			provisionedBandwidthMibps = to.Ptr(int32(value))
+		case provisionedIopsField:
+			value, err := strconv.ParseInt(v, 10, 32)
+			if err != nil || value < 0 {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid provisionedIops %s in storage class", v)
+			}
+			provisionedIops = to.Ptr(int32(value))
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, "invalid parameter %q in storage class", k)
 		}
@@ -598,12 +611,14 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	shareOptions := &ShareOptions{
-		Name:       validFileShareName,
-		Protocol:   shareProtocol,
-		RequestGiB: fileShareSize,
-		AccessTier: shareAccessTier,
-		RootSquash: rootSquashType,
-		Metadata:   map[string]*string{createdByMetadata: ptr.To(d.Name)},
+		Name:                      validFileShareName,
+		Protocol:                  shareProtocol,
+		RequestGiB:                fileShareSize,
+		AccessTier:                shareAccessTier,
+		RootSquash:                rootSquashType,
+		ProvisionedBandwidthMibps: provisionedBandwidthMibps,
+		ProvisionedIops:           provisionedIops,
+		Metadata:                  map[string]*string{createdByMetadata: ptr.To(d.Name)},
 	}
 
 	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) subID(%s) rg(%s) location(%s) size(%d) protocol(%s)", validFileShareName, accountName, sku, subsID, resourceGroup, location, fileShareSize, shareProtocol)

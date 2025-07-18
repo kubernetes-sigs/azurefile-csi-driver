@@ -133,6 +133,8 @@ const (
 	mountOptionsField                 = "mountoptions"
 	mountPermissionsField             = "mountpermissions"
 	encryptInTransitField             = "encryptintransit"
+	provisionedBandwidthField         = "provisionedbandwidth"
+	provisionedIopsField              = "provisionediops"
 	falseValue                        = "false"
 	trueValue                         = "true"
 	defaultSecretAccountName          = "azurestorageaccountname"
