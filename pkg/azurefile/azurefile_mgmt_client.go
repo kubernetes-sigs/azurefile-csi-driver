@@ -62,8 +62,11 @@ func (az *azureFileMgmtClient) CreateFileShare(ctx context.Context, shareOptions
 		az.accountOptions.EnableHTTPSTrafficOnly = false
 	}
 	shareOps := armstorage.FileShare{
-		Name:                to.Ptr(shareOptions.Name),
-		FileShareProperties: &armstorage.FileShareProperties{},
+		Name: to.Ptr(shareOptions.Name),
+		FileShareProperties: &armstorage.FileShareProperties{
+			ProvisionedBandwidthMibps: shareOptions.ProvisionedBandwidthMibps,
+			ProvisionedIops:           shareOptions.ProvisionedIops,
+		},
 	}
 	if shareOptions.RequestGiB > 0 {
 		quota := int32(shareOptions.RequestGiB)
