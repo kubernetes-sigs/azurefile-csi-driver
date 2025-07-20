@@ -163,6 +163,8 @@ const (
 	selectRandomMatchingAccountField  = "selectrandommatchingaccount"
 	accountQuotaField                 = "accountquota"
 	defaultKataCCLabel                = "kubernetes.azure.com/kata-cc-isolation"
+	runtimeClassHandlerField          = "runtimeclasshandler"
+	defaultRuntimeClassHandler        = "kata-cc"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
 	// this is a workaround fix for 429 throttling issue, will update cloud provider for better fix later
