@@ -162,6 +162,7 @@ const (
 	premium                           = "premium"
 	selectRandomMatchingAccountField  = "selectrandommatchingaccount"
 	accountQuotaField                 = "accountquota"
+	defaultKataCCLabel                = "kubernetes.azure.com/kata-cc-isolation"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
 	// this is a workaround fix for 429 throttling issue, will update cloud provider for better fix later
@@ -1342,32 +1343,30 @@ func (d *Driver) getFileShareClientForSub(subscriptionID string) (fileshareclien
 	return d.cloud.ComputeClientFactory.GetFileShareClientForSub(subscriptionID)
 }
 
-func getNodeInfoFromLabels(ctx context.Context, nodeID string, kubeClient clientset.Interface) (string, string, string, error) {
-	if kubeClient == nil || kubeClient.CoreV1() == nil {
-		return "", "", "", fmt.Errorf("kubeClient is nil")
-	}
-
-	node, err := kubeClient.CoreV1().Nodes().Get(ctx, nodeID, metav1.GetOptions{})
-	if err != nil {
-		return "", "", "", fmt.Errorf("get node(%s) failed with %v", nodeID, err)
-	}
-
-	if len(node.Labels) == 0 {
-		return "", "", "", fmt.Errorf("node(%s) label is empty", nodeID)
-	}
-	return node.Labels["kubernetes.azure.com/kata-cc-isolation"], node.Labels["kubernetes.azure.com/kata-mshv-vm-isolation"], node.Labels["katacontainers.io/kata-runtime"], nil
-}
-
 func isKataNode(ctx context.Context, nodeID string, kubeClient clientset.Interface) bool {
 	if nodeID == "" {
 		return false
 	}
-	kataCCIsolationLabel, kataVMIsolationLabel, kataRuntimeLabel, err := getNodeInfoFromLabels(ctx, nodeID, kubeClient)
 
-	if err != nil {
-		klog.Warningf("failed to get node info from labels: %v", err)
+	if kubeClient == nil || kubeClient.CoreV1() == nil {
+		klog.Warningf("kubeClient is nil, cannot check if node(%s) is a kata node", nodeID)
 		return false
 	}
-	klog.V(4).Infof("node(%s) labels: kataVMIsolationLabel(%s), kataRuntimeLabel(%s)", nodeID, kataVMIsolationLabel, kataRuntimeLabel)
-	return strings.EqualFold(kataCCIsolationLabel, "true")
+
+	node, err := kubeClient.CoreV1().Nodes().Get(ctx, nodeID, metav1.GetOptions{})
+	if err != nil {
+		klog.Warningf("failed to get node(%s): %v", nodeID, err)
+		return false
+	}
+
+	if node == nil || len(node.Labels) == 0 {
+		return false
+	}
+
+	// Check for the kata isolation labels
+	if _, ok := node.Labels[defaultKataCCLabel]; !ok {
+		return false
+	}
+	klog.V(4).Infof("node(%s) is a kata node with labels: %v", nodeID, node.Labels)
+	return true
 }
