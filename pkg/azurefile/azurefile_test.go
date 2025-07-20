@@ -1635,82 +1635,6 @@ func TestGetFileShareClientForSub(t *testing.T) {
 	}
 }
 
-func TestGetNodeInfoFromLabels(t *testing.T) {
-	testCases := []struct {
-		name         string
-		nodeName     string
-		labels       map[string]string
-		setupClient  bool
-		expectedVals [3]string
-		expectedErr  error
-	}{
-		{
-			name:        "Error when kubeClient is nil",
-			nodeName:    "test-node",
-			setupClient: false,
-			expectedErr: fmt.Errorf("kubeClient is nil"),
-		},
-		{
-			name:        "Error when node does not exist",
-			nodeName:    "nonexistent-node",
-			setupClient: true,
-			expectedErr: fmt.Errorf("get node(nonexistent-node) failed with nodes \"nonexistent-node\" not found"),
-		},
-		{
-			name:        "Error when node has no labels",
-			nodeName:    "test-node",
-			setupClient: true,
-			labels:      map[string]string{}, // Node exists but has no labels
-			expectedErr: fmt.Errorf("node(test-node) label is empty"),
-		},
-		{
-			name:        "Success with kata labels",
-			nodeName:    "test-node",
-			setupClient: true,
-			labels: map[string]string{
-				"kubernetes.azure.com/kata-cc-isolation":      "true",
-				"kubernetes.azure.com/kata-mshv-vm-isolation": "true",
-				"katacontainers.io/kata-runtime":              "false",
-			},
-			expectedVals: [3]string{"true", "true", "false"},
-			expectedErr:  nil,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			ctx := context.TODO()
-			var clientset kubernetes.Interface
-
-			if tc.setupClient {
-				clientset = fake.NewSimpleClientset()
-			}
-
-			if tc.labels != nil && tc.setupClient {
-				node := &v1api.Node{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:   tc.nodeName,
-						Labels: tc.labels,
-					},
-				}
-				_, err := clientset.CoreV1().Nodes().Create(ctx, node, metav1.CreateOptions{})
-				assert.NoError(t, err)
-			}
-
-			kataCCIsolation, kataVMIsolation, kataRuntime, err := getNodeInfoFromLabels(ctx, tc.nodeName, clientset)
-
-			if tc.expectedErr != nil {
-				assert.EqualError(t, err, tc.expectedErr.Error())
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tc.expectedVals[0], kataCCIsolation)
-				assert.Equal(t, tc.expectedVals[1], kataVMIsolation)
-				assert.Equal(t, tc.expectedVals[2], kataRuntime)
-			}
-		})
-	}
-}
-
 func TestIsKataNode(t *testing.T) {
 	testCases := []struct {
 		name        string
@@ -1719,6 +1643,18 @@ func TestIsKataNode(t *testing.T) {
 		setupClient bool
 		expected    bool
 	}{
+		{
+			name:        "Error when kubeClient is nil",
+			nodeName:    "test-node",
+			setupClient: false,
+			expected:    false,
+		},
+		{
+			name:        "nodeName is empty",
+			nodeName:    "",
+			setupClient: false,
+			expected:    false,
+		},
 		{
 			name:        "Node does not exist",
 			nodeName:    "",
@@ -1739,7 +1675,18 @@ func TestIsKataNode(t *testing.T) {
 			nodeName:    "test-node",
 			setupClient: true,
 			labels: map[string]string{
-				"kubernetes.azure.com/kata-cc-isolation": "true",
+				defaultKataCCLabel: "",
+			},
+			expected: true,
+		},
+		{
+			name:        "Node has kata labels",
+			nodeName:    "test-node",
+			setupClient: true,
+			labels: map[string]string{
+				defaultKataCCLabel: "test",
+				"kubernetes.azure.com/kata-mshv-vm-isolation": "true",
+				"katacontainers.io/kata-runtime":              "true",
 			},
 			expected: true,
 		},
