@@ -228,6 +228,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case serverNameField:
 		case folderNameField:
 		case clientIDField:
+		case confidentialContainerLabelField:
 		case runtimeClassHandlerField:
 			// no op, only used in NodeStageVolume
 		case fsGroupChangePolicyField:
