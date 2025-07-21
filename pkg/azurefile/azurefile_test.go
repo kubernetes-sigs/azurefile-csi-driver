@@ -1675,7 +1675,7 @@ func TestIsKataNode(t *testing.T) {
 			nodeName:    "test-node",
 			setupClient: true,
 			labels: map[string]string{
-				defaultKataCCLabel: "",
+				defaultConfidentialContainerLabel: "",
 			},
 			expected: true,
 		},
@@ -1684,7 +1684,7 @@ func TestIsKataNode(t *testing.T) {
 			nodeName:    "test-node",
 			setupClient: true,
 			labels: map[string]string{
-				defaultKataCCLabel: "test",
+				defaultConfidentialContainerLabel:             "test",
 				"kubernetes.azure.com/kata-mshv-vm-isolation": "true",
 				"katacontainers.io/kata-runtime":              "true",
 			},
@@ -1711,7 +1711,7 @@ func TestIsKataNode(t *testing.T) {
 				_, err := clientset.CoreV1().Nodes().Create(ctx, node, metav1.CreateOptions{})
 				assert.NoError(t, err)
 			}
-			result := isKataNode(ctx, tc.nodeName, clientset)
+			result := isKataNode(ctx, tc.nodeName, defaultConfidentialContainerLabel, clientset)
 			assert.Equal(t, tc.expected, result)
 		})
 	}
