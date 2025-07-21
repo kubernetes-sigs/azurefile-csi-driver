@@ -319,10 +319,8 @@ func isReadOnlyFromCapability(vc *csi.VolumeCapability) bool {
 		mode == csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY)
 }
 
-const confidentialRuntimeClassHandler = "kata-cc"
-
 // check if runtimeClass is confidential
-func isConfidentialRuntimeClass(ctx context.Context, kubeClient clientset.Interface, runtimeClassName string) (bool, error) {
+func isConfidentialRuntimeClass(ctx context.Context, kubeClient clientset.Interface, runtimeClassName, runtimeClassHandler string) (bool, error) {
 	// if runtimeClassName is empty, return false
 	if runtimeClassName == "" {
 		return false, nil
@@ -336,7 +334,7 @@ func isConfidentialRuntimeClass(ctx context.Context, kubeClient clientset.Interf
 		return false, err
 	}
 	klog.V(4).Infof("runtimeClass %s handler: %s", runtimeClassName, runtimeClass.Handler)
-	return runtimeClass.Handler == confidentialRuntimeClassHandler, nil
+	return runtimeClass.Handler == runtimeClassHandler, nil
 }
 
 // getBackOff returns a backoff object based on the config

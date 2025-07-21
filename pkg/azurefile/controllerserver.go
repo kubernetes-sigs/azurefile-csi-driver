@@ -226,10 +226,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case pvNameKey:
 			fileShareNameReplaceMap[pvNameMetadata] = v
 		case serverNameField:
-			// no op, only used in NodeStageVolume
 		case folderNameField:
-			// no op, only used in NodeStageVolume
 		case clientIDField:
+		case confidentialContainerLabelField:
+		case runtimeClassHandlerField:
 			// no op, only used in NodeStageVolume
 		case fsGroupChangePolicyField:
 			fsGroupChangePolicy = v
