@@ -347,6 +347,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			},
 			setup: func() {
 				if runtime.GOOS == "windows" {
+					d.isKataNode = true
 					mockDirectVolume.EXPECT().Remove(errorTarget).Return(nil)
 				}
 			},
@@ -899,6 +900,7 @@ func TestNodeUnstageVolume(t *testing.T) {
 			},
 			setup: func() {
 				if runtime.GOOS == "windows" {
+					d.isKataNode = true
 					mockDirectVolume.EXPECT().Remove(errorTarget).Return(nil)
 				}
 			},
