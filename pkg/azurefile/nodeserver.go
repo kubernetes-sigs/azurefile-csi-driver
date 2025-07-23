@@ -219,6 +219,10 @@ func (d *Driver) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVo
 		// Remove deletes the direct volume path including all the files inside it.
 		// if there is no kata-cc mountinfo present on this path, it will return nil.
 		if err := d.directVolume.Remove(targetPath); err != nil {
+			if strings.Contains(err.Error(), "file name too long") {
+				klog.Warningf("NodeUnpublishVolume: direct volume mount info %s not found on %s, ignoring error", volumeID, targetPath)
+				return &csi.NodeUnpublishVolumeResponse{}, nil
+			}
 			return nil, status.Errorf(codes.Internal, "failed to direct volume remove mount info %s: %v", targetPath, err)
 		}
 	}
