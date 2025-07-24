@@ -347,6 +347,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			},
 			setup: func() {
 				if runtime.GOOS == "windows" {
+					d.isKataNode = true
 					mockDirectVolume.EXPECT().Remove(errorTarget).Return(nil)
 				}
 			},
@@ -355,6 +356,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 			desc: "[Success] Valid request",
 			req:  &csi.NodeUnpublishVolumeRequest{TargetPath: targetFile, VolumeId: "vol_1"},
 			setup: func() {
+				d.isKataNode = true
 				mockDirectVolume.EXPECT().Remove(targetFile).Return(nil)
 			},
 			expectedErr: testutil.TestError{},
@@ -898,6 +900,7 @@ func TestNodeUnstageVolume(t *testing.T) {
 			},
 			setup: func() {
 				if runtime.GOOS == "windows" {
+					d.isKataNode = true
 					mockDirectVolume.EXPECT().Remove(errorTarget).Return(nil)
 				}
 			},
@@ -906,6 +909,7 @@ func TestNodeUnstageVolume(t *testing.T) {
 			desc: "[Success] Valid request",
 			req:  &csi.NodeUnstageVolumeRequest{StagingTargetPath: targetFile, VolumeId: "vol_1"},
 			setup: func() {
+				d.isKataNode = true
 				mockDirectVolume.EXPECT().Remove(targetFile).Return(nil)
 			},
 			expectedErr: testutil.TestError{},
