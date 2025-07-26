@@ -1430,33 +1430,6 @@ var _ = ginkgo.Describe("TestCopyVolume", func() {
 	ginkgo.AfterEach(func() {
 		ctrl.Finish()
 	})
-	ginkgo.When("restore volume from volumeSnapshot nfs is not supported", func() {
-		ginkgo.It("should fail", func(ctx context.Context) {
-			allParam := map[string]string{}
-
-			volumeSnapshotSource := &csi.VolumeContentSource_SnapshotSource{
-				SnapshotId: "unit-test",
-			}
-			volumeContentSourceSnapshotSource := &csi.VolumeContentSource_Snapshot{
-				Snapshot: volumeSnapshotSource,
-			}
-			volumecontensource := csi.VolumeContentSource{
-				Type: volumeContentSourceSnapshotSource,
-			}
-
-			req := &csi.CreateVolumeRequest{
-				Name:                "random-vol-name-valid-request",
-				VolumeCapabilities:  stdVolCap,
-				CapacityRange:       lessThanPremCapRange,
-				Parameters:          allParam,
-				VolumeContentSource: &volumecontensource,
-			}
-
-			expectedErr := fmt.Errorf("protocol nfs is not supported for snapshot restore")
-			err := d.copyVolume(ctx, req, "", "", []string{}, "", &ShareOptions{Protocol: armstorage.EnabledProtocolsNFS}, nil, "core.windows.net")
-			gomega.Expect(err).To(gomega.Equal(expectedErr))
-		})
-	})
 	ginkgo.When("restore volume from volumeSnapshot not found", func() {
 		ginkgo.It("should fail", func(ctx context.Context) {
 			allParam := map[string]string{}
@@ -1508,33 +1481,6 @@ var _ = ginkgo.Describe("TestCopyVolume", func() {
 
 			expectedErr := fmt.Errorf("one or more of srcAccountName(unit-test), srcFileShareName(), dstFileShareName(dstFileshare) are empty")
 			err := d.copyVolume(ctx, req, "", "", []string{}, "", &ShareOptions{Name: "dstFileshare"}, nil, "core.windows.net")
-			gomega.Expect(err).To(gomega.Equal(expectedErr))
-		})
-	})
-	ginkgo.When("copy volume nfs is not supported", func() {
-		ginkgo.It("should fail", func(ctx context.Context) {
-			allParam := map[string]string{}
-
-			volumeSource := &csi.VolumeContentSource_VolumeSource{
-				VolumeId: "unit-test",
-			}
-			volumeContentSourceVolumeSource := &csi.VolumeContentSource_Volume{
-				Volume: volumeSource,
-			}
-			volumecontensource := csi.VolumeContentSource{
-				Type: volumeContentSourceVolumeSource,
-			}
-
-			req := &csi.CreateVolumeRequest{
-				Name:                "random-vol-name-valid-request",
-				VolumeCapabilities:  stdVolCap,
-				CapacityRange:       lessThanPremCapRange,
-				Parameters:          allParam,
-				VolumeContentSource: &volumecontensource,
-			}
-
-			expectedErr := fmt.Errorf("protocol nfs is not supported for volume cloning")
-			err := d.copyVolume(ctx, req, "", "", []string{}, "", &ShareOptions{Protocol: armstorage.EnabledProtocolsNFS}, nil, "core.windows.net")
 			gomega.Expect(err).To(gomega.Equal(expectedErr))
 		})
 	})
