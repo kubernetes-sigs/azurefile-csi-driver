@@ -753,7 +753,7 @@ func TestIsConfidentialRuntimeClass(t *testing.T) {
 	ctx := context.TODO()
 
 	// Test the case where kubeClient is nil
-	_, err := isConfidentialRuntimeClass(ctx, nil, "test-runtime-class")
+	_, err := isConfidentialRuntimeClass(ctx, nil, "test-runtime-class", defaultRuntimeClassHandler)
 	if err == nil || err.Error() != "kubeClient is nil" {
 		t.Fatalf("expected error 'kubeClient is nil', got %v", err)
 	}
@@ -766,14 +766,14 @@ func TestIsConfidentialRuntimeClass(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-runtime-class",
 		},
-		Handler: confidentialRuntimeClassHandler,
+		Handler: defaultRuntimeClassHandler,
 	}
 	_, err = clientset.NodeV1().RuntimeClasses().Create(ctx, runtimeClass, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	isConfidential, err := isConfidentialRuntimeClass(ctx, clientset, "test-runtime-class")
+	isConfidential, err := isConfidentialRuntimeClass(ctx, clientset, "test-runtime-class", defaultRuntimeClassHandler)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -794,7 +794,7 @@ func TestIsConfidentialRuntimeClass(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	isConfidential, err = isConfidentialRuntimeClass(ctx, clientset, "test-runtime-class-non-confidential")
+	isConfidential, err = isConfidentialRuntimeClass(ctx, clientset, "test-runtime-class-non-confidential", defaultRuntimeClassHandler)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -804,7 +804,7 @@ func TestIsConfidentialRuntimeClass(t *testing.T) {
 	}
 
 	// Test the case where the runtime class does not exist
-	_, err = isConfidentialRuntimeClass(ctx, clientset, "nonexistent-runtime-class")
+	_, err = isConfidentialRuntimeClass(ctx, clientset, "nonexistent-runtime-class", defaultRuntimeClassHandler)
 	if err == nil {
 		t.Fatalf("expected an error, got nil")
 	}
