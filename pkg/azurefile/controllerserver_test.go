@@ -906,20 +906,22 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				}
 
 				allParam := map[string]string{
-					skuNameField:            "premium",
-					storageAccountTypeField: "stoacctype",
-					locationField:           "loc",
-					storageAccountField:     "stoacc",
-					resourceGroupField:      "rg",
-					shareNameField:          "",
-					diskNameField:           "diskname.vhd",
-					fsTypeField:             "",
-					storeAccountKeyField:    "storeaccountkey",
-					secretNamespaceField:    "default",
-					mountPermissionsField:   "0755",
-					accountQuotaField:       "1000",
-					useDataPlaneAPIField:    "oauth",
-					clientIDField:           "client-id",
+					skuNameField:                    "premium",
+					storageAccountTypeField:         "stoacctype",
+					locationField:                   "loc",
+					storageAccountField:             "stoacc",
+					resourceGroupField:              "rg",
+					shareNameField:                  "",
+					diskNameField:                   "diskname.vhd",
+					fsTypeField:                     "",
+					storeAccountKeyField:            "storeaccountkey",
+					secretNamespaceField:            "default",
+					mountPermissionsField:           "0755",
+					accountQuotaField:               "1000",
+					useDataPlaneAPIField:            "oauth",
+					clientIDField:                   "client-id",
+					runtimeClassHandlerField:        "runtime-handler",
+					confidentialContainerLabelField: "confidential-container-label",
 				}
 
 				req := &csi.CreateVolumeRequest{

@@ -117,7 +117,7 @@ func mockGetRuntimeClassForPod(_ context.Context, _ clientset.Interface, _, _ st
 	return "mockRuntimeClass", nil
 }
 
-func mockIsConfidentialRuntimeClass(_ context.Context, _ clientset.Interface, _ string) (bool, error) {
+func mockIsConfidentialRuntimeClass(_ context.Context, _ clientset.Interface, _ string, _ string) (bool, error) {
 	return true, nil
 }
 
