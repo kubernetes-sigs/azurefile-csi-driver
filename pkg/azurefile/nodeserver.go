@@ -101,14 +101,13 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		}
 
 		if d.enableKataCCMount && context[podNameField] != "" && context[podNamespaceField] != "" {
-			enableKataCCMount := d.isKataNode
 			confidentialContainerLabel := getValueInMap(context, confidentialContainerLabelField)
-			if !enableKataCCMount && confidentialContainerLabel != "" {
+			if !d.isKataNode && confidentialContainerLabel != "" {
 				klog.V(2).Infof("NodePublishVolume: checking if node %s is a kata node with confidential container label %s", d.NodeID, confidentialContainerLabel)
-				enableKataCCMount = isKataNode(ctx, d.NodeID, confidentialContainerLabel, d.kubeClient)
+				d.isKataNode = isKataNode(ctx, d.NodeID, confidentialContainerLabel, d.kubeClient)
 			}
 
-			if enableKataCCMount {
+			if d.isKataNode {
 				runtimeClass, err := getRuntimeClassForPodFunc(ctx, d.kubeClient, context[podNameField], context[podNamespaceField])
 				if err != nil {
 					return nil, status.Errorf(codes.Internal, "failed to get runtime class for pod %s/%s: %v", context[podNamespaceField], context[podNameField], err)
@@ -201,7 +200,7 @@ func (d *Driver) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVo
 		return nil, status.Errorf(codes.Internal, "failed to unmount target %s: %v", targetPath, err)
 	}
 
-	if d.enableKataCCMount {
+	if d.enableKataCCMount && d.isKataNode {
 		klog.V(2).Infof("NodeUnpublishVolume: remove direct volume mount info %s from %s", volumeID, targetPath)
 		// Remove deletes the direct volume path including all the files inside it.
 		// if there is no kata-cc mountinfo present on this path, it will return nil.
@@ -432,9 +431,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}
 		klog.V(2).Infof("volume(%s) mount %s on %s succeeded", volumeID, source, cifsMountPath)
 	}
-	enableKataCCMount := d.isKataNode && d.enableKataCCMount
+
 	// If runtime OS is not windows and protocol is not nfs, save mountInfo.json
-	if enableKataCCMount {
+	if d.enableKataCCMount && d.isKataNode {
 		if runtime.GOOS != "windows" && protocol != nfs {
 			// Check if mountInfo.json is already present at the targetPath
 			isMountInfoPresent, err := d.directVolume.VolumeMountInfo(cifsMountPath)
@@ -545,7 +544,7 @@ func (d *Driver) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolume
 		}
 	}
 
-	if d.enableKataCCMount {
+	if d.enableKataCCMount && d.isKataNode {
 		klog.V(2).Infof("NodeUnstageVolume: remove direct volume mount info %s from %s", volumeID, stagingTargetPath)
 		if err := d.directVolume.Remove(stagingTargetPath); err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to remove mount info %s: %v", stagingTargetPath, err)
