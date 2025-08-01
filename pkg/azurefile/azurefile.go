@@ -47,7 +47,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
@@ -98,6 +97,7 @@ const (
 	rootSquashTypeField               = "rootsquashtype"
 	diskNameField                     = "diskname"
 	folderNameField                   = "foldername"
+	folderNameAutocreateField         = "foldernameautocreate"
 	serverNameField                   = "server"
 	fsTypeField                       = "fstype"
 	protocolField                     = "protocol"
@@ -234,7 +234,7 @@ type Driver struct {
 	csi.UnimplementedNodeServer
 
 	cloud                                  *storage.AccountRepo
-	kubeClient                             kubernetes.Interface
+	kubeClient                             clientset.Interface
 	enableAzurefileProxy                   bool
 	azurefileProxyEndpoint                 string
 	cloudConfigSecretName                  string
@@ -1369,4 +1369,92 @@ func isKataNode(ctx context.Context, nodeID, confidentialContainerLabel string, 
 	}
 	klog.V(4).Infof("node(%s) is a kata node with labels: %v", nodeID, node.Labels)
 	return true
+}
+
+// createFolderIfNotExists creates a folder in Azure File Share if it doesn't already exist
+// This function handles nested paths by creating each directory level recursively
+func (d *Driver) createFolderIfNotExists(ctx context.Context, accountName, accountKey, fileShareName, folderName, storageEndpointSuffix string) error {
+	// Create Azure File service client
+	credential, err := service.NewSharedKeyCredential(accountName, accountKey)
+	if err != nil {
+		return fmt.Errorf("NewSharedKeyCredential(%s) failed with error: %v", accountName, err)
+	}
+
+	serviceURL := getFileServiceURL(accountName, storageEndpointSuffix)
+	serviceClient, err := service.NewClientWithSharedKeyCredential(serviceURL, credential, nil)
+	if err != nil {
+		return fmt.Errorf("NewClientWithSharedKeyCredential(%s) failed with error: %v", serviceURL, err)
+	}
+
+	// Get share client
+	shareClient := serviceClient.NewShareClient(fileShareName)
+
+	// Performance optimization: First check if the complete directory structure already exists
+	// This is the most common case and avoids unnecessary recursive checking
+	fullPathClient := shareClient.NewDirectoryClient(folderName)
+	_, err = fullPathClient.GetProperties(ctx, nil)
+	if err == nil {
+		// Complete directory structure already exists - fast path
+		klog.V(2).Infof("Folder path %s already exists in share %s", folderName, fileShareName)
+		return nil
+	}
+
+	// Check if the error is something other than "not found"
+	var respErr *azcore.ResponseError
+	if !errors.As(err, &respErr) || respErr.StatusCode != 404 {
+		// Some other error occurred (permissions, network, etc.)
+		return fmt.Errorf("failed to check if folder path %s exists: %w", folderName, err)
+	}
+
+	// Directory doesn't exist - need to create it recursively
+	// Split the path by '/' and create directories level by level
+	pathComponents := strings.Split(strings.Trim(folderName, "/"), "/")
+
+	// Build path incrementally and create each directory level
+	currentPath := ""
+	for i, component := range pathComponents {
+		if component == "" {
+			continue // Skip empty components
+		}
+
+		if i > 0 {
+			currentPath += "/"
+		}
+		currentPath += component
+
+		// Get directory client for the current path level
+		directoryClient := shareClient.NewDirectoryClient(currentPath)
+
+		// Check if directory already exists by trying to get its properties
+		_, err = directoryClient.GetProperties(ctx, nil)
+		if err == nil {
+			// Directory already exists, continue to next level
+			klog.V(4).Infof("Directory %s already exists in share %s", currentPath, fileShareName)
+			continue
+		}
+
+		// Check if the error is because directory doesn't exist
+		var respErr *azcore.ResponseError
+		if !errors.As(err, &respErr) || respErr.StatusCode != 404 {
+			// Some other error occurred
+			return fmt.Errorf("failed to check if directory %s exists: %w", currentPath, err)
+		}
+
+		// Create the directory at this level
+		_, err = directoryClient.Create(ctx, nil)
+		if err != nil {
+			var respErr *azcore.ResponseError
+			if errors.As(err, &respErr) && respErr.StatusCode == 409 {
+				// Directory already exists (race condition), which is fine
+				klog.V(4).Infof("Directory %s already exists in share %s (detected during creation)", currentPath, fileShareName)
+				continue
+			}
+			return fmt.Errorf("failed to create directory %s: %w", currentPath, err)
+		}
+
+		klog.V(2).Infof("Successfully created directory %s in share %s", currentPath, fileShareName)
+	}
+
+	klog.V(2).Infof("Successfully ensured folder path %s exists in share %s", folderName, fileShareName)
+	return nil
 }
