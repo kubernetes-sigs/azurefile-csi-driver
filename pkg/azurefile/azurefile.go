@@ -1115,9 +1115,6 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 
 // copyFileShare copies a fileshare, if dstAccountName is empty, then copy in the same account
 func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest, dstAccountName string, dstAccountSasToken string, authAzcopyEnv []string, secretNamespace string, shareOptions *ShareOptions, accountOptions *storage.AccountOptions, storageEndpointSuffix string) error {
-	if shareOptions.Protocol == armstorage.EnabledProtocolsNFS {
-		return fmt.Errorf("protocol nfs is not supported for volume cloning")
-	}
 	var sourceVolumeID string
 	if req.GetVolumeContentSource() != nil && req.GetVolumeContentSource().GetVolume() != nil {
 		sourceVolumeID = req.GetVolumeContentSource().GetVolume().GetVolumeId()
@@ -1149,7 +1146,7 @@ func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest
 	srcPath := fmt.Sprintf("https://%s.file.%s/%s%s", srcAccountName, storageEndpointSuffix, srcFileShareName, srcAccountSasToken)
 	dstPath := fmt.Sprintf("https://%s.file.%s/%s%s", dstAccountName, storageEndpointSuffix, dstFileShareName, dstAccountSasToken)
 
-	return d.copyFileShareByAzcopy(ctx, srcFileShareName, dstFileShareName, srcPath, dstPath, "", srcAccountName, dstAccountName, srcAccountSasToken, authAzcopyEnv, accountOptions)
+	return d.copyFileShareByAzcopy(ctx, srcFileShareName, dstFileShareName, srcPath, dstPath, "", srcAccountName, dstAccountName, srcAccountSasToken, authAzcopyEnv, shareOptions, accountOptions)
 }
 
 // GetTotalAccountQuota returns the total quota in GB of all file shares in the storage account and the number of file shares
