@@ -88,6 +88,13 @@ controller:
       requests:
         cpu: 10m
         memory: 20Mi
+    azfilesrefresh:
+      limits:
+        cpu: 1
+        memory: 100Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
     azurefile:
       limits:
         cpu: 2
@@ -120,6 +127,7 @@ node:
   allowEmptyCloudConfig: true
   allowInlineVolumeKeyAccessWithIdentity: false
   enableKataCCMount: false
+  enableManagedIdentityAuth: true
   metricsPort: 29615
   livenessProbe:
     healthPort: 29613

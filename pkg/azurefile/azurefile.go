@@ -166,6 +166,7 @@ const (
 	defaultConfidentialContainerLabel = "kubernetes.azure.com/kata-cc-isolation"
 	runtimeClassHandlerField          = "runtimeclasshandler"
 	defaultRuntimeClassHandler        = "kata-cc"
+	mountWithManagedIdentityField     = "mountwithmanagedidentity"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
 	// this is a workaround fix for 429 throttling issue, will update cloud provider for better fix later
@@ -782,7 +783,7 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 
 	var protocol, accountKey, secretName, pvcNamespace string
 	// getAccountKeyFromSecret indicates whether get account key only from k8s secret
-	var getAccountKeyFromSecret, getLatestAccountKey bool
+	var getAccountKeyFromSecret, getLatestAccountKey, mountWithManagedIdentity bool
 	var clientID, tenantID, serviceAccountToken string
 
 	for k, v := range reqContext {
@@ -815,6 +816,10 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 			}
 		case clientIDField:
 			clientID = v
+		case mountWithManagedIdentityField:
+			if mountWithManagedIdentity, err = strconv.ParseBool(v); err != nil {
+				return rgName, accountName, accountKey, fileShareName, diskName, subsID, fmt.Errorf("invalid %s: %s in volume context", mountWithManagedIdentityField, v)
+			}
 		case tenantIDField:
 			tenantID = v
 		case strings.ToLower(serviceAccountTokenField):
@@ -844,7 +849,11 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 		}
 	}
 
-	// if client id is specified, we only use service account token to get account key
+	if mountWithManagedIdentity {
+		klog.V(2).Infof("mountWithManagedIdentity is true, use managed identity auth")
+		return rgName, accountName, accountKey, fileShareName, diskName, subsID, nil
+	}
+
 	if clientID != "" {
 		klog.V(2).Infof("clientID(%s) is specified, use service account token to get account key", clientID)
 		accountKey, err := d.cloud.GetStorageAccesskeyFromServiceAccountToken(ctx, subsID, accountName, rgName, clientID, tenantID, serviceAccountToken)

@@ -76,8 +76,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	mountPermissions := d.mountPermissions
 	context := req.GetVolumeContext()
 	if context != nil {
-		// token request
-		if getValueInMap(context, serviceAccountTokenField) != "" && getValueInMap(context, clientIDField) != "" {
+		if !strings.EqualFold(getValueInMap(context, mountWithManagedIdentityField), trueValue) && getValueInMap(context, serviceAccountTokenField) != "" && getValueInMap(context, clientIDField) != "" {
 			klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with service account token, clientID: %s", volumeID, target, getValueInMap(context, clientIDField))
 			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
 				StagingTargetPath: target,
@@ -248,7 +247,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	volumeID := req.GetVolumeId()
 	context := req.GetVolumeContext()
 
-	if getValueInMap(context, clientIDField) != "" && getValueInMap(context, serviceAccountTokenField) == "" {
+	if getValueInMap(context, clientIDField) != "" && !strings.EqualFold(getValueInMap(context, mountWithManagedIdentityField), trueValue) && getValueInMap(context, serviceAccountTokenField) == "" {
 		klog.V(2).Infof("Skip NodeStageVolume for volume(%s) since clientID %s is provided but service account token is empty", volumeID, getValueInMap(context, clientIDField))
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
@@ -277,9 +276,8 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 	// don't respect fsType from req.GetVolumeCapability().GetMount().GetFsType()
 	// since it's ext4 by default on Linux
-	var fsType, server, protocol, ephemeralVolMountOptions, storageEndpointSuffix, folderName string
-	var ephemeralVol bool
-	var encryptInTransit bool
+	var fsType, server, protocol, ephemeralVolMountOptions, storageEndpointSuffix, folderName, clientID string
+	var ephemeralVol, encryptInTransit, mountWithManagedIdentity bool
 	fileShareNameReplaceMap := map[string]string{}
 
 	mountPermissions := d.mountPermissions
@@ -313,7 +311,6 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			fileShareNameReplaceMap[pvNameMetadata] = v
 		case mountPermissionsField:
 			if v != "" {
-				var err error
 				var perm uint64
 				if perm, err = strconv.ParseUint(v, 8, 32); err != nil {
 					return nil, status.Errorf(codes.InvalidArgument, "invalid mountPermissions %s", v)
@@ -325,11 +322,17 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 				}
 			}
 		case encryptInTransitField:
-			var err error
 			encryptInTransit, err = strconv.ParseBool(v)
 			if err != nil {
 				return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("Volume context property %q must be a boolean value: %v", k, err))
 			}
+		case mountWithManagedIdentityField:
+			mountWithManagedIdentity, err = strconv.ParseBool(v)
+			if err != nil {
+				return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("Volume context property %q must be a boolean value: %v", k, err))
+			}
+		case clientIDField:
+			clientID = v
 		}
 	}
 
@@ -394,18 +397,29 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		mountOptions = util.JoinMountOptions(mountFlags, []string{"vers=4,minorversion=1,sec=sys"})
 		mountOptions = appendDefaultNfsMountOptions(mountOptions, d.appendNoResvPortOption, d.appendActimeoOption)
 	} else {
-		if accountName == "" || accountKey == "" {
-			return nil, status.Errorf(codes.Internal, "accountName(%s) or accountKey is empty", accountName)
-		}
-		if runtime.GOOS == "windows" {
-			mountOptions = []string{fmt.Sprintf("AZURE\\%s", accountName)}
-			sensitiveMountOptions = []string{accountKey}
-		} else {
-			if err := os.MkdirAll(targetPath, os.FileMode(mountPermissions)); err != nil {
-				return nil, status.Error(codes.Internal, fmt.Sprintf("MkdirAll %s failed with error: %v", targetPath, err))
+		if mountWithManagedIdentity && runtime.GOOS != "windows" {
+			if clientID == "" {
+				clientID = d.cloud.Config.AzureAuthConfig.UserAssignedIdentityID
 			}
-			// parameters suggested by https://azure.microsoft.com/en-us/documentation/articles/storage-how-to-use-files-linux/
-			sensitiveMountOptions = []string{fmt.Sprintf("username=%s,password=%s", accountName, accountKey)}
+			sensitiveMountOptions = []string{"sec=krb5,cruid=0,upcall_target=mount", fmt.Sprintf("username=%s", clientID)}
+			klog.V(2).Infof("using managed identity %s for volume %s with mount options: %v", clientID, volumeID, sensitiveMountOptions)
+		} else {
+			if accountName == "" || accountKey == "" {
+				return nil, status.Errorf(codes.Internal, "accountName(%s) or accountKey is empty", accountName)
+			}
+			if runtime.GOOS == "windows" {
+				mountOptions = []string{fmt.Sprintf("AZURE\\%s", accountName)}
+				sensitiveMountOptions = []string{accountKey}
+			} else {
+				if err := os.MkdirAll(targetPath, os.FileMode(mountPermissions)); err != nil {
+					return nil, status.Error(codes.Internal, fmt.Sprintf("MkdirAll %s failed with error: %v", targetPath, err))
+				}
+				// parameters suggested by https://azure.microsoft.com/en-us/documentation/articles/storage-how-to-use-files-linux/
+				sensitiveMountOptions = []string{fmt.Sprintf("username=%s,password=%s", accountName, accountKey)}
+			}
+		}
+
+		if runtime.GOOS != "windows" {
 			if ephemeralVol {
 				cifsMountFlags = util.JoinMountOptions(cifsMountFlags, strings.Split(ephemeralVolMountOptions, ","))
 			}
@@ -449,6 +463,11 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			klog.V(2).Infof("mount with proxy succeeded for %s", cifsMountPath)
 		} else {
 			execFunc := func() error {
+				if mountWithManagedIdentity && protocol != nfs && runtime.GOOS != "windows" {
+					if out, err := setCredentialCache(server, clientID); err != nil {
+						return fmt.Errorf("setCredentialCache failed for %s with error: %v, output: %s", server, err, out)
+					}
+				}
 				return SMBMount(d.mounter, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions)
 			}
 			timeoutFunc := func() error { return fmt.Errorf("time out") }
