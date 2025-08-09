@@ -1128,9 +1128,6 @@ func (d *Driver) ListSnapshots(_ context.Context, _ *csi.ListSnapshotsRequest) (
 
 // restoreSnapshot restores from a snapshot
 func (d *Driver) restoreSnapshot(ctx context.Context, req *csi.CreateVolumeRequest, dstAccountName, dstAccountSasToken string, authAzcopyEnv []string, secretNamespace string, shareOptions *ShareOptions, accountOptions *storage.AccountOptions, storageEndpointSuffix string) error {
-	if shareOptions.Protocol == armstorage.EnabledProtocolsNFS {
-		return fmt.Errorf("protocol nfs is not supported for snapshot restore")
-	}
 	var sourceSnapshotID string
 	if req.GetVolumeContentSource() != nil && req.GetVolumeContentSource().GetSnapshot() != nil {
 		sourceSnapshotID = req.GetVolumeContentSource().GetSnapshot().GetSnapshotId()
@@ -1171,10 +1168,10 @@ func (d *Driver) restoreSnapshot(ctx context.Context, req *csi.CreateVolumeReque
 	dstPath := fmt.Sprintf("https://%s.file.%s/%s%s", dstAccountName, storageEndpointSuffix, dstFileShareName, dstAccountSasToken)
 
 	srcFileShareSnapshotName := fmt.Sprintf("%s(snapshot: %s)", srcFileShareName, snapshot)
-	return d.copyFileShareByAzcopy(ctx, srcFileShareSnapshotName, dstFileShareName, srcPath, dstPath, snapshot, srcAccountName, dstAccountName, srcAccountSasToken, authAzcopyEnv, accountOptions)
+	return d.copyFileShareByAzcopy(ctx, srcFileShareSnapshotName, dstFileShareName, srcPath, dstPath, snapshot, srcAccountName, dstAccountName, srcAccountSasToken, authAzcopyEnv, shareOptions, accountOptions)
 }
 
-func (d *Driver) copyFileShareByAzcopy(ctx context.Context, srcFileShareName, dstFileShareName, srcPath, dstPath, snapshot, srcAccountName, dstAccountName, accountSASToken string, authAzcopyEnv []string, accountOptions *storage.AccountOptions) error {
+func (d *Driver) copyFileShareByAzcopy(ctx context.Context, srcFileShareName, dstFileShareName, srcPath, dstPath, snapshot, srcAccountName, dstAccountName, accountSASToken string, authAzcopyEnv []string, shareOptions *ShareOptions, accountOptions *storage.AccountOptions) error {
 	azcopyCopyOptions := azcopyCloneVolumeOptions
 	srcPathAuth := srcPath
 	if snapshot != "" {
@@ -1184,6 +1181,10 @@ func (d *Driver) copyFileShareByAzcopy(ctx context.Context, srcFileShareName, ds
 		} else {
 			srcPathAuth = fmt.Sprintf("%s&sharesnapshot=%s", srcPath, snapshot)
 		}
+	}
+
+	if shareOptions.Protocol == armstorage.EnabledProtocolsNFS {
+		azcopyCopyOptions = append(azcopyCopyOptions, "--from-to=FileNFSFileNFS")
 	}
 
 	jobState, percent, err := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
