@@ -215,6 +215,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			scParameters["networkEndpointType"] = "privateEndpoint"
 			scParameters["accessTier"] = "Hot"
 			scParameters["selectRandomMatchingAccount"] = "true"
+			scParameters["folderName"] = "test-folder"
+			scParameters["createFolderIfNotExist"] = "true"
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
 			CSIDriver:              testDriver,
