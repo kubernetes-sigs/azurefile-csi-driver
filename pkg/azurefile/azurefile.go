@@ -97,7 +97,7 @@ const (
 	rootSquashTypeField               = "rootsquashtype"
 	diskNameField                     = "diskname"
 	folderNameField                   = "foldername"
-	folderNameAutocreateField         = "foldernameautocreate"
+	createFolderIfNotExistField       = "createfolderifnotexist"
 	serverNameField                   = "server"
 	fsTypeField                       = "fstype"
 	protocolField                     = "protocol"

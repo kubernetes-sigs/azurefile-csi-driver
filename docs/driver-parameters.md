@@ -111,7 +111,6 @@ volumeAttributes.resourceGroup | Azure resource group name | existing resource g
 volumeAttributes.storageAccount | existing storage account name | existing storage account name | Yes |
 volumeAttributes.shareName | Azure file share name | existing Azure file share name | Yes |
 volumeAttributes.folderName | specify folder name in Azure file share | existing folder name in Azure file share | No | if folder name does not exist in file share, mount would fail
-volumeAttributes.folderNameAutocreate | automatically create folder if it doesn't exist | `true`, `false` | No | `false`
 volumeAttributes.protocol | specify file share protocol | `smb`, `nfs` | No | `smb`
 volumeAttributes.server | specify Azure storage account server address | existing server address, e.g. `accountname.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
 volumeAttributes.storageEndpointSuffix | specify Azure storage endpoint suffix | `core.windows.net`, `core.chinacloudapi.cn`, etc | No | if empty, driver will use default storage endpoint suffix according to cloud environment, e.g. `core.windows.net`
