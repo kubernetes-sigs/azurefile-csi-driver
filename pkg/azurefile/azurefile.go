@@ -1374,20 +1374,12 @@ func isKataNode(ctx context.Context, nodeID, confidentialContainerLabel string, 
 // createFolderIfNotExists creates a folder in Azure File Share if it doesn't already exist
 // This function handles nested paths by creating each directory level recursively
 func (d *Driver) createFolderIfNotExists(ctx context.Context, accountName, accountKey, fileShareName, folderName, storageEndpointSuffix string) error {
-	// Create Azure File service client
-	credential, err := service.NewSharedKeyCredential(accountName, accountKey)
-	if err != nil {
-		return fmt.Errorf("NewSharedKeyCredential(%s) failed with error: %v", accountName, err)
+	fileClient, err := newAzureFileClient(accountName, accountKey, storageEndpointSuffix)
+	if err != nil || fileClient.(*azureFileDataplaneClient).Client == nil {
+		return fmt.Errorf("create Azure File client(%s) failed: %v", accountName, err)
 	}
 
-	serviceURL := getFileServiceURL(accountName, storageEndpointSuffix)
-	serviceClient, err := service.NewClientWithSharedKeyCredential(serviceURL, credential, nil)
-	if err != nil {
-		return fmt.Errorf("NewClientWithSharedKeyCredential(%s) failed with error: %v", serviceURL, err)
-	}
-
-	// Get share client
-	shareClient := serviceClient.NewShareClient(fileShareName)
+	shareClient := fileClient.(*azureFileDataplaneClient).Client.NewShareClient(fileShareName)
 
 	// Performance optimization: First check if the complete directory structure already exists
 	// This is the most common case and avoids unnecessary recursive checking
@@ -1426,8 +1418,7 @@ func (d *Driver) createFolderIfNotExists(ctx context.Context, accountName, accou
 		directoryClient := shareClient.NewDirectoryClient(currentPath)
 
 		// Check if directory already exists by trying to get its properties
-		_, err = directoryClient.GetProperties(ctx, nil)
-		if err == nil {
+		if _, err = directoryClient.GetProperties(ctx, nil); err == nil {
 			// Directory already exists, continue to next level
 			klog.V(4).Infof("Directory %s already exists in share %s", currentPath, fileShareName)
 			continue
@@ -1441,8 +1432,7 @@ func (d *Driver) createFolderIfNotExists(ctx context.Context, accountName, accou
 		}
 
 		// Create the directory at this level
-		_, err = directoryClient.Create(ctx, nil)
-		if err != nil {
+		if _, err = directoryClient.Create(ctx, nil); err != nil {
 			var respErr *azcore.ResponseError
 			if errors.As(err, &respErr) && respErr.StatusCode == 409 {
 				// Directory already exists (race condition), which is fine

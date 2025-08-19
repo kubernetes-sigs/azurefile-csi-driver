@@ -1884,7 +1884,7 @@ func TestCreateFolderIfNotExists(t *testing.T) {
 			fileShareName:         "testshare",
 			folderName:            "testfolder",
 			storageEndpointSuffix: "core.windows.net",
-			expectedError:         "NewSharedKeyCredential(testaccount) failed with error:",
+			expectedError:         "decode account key",
 		},
 		{
 			name:                  "Empty folder name",
