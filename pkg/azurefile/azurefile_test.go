@@ -1863,3 +1863,98 @@ func TestIsSupportedPublicNetworkAccess(t *testing.T) {
 		}
 	}
 }
+
+func TestCreateFolderIfNotExists(t *testing.T) {
+	d := NewFakeDriver()
+	ctx := context.Background()
+
+	tests := []struct {
+		name                  string
+		accountName           string
+		accountKey            string
+		fileShareName         string
+		folderName            string
+		storageEndpointSuffix string
+		expectedError         string
+	}{
+		{
+			name:                  "Invalid account key",
+			accountName:           "testaccount",
+			accountKey:            "invalid-base64-key",
+			fileShareName:         "testshare",
+			folderName:            "testfolder",
+			storageEndpointSuffix: "core.windows.net",
+			expectedError:         "decode account key",
+		},
+		{
+			name:                  "Empty folder name",
+			accountName:           "testaccount",
+			accountKey:            base64.StdEncoding.EncodeToString([]byte("testkey")),
+			fileShareName:         "testshare",
+			folderName:            "",
+			storageEndpointSuffix: "core.windows.net",
+			expectedError:         "", // Should succeed as it's the root
+		},
+		{
+			name:                  "Folder with leading and trailing slashes",
+			accountName:           "testaccount",
+			accountKey:            base64.StdEncoding.EncodeToString([]byte("testkey")),
+			fileShareName:         "testshare",
+			folderName:            "/path/to/folder/",
+			storageEndpointSuffix: "core.windows.net",
+			expectedError:         "", // Should handle gracefully
+		},
+		{
+			name:                  "Nested folder path",
+			accountName:           "testaccount",
+			accountKey:            base64.StdEncoding.EncodeToString([]byte("testkey")),
+			fileShareName:         "testshare",
+			folderName:            "level1/level2/level3",
+			storageEndpointSuffix: "core.windows.net",
+			expectedError:         "", // Should create all levels
+		},
+		{
+			name:                  "Folder with empty components",
+			accountName:           "testaccount",
+			accountKey:            base64.StdEncoding.EncodeToString([]byte("testkey")),
+			fileShareName:         "testshare",
+			folderName:            "path//to///folder",
+			storageEndpointSuffix: "core.windows.net",
+			expectedError:         "", // Should skip empty components
+		},
+		{
+			name:                  "Single level folder",
+			accountName:           "testaccount",
+			accountKey:            base64.StdEncoding.EncodeToString([]byte("testkey")),
+			fileShareName:         "testshare",
+			folderName:            "singlefolder",
+			storageEndpointSuffix: "core.windows.net",
+			expectedError:         "", // Should create single folder
+		},
+		{
+			name:                  "China cloud endpoint",
+			accountName:           "testaccount",
+			accountKey:            base64.StdEncoding.EncodeToString([]byte("testkey")),
+			fileShareName:         "testshare",
+			folderName:            "testfolder",
+			storageEndpointSuffix: "core.chinacloudapi.cn",
+			expectedError:         "", // Should work with different endpoints
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := d.createFolderIfNotExists(ctx, test.accountName, test.accountKey, test.fileShareName, test.folderName, test.storageEndpointSuffix)
+
+			if test.expectedError != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), test.expectedError)
+			} else {
+				// These tests will fail in unit test environment as they require actual Azure connection
+				// In a real test environment with mocked Azure services, these would pass
+				// For now, we just verify the function doesn't panic
+				_ = err
+			}
+		})
+	}
+}

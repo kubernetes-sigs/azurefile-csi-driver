@@ -278,8 +278,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	// don't respect fsType from req.GetVolumeCapability().GetMount().GetFsType()
 	// since it's ext4 by default on Linux
 	var fsType, server, protocol, ephemeralVolMountOptions, storageEndpointSuffix, folderName string
-	var ephemeralVol bool
-	var encryptInTransit bool
+	var ephemeralVol, createFolderIfNotExist, encryptInTransit bool
 	fileShareNameReplaceMap := map[string]string{}
 
 	mountPermissions := d.mountPermissions
@@ -295,6 +294,8 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			diskName = v
 		case folderNameField:
 			folderName = v
+		case createFolderIfNotExistField:
+			createFolderIfNotExist = strings.EqualFold(v, trueValue)
 		case serverNameField:
 			server = v
 		case ephemeralField:
@@ -372,6 +373,12 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		source = fmt.Sprintf("%s:/%s/%s", server, accountName, fileShareName)
 	}
 	if folderName != "" {
+		if createFolderIfNotExist {
+			if err := d.createFolderIfNotExists(ctx, accountName, accountKey, fileShareName, folderName, storageEndpointSuffix); err != nil {
+				klog.Warningf("Failed to create folder %s in share %s: %v", folderName, fileShareName, err)
+				// Continue with mounting - folder might already exist or be created by other means
+			}
+		}
 		source = fmt.Sprintf("%s%s%s", source, osSeparator, folderName)
 	}
 
