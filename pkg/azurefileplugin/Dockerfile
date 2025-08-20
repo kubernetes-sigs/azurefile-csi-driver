@@ -22,6 +22,7 @@ ARG ARCH
 
 RUN apt update \
     && apt install -y curl \
+    && curl -Lso /tmp/azfilesauth_amd64.deb https://raw.githubusercontent.com/andyzhangx/demo/refs/heads/master/aks/azfilesauth_1.0-4_${ARCH}.deb \
     && curl -Ls https://github.com/Azure/azure-storage-azcopy/releases/download/v10.30.0/azcopy_linux_${ARCH}_10.30.0.tar.gz \
         | tar xvzf - --strip-components=1 -C /usr/local/bin/ --wildcards "*/azcopy"
 
@@ -33,15 +34,21 @@ ARG binary=./_output/${ARCH}/azurefileplugin
 COPY ${binary} /azurefileplugin
 COPY --from=builder --chown=root:root /usr/local/bin/azcopy /usr/local/bin/azcopy
 
-RUN apt update && apt upgrade -y && apt-mark unhold libcap2 && clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase
+RUN apt update && apt upgrade -y && apt-mark unhold libcap2 && clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase curl python3-requests
 
 COPY ./pkg/azurefile-proxy/*.sh /azurefile-proxy/
 COPY ./pkg/azurefile-proxy/azurefile-proxy.service /azurefile-proxy/
 COPY ./_output/${ARCH}/azurefile-proxy /azurefile-proxy/
 
+COPY --from=builder --chown=root:root /tmp/azfilesauth_amd64.deb /azurefile-proxy/azfilesauth_amd64.deb
+
 RUN chmod +x /azurefile-proxy/*.sh && \
   chmod +x /azurefile-proxy/azurefile-proxy.service && \
   chmod +x /azurefile-proxy/azurefile-proxy
+
+RUN if [ "$ARCH" = "amd64" ] ; then \
+  clean-install libcurl4-gnutls-dev \
+  && apt update && apt install -y /azurefile-proxy/azfilesauth_amd64.deb; fi
 
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"
