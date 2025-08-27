@@ -21,5 +21,5 @@ We have full documentation on how to get started contributing here:
 
 ## Contact Information
 
-- [Slack channel](https://kubernetes.slack.com/messages/sig-storage)
-- [Mailing list](https://groups.google.com/forum/#!forum/kubernetes-sig-storage)
+- [Slack channel](https://kubernetes.slack.com/messages/provider-azure)
+- [Mailing list](https://groups.google.com/forum/#!forum/kubernetes-sig-azure)
