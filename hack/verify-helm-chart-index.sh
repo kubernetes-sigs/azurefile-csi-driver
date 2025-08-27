@@ -33,6 +33,11 @@ function check_url() {
 		echo "$local exists"
 	else
 		echo "$local does not exist"
+		# ignore url which contains latest
+		if [[ "$url" == *"latest"* ]]; then
+			echo "ignore $url"
+			return
+		fi
 		exit 1
 	fi
     fi
