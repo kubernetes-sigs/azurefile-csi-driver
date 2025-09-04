@@ -50,11 +50,7 @@ echo "chart tgz files verified."
 
 echo "verify helm chart index ..."
 echo "install helm ..."
-curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
-chmod 700 get_helm.sh
-./get_helm.sh
-helm version
-
+curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
 helm repo add azurefile-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts
 helm search repo -l azurefile-csi-driver
 echo "helm chart index verified."
