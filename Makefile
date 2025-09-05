@@ -17,12 +17,15 @@ GIT_COMMIT ?= $(shell git rev-parse HEAD)
 REGISTRY = mcr.microsoft.com/oss/v2/kubernetes-csi
 REGISTRY_NAME ?= $(shell echo $(REGISTRY) | sed "s/.azurecr.io//g")
 IMAGE_NAME ?= azurefile-csi
-IMAGE_VERSION ?= v1.32.6
+IMAGE_VERSION ?= v1.32.6-3
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
 ifndef PUBLISH
 override IMAGE_VERSION := $(IMAGE_VERSION)
 endif
+endif
+ifdef WINDOWS_USE_HOST_PROCESS_CONTAINERS
+override IMAGE_VERSION = v1.32.6
 endif
 CSI_IMAGE_TAG ?= $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
 CSI_IMAGE_TAG_LATEST = $(REGISTRY)/$(IMAGE_NAME):latest
