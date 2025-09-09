@@ -140,10 +140,14 @@ func (job *WmiJob) PercentComplete() (uint16, error) {
 
 func (job *WmiJob) GetJobState() (js JobState) {
 	state, err := job.GetProperty("JobState")
-	if err != nil {
-		return
+	if err != nil || state == nil {
+		return JobState_Unknown
 	}
-	js = JobState(state.(int32))
+	if val, ok := state.(int32); ok {
+		js = JobState(val)
+	} else {
+		js = JobState_Unknown
+	}
 	return
 }
 
@@ -170,6 +174,8 @@ func (job *WmiJob) IsComplete() bool {
 		fallthrough
 	case JobState_Killed:
 		fallthrough
+	case JobState_Unknown:
+		fallthrough
 	case JobState_Exception:
 		return true
 	}
@@ -194,6 +200,8 @@ func (job *WmiJob) GetException() error {
 		return errors.Wrapf(errors.NewWMIError(errorCode),
 			"ErrorCode[%d] ErrorDescription[%s] ErrorSummaryDescription [%s]",
 			errorCode, errorDescription, errorSummaryDescription)
+	case JobState_Unknown:
+		return errors.Wrapf(errors.Unknown, "Job is in Unknown state")
 	}
 	return nil
 }
