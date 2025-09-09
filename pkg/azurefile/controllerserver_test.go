@@ -1453,7 +1453,7 @@ var _ = ginkgo.Describe("TestCopyVolume", func() {
 				VolumeContentSource: &volumecontensource,
 			}
 
-			expectedErr := status.Errorf(codes.NotFound, "error parsing volume id: \"unit-test\", should at least contain two #")
+			expectedErr := status.Errorf(codes.NotFound, "error parsing snapshot id: \"unit-test\", should at least contain 6 #")
 			err := d.copyVolume(ctx, req, "", "", []string{}, "", &ShareOptions{Name: "dstFileshare"}, nil, "core.windows.net")
 			gomega.Expect(err).To(gomega.Equal(expectedErr))
 		})
@@ -1463,7 +1463,7 @@ var _ = ginkgo.Describe("TestCopyVolume", func() {
 			allParam := map[string]string{}
 
 			volumeSnapshotSource := &csi.VolumeContentSource_SnapshotSource{
-				SnapshotId: "rg#unit-test###",
+				SnapshotId: "rg#unit-test#####snapshot-id",
 			}
 			volumeContentSourceSnapshotSource := &csi.VolumeContentSource_Snapshot{
 				Snapshot: volumeSnapshotSource,
@@ -1984,9 +1984,9 @@ var _ = ginkgo.DescribeTable("DeleteSnapshot", func(req *csi.DeleteSnapshotReque
 		Secrets:    map[string]string{},
 	}, nil),
 	ginkgo.Entry("Invalid Snapshot ID", &csi.DeleteSnapshotRequest{
-		SnapshotId: "testrg#testAccount#testFileShare#testuuid",
+		SnapshotId: "testrg#testAccount#testFileShare#testuuid###",
 		Secrets:    map[string]string{"accountName": "TestAccountName", "accountKey": base64.StdEncoding.EncodeToString([]byte("TestAccountKey"))},
-	}, status.Error(codes.Internal, "failed to get snapshot name with (testrg#testAccount#testFileShare#testuuid): error parsing volume id: \"testrg#testAccount#testFileShare#testuuid\", should at least contain four #"),
+	}, status.Error(codes.Internal, "failed to get snapshot name with (testrg#testAccount#testFileShare#testuuid###): snapshot name is empty"),
 	),
 	ginkgo.Entry("Delete snapshot success", &csi.DeleteSnapshotRequest{
 		SnapshotId: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#2019-08-22T07:17:53.0000000Z",

@@ -555,6 +555,35 @@ func GetFileShareInfo(id string) (string, string, string, string, string, string
 	return rg, segments[1], segments[2], diskName, namespace, subsID, nil
 }
 
+// get snapshot info according to snapshot id, e.g.
+// input:
+//
+//	capz-qjbped#f3d5809ad977d4606b8997d#pvc-061c8214-2330-4b3e-88d0-6ef8d84636bc###azurefile-6654#2025-09-05T07:51:41.0000000Z#46678f10-4bbb-447e-98e8-d2829589f2d8
+//	capz-qjbped#f3d5809ad977d4606b8997d#pvc-061c8214-2330-4b3e-88d0-6ef8d84636bc###azurefile-6654#46678f10-4bbb-447e-98e8-d2829589f2d8#2025-09-05T07:51:41.0000000Z
+//
+// output:
+//
+//	capz-qjbped, f3d5809ad977d4606b8997d, pvc-061c8214-2330-4b3e-88d0-6ef8d84636bc, snapshotTime, 46678f10-4bbb-447e-98e8-d2829589f2d8
+func GetInfoFromSnapshotID(id string) (string, string, string, string, string, error) {
+	segments := strings.Split(id, separator)
+	if len(segments) < 7 {
+		return "", "", "", "", "", fmt.Errorf("error parsing snapshot id: %q, should at least contain 6 #", id)
+	}
+	snapshotTime := segments[6]
+	var subsID string
+	if len(segments) > 7 {
+		if isValidSubscriptionID(segments[7]) {
+			subsID = segments[7]
+		} else {
+			if isValidSubscriptionID(segments[6]) {
+				subsID = segments[6]
+				snapshotTime = segments[7]
+			}
+		}
+	}
+	return segments[0], segments[1], segments[2], snapshotTime, subsID, nil
+}
+
 // check whether mountOptions contains file_mode, dir_mode, vers, if not, append default mode
 func appendDefaultCifsMountOptions(mountOptions []string, appendNoShareSockOption, appendClosetimeoOption bool) []string {
 	var defaultMountOptions = map[string]string{
@@ -704,17 +733,6 @@ func checkShareNameBeginAndEnd(fileShareName string) bool {
 	}
 
 	return false
-}
-
-// get snapshot name according to snapshot id, e.g.
-// input: "rg#f5713de20cde511e8ba4900#csivolumename#diskname#2019-08-22T07:17:53.0000000Z"
-// output: 2019-08-22T07:17:53.0000000Z (last element)
-func getSnapshot(id string) (string, error) {
-	segments := strings.Split(id, separator)
-	if len(segments) < 5 {
-		return "", fmt.Errorf("error parsing volume id: %q, should at least contain four #", id)
-	}
-	return segments[len(segments)-1], nil
 }
 
 func getDirectoryClient(accountName, accountKey, storageEndpointSuffix, fileShareName, diskName string) (*file.Client, error) {
