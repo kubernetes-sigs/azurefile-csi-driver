@@ -390,7 +390,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	fileShareSize := int(requestGiB)
 
-	if account != "" && resourceGroup != "" && sku == "" && fileShareSize < minimumPremiumShareSize {
+	if account != "" && resourceGroup != "" && sku == "" && fileShareSize < minimumPremiumV2ShareSize {
 		if d.cloud == nil || d.cloud.ComputeClientFactory == nil {
 			return nil, status.Errorf(codes.Internal, "cloud provider is not initialized")
 		}
@@ -411,8 +411,14 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	accountKind := string(armstorage.KindStorageV2)
 	if strings.HasPrefix(strings.ToLower(sku), premium) {
 		accountKind = string(armstorage.KindFileStorage)
-		if fileShareSize < minimumPremiumShareSize {
-			fileShareSize = minimumPremiumShareSize
+		if strings.Contains(strings.ToLower(sku), "v2") {
+			if fileShareSize < minimumPremiumV2ShareSize {
+				fileShareSize = minimumPremiumV2ShareSize
+			}
+		} else {
+			if fileShareSize < minimumPremiumShareSize {
+				fileShareSize = minimumPremiumShareSize
+			}
 		}
 	}
 
