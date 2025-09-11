@@ -1940,6 +1940,16 @@ func TestGetInfoFromSnapshotID(t *testing.T) {
 			expectedError: nil,
 		},
 		{
+			name:          "Valid snapshot ID with 8 segments and invalid subscription ID at end",
+			id:            "rg#accountname#sharename#diskname#namespace#azurefile-6654#2025-09-05T07:51:41.0000000Z#",
+			expectedRG:    "rg",
+			expectedAcct:  "accountname",
+			expectedShare: "sharename",
+			expectedTime:  "2025-09-05T07:51:41.0000000Z",
+			expectedSubs:  "",
+			expectedError: nil,
+		},
+		{
 			name:          "Valid snapshot ID with 8 segments and subscription ID at position 6",
 			id:            "rg#accountname#sharename#diskname#namespace#azurefile-6654#12345678-1234-1234-1234-123456789012#2025-09-05T07:51:41.0000000Z",
 			expectedRG:    "rg",
