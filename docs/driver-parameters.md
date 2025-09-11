@@ -62,6 +62,8 @@ tags | [tags](https://docs.microsoft.com/en-us/azure/azure-resource-manager/mana
 matchTags | whether matching tags when driver tries to find a suitable storage account | `true`,`false` | No | `false`
 selectRandomMatchingAccount | whether randomly selecting a matching account, by default, the driver would always select the first matching account in alphabetical order(note: this driver uses account search cache, which results in uneven distribution of file creation across multiple accounts) | `true`,`false` | No | `false`
 accountQuota | to limit the quota for an account, you can specify a maximum quota in GB (`102400`GB by default). If the account exceeds the specified quota, the driver would skip selecting the account | `` | No | `102400`
+provisionedIOPS | provisioned IOPS for [file share v2](https://learn.microsoft.com/en-us/azure/storage/files/understanding-billing#provisioned-v2-provisioning-detail) (supported from v1.33.4) | | No | 
+provisionedBandwidth | provisioned throughput (MB/s) for [file share v2](https://learn.microsoft.com/en-us/azure/storage/files/understanding-billing#provisioned-v2-provisioning-detail)  (supported from v1.33.4)  | | No | 
 --- | **Following parameters are only for SMB protocol** | --- | --- |
 storeAccountKey | Should the storage account key be stored in a Kubernetes secret <br> (Note:  if set to `false`, the driver will use the kubelet identity to obtain the account key) | `true`,`false` | No | `true`
 getLatestAccountKey | whether getting the latest account key based on the creation time, this driver would get the first key by default | `true`,`false` | No | `false`
