@@ -604,57 +604,6 @@ func TestCheckShareNameBeginAndEnd(t *testing.T) {
 	}
 }
 
-func TestGetSnapshot(t *testing.T) {
-	tests := []struct {
-		options   string
-		expected1 string
-		expected2 error
-	}{
-		{
-			options:   "rg#f123#csivolumename#diskname#2019-08-22T07:17:53.0000000Z",
-			expected1: "2019-08-22T07:17:53.0000000Z",
-			expected2: nil,
-		},
-		{
-			options:   "rg#f123#csivolumename#diskname#uuid#2020-08-22T07:17:53.0000000Z",
-			expected1: "2020-08-22T07:17:53.0000000Z",
-			expected2: nil,
-		},
-		{
-			options:   "rg#f123#csivolumename#diskname#uuid#default#2021-08-22T07:17:53.0000000Z",
-			expected1: "2021-08-22T07:17:53.0000000Z",
-			expected2: nil,
-		},
-		{
-			options:   "rg#f123#csivolumename",
-			expected1: "",
-			expected2: fmt.Errorf("error parsing volume id: \"rg#f123#csivolumename\", should at least contain four #"),
-		},
-		{
-			options:   "rg#f123",
-			expected1: "",
-			expected2: fmt.Errorf("error parsing volume id: \"rg#f123\", should at least contain four #"),
-		},
-		{
-			options:   "rg",
-			expected1: "",
-			expected2: fmt.Errorf("error parsing volume id: \"rg\", should at least contain four #"),
-		},
-		{
-			options:   "",
-			expected1: "",
-			expected2: fmt.Errorf("error parsing volume id: \"\", should at least contain four #"),
-		},
-	}
-
-	for _, test := range tests {
-		result1, result2 := getSnapshot(test.options)
-		if !reflect.DeepEqual(result1, test.expected1) || !reflect.DeepEqual(result2, test.expected2) {
-			t.Errorf("input: %q, getSnapshot result1: %q, expected1: %q, result2: %q, expected2: %q, ", test.options, result1, test.expected1, result2, test.expected2)
-		}
-	}
-}
-
 func TestIsCorruptedDir(t *testing.T) {
 	skipIfTestingOnWindows(t)
 	existingMountPath, err := os.MkdirTemp(os.TempDir(), "csi-mount-test")
@@ -1954,6 +1903,137 @@ func TestCreateFolderIfNotExists(t *testing.T) {
 				// In a real test environment with mocked Azure services, these would pass
 				// For now, we just verify the function doesn't panic
 				_ = err
+			}
+		})
+	}
+}
+
+func TestGetInfoFromSnapshotID(t *testing.T) {
+	tests := []struct {
+		name          string
+		id            string
+		expectedRG    string
+		expectedAcct  string
+		expectedShare string
+		expectedTime  string
+		expectedSubs  string
+		expectedError error
+	}{
+		{
+			name:          "Valid snapshot ID with 7 segments",
+			id:            "rg#accountname#sharename#diskname#namespace#azurefile-6654#2025-09-05T07:51:41.0000000Z",
+			expectedRG:    "rg",
+			expectedAcct:  "accountname",
+			expectedShare: "sharename",
+			expectedTime:  "2025-09-05T07:51:41.0000000Z",
+			expectedSubs:  "",
+			expectedError: nil,
+		},
+		{
+			name:          "Valid snapshot ID with 8 segments and valid subscription ID at end",
+			id:            "rg#accountname#sharename#diskname#namespace#azurefile-6654#2025-09-05T07:51:41.0000000Z#12345678-1234-1234-1234-123456789012",
+			expectedRG:    "rg",
+			expectedAcct:  "accountname",
+			expectedShare: "sharename",
+			expectedTime:  "2025-09-05T07:51:41.0000000Z",
+			expectedSubs:  "12345678-1234-1234-1234-123456789012",
+			expectedError: nil,
+		},
+		{
+			name:          "Valid snapshot ID with 8 segments and invalid subscription ID at end",
+			id:            "rg#accountname#sharename#diskname#namespace#azurefile-6654#2025-09-05T07:51:41.0000000Z#",
+			expectedRG:    "rg",
+			expectedAcct:  "accountname",
+			expectedShare: "sharename",
+			expectedTime:  "2025-09-05T07:51:41.0000000Z",
+			expectedSubs:  "",
+			expectedError: nil,
+		},
+		{
+			name:          "Valid snapshot ID with 8 segments and subscription ID at position 6",
+			id:            "rg#accountname#sharename#diskname#namespace#azurefile-6654#12345678-1234-1234-1234-123456789012#2025-09-05T07:51:41.0000000Z",
+			expectedRG:    "rg",
+			expectedAcct:  "accountname",
+			expectedShare: "sharename",
+			expectedTime:  "2025-09-05T07:51:41.0000000Z",
+			expectedSubs:  "12345678-1234-1234-1234-123456789012",
+			expectedError: nil,
+		},
+		{
+			name:          "Valid snapshot ID with 8 segments but invalid subscription IDs",
+			id:            "rg#accountname#sharename#diskname#namespace#azurefile-6654#2025-09-05T07:51:41.0000000Z#invalid-sub-id",
+			expectedRG:    "rg",
+			expectedAcct:  "accountname",
+			expectedShare: "sharename",
+			expectedTime:  "2025-09-05T07:51:41.0000000Z",
+			expectedSubs:  "",
+			expectedError: nil,
+		},
+		{
+			name:          "Invalid snapshot ID with less than 7 segments",
+			id:            "rg#accountname#sharename#diskname#namespace",
+			expectedRG:    "",
+			expectedAcct:  "",
+			expectedShare: "",
+			expectedTime:  "",
+			expectedSubs:  "",
+			expectedError: fmt.Errorf("error parsing snapshot id: \"rg#accountname#sharename#diskname#namespace\", should at least contain 6 #"),
+		},
+		{
+			name:          "Invalid snapshot ID with 6 segments",
+			id:            "rg#accountname#sharename#diskname#namespace#azurefile-6654",
+			expectedRG:    "",
+			expectedAcct:  "",
+			expectedShare: "",
+			expectedTime:  "",
+			expectedSubs:  "",
+			expectedError: fmt.Errorf("error parsing snapshot id: \"rg#accountname#sharename#diskname#namespace#azurefile-6654\", should at least contain 6 #"),
+		},
+		{
+			name:          "Empty snapshot ID",
+			id:            "",
+			expectedRG:    "",
+			expectedAcct:  "",
+			expectedShare: "",
+			expectedTime:  "",
+			expectedSubs:  "",
+			expectedError: fmt.Errorf("error parsing snapshot id: \"\", should at least contain 6 #"),
+		},
+		{
+			name:          "Snapshot ID with empty segments",
+			id:            "###diskname#namespace#azurefile-6654#2025-09-05T07:51:41.0000000Z",
+			expectedRG:    "",
+			expectedAcct:  "",
+			expectedShare: "",
+			expectedTime:  "2025-09-05T07:51:41.0000000Z",
+			expectedSubs:  "",
+			expectedError: nil,
+		},
+		{
+			name:          "Snapshot ID with 9 segments",
+			id:            "rg#accountname#sharename#diskname#namespace#azurefile-6654#2025-09-05T07:51:41.0000000Z#12345678-1234-1234-1234-123456789012#extra",
+			expectedRG:    "rg",
+			expectedAcct:  "accountname",
+			expectedShare: "sharename",
+			expectedTime:  "2025-09-05T07:51:41.0000000Z",
+			expectedSubs:  "12345678-1234-1234-1234-123456789012",
+			expectedError: nil,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rg, acct, share, time, subs, err := GetInfoFromSnapshotID(test.id)
+
+			if test.expectedError != nil {
+				assert.EqualError(t, err, test.expectedError.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, test.expectedRG, rg)
+				assert.Equal(t, test.expectedAcct, acct)
+				assert.Equal(t, test.expectedShare, share)
+				assert.Equal(t, test.expectedTime, time)
+				assert.Equal(t, test.expectedSubs, subs)
 			}
 		})
 	}

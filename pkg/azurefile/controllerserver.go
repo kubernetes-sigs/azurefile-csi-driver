@@ -968,7 +968,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		return &csi.CreateSnapshotResponse{
 			Snapshot: &csi.Snapshot{
 				SizeBytes:      util.GiBToBytes(int64(itemSnapshotQuota)),
-				SnapshotId:     sourceVolumeID + "#" + itemSnapshot,
+				SnapshotId:     sourceVolumeID + "#" + itemSnapshot + "#" + subsID,
 				SourceVolumeId: sourceVolumeID,
 				CreationTime:   timestamppb.New(itemSnapshotTime),
 				// Since the snapshot of azurefile has no field of ReadyToUse, here ReadyToUse is always set to true.
@@ -1050,7 +1050,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 	createResp := &csi.CreateSnapshotResponse{
 		Snapshot: &csi.Snapshot{
 			SizeBytes:      util.GiBToBytes(int64(itemSnapshotQuota)),
-			SnapshotId:     sourceVolumeID + "#" + itemSnapshot,
+			SnapshotId:     sourceVolumeID + "#" + itemSnapshot + "#" + subsID,
 			SourceVolumeId: sourceVolumeID,
 			CreationTime:   timestamppb.New(itemSnapshotTime),
 			// Since the snapshot of azurefile has no field of ReadyToUse, here ReadyToUse is always set to true.
@@ -1067,15 +1067,15 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 	if len(req.SnapshotId) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Snapshot ID must be provided")
 	}
-	rgName, accountName, fileShareName, _, _, subsID, err := GetFileShareInfo(req.SnapshotId) //nolint:dogsled
+	rgName, accountName, fileShareName, snapshot, subsID, err := GetInfoFromSnapshotID(req.SnapshotId)
 	if fileShareName == "" || err != nil {
 		// According to CSI Driver Sanity Tester, should succeed when an invalid snapshot id is used
 		klog.V(4).Infof("failed to get share url with (%s): %v, returning with success", req.SnapshotId, err)
 		return &csi.DeleteSnapshotResponse{}, nil
 	}
-	snapshot, err := getSnapshot(req.SnapshotId)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get snapshot name with (%s): %v", req.SnapshotId, err)
+
+	if snapshot == "" {
+		return nil, status.Errorf(codes.Internal, "failed to get snapshot name with (%s): snapshot name is empty", req.SnapshotId)
 	}
 
 	if rgName == "" {
@@ -1139,14 +1139,14 @@ func (d *Driver) restoreSnapshot(ctx context.Context, req *csi.CreateVolumeReque
 	if req.GetVolumeContentSource() != nil && req.GetVolumeContentSource().GetSnapshot() != nil {
 		sourceSnapshotID = req.GetVolumeContentSource().GetSnapshot().GetSnapshotId()
 	}
-	srcResourceGroupName, srcAccountName, srcFileShareName, _, _, srcSubscriptionID, err := GetFileShareInfo(sourceSnapshotID) //nolint:dogsled
+	srcResourceGroupName, srcAccountName, srcFileShareName, snapshot, srcSubscriptionID, err := GetInfoFromSnapshotID(sourceSnapshotID)
 	if err != nil {
 		return status.Error(codes.NotFound, err.Error())
 	}
-	snapshot, err := getSnapshot(sourceSnapshotID)
-	if err != nil {
-		return status.Error(codes.NotFound, err.Error())
+	if snapshot == "" {
+		return status.Error(codes.NotFound, "snapshot name is empty")
 	}
+
 	if dstAccountName == "" {
 		dstAccountName = srcAccountName
 	}
