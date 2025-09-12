@@ -526,7 +526,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			Volumes:   volumes,
 			Azurefile: azurefileDriver,
 			StorageClassParameters: map[string]string{
-				"skuName": "Premium_LRS",
+				"skuName": "PremiumV2_LRS",
 			},
 		}
 		test.Run(ctx, cs, ns)

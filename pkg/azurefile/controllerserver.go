@@ -413,10 +413,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		accountKind = string(armstorage.KindFileStorage)
 		if strings.Contains(strings.ToLower(sku), "v2") {
 			if fileShareSize < minimumPremiumV2ShareSize {
+				klog.V(2).Infof("fileShareSize(%d) is less than minimumPremiumV2ShareSize(%d), using minimumPremiumV2ShareSize", fileShareSize, minimumPremiumV2ShareSize)
 				fileShareSize = minimumPremiumV2ShareSize
 			}
 		} else {
 			if fileShareSize < minimumPremiumShareSize {
+				klog.V(2).Infof("fileShareSize(%d) is less than minimumPremiumShareSize(%d), using minimumPremiumShareSize", fileShareSize, minimumPremiumShareSize)
 				fileShareSize = minimumPremiumShareSize
 			}
 		}
