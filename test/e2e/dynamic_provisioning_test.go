@@ -1076,7 +1076,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
 				Volumes: []testsuites.VolumeDetails{
 					{
-						ClaimSize: "10Gi",
+						ClaimSize: "40Gi",
 						MountOptions: []string{
 							"dir_mode=0777",
 							"file_mode=0777",
@@ -1099,7 +1099,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		}
 
 		scParameters := map[string]string{
-			"skuName":                      "Standard_LRS",
+			"skuName":                      "StandardV2_LRS",
 			"secretNamespace":              "kube-system",
 			"createAccount":                "true",
 			"useDataPlaneAPI":              "true",

@@ -209,6 +209,9 @@ const (
 	tagValueDelimiterField = "tagvaluedelimiter"
 	// for data plane API
 	oauth = "oauth"
+
+	standardv2 = "standardv2"
+	premiumv2  = "premiumv2"
 )
 
 var (
