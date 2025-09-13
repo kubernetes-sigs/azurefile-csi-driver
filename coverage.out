@@ -1,0 +1,18 @@
+mode: set
+sigs.k8s.io/azurefile-csi-driver/pkg/filewatcher/filewatcher.go:29.27,31.2 1 0
+sigs.k8s.io/azurefile-csi-driver/pkg/filewatcher/filewatcher.go:36.38,38.2 1 1
+sigs.k8s.io/azurefile-csi-driver/pkg/filewatcher/filewatcher.go:42.52,46.37 2 1
+sigs.k8s.io/azurefile-csi-driver/pkg/filewatcher/filewatcher.go:46.37,51.17 3 1
+sigs.k8s.io/azurefile-csi-driver/pkg/filewatcher/filewatcher.go:51.17,53.4 1 1
+sigs.k8s.io/azurefile-csi-driver/pkg/filewatcher/filewatcher.go:54.3,57.41 2 1
+sigs.k8s.io/azurefile-csi-driver/pkg/filewatcher/filewatcher.go:59.2,59.12 1 1
+sigs.k8s.io/azurefile-csi-driver/pkg/filewatcher/filewatcher.go:63.45,65.16 2 1
+sigs.k8s.io/azurefile-csi-driver/pkg/filewatcher/filewatcher.go:65.16,67.3 1 0
+sigs.k8s.io/azurefile-csi-driver/pkg/filewatcher/filewatcher.go:69.2,69.12 1 1
+sigs.k8s.io/azurefile-csi-driver/pkg/filewatcher/filewatcher.go:69.12,70.7 1 1
+sigs.k8s.io/azurefile-csi-driver/pkg/filewatcher/filewatcher.go:70.7,71.11 1 1
+sigs.k8s.io/azurefile-csi-driver/pkg/filewatcher/filewatcher.go:72.39,73.101 1 1
+sigs.k8s.io/azurefile-csi-driver/pkg/filewatcher/filewatcher.go:73.101,76.6 2 1
+sigs.k8s.io/azurefile-csi-driver/pkg/filewatcher/filewatcher.go:77.37,78.11 1 0
+sigs.k8s.io/azurefile-csi-driver/pkg/filewatcher/filewatcher.go:78.11,80.6 1 0
+sigs.k8s.io/azurefile-csi-driver/pkg/filewatcher/filewatcher.go:85.2,85.26 1 1
