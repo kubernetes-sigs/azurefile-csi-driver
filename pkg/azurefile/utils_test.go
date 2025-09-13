@@ -1149,3 +1149,213 @@ func TestRemoveOptionIfExists(t *testing.T) {
 		}
 	}
 }
+
+func TestGetDefaultIOPS(t *testing.T) {
+	tests := []struct {
+		desc               string
+		requestGiB         int
+		storageAccountType string
+		expected           *int32
+	}{
+		{
+			desc:               "standardv2 with small storage",
+			requestGiB:         100,
+			storageAccountType: "StandardV2_LRS",
+			expected:           int32Ptr(1020),
+		},
+		{
+			desc:               "standardv2 with 1GiB storage",
+			requestGiB:         1,
+			storageAccountType: "StandardV2_LRS",
+			expected:           int32Ptr(1001),
+		},
+		{
+			desc:               "standardv2 with large storage hitting max",
+			requestGiB:         300000,
+			storageAccountType: "StandardV2_LRS",
+			expected:           int32Ptr(50000),
+		},
+		{
+			desc:               "standardv2 case insensitive",
+			requestGiB:         100,
+			storageAccountType: "STANDARDV2",
+			expected:           int32Ptr(1020),
+		},
+		{
+			desc:               "premiumv2 with small storage",
+			requestGiB:         100,
+			storageAccountType: "PremiumV2_LRS",
+			expected:           int32Ptr(3100),
+		},
+		{
+			desc:               "premiumv2 with 1GiB storage",
+			requestGiB:         1,
+			storageAccountType: "PremiumV2_LRS",
+			expected:           int32Ptr(3001),
+		},
+		{
+			desc:               "premiumv2 with large storage hitting max",
+			requestGiB:         200000,
+			storageAccountType: "PremiumV2_LRS",
+			expected:           int32Ptr(102400),
+		},
+		{
+			desc:               "premiumv2 case insensitive",
+			requestGiB:         100,
+			storageAccountType: "PREMIUMV2",
+			expected:           int32Ptr(3100),
+		},
+		{
+			desc:               "unsupported storage account type",
+			requestGiB:         100,
+			storageAccountType: "Standard_LRS",
+			expected:           nil,
+		},
+		{
+			desc:               "empty storage account type",
+			requestGiB:         100,
+			storageAccountType: "",
+			expected:           nil,
+		},
+		{
+			desc:               "standardv2 with zero storage",
+			requestGiB:         0,
+			storageAccountType: "StandardV2_LRS",
+			expected:           int32Ptr(1000),
+		},
+		{
+			desc:               "premiumv2 with zero storage",
+			requestGiB:         0,
+			storageAccountType: "PremiumV2_LRS",
+			expected:           int32Ptr(3000),
+		},
+	}
+
+	for _, test := range tests {
+		result := getDefaultIOPS(test.requestGiB, test.storageAccountType)
+		if test.expected == nil {
+			if result != nil {
+				t.Errorf("test[%s]: unexpected output: %v, expected nil", test.desc, *result)
+			}
+		} else {
+			if result == nil {
+				t.Errorf("test[%s]: unexpected nil output, expected: %v", test.desc, *test.expected)
+			} else if *result != *test.expected {
+				t.Errorf("test[%s]: unexpected output: %v, expected: %v", test.desc, *result, *test.expected)
+			}
+		}
+	}
+}
+
+func TestGetDefaultBandwidth(t *testing.T) {
+	tests := []struct {
+		desc               string
+		requestGiB         int
+		storageAccountType string
+		expected           *int32
+	}{
+		{
+			desc:               "standardv2 with small storage",
+			requestGiB:         100,
+			storageAccountType: "StandardV2_LRS",
+			expected:           int32Ptr(62),
+		},
+		{
+			desc:               "standardv2 with 1GiB storage",
+			requestGiB:         1,
+			storageAccountType: "StandardV2_LRS",
+			expected:           int32Ptr(61),
+		},
+		{
+			desc:               "standardv2 with large storage hitting max",
+			requestGiB:         300000,
+			storageAccountType: "StandardV2_LRS_",
+			expected:           int32Ptr(5120),
+		},
+		{
+			desc:               "standardv2 case insensitive",
+			requestGiB:         100,
+			storageAccountType: "STANDARDV2",
+			expected:           int32Ptr(62),
+		},
+		{
+			desc:               "premiumv2 with small storage",
+			requestGiB:         100,
+			storageAccountType: "PremiumV2_LRS",
+			expected:           int32Ptr(110),
+		},
+		{
+			desc:               "premiumv2 with 1GiB storage",
+			requestGiB:         1,
+			storageAccountType: "PremiumV2_LRS",
+			expected:           int32Ptr(101),
+		},
+		{
+			desc:               "premiumv2 with large storage hitting max",
+			requestGiB:         200000,
+			storageAccountType: "PremiumV2_LRS",
+			expected:           int32Ptr(10340),
+		},
+		{
+			desc:               "premiumv2 case insensitive",
+			requestGiB:         100,
+			storageAccountType: "PREMIUMV2",
+			expected:           int32Ptr(110),
+		},
+		{
+			desc:               "unsupported storage account type",
+			requestGiB:         100,
+			storageAccountType: "Standard_LRS",
+			expected:           nil,
+		},
+		{
+			desc:               "empty storage account type",
+			requestGiB:         100,
+			storageAccountType: "",
+			expected:           nil,
+		},
+		{
+			desc:               "standardv2 with zero storage",
+			requestGiB:         0,
+			storageAccountType: "StandardV2_LRS",
+			expected:           int32Ptr(60),
+		},
+		{
+			desc:               "premiumv2 with zero storage",
+			requestGiB:         0,
+			storageAccountType: "PremiumV2_LRS",
+			expected:           int32Ptr(100),
+		},
+		{
+			desc:               "standardv2 with storage for exact calculation",
+			requestGiB:         2500,
+			storageAccountType: "StandardV2_LRS",
+			expected:           int32Ptr(110),
+		},
+		{
+			desc:               "premiumv2 with storage for exact calculation",
+			requestGiB:         1000,
+			storageAccountType: "PremiumV2_LRS",
+			expected:           int32Ptr(200),
+		},
+	}
+
+	for _, test := range tests {
+		result := getDefaultBandwidth(test.requestGiB, test.storageAccountType)
+		if test.expected == nil {
+			if result != nil {
+				t.Errorf("test[%s]: unexpected output: %v, expected nil", test.desc, *result)
+			}
+		} else {
+			if result == nil {
+				t.Errorf("test[%s]: unexpected nil output, expected: %v", test.desc, *test.expected)
+			} else if *result != *test.expected {
+				t.Errorf("test[%s]: unexpected output: %v, expected: %v", test.desc, *result, *test.expected)
+			}
+		}
+	}
+}
+
+func int32Ptr(i int32) *int32 {
+	return &i
+}

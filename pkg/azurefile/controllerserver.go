@@ -453,6 +453,14 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	// use v2 account kind for v2 sku
 	if strings.Contains(strings.ToLower(sku), "v2") {
 		accountKind = string(armstorage.KindFileStorage)
+		if provisionedIops == nil {
+			provisionedIops = getDefaultIOPS(fileShareSize, sku)
+			klog.V(2).Infof("setting provisionedIops as %d", ptr.Deref(provisionedIops, 0))
+		}
+		if provisionedBandwidthMibps == nil {
+			provisionedBandwidthMibps = getDefaultBandwidth(fileShareSize, sku)
+			klog.V(2).Infof("setting provisionedBandwidthMibps as %d", ptr.Deref(provisionedBandwidthMibps, 0))
+		}
 	}
 
 	// replace pv/pvc name namespace metadata in fileShareName
