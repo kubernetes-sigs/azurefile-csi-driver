@@ -389,7 +389,7 @@ github.com/kylelemons/godebug/pretty
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
-# github.com/microsoft/wmi v0.36.0
+# github.com/microsoft/wmi v0.37.0
 ## explicit; go 1.24.3
 github.com/microsoft/wmi/go/wmi
 github.com/microsoft/wmi/pkg/base/credential
