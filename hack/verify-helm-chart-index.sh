@@ -36,6 +36,12 @@ function check_url() {
 		# ignore url which contains latest
 		if [[ "$url" == *"latest"* ]]; then
 			echo "ignore $url"
+			ignore_filename=$(basename "$url")
+			return
+		fi
+		# if ignore_filename is set, ignore url which contains ignore_filename
+		if [[ -n "${ignore_filename:-}" && "$url" == *"$ignore_filename"* ]]; then
+			echo "ignore $url"
 			return
 		fi
 		exit 1
