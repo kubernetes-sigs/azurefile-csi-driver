@@ -14,7 +14,7 @@
 
 ARG ARCH=amd64
 
-FROM registry.k8s.io/build-image/debian-base:bookworm-v1.0.5 AS base
+FROM registry.k8s.io/build-image/debian-base:bookworm-v1.0.6 AS base
 
 FROM base AS builder
 
