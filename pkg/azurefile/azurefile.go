@@ -46,7 +46,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/volume/util"
 	mount "k8s.io/mount-utils"
 
 	csicommon "sigs.k8s.io/azurefile-csi-driver/pkg/csi-common"
@@ -657,7 +656,7 @@ func getValidFileShareName(volumeName string) string {
 		fileShareName = fileShareName[0:fileShareNameMaxLength]
 	}
 	if !checkShareNameBeginAndEnd(fileShareName) || len(fileShareName) < fileShareNameMinLength {
-		fileShareName = util.GenerateVolumeName("pvc-file", uuid.NewString(), fileShareNameMaxLength)
+		fileShareName = fileutil.GenerateVolumeName("pvc-file", uuid.NewString(), fileShareNameMaxLength)
 		klog.Warningf("the requested volume name (%q) is invalid, so it is regenerated as (%q)", volumeName, fileShareName)
 	}
 	fileShareName = strings.Replace(fileShareName, "--", "-", -1)
