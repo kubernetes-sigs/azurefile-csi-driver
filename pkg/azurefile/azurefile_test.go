@@ -824,6 +824,20 @@ func TestGetAccountInfo(t *testing.T) {
 			expectFileShareName: "test_sharename",
 			expectDiskName:      "test_diskname",
 		},
+		{
+			volumeID: "invalid_mountWithManagedIdentityField_value##",
+			rgName:   "vol_2",
+			secrets:  emptySecret,
+			reqContext: map[string]string{
+				shareNameField:                "test_sharename",
+				mountWithManagedIdentityField: "invalid",
+			},
+			expectErr:           true,
+			err:                 fmt.Errorf("invalid %s: %s in volume context", mountWithManagedIdentityField, "invalid"),
+			expectAccountName:   "",
+			expectFileShareName: "test_sharename",
+			expectDiskName:      "test_diskname",
+		},
 	}
 
 	for _, test := range tests {

@@ -22,6 +22,7 @@ ARG ARCH
 
 RUN apt update \
     && apt install -y curl \
+    && curl -Lso /tmp/packages-microsoft-prod-22.04.deb https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb \
     && curl -Ls https://github.com/Azure/azure-storage-azcopy/releases/download/v10.30.1/azcopy_linux_${ARCH}_10.30.1.tar.gz \
         | tar xvzf - --strip-components=1 -C /usr/local/bin/ --wildcards "*/azcopy"
 
@@ -42,6 +43,9 @@ COPY ./_output/${ARCH}/azurefile-proxy /azurefile-proxy/
 RUN chmod +x /azurefile-proxy/*.sh && \
   chmod +x /azurefile-proxy/azurefile-proxy.service && \
   chmod +x /azurefile-proxy/azurefile-proxy
+
+COPY --from=builder --chown=root:root /tmp/packages-microsoft-prod-22.04.deb /azurefile-proxy/packages-microsoft-prod-22.04.deb
+RUN dpkg -i /azurefile-proxy/packages-microsoft-prod-22.04.deb && apt update && apt install -y azfilesauth && rm -f /azurefile-proxy/packages-microsoft-prod-22.04.deb
 
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"

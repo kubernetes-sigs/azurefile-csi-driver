@@ -925,6 +925,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 					runtimeClassHandlerField:        "runtime-handler",
 					createFolderIfNotExistField:     "true",
 					confidentialContainerLabelField: "confidential-container-label",
+					mountWithManagedIdentityField:   "true",
 				}
 
 				req := &csi.CreateVolumeRequest{
