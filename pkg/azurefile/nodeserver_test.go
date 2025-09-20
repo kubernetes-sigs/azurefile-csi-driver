@@ -557,6 +557,19 @@ func TestNodeStageVolume(t *testing.T) {
 			},
 		},
 		{
+			desc: "[Error] Invalid mountWithManagedIdentity",
+			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					mountWithManagedIdentityField: "invalid",
+					shareNameField:                "test_sharename",
+					serverNameField:               "test_servername",
+				}},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Errorf(codes.InvalidArgument, "GetAccountInfo(vol_1) failed with error: invalid %s: %s in volume context", mountWithManagedIdentityField, "invalid"),
+			},
+		},
+		{
 			desc: "[Error] Empty accountname",
 			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1", StagingTargetPath: sourceTest,
 				VolumeCapability: &stdVolCap,
