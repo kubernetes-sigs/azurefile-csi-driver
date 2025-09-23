@@ -117,7 +117,7 @@ spec:
               drop:
                 - ALL
         - name: liveness-probe
-          image: mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.16.0
+          image: mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.17.0
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
