@@ -40,7 +40,7 @@ spec:
         - operator: "Exists"
       initContainers:
         - name: install-azurefile-proxy
-          image: mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.34.0
+          image: mcr.microsoft.com/k8s/csi/azurefile-csi:latest
           imagePullPolicy: IfNotPresent
           command:
             - "/azurefile-proxy/init.sh"
@@ -116,7 +116,7 @@ spec:
               drop:
                 - ALL
         - name: azurefile
-          image: mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.34.0
+          image: mcr.microsoft.com/k8s/csi/azurefile-csi:latest
           imagePullPolicy: IfNotPresent
           args:
             - "--v=5"
@@ -179,7 +179,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: azfilesrefresh
-          image: mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.34.0
+          image: mcr.microsoft.com/k8s/csi/azurefile-csi:latest
           imagePullPolicy: IfNotPresent
           command:
             - "azfilesrefresh"
