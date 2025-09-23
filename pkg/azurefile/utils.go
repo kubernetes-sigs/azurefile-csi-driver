@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -414,4 +415,15 @@ func getDefaultBandwidth(requestGiB int, storageAccountType string) *int32 {
 		return nil
 	}
 	return &bandwidth
+}
+
+func setCredentialCache(server, clientID string) ([]byte, error) {
+	if server == "" || clientID == "" {
+		return nil, fmt.Errorf("server and clientID must be provided")
+	}
+
+	cmd := exec.Command("azfilesauthmanager", "set", "https://"+server, "--imds-client-id", clientID)
+	cmd.Env = append(os.Environ(), cmd.Env...)
+	klog.V(2).Infof("Executing command: %q", cmd.String())
+	return cmd.CombinedOutput()
 }

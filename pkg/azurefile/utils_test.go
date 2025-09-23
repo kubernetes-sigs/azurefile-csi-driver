@@ -1356,6 +1356,45 @@ func TestGetDefaultBandwidth(t *testing.T) {
 	}
 }
 
+func TestSetCredentialCache(t *testing.T) {
+	tests := []struct {
+		desc          string
+		server        string
+		clientID      string
+		expectedError string
+	}{
+		{
+			desc:          "empty server",
+			server:        "",
+			clientID:      "test-client-id",
+			expectedError: "server and clientID must be provided",
+		},
+		{
+			desc:          "empty clientID",
+			server:        "test.file.core.windows.net",
+			clientID:      "",
+			expectedError: "server and clientID must be provided",
+		},
+		{
+			desc:          "both empty",
+			server:        "",
+			clientID:      "",
+			expectedError: "server and clientID must be provided",
+		},
+	}
+
+	for _, test := range tests {
+		_, err := setCredentialCache(test.server, test.clientID)
+		if test.expectedError != "" {
+			if err == nil {
+				t.Errorf("test[%s]: expected error containing %q, got nil", test.desc, test.expectedError)
+			} else if !strings.Contains(err.Error(), test.expectedError) {
+				t.Errorf("test[%s]: expected error containing %q, got %v", test.desc, test.expectedError, err)
+			}
+		}
+	}
+}
+
 func int32Ptr(i int32) *int32 {
 	return &i
 }
