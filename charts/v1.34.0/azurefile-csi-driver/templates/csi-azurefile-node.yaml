@@ -71,7 +71,7 @@ spec:
       initContainers:
         - name: install-azurefile-proxy
 {{- if hasPrefix "/" .Values.image.azurefile.repository }}
-          image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}-2"
 {{- else }}
           image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
 {{- end }}
@@ -150,7 +150,7 @@ spec:
 {{- if .Values.node.enableManagedIdentityAuth }}
         - name: azfilesrefresh
 {{- if hasPrefix "/" .Values.image.azurefile.repository }}
-          image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}-2"
 {{- else }}
           image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
 {{- end }}
@@ -174,7 +174,7 @@ spec:
 {{- end }}
         - name: azurefile
 {{- if hasPrefix "/" .Values.image.azurefile.repository }}
-          image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
+          image: "{{ .Values.image.baseRepo }}{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}-2"
 {{- else }}
           image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}"
 {{- end }}
