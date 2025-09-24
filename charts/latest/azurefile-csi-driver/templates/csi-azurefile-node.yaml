@@ -263,6 +263,8 @@ spec:
             {{- if .Values.node.enableManagedIdentityAuth }}
             - name: log-dir
               mountPath: /var/log/
+            - name: host-etc
+              mountPath: /etc
             {{- end }}
           resources: {{- toYaml .Values.linux.resources.azurefile | nindent 12 }}
       volumes:
