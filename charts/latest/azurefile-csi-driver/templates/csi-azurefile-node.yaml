@@ -156,7 +156,7 @@ spec:
 {{- end }}
           imagePullPolicy: {{ .Values.image.azurefile.pullPolicy }}
           command:
-            - "azfilesrefresh"
+            - "/azfilesrefresh/azfilesrefresh.sh"
           securityContext:
             privileged: true
             capabilities:

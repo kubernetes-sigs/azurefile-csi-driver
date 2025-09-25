@@ -37,12 +37,14 @@ COPY --from=builder --chown=root:root /usr/local/bin/azcopy /usr/local/bin/azcop
 RUN apt update && apt upgrade -y && apt-mark unhold libcap2 && clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase
 
 COPY ./pkg/azurefile-proxy/*.sh /azurefile-proxy/
+COPY ./pkg/azfilesrefresh/azfilesrefresh.sh /azfilesrefresh/azfilesrefresh.sh
 COPY ./pkg/azurefile-proxy/azurefile-proxy.service /azurefile-proxy/
 COPY ./_output/${ARCH}/azurefile-proxy /azurefile-proxy/
 
 RUN chmod +x /azurefile-proxy/*.sh && \
   chmod +x /azurefile-proxy/azurefile-proxy.service && \
-  chmod +x /azurefile-proxy/azurefile-proxy
+  chmod +x /azurefile-proxy/azurefile-proxy && \
+  chmod +x /azfilesrefresh/azfilesrefresh.sh
 
 COPY --from=builder --chown=root:root /tmp/packages-microsoft-prod-22.04.deb /azurefile-proxy/packages-microsoft-prod-22.04.deb
 RUN dpkg -i /azurefile-proxy/packages-microsoft-prod-22.04.deb && apt update && apt install -y azfilesauth && rm -f /azurefile-proxy/packages-microsoft-prod-22.04.deb
