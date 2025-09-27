@@ -119,7 +119,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, shareAccessTier, accountAccessTier, rootSquashType, tagValueDelimiter string
 	var createAccount, useSeretCache, matchTags, selectRandomMatchingAccount, getLatestAccountKey, encryptInTransit bool
 	var vnetResourceGroup, vnetName, vnetLinkName, publicNetworkAccess, subnetName, shareNamePrefix, fsGroupChangePolicy, useDataPlaneAPI string
-	var requireInfraEncryption, disableDeleteRetentionPolicy, enableLFS, isMultichannelEnabled, allowSharedKeyAccess *bool
+	var requireInfraEncryption, disableDeleteRetentionPolicy, enableLFS, isMultichannelEnabled, allowSharedKeyAccess, mountWithManagedIdentity *bool
 	var provisionedBandwidthMibps, provisionedIops *int32
 	// set allowBlobPublicAccess as false by default
 	allowBlobPublicAccess := ptr.To(false)
@@ -227,7 +227,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			fileShareNameReplaceMap[pvNameMetadata] = v
 		case serverNameField:
 		case folderNameField:
-		case mountWithManagedIdentityField:
 		case clientIDField:
 		case confidentialContainerLabelField:
 		case runtimeClassHandlerField:
@@ -294,6 +293,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				return nil, status.Errorf(codes.InvalidArgument, "invalid provisionedIops %s in storage class", v)
 			}
 			provisionedIops = to.Ptr(int32(value))
+		case mountWithManagedIdentityField:
+			value, err := strconv.ParseBool(v)
+			if err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", mountWithManagedIdentityField, v)
+			}
+			mountWithManagedIdentity = &value
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, "invalid parameter %q in storage class", k)
 		}
@@ -543,6 +548,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		StorageType:                             storage.StorageTypeFile,
 		StorageEndpointSuffix:                   storageEndpointSuffix,
 		IsMultichannelEnabled:                   isMultichannelEnabled,
+		IsSmbOAuthEnabled:                       mountWithManagedIdentity,
 		PickRandomMatchingAccount:               selectRandomMatchingAccount,
 		GetLatestAccountKey:                     getLatestAccountKey,
 		SourceAccountName:                       srcAccountName,

@@ -290,9 +290,10 @@ func makeCreateVolumeReq(volumeName, secretNamespace string) *csi.CreateVolumeRe
 			LimitBytes:    defaultDiskSizeBytes,
 		},
 		Parameters: map[string]string{
-			"skuname":         "Standard_LRS",
-			"shareName":       volumeName,
-			"secretNamespace": secretNamespace,
+			"skuname":                  "Standard_LRS",
+			"shareName":                volumeName,
+			"secretNamespace":          secretNamespace,
+			"mountWithManagedIdentity": "true",
 		},
 	}
 
