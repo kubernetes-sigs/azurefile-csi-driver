@@ -17,64 +17,64 @@ import (
 	"strings"
 )
 
-// QueueServicesClient contains the methods for the QueueServices group.
-// Don't use this type directly, use NewQueueServicesClient() instead.
-type QueueServicesClient struct {
+// TableServicesClient contains the methods for the TableServices group.
+// Don't use this type directly, use NewTableServicesClient() instead.
+type TableServicesClient struct {
 	internal       *arm.Client
 	subscriptionID string
 }
 
-// NewQueueServicesClient creates a new instance of QueueServicesClient with the specified values.
+// NewTableServicesClient creates a new instance of TableServicesClient with the specified values.
 //   - subscriptionID - The ID of the target subscription.
 //   - credential - used to authorize requests. Usually a credential from azidentity.
 //   - options - pass nil to accept the default values.
-func NewQueueServicesClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*QueueServicesClient, error) {
+func NewTableServicesClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*TableServicesClient, error) {
 	cl, err := arm.NewClient(moduleName, moduleVersion, credential, options)
 	if err != nil {
 		return nil, err
 	}
-	client := &QueueServicesClient{
+	client := &TableServicesClient{
 		subscriptionID: subscriptionID,
 		internal:       cl,
 	}
 	return client, nil
 }
 
-// GetServiceProperties - Gets the properties of a storage account’s Queue service, including properties for Storage Analytics
+// GetServiceProperties - Gets the properties of a storage account’s Table service, including properties for Storage Analytics
 // and CORS (Cross-Origin Resource Sharing) rules.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-01-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group within the user's subscription. The name is case insensitive.
 //   - accountName - The name of the storage account within the specified resource group. Storage account names must be between
 //     3 and 24 characters in length and use numbers and lower-case letters only.
-//   - options - QueueServicesClientGetServicePropertiesOptions contains the optional parameters for the QueueServicesClient.GetServiceProperties
+//   - options - TableServicesClientGetServicePropertiesOptions contains the optional parameters for the TableServicesClient.GetServiceProperties
 //     method.
-func (client *QueueServicesClient) GetServiceProperties(ctx context.Context, resourceGroupName string, accountName string, options *QueueServicesClientGetServicePropertiesOptions) (QueueServicesClientGetServicePropertiesResponse, error) {
+func (client *TableServicesClient) GetServiceProperties(ctx context.Context, resourceGroupName string, accountName string, options *TableServicesClientGetServicePropertiesOptions) (TableServicesClientGetServicePropertiesResponse, error) {
 	var err error
-	const operationName = "QueueServicesClient.GetServiceProperties"
+	const operationName = "TableServicesClient.GetServiceProperties"
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
 	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
 	defer func() { endSpan(err) }()
 	req, err := client.getServicePropertiesCreateRequest(ctx, resourceGroupName, accountName, options)
 	if err != nil {
-		return QueueServicesClientGetServicePropertiesResponse{}, err
+		return TableServicesClientGetServicePropertiesResponse{}, err
 	}
 	httpResp, err := client.internal.Pipeline().Do(req)
 	if err != nil {
-		return QueueServicesClientGetServicePropertiesResponse{}, err
+		return TableServicesClientGetServicePropertiesResponse{}, err
 	}
 	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
 		err = runtime.NewResponseError(httpResp)
-		return QueueServicesClientGetServicePropertiesResponse{}, err
+		return TableServicesClientGetServicePropertiesResponse{}, err
 	}
 	resp, err := client.getServicePropertiesHandleResponse(httpResp)
 	return resp, err
 }
 
 // getServicePropertiesCreateRequest creates the GetServiceProperties request.
-func (client *QueueServicesClient) getServicePropertiesCreateRequest(ctx context.Context, resourceGroupName string, accountName string, _ *QueueServicesClientGetServicePropertiesOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/queueServices/{queueServiceName}"
+func (client *TableServicesClient) getServicePropertiesCreateRequest(ctx context.Context, resourceGroupName string, accountName string, _ *TableServicesClientGetServicePropertiesOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/tableServices/{tableServiceName}"
 	if resourceGroupName == "" {
 		return nil, errors.New("parameter resourceGroupName cannot be empty")
 	}
@@ -87,60 +87,60 @@ func (client *QueueServicesClient) getServicePropertiesCreateRequest(ctx context
 		return nil, errors.New("parameter client.subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	urlPath = strings.ReplaceAll(urlPath, "{queueServiceName}", url.PathEscape("default"))
+	urlPath = strings.ReplaceAll(urlPath, "{tableServiceName}", url.PathEscape("default"))
 	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
 	if err != nil {
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-01-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
 
 // getServicePropertiesHandleResponse handles the GetServiceProperties response.
-func (client *QueueServicesClient) getServicePropertiesHandleResponse(resp *http.Response) (QueueServicesClientGetServicePropertiesResponse, error) {
-	result := QueueServicesClientGetServicePropertiesResponse{}
-	if err := runtime.UnmarshalAsJSON(resp, &result.QueueServiceProperties); err != nil {
-		return QueueServicesClientGetServicePropertiesResponse{}, err
+func (client *TableServicesClient) getServicePropertiesHandleResponse(resp *http.Response) (TableServicesClientGetServicePropertiesResponse, error) {
+	result := TableServicesClientGetServicePropertiesResponse{}
+	if err := runtime.UnmarshalAsJSON(resp, &result.TableServiceProperties); err != nil {
+		return TableServicesClientGetServicePropertiesResponse{}, err
 	}
 	return result, nil
 }
 
-// List - List all queue services for the storage account
+// List - List all table services for the storage account.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-01-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group within the user's subscription. The name is case insensitive.
 //   - accountName - The name of the storage account within the specified resource group. Storage account names must be between
 //     3 and 24 characters in length and use numbers and lower-case letters only.
-//   - options - QueueServicesClientListOptions contains the optional parameters for the QueueServicesClient.List method.
-func (client *QueueServicesClient) List(ctx context.Context, resourceGroupName string, accountName string, options *QueueServicesClientListOptions) (QueueServicesClientListResponse, error) {
+//   - options - TableServicesClientListOptions contains the optional parameters for the TableServicesClient.List method.
+func (client *TableServicesClient) List(ctx context.Context, resourceGroupName string, accountName string, options *TableServicesClientListOptions) (TableServicesClientListResponse, error) {
 	var err error
-	const operationName = "QueueServicesClient.List"
+	const operationName = "TableServicesClient.List"
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
 	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
 	defer func() { endSpan(err) }()
 	req, err := client.listCreateRequest(ctx, resourceGroupName, accountName, options)
 	if err != nil {
-		return QueueServicesClientListResponse{}, err
+		return TableServicesClientListResponse{}, err
 	}
 	httpResp, err := client.internal.Pipeline().Do(req)
 	if err != nil {
-		return QueueServicesClientListResponse{}, err
+		return TableServicesClientListResponse{}, err
 	}
 	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
 		err = runtime.NewResponseError(httpResp)
-		return QueueServicesClientListResponse{}, err
+		return TableServicesClientListResponse{}, err
 	}
 	resp, err := client.listHandleResponse(httpResp)
 	return resp, err
 }
 
 // listCreateRequest creates the List request.
-func (client *QueueServicesClient) listCreateRequest(ctx context.Context, resourceGroupName string, accountName string, _ *QueueServicesClientListOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/queueServices"
+func (client *TableServicesClient) listCreateRequest(ctx context.Context, resourceGroupName string, accountName string, _ *TableServicesClientListOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/tableServices"
 	if resourceGroupName == "" {
 		return nil, errors.New("parameter resourceGroupName cannot be empty")
 	}
@@ -158,58 +158,58 @@ func (client *QueueServicesClient) listCreateRequest(ctx context.Context, resour
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-01-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
 
 // listHandleResponse handles the List response.
-func (client *QueueServicesClient) listHandleResponse(resp *http.Response) (QueueServicesClientListResponse, error) {
-	result := QueueServicesClientListResponse{}
-	if err := runtime.UnmarshalAsJSON(resp, &result.ListQueueServices); err != nil {
-		return QueueServicesClientListResponse{}, err
+func (client *TableServicesClient) listHandleResponse(resp *http.Response) (TableServicesClientListResponse, error) {
+	result := TableServicesClientListResponse{}
+	if err := runtime.UnmarshalAsJSON(resp, &result.ListTableServices); err != nil {
+		return TableServicesClientListResponse{}, err
 	}
 	return result, nil
 }
 
-// SetServiceProperties - Sets the properties of a storage account’s Queue service, including properties for Storage Analytics
+// SetServiceProperties - Sets the properties of a storage account’s Table service, including properties for Storage Analytics
 // and CORS (Cross-Origin Resource Sharing) rules.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-01-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group within the user's subscription. The name is case insensitive.
 //   - accountName - The name of the storage account within the specified resource group. Storage account names must be between
 //     3 and 24 characters in length and use numbers and lower-case letters only.
-//   - parameters - The properties of a storage account’s Queue service, only properties for Storage Analytics and CORS (Cross-Origin
+//   - parameters - The properties of a storage account’s Table service, only properties for Storage Analytics and CORS (Cross-Origin
 //     Resource Sharing) rules can be specified.
-//   - options - QueueServicesClientSetServicePropertiesOptions contains the optional parameters for the QueueServicesClient.SetServiceProperties
+//   - options - TableServicesClientSetServicePropertiesOptions contains the optional parameters for the TableServicesClient.SetServiceProperties
 //     method.
-func (client *QueueServicesClient) SetServiceProperties(ctx context.Context, resourceGroupName string, accountName string, parameters QueueServiceProperties, options *QueueServicesClientSetServicePropertiesOptions) (QueueServicesClientSetServicePropertiesResponse, error) {
+func (client *TableServicesClient) SetServiceProperties(ctx context.Context, resourceGroupName string, accountName string, parameters TableServiceProperties, options *TableServicesClientSetServicePropertiesOptions) (TableServicesClientSetServicePropertiesResponse, error) {
 	var err error
-	const operationName = "QueueServicesClient.SetServiceProperties"
+	const operationName = "TableServicesClient.SetServiceProperties"
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
 	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
 	defer func() { endSpan(err) }()
 	req, err := client.setServicePropertiesCreateRequest(ctx, resourceGroupName, accountName, parameters, options)
 	if err != nil {
-		return QueueServicesClientSetServicePropertiesResponse{}, err
+		return TableServicesClientSetServicePropertiesResponse{}, err
 	}
 	httpResp, err := client.internal.Pipeline().Do(req)
 	if err != nil {
-		return QueueServicesClientSetServicePropertiesResponse{}, err
+		return TableServicesClientSetServicePropertiesResponse{}, err
 	}
 	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
 		err = runtime.NewResponseError(httpResp)
-		return QueueServicesClientSetServicePropertiesResponse{}, err
+		return TableServicesClientSetServicePropertiesResponse{}, err
 	}
 	resp, err := client.setServicePropertiesHandleResponse(httpResp)
 	return resp, err
 }
 
 // setServicePropertiesCreateRequest creates the SetServiceProperties request.
-func (client *QueueServicesClient) setServicePropertiesCreateRequest(ctx context.Context, resourceGroupName string, accountName string, parameters QueueServiceProperties, _ *QueueServicesClientSetServicePropertiesOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/queueServices/{queueServiceName}"
+func (client *TableServicesClient) setServicePropertiesCreateRequest(ctx context.Context, resourceGroupName string, accountName string, parameters TableServiceProperties, _ *TableServicesClientSetServicePropertiesOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/tableServices/{tableServiceName}"
 	if resourceGroupName == "" {
 		return nil, errors.New("parameter resourceGroupName cannot be empty")
 	}
@@ -222,13 +222,13 @@ func (client *QueueServicesClient) setServicePropertiesCreateRequest(ctx context
 		return nil, errors.New("parameter client.subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	urlPath = strings.ReplaceAll(urlPath, "{queueServiceName}", url.PathEscape("default"))
+	urlPath = strings.ReplaceAll(urlPath, "{tableServiceName}", url.PathEscape("default"))
 	req, err := runtime.NewRequest(ctx, http.MethodPut, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
 	if err != nil {
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-01-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
@@ -238,10 +238,10 @@ func (client *QueueServicesClient) setServicePropertiesCreateRequest(ctx context
 }
 
 // setServicePropertiesHandleResponse handles the SetServiceProperties response.
-func (client *QueueServicesClient) setServicePropertiesHandleResponse(resp *http.Response) (QueueServicesClientSetServicePropertiesResponse, error) {
-	result := QueueServicesClientSetServicePropertiesResponse{}
-	if err := runtime.UnmarshalAsJSON(resp, &result.QueueServiceProperties); err != nil {
-		return QueueServicesClientSetServicePropertiesResponse{}, err
+func (client *TableServicesClient) setServicePropertiesHandleResponse(resp *http.Response) (TableServicesClientSetServicePropertiesResponse, error) {
+	result := TableServicesClientSetServicePropertiesResponse{}
+	if err := runtime.UnmarshalAsJSON(resp, &result.TableServiceProperties); err != nil {
+		return TableServicesClientSetServicePropertiesResponse{}, err
 	}
 	return result, nil
 }

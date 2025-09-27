@@ -17,66 +17,64 @@ import (
 	"strings"
 )
 
-// QueueClient contains the methods for the Queue group.
-// Don't use this type directly, use NewQueueClient() instead.
-type QueueClient struct {
+// TableClient contains the methods for the Table group.
+// Don't use this type directly, use NewTableClient() instead.
+type TableClient struct {
 	internal       *arm.Client
 	subscriptionID string
 }
 
-// NewQueueClient creates a new instance of QueueClient with the specified values.
+// NewTableClient creates a new instance of TableClient with the specified values.
 //   - subscriptionID - The ID of the target subscription.
 //   - credential - used to authorize requests. Usually a credential from azidentity.
 //   - options - pass nil to accept the default values.
-func NewQueueClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*QueueClient, error) {
+func NewTableClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*TableClient, error) {
 	cl, err := arm.NewClient(moduleName, moduleVersion, credential, options)
 	if err != nil {
 		return nil, err
 	}
-	client := &QueueClient{
+	client := &TableClient{
 		subscriptionID: subscriptionID,
 		internal:       cl,
 	}
 	return client, nil
 }
 
-// Create - Creates a new queue with the specified queue name, under the specified account.
+// Create - Creates a new table with the specified table name, under the specified account.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-01-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group within the user's subscription. The name is case insensitive.
 //   - accountName - The name of the storage account within the specified resource group. Storage account names must be between
 //     3 and 24 characters in length and use numbers and lower-case letters only.
-//   - queueName - A queue name must be unique within a storage account and must be between 3 and 63 characters.The name must
-//     comprise of lowercase alphanumeric and dash(-) characters only, it should begin and end with
-//     an alphanumeric character and it cannot have two consecutive dash(-) characters.
-//   - queue - Queue properties and metadata to be created with
-//   - options - QueueClientCreateOptions contains the optional parameters for the QueueClient.Create method.
-func (client *QueueClient) Create(ctx context.Context, resourceGroupName string, accountName string, queueName string, queue Queue, options *QueueClientCreateOptions) (QueueClientCreateResponse, error) {
+//   - tableName - A table name must be unique within a storage account and must be between 3 and 63 characters.The name must
+//     comprise of only alphanumeric characters and it cannot begin with a numeric character.
+//   - options - TableClientCreateOptions contains the optional parameters for the TableClient.Create method.
+func (client *TableClient) Create(ctx context.Context, resourceGroupName string, accountName string, tableName string, options *TableClientCreateOptions) (TableClientCreateResponse, error) {
 	var err error
-	const operationName = "QueueClient.Create"
+	const operationName = "TableClient.Create"
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
 	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
 	defer func() { endSpan(err) }()
-	req, err := client.createCreateRequest(ctx, resourceGroupName, accountName, queueName, queue, options)
+	req, err := client.createCreateRequest(ctx, resourceGroupName, accountName, tableName, options)
 	if err != nil {
-		return QueueClientCreateResponse{}, err
+		return TableClientCreateResponse{}, err
 	}
 	httpResp, err := client.internal.Pipeline().Do(req)
 	if err != nil {
-		return QueueClientCreateResponse{}, err
+		return TableClientCreateResponse{}, err
 	}
 	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
 		err = runtime.NewResponseError(httpResp)
-		return QueueClientCreateResponse{}, err
+		return TableClientCreateResponse{}, err
 	}
 	resp, err := client.createHandleResponse(httpResp)
 	return resp, err
 }
 
 // createCreateRequest creates the Create request.
-func (client *QueueClient) createCreateRequest(ctx context.Context, resourceGroupName string, accountName string, queueName string, queue Queue, _ *QueueClientCreateOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/queueServices/default/queues/{queueName}"
+func (client *TableClient) createCreateRequest(ctx context.Context, resourceGroupName string, accountName string, tableName string, options *TableClientCreateOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/tableServices/default/tables/{tableName}"
 	if resourceGroupName == "" {
 		return nil, errors.New("parameter resourceGroupName cannot be empty")
 	}
@@ -89,68 +87,70 @@ func (client *QueueClient) createCreateRequest(ctx context.Context, resourceGrou
 		return nil, errors.New("parameter client.subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if queueName == "" {
-		return nil, errors.New("parameter queueName cannot be empty")
+	if tableName == "" {
+		return nil, errors.New("parameter tableName cannot be empty")
 	}
-	urlPath = strings.ReplaceAll(urlPath, "{queueName}", url.PathEscape(queueName))
+	urlPath = strings.ReplaceAll(urlPath, "{tableName}", url.PathEscape(tableName))
 	req, err := runtime.NewRequest(ctx, http.MethodPut, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
 	if err != nil {
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-01-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
-	if err := runtime.MarshalAsJSON(req, queue); err != nil {
-		return nil, err
+	if options != nil && options.Parameters != nil {
+		if err := runtime.MarshalAsJSON(req, *options.Parameters); err != nil {
+			return nil, err
+		}
+		return req, nil
 	}
 	return req, nil
 }
 
 // createHandleResponse handles the Create response.
-func (client *QueueClient) createHandleResponse(resp *http.Response) (QueueClientCreateResponse, error) {
-	result := QueueClientCreateResponse{}
-	if err := runtime.UnmarshalAsJSON(resp, &result.Queue); err != nil {
-		return QueueClientCreateResponse{}, err
+func (client *TableClient) createHandleResponse(resp *http.Response) (TableClientCreateResponse, error) {
+	result := TableClientCreateResponse{}
+	if err := runtime.UnmarshalAsJSON(resp, &result.Table); err != nil {
+		return TableClientCreateResponse{}, err
 	}
 	return result, nil
 }
 
-// Delete - Deletes the queue with the specified queue name, under the specified account if it exists.
+// Delete - Deletes the table with the specified table name, under the specified account if it exists.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-01-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group within the user's subscription. The name is case insensitive.
 //   - accountName - The name of the storage account within the specified resource group. Storage account names must be between
 //     3 and 24 characters in length and use numbers and lower-case letters only.
-//   - queueName - A queue name must be unique within a storage account and must be between 3 and 63 characters.The name must
-//     comprise of lowercase alphanumeric and dash(-) characters only, it should begin and end with
-//     an alphanumeric character and it cannot have two consecutive dash(-) characters.
-//   - options - QueueClientDeleteOptions contains the optional parameters for the QueueClient.Delete method.
-func (client *QueueClient) Delete(ctx context.Context, resourceGroupName string, accountName string, queueName string, options *QueueClientDeleteOptions) (QueueClientDeleteResponse, error) {
+//   - tableName - A table name must be unique within a storage account and must be between 3 and 63 characters.The name must
+//     comprise of only alphanumeric characters and it cannot begin with a numeric character.
+//   - options - TableClientDeleteOptions contains the optional parameters for the TableClient.Delete method.
+func (client *TableClient) Delete(ctx context.Context, resourceGroupName string, accountName string, tableName string, options *TableClientDeleteOptions) (TableClientDeleteResponse, error) {
 	var err error
-	const operationName = "QueueClient.Delete"
+	const operationName = "TableClient.Delete"
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
 	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
 	defer func() { endSpan(err) }()
-	req, err := client.deleteCreateRequest(ctx, resourceGroupName, accountName, queueName, options)
+	req, err := client.deleteCreateRequest(ctx, resourceGroupName, accountName, tableName, options)
 	if err != nil {
-		return QueueClientDeleteResponse{}, err
+		return TableClientDeleteResponse{}, err
 	}
 	httpResp, err := client.internal.Pipeline().Do(req)
 	if err != nil {
-		return QueueClientDeleteResponse{}, err
+		return TableClientDeleteResponse{}, err
 	}
 	if !runtime.HasStatusCode(httpResp, http.StatusNoContent) {
 		err = runtime.NewResponseError(httpResp)
-		return QueueClientDeleteResponse{}, err
+		return TableClientDeleteResponse{}, err
 	}
-	return QueueClientDeleteResponse{}, nil
+	return TableClientDeleteResponse{}, nil
 }
 
 // deleteCreateRequest creates the Delete request.
-func (client *QueueClient) deleteCreateRequest(ctx context.Context, resourceGroupName string, accountName string, queueName string, _ *QueueClientDeleteOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/queueServices/default/queues/{queueName}"
+func (client *TableClient) deleteCreateRequest(ctx context.Context, resourceGroupName string, accountName string, tableName string, _ *TableClientDeleteOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/tableServices/default/tables/{tableName}"
 	if resourceGroupName == "" {
 		return nil, errors.New("parameter resourceGroupName cannot be empty")
 	}
@@ -163,57 +163,56 @@ func (client *QueueClient) deleteCreateRequest(ctx context.Context, resourceGrou
 		return nil, errors.New("parameter client.subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if queueName == "" {
-		return nil, errors.New("parameter queueName cannot be empty")
+	if tableName == "" {
+		return nil, errors.New("parameter tableName cannot be empty")
 	}
-	urlPath = strings.ReplaceAll(urlPath, "{queueName}", url.PathEscape(queueName))
+	urlPath = strings.ReplaceAll(urlPath, "{tableName}", url.PathEscape(tableName))
 	req, err := runtime.NewRequest(ctx, http.MethodDelete, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
 	if err != nil {
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-01-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
 
-// Get - Gets the queue with the specified queue name, under the specified account if it exists.
+// Get - Gets the table with the specified table name, under the specified account if it exists.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-01-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group within the user's subscription. The name is case insensitive.
 //   - accountName - The name of the storage account within the specified resource group. Storage account names must be between
 //     3 and 24 characters in length and use numbers and lower-case letters only.
-//   - queueName - A queue name must be unique within a storage account and must be between 3 and 63 characters.The name must
-//     comprise of lowercase alphanumeric and dash(-) characters only, it should begin and end with
-//     an alphanumeric character and it cannot have two consecutive dash(-) characters.
-//   - options - QueueClientGetOptions contains the optional parameters for the QueueClient.Get method.
-func (client *QueueClient) Get(ctx context.Context, resourceGroupName string, accountName string, queueName string, options *QueueClientGetOptions) (QueueClientGetResponse, error) {
+//   - tableName - A table name must be unique within a storage account and must be between 3 and 63 characters.The name must
+//     comprise of only alphanumeric characters and it cannot begin with a numeric character.
+//   - options - TableClientGetOptions contains the optional parameters for the TableClient.Get method.
+func (client *TableClient) Get(ctx context.Context, resourceGroupName string, accountName string, tableName string, options *TableClientGetOptions) (TableClientGetResponse, error) {
 	var err error
-	const operationName = "QueueClient.Get"
+	const operationName = "TableClient.Get"
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
 	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
 	defer func() { endSpan(err) }()
-	req, err := client.getCreateRequest(ctx, resourceGroupName, accountName, queueName, options)
+	req, err := client.getCreateRequest(ctx, resourceGroupName, accountName, tableName, options)
 	if err != nil {
-		return QueueClientGetResponse{}, err
+		return TableClientGetResponse{}, err
 	}
 	httpResp, err := client.internal.Pipeline().Do(req)
 	if err != nil {
-		return QueueClientGetResponse{}, err
+		return TableClientGetResponse{}, err
 	}
 	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
 		err = runtime.NewResponseError(httpResp)
-		return QueueClientGetResponse{}, err
+		return TableClientGetResponse{}, err
 	}
 	resp, err := client.getHandleResponse(httpResp)
 	return resp, err
 }
 
 // getCreateRequest creates the Get request.
-func (client *QueueClient) getCreateRequest(ctx context.Context, resourceGroupName string, accountName string, queueName string, _ *QueueClientGetOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/queueServices/default/queues/{queueName}"
+func (client *TableClient) getCreateRequest(ctx context.Context, resourceGroupName string, accountName string, tableName string, _ *TableClientGetOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/tableServices/default/tables/{tableName}"
 	if resourceGroupName == "" {
 		return nil, errors.New("parameter resourceGroupName cannot be empty")
 	}
@@ -226,44 +225,44 @@ func (client *QueueClient) getCreateRequest(ctx context.Context, resourceGroupNa
 		return nil, errors.New("parameter client.subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if queueName == "" {
-		return nil, errors.New("parameter queueName cannot be empty")
+	if tableName == "" {
+		return nil, errors.New("parameter tableName cannot be empty")
 	}
-	urlPath = strings.ReplaceAll(urlPath, "{queueName}", url.PathEscape(queueName))
+	urlPath = strings.ReplaceAll(urlPath, "{tableName}", url.PathEscape(tableName))
 	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
 	if err != nil {
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-01-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
 
 // getHandleResponse handles the Get response.
-func (client *QueueClient) getHandleResponse(resp *http.Response) (QueueClientGetResponse, error) {
-	result := QueueClientGetResponse{}
-	if err := runtime.UnmarshalAsJSON(resp, &result.Queue); err != nil {
-		return QueueClientGetResponse{}, err
+func (client *TableClient) getHandleResponse(resp *http.Response) (TableClientGetResponse, error) {
+	result := TableClientGetResponse{}
+	if err := runtime.UnmarshalAsJSON(resp, &result.Table); err != nil {
+		return TableClientGetResponse{}, err
 	}
 	return result, nil
 }
 
-// NewListPager - Gets a list of all the queues under the specified storage account
+// NewListPager - Gets a list of all the tables under the specified storage account
 //
-// Generated from API version 2024-01-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group within the user's subscription. The name is case insensitive.
 //   - accountName - The name of the storage account within the specified resource group. Storage account names must be between
 //     3 and 24 characters in length and use numbers and lower-case letters only.
-//   - options - QueueClientListOptions contains the optional parameters for the QueueClient.NewListPager method.
-func (client *QueueClient) NewListPager(resourceGroupName string, accountName string, options *QueueClientListOptions) *runtime.Pager[QueueClientListResponse] {
-	return runtime.NewPager(runtime.PagingHandler[QueueClientListResponse]{
-		More: func(page QueueClientListResponse) bool {
+//   - options - TableClientListOptions contains the optional parameters for the TableClient.NewListPager method.
+func (client *TableClient) NewListPager(resourceGroupName string, accountName string, options *TableClientListOptions) *runtime.Pager[TableClientListResponse] {
+	return runtime.NewPager(runtime.PagingHandler[TableClientListResponse]{
+		More: func(page TableClientListResponse) bool {
 			return page.NextLink != nil && len(*page.NextLink) > 0
 		},
-		Fetcher: func(ctx context.Context, page *QueueClientListResponse) (QueueClientListResponse, error) {
-			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "QueueClient.NewListPager")
+		Fetcher: func(ctx context.Context, page *TableClientListResponse) (TableClientListResponse, error) {
+			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "TableClient.NewListPager")
 			nextLink := ""
 			if page != nil {
 				nextLink = *page.NextLink
@@ -272,7 +271,7 @@ func (client *QueueClient) NewListPager(resourceGroupName string, accountName st
 				return client.listCreateRequest(ctx, resourceGroupName, accountName, options)
 			}, nil)
 			if err != nil {
-				return QueueClientListResponse{}, err
+				return TableClientListResponse{}, err
 			}
 			return client.listHandleResponse(resp)
 		},
@@ -281,8 +280,8 @@ func (client *QueueClient) NewListPager(resourceGroupName string, accountName st
 }
 
 // listCreateRequest creates the List request.
-func (client *QueueClient) listCreateRequest(ctx context.Context, resourceGroupName string, accountName string, options *QueueClientListOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/queueServices/default/queues"
+func (client *TableClient) listCreateRequest(ctx context.Context, resourceGroupName string, accountName string, _ *TableClientListOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/tableServices/default/tables"
 	if resourceGroupName == "" {
 		return nil, errors.New("parameter resourceGroupName cannot be empty")
 	}
@@ -300,64 +299,56 @@ func (client *QueueClient) listCreateRequest(ctx context.Context, resourceGroupN
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	if options != nil && options.Filter != nil {
-		reqQP.Set("$filter", *options.Filter)
-	}
-	if options != nil && options.Maxpagesize != nil {
-		reqQP.Set("$maxpagesize", *options.Maxpagesize)
-	}
-	reqQP.Set("api-version", "2024-01-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
 
 // listHandleResponse handles the List response.
-func (client *QueueClient) listHandleResponse(resp *http.Response) (QueueClientListResponse, error) {
-	result := QueueClientListResponse{}
-	if err := runtime.UnmarshalAsJSON(resp, &result.ListQueueResource); err != nil {
-		return QueueClientListResponse{}, err
+func (client *TableClient) listHandleResponse(resp *http.Response) (TableClientListResponse, error) {
+	result := TableClientListResponse{}
+	if err := runtime.UnmarshalAsJSON(resp, &result.ListTableResource); err != nil {
+		return TableClientListResponse{}, err
 	}
 	return result, nil
 }
 
-// Update - Creates a new queue with the specified queue name, under the specified account.
+// Update - Creates a new table with the specified table name, under the specified account.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-01-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group within the user's subscription. The name is case insensitive.
 //   - accountName - The name of the storage account within the specified resource group. Storage account names must be between
 //     3 and 24 characters in length and use numbers and lower-case letters only.
-//   - queueName - A queue name must be unique within a storage account and must be between 3 and 63 characters.The name must
-//     comprise of lowercase alphanumeric and dash(-) characters only, it should begin and end with
-//     an alphanumeric character and it cannot have two consecutive dash(-) characters.
-//   - queue - Queue properties and metadata to be created with
-//   - options - QueueClientUpdateOptions contains the optional parameters for the QueueClient.Update method.
-func (client *QueueClient) Update(ctx context.Context, resourceGroupName string, accountName string, queueName string, queue Queue, options *QueueClientUpdateOptions) (QueueClientUpdateResponse, error) {
+//   - tableName - A table name must be unique within a storage account and must be between 3 and 63 characters.The name must
+//     comprise of only alphanumeric characters and it cannot begin with a numeric character.
+//   - options - TableClientUpdateOptions contains the optional parameters for the TableClient.Update method.
+func (client *TableClient) Update(ctx context.Context, resourceGroupName string, accountName string, tableName string, options *TableClientUpdateOptions) (TableClientUpdateResponse, error) {
 	var err error
-	const operationName = "QueueClient.Update"
+	const operationName = "TableClient.Update"
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
 	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
 	defer func() { endSpan(err) }()
-	req, err := client.updateCreateRequest(ctx, resourceGroupName, accountName, queueName, queue, options)
+	req, err := client.updateCreateRequest(ctx, resourceGroupName, accountName, tableName, options)
 	if err != nil {
-		return QueueClientUpdateResponse{}, err
+		return TableClientUpdateResponse{}, err
 	}
 	httpResp, err := client.internal.Pipeline().Do(req)
 	if err != nil {
-		return QueueClientUpdateResponse{}, err
+		return TableClientUpdateResponse{}, err
 	}
 	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
 		err = runtime.NewResponseError(httpResp)
-		return QueueClientUpdateResponse{}, err
+		return TableClientUpdateResponse{}, err
 	}
 	resp, err := client.updateHandleResponse(httpResp)
 	return resp, err
 }
 
 // updateCreateRequest creates the Update request.
-func (client *QueueClient) updateCreateRequest(ctx context.Context, resourceGroupName string, accountName string, queueName string, queue Queue, _ *QueueClientUpdateOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/queueServices/default/queues/{queueName}"
+func (client *TableClient) updateCreateRequest(ctx context.Context, resourceGroupName string, accountName string, tableName string, options *TableClientUpdateOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/tableServices/default/tables/{tableName}"
 	if resourceGroupName == "" {
 		return nil, errors.New("parameter resourceGroupName cannot be empty")
 	}
@@ -370,29 +361,32 @@ func (client *QueueClient) updateCreateRequest(ctx context.Context, resourceGrou
 		return nil, errors.New("parameter client.subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if queueName == "" {
-		return nil, errors.New("parameter queueName cannot be empty")
+	if tableName == "" {
+		return nil, errors.New("parameter tableName cannot be empty")
 	}
-	urlPath = strings.ReplaceAll(urlPath, "{queueName}", url.PathEscape(queueName))
+	urlPath = strings.ReplaceAll(urlPath, "{tableName}", url.PathEscape(tableName))
 	req, err := runtime.NewRequest(ctx, http.MethodPatch, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
 	if err != nil {
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-01-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
-	if err := runtime.MarshalAsJSON(req, queue); err != nil {
-		return nil, err
+	if options != nil && options.Parameters != nil {
+		if err := runtime.MarshalAsJSON(req, *options.Parameters); err != nil {
+			return nil, err
+		}
+		return req, nil
 	}
 	return req, nil
 }
 
 // updateHandleResponse handles the Update response.
-func (client *QueueClient) updateHandleResponse(resp *http.Response) (QueueClientUpdateResponse, error) {
-	result := QueueClientUpdateResponse{}
-	if err := runtime.UnmarshalAsJSON(resp, &result.Queue); err != nil {
-		return QueueClientUpdateResponse{}, err
+func (client *TableClient) updateHandleResponse(resp *http.Response) (TableClientUpdateResponse, error) {
+	result := TableClientUpdateResponse{}
+	if err := runtime.UnmarshalAsJSON(resp, &result.Table); err != nil {
+		return TableClientUpdateResponse{}, err
 	}
 	return result, nil
 }
