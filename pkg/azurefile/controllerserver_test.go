@@ -1060,6 +1060,23 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 			})
 		})
 
+		ginkgo.When("invalid mountWithManagedIdentity", func() {
+			ginkgo.It("should fail", func(ctx context.Context) {
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name-valid-request",
+					VolumeCapabilities: stdVolCap,
+					CapacityRange:      lessThanPremCapRange,
+					Parameters: map[string]string{
+						mountWithManagedIdentityField: "invalid",
+					},
+				}
+
+				expectedErr := status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", mountWithManagedIdentityField, "invalid")
+				_, err := d.CreateVolume(ctx, req)
+				gomega.Expect(err).To(gomega.Equal(expectedErr))
+			})
+		})
+
 		ginkgo.When("invalid parameter", func() {
 			ginkgo.It("should fail", func(ctx context.Context) {
 				name := "baz"
