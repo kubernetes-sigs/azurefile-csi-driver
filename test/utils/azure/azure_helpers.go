@@ -27,7 +27,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	network "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	resources "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	storage "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
+	storage "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v2"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
