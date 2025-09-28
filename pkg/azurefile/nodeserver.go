@@ -267,7 +267,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
 	}()
 
-	_, accountName, accountKey, fileShareName, diskName, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), context)
+	_, accountName, accountKey, fileShareName, diskName, _, wiToken, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), context)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("GetAccountInfo(%s) failed with error: %v", volumeID, err))
 	}
@@ -471,8 +471,8 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			klog.V(2).Infof("mount with proxy succeeded for %s", cifsMountPath)
 		} else {
 			execFunc := func() error {
-				if mountWithManagedIdentity && protocol != nfs && runtime.GOOS != "windows" {
-					if out, err := setCredentialCache(server, clientID); err != nil {
+				if (mountWithManagedIdentity || wiToken != "") && protocol != nfs && runtime.GOOS != "windows" {
+					if out, err := setCredentialCache(server, clientID, wiToken); err != nil {
 						return fmt.Errorf("setCredentialCache failed for %s with error: %v, output: %s", server, err, out)
 					}
 				}

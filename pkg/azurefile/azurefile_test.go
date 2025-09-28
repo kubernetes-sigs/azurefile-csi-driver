@@ -847,7 +847,7 @@ func TestGetAccountInfo(t *testing.T) {
 		d.kubeClient = clientSet
 		d.cloud.Environment = &azclient.Environment{StorageEndpointSuffix: "abc"}
 		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), test.rgName).Return(key, nil).AnyTimes()
-		rgName, accountName, _, fileShareName, diskName, _, err := d.GetAccountInfo(context.Background(), test.volumeID, test.secrets, test.reqContext)
+		rgName, accountName, _, fileShareName, diskName, _, _, err := d.GetAccountInfo(context.Background(), test.volumeID, test.secrets, test.reqContext)
 		if test.expectErr && err == nil {
 			t.Errorf("Unexpected non-error")
 			continue
