@@ -417,13 +417,41 @@ func getDefaultBandwidth(requestGiB int, storageAccountType string) *int32 {
 	return &bandwidth
 }
 
-func setCredentialCache(server, clientID string) ([]byte, error) {
-	if server == "" || clientID == "" {
-		return nil, fmt.Errorf("server and clientID must be provided")
+func setCredentialCache(server, clientID, tenantID, tokenFile string) ([]byte, error) {
+	if server == "" {
+		return nil, fmt.Errorf("server must be provided")
+	}
+	if clientID == "" && tokenFile == "" {
+		return nil, fmt.Errorf("either clientID or tokenFile must be provided")
 	}
 
-	cmd := exec.Command("azfilesauthmanager", "set", "https://"+server, "--imds-client-id", clientID)
+	var args []string
+	if tokenFile != "" {
+		args = []string{"set", "https://" + server, "--workload-identity", "--tenant-id", tenantID, "--client-id", clientID, "--token-file", tokenFile}
+	} else {
+		args = []string{"set", "https://" + server, "--imds-client-id", clientID}
+	}
+
+	cmd := exec.Command("azfilesauthmanager", args...)
 	cmd.Env = append(os.Environ(), cmd.Env...)
+	// todo: only print command when token == ""
 	klog.V(2).Infof("Executing command: %q", cmd.String())
 	return cmd.CombinedOutput()
+}
+
+// isValidTokenFileName checks if the token file name is valid
+// fileName should only contain alphanumeric characters, hyphens
+func isValidTokenFileName(fileName string) bool {
+	if fileName == "" {
+		return false
+	}
+	for _, c := range fileName {
+		if !(('a' <= c && c <= 'z') ||
+			('A' <= c && c <= 'Z') ||
+			('0' <= c && c <= '9') ||
+			(c == '-')) {
+			return false
+		}
+	}
+	return true
 }

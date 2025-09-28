@@ -1177,6 +1177,50 @@ func TestNodePublishVolumeIdempotentMount(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUseWorkloadIdentity(t *testing.T) {
+	tests := []struct {
+		name   string
+		attrib map[string]string
+		expect bool
+	}{
+		{
+			name:   "witoken true",
+			attrib: map[string]string{mountWithWITokenField: trueValue},
+			expect: true,
+		},
+		{
+			name: "clientID without managed identity",
+			attrib: map[string]string{
+				clientIDField:                 "client-id",
+				mountWithManagedIdentityField: "",
+			},
+			expect: true,
+		},
+		{
+			name: "clientID with managed identity true",
+			attrib: map[string]string{
+				clientIDField:                 "client-id",
+				mountWithManagedIdentityField: "True",
+			},
+			expect: false,
+		},
+		{
+			name:   "no wi configuration",
+			attrib: map[string]string{},
+			expect: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := useWorkloadIdentity(test.attrib)
+			if result != test.expect {
+				t.Fatalf("useWorkloadIdentity() = %t, want %t for attrib %v", result, test.expect, test.attrib)
+			}
+		})
+	}
+}
+
 func makeFakeCmd(fakeCmd *testingexec.FakeCmd, cmd string, args ...string) testingexec.FakeCommandAction {
 	c := cmd
 	a := args
