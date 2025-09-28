@@ -23,6 +23,7 @@ ARG ARCH
 RUN apt update \
     && apt install -y curl \
     && curl -Lso /tmp/packages-microsoft-prod-22.04.deb https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb \
+    && curl -Lso /tmp/azfilesauth.deb https://raw.githubusercontent.com/andyzhangx/demo/refs/heads/master/aks/azfilesauth_1.0-8_amd64.deb \
     && curl -Ls https://github.com/Azure/azure-storage-azcopy/releases/download/v10.31.0/azcopy_linux_${ARCH}_10.31.0.tar.gz \
         | tar xvzf - --strip-components=1 -C /usr/local/bin/ --wildcards "*/azcopy"
 
@@ -45,7 +46,12 @@ RUN chmod +x /azurefile-proxy/*.sh && \
   chmod +x /azurefile-proxy/azurefile-proxy
 
 COPY --from=builder --chown=root:root /tmp/packages-microsoft-prod-22.04.deb /azurefile-proxy/packages-microsoft-prod-22.04.deb
+COPY --from=builder --chown=root:root /tmp/azfilesauth.deb /azurefile-proxy/azfilesauth.deb
+
 RUN dpkg -i /azurefile-proxy/packages-microsoft-prod-22.04.deb && apt update && apt install -y azfilesauth && rm -f /azurefile-proxy/packages-microsoft-prod-22.04.deb
+# only install azfilesauth for amd64
+RUN if [ "${ARCH}" = "amd64" ]; then \
+    dpkg -i /azurefile-proxy/azfilesauth.deb && rm -f /azurefile-proxy/azfilesauth.deb ; fi
 
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"
