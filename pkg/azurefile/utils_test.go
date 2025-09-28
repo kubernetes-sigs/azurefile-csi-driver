@@ -1361,30 +1361,32 @@ func TestSetCredentialCache(t *testing.T) {
 		desc          string
 		server        string
 		clientID      string
+		token         string
 		expectedError string
 	}{
 		{
 			desc:          "empty server",
 			server:        "",
 			clientID:      "test-client-id",
-			expectedError: "server and clientID must be provided",
+			expectedError: "server must be provided",
 		},
 		{
-			desc:          "empty clientID",
+			desc:          "empty clientID and token",
 			server:        "test.file.core.windows.net",
 			clientID:      "",
-			expectedError: "server and clientID must be provided",
+			token:         "",
+			expectedError: "either clientID or token must be provided",
 		},
 		{
 			desc:          "both empty",
 			server:        "",
 			clientID:      "",
-			expectedError: "server and clientID must be provided",
+			expectedError: "server must be provided",
 		},
 	}
 
 	for _, test := range tests {
-		_, err := setCredentialCache(test.server, test.clientID)
+		_, err := setCredentialCache(test.server, test.clientID, test.token)
 		if test.expectedError != "" {
 			if err == nil {
 				t.Errorf("test[%s]: expected error containing %q, got nil", test.desc, test.expectedError)

@@ -13,5 +13,7 @@ spec:
     - Persistent
     - Ephemeral
   fsGroupPolicy: ReadWriteOnceWithFSType
+  requiresRepublish: true
   tokenRequests:
     - audience: api://AzureADTokenExchange
+      expirationSeconds: 1800

@@ -231,6 +231,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case confidentialContainerLabelField:
 		case runtimeClassHandlerField:
 		case createFolderIfNotExistField:
+		case mountWithWITokenField:
 			// no op, only used in NodeStageVolume
 		case fsGroupChangePolicyField:
 			fsGroupChangePolicy = v
@@ -812,7 +813,7 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 		}
 
 		// use data plane api, get account key first
-		_, _, accountKey, _, _, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), reqContext)
+		_, _, accountKey, _, _, _, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), reqContext)
 		if err != nil {
 			return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
 		}
@@ -866,7 +867,7 @@ func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.Valida
 		return nil, status.Error(codes.InvalidArgument, "Volume capabilities not provided")
 	}
 
-	resourceGroupName, accountName, _, fileShareName, diskName, subsID, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), req.GetVolumeContext())
+	resourceGroupName, accountName, _, fileShareName, diskName, subsID, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), req.GetVolumeContext())
 	if err != nil || accountName == "" || fileShareName == "" {
 		return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
 	}
@@ -1319,7 +1320,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 			setKeyValueInMap(reqContext, secretNamespaceField, secretNamespace)
 		}
 		// use data plane api, get account key first
-		_, _, accountKey, _, _, _, err := d.GetAccountInfo(ctx, volumeID, secrets, reqContext)
+		_, _, accountKey, _, _, _, _, err := d.GetAccountInfo(ctx, volumeID, secrets, reqContext)
 		if err != nil {
 			return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
 		}
@@ -1352,7 +1353,7 @@ func (d *Driver) getShareClient(ctx context.Context, sourceVolumeID string, secr
 }
 
 func (d *Driver) getServiceClient(ctx context.Context, sourceVolumeID string, secrets map[string]string, useDataPlaneAPI string) (*service.Client, string, error) {
-	_, accountName, accountKey, fileShareName, _, _, err := d.GetAccountInfo(ctx, sourceVolumeID, secrets, map[string]string{}) //nolint:dogsled
+	_, accountName, accountKey, fileShareName, _, _, _, err := d.GetAccountInfo(ctx, sourceVolumeID, secrets, map[string]string{}) //nolint:dogsled
 	if err != nil {
 		return nil, fileShareName, err
 	}
