@@ -14,7 +14,7 @@ export CLUSTER_NAME=<your cluster name>
 export REGION=<your region>
 ```
 
-### 2. Bring your own storage account and file share
+### 2. Bring your own storage account
 Refer to the [documentation](https://learn.microsoft.com/en-us/azure/storage/files/storage-how-to-use-files-portal?tabs=azure-cli) for instructions on creating a new storage account and file share, or alternatively, utilize your existing storage account and file share. And export following environment variables:
 ```console
 export STORAGE_RESOURCE_GROUP=<your storage account resource group>
@@ -23,7 +23,7 @@ export SHARE=<your fileshare name> # optional
 ```
 
 ### 3. Create or bring your own managed identity and grant role to the managed identity
-> you could leverage the bult-in user assigned managed identity bound to the AKS agent node pool(with name [`AKS Cluster Name-agentpool`](https://docs.microsoft.com/en-us/azure/aks/use-managed-identity#summary-of-managed-identities)) in node resource group
+> you could leverage the built-in user assigned managed identity bound to the AKS agent node pool(with name [`AKS Cluster Name-agentpool`](https://docs.microsoft.com/en-us/azure/aks/use-managed-identity#summary-of-managed-identities)) in node resource group
 ```console
 export UAMI=<your managed identity name>
 az identity create --name $UAMI --resource-group $RESOURCE_GROUP
