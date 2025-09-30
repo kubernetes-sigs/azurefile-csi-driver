@@ -18,7 +18,7 @@
 ### install a specific version
 ```console
 helm repo add azurefile-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts
-helm install azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system --version 1.33.4
+helm install azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system --version 1.34.1
 ```
 
 ### install on RedHat/CentOS
