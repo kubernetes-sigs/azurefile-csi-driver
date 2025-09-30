@@ -63,10 +63,6 @@ func TestSanity(t *testing.T) {
 		}
 	}()
 
-	log.Printf("Creating a VM in %s", creds.ResourceGroup)
-	_, err = azureClient.EnsureVirtualMachine(ctx, creds.ResourceGroup, creds.Location, nodeid)
-	assert.NoError(t, err)
-
 	// Execute the script from project root
 	err = os.Chdir("../..")
 	assert.NoError(t, err)
