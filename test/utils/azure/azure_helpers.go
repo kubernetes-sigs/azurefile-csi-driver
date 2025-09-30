@@ -32,9 +32,9 @@ import (
 )
 
 type Client struct {
-	groupsClient        resourcegroupclient.Interface
-	accountsClient      accountclient.Interface
-	filesharesClient    fileshareclient.Interface
+	groupsClient     resourcegroupclient.Interface
+	accountsClient   accountclient.Interface
+	filesharesClient fileshareclient.Interface
 }
 
 func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aadFederatedTokenFile string) (*Client, error) {
@@ -68,9 +68,9 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 		return nil, err
 	}
 	return &Client{
-		groupsClient:        factory.GetResourceGroupClient(),
-		accountsClient:      factory.GetAccountClient(),
-		filesharesClient:    factory.GetFileShareClient(),
+		groupsClient:     factory.GetResourceGroupClient(),
+		accountsClient:   factory.GetAccountClient(),
+		filesharesClient: factory.GetFileShareClient(),
 	}, nil
 }
 
