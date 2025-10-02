@@ -399,11 +399,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			return nil, status.Errorf(codes.Internal, "failed to get account client for subscription %s: %v", subsID, err)
 		}
 		accountProperties, err := client.GetProperties(ctx, resourceGroup, account, nil)
-		if err != nil {
+		if err != nil || accountProperties == nil {
 			klog.Warningf("failed to get properties on storage account account(%s) rg(%s), error: %v", account, resourceGroup, err)
-		}
-		if accountProperties.SKU != nil {
+		} else if accountProperties.SKU != nil && accountProperties.SKU.Name != nil {
 			sku = string(*accountProperties.SKU.Name)
+			klog.V(2).Infof("storage account(%s) rg(%s) sku is %s", account, resourceGroup, sku)
 		}
 	}
 
