@@ -166,8 +166,8 @@ spec:
             - mountPath: "{{ .Values.linux.kubelet }}"
               mountPropagation: Bidirectional
               name: mountpoint-dir
-            - name: host-etc
-              mountPath: /etc
+            - name: azfilesauth
+              mountPath: /etc/azfilesauth
             - name: log-dir
               mountPath: /var/log/
           resources: {{- toYaml .Values.linux.resources.azfilesrefresh | nindent 12 }}
@@ -263,8 +263,8 @@ spec:
             {{- if .Values.node.enableManagedIdentityAuth }}
             - name: log-dir
               mountPath: /var/log/
-            - name: host-etc
-              mountPath: /etc
+            - name: azfilesauth
+              mountPath: /etc/azfilesauth
             {{- end }}
           resources: {{- toYaml .Values.linux.resources.azurefile | nindent 12 }}
       volumes:
@@ -274,6 +274,10 @@ spec:
         - name: host-etc
           hostPath:
             path: /etc
+        - name: azfilesauth
+          hostPath:
+            path: /etc/azfilesauth
+            type: DirectoryOrCreate
         - hostPath:
             path: {{ .Values.linux.kubelet }}/plugins/{{ .Values.driver.name }}
             type: DirectoryOrCreate

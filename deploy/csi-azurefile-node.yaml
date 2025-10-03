@@ -168,8 +168,8 @@ spec:
               name: device-dir
             - mountPath: /run/kata-containers/shared/direct-volumes
               name: kata-direct-volumes
-            - name: host-etc
-              mountPath: /etc
+            - name: azfilesauth
+              mountPath: /etc/azfilesauth
             - name: log-dir
               mountPath: /var/log/
           resources:
@@ -192,8 +192,8 @@ spec:
             - mountPath: /var/lib/kubelet/
               mountPropagation: Bidirectional
               name: mountpoint-dir
-            - name: host-etc
-              mountPath: /etc
+            - name: azfilesauth
+              mountPath: /etc/azfilesauth
             - name: log-dir
               mountPath: /var/log/
           resources:
@@ -209,6 +209,10 @@ spec:
         - name: host-etc
           hostPath:
             path: /etc
+        - name: azfilesauth
+          hostPath:
+            path: /etc/azfilesauth
+            type: DirectoryOrCreate
         - hostPath:
             path: /var/lib/kubelet/plugins/file.csi.azure.com
             type: DirectoryOrCreate
