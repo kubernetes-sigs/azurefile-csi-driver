@@ -61,4 +61,29 @@ func TestWatchFileForChanges(t *testing.T) {
 			t.Errorf("expected error to contain 'no such file or directory' or 'The system cannot find the file specified', got %v", err)
 		}
 	})
+
+	t.Run("ErrorHandling", func(t *testing.T) {
+		// Reset the watcher once before the test
+		resetWatchCertificateFileOnce()
+
+		// Create a temporary file to watch
+		tmpfile, err := os.CreateTemp("", "testfile_error")
+		if err != nil {
+			t.Fatal(err)
+		}
+		filename := tmpfile.Name()
+		tmpfile.Close()
+		defer os.Remove(filename)
+
+		// Start the watcher
+		if err = WatchFileForChanges(filename); err != nil {
+			t.Errorf("Failed to watch file: %v", err)
+		}
+
+		// Remove the file after adding to watcher to trigger an error
+		os.Remove(filename)
+
+		// Give time for the watcher error to occur
+		time.Sleep(100 * time.Millisecond)
+	})
 }
