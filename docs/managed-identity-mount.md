@@ -5,7 +5,9 @@
 This article demonstrates the process of mounting smb file share with user-assigned managed identity authentication only, without relying on account key authentication.
 > by default you could leverage the built-in user assigned managed identity(kubelet identity) bound to the AKS agent node pool(with naming rule [`AKS Cluster Name-agentpool`](https://docs.microsoft.com/en-us/azure/aks/use-managed-identity#summary-of-managed-identities))
 
-> if you have created your own managed identity, make sure the managed identity is bound to the agent node pool.
+> if you have created your own managed identity, make sure the managed identity is associated with the agent node pool. You could use following command to bind the managed identity to the VMSS node pool:
+
+    > `az vmss identity assign --name <vmss-name> --resource-group <resource-group-name> --identities <managed-identity-resource-id>`
 
 ## Before you begin
  - Make sure the managed identity is granted the `Storage File Data SMB MI Admin` role on the storage account.
