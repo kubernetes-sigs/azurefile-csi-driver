@@ -65,7 +65,7 @@ accountQuota | to limit the quota for an account, you can specify a maximum quot
 provisionedIOPS | provisioned IOPS for [file share v2](https://learn.microsoft.com/en-us/azure/storage/files/understanding-billing#provisioned-v2-provisioning-detail) (supported from v1.33.4) | | No | 
 provisionedBandwidth | provisioned throughput (MB/s) for [file share v2](https://learn.microsoft.com/en-us/azure/storage/files/understanding-billing#provisioned-v2-provisioning-detail)  (supported from v1.33.4)  | | No | 
 --- | **Following parameters are only for SMB protocol** | --- | --- |
-storeAccountKey | Should the storage account key be stored in a Kubernetes secret <br> (Note:  if set to `false`, the driver will use the kubelet identity to obtain the account key) | `true`,`false` | No | `true`
+storeAccountKey | Should the storage account key be stored in a Kubernetes secret <br> (Note:  if set to `false`, the driver will use the kubelet identity to obtain the account key during volume mount) | `true`,`false` | No | `true`
 getLatestAccountKey | whether getting the latest account key based on the creation time, this driver would get the first key by default | `true`,`false` | No | `false`
 secretName | specify secret name to store account key | | No |
 secretNamespace | specify the namespace of secret to store account key | `default`,`kube-system`, etc | No | pvc namespace (`csi.storage.k8s.io/pvc/namespace`)
@@ -140,7 +140,7 @@ useDataPlaneAPI | specify whether use [data plane API](https://github.com/Azure/
 
 ### Tips
   - mounting Azure SMB File share requires account key
-    - If you set `storeAccountKey: "false"` in the storage class, the driver will not store the account key as a Kubernetes secret,  the driver will not store the account key as a Kubernetes secret. Instead, it will use the kubelet identity to obtain the account key.
+    - If you set `storeAccountKey: "false"` in the storage class, the driver will not store the account key as a Kubernetes secret,  the driver will not store the account key as a Kubernetes secret. Instead, it will use the kubelet identity to obtain the account key during volume mount.
     - if the `nodeStageSecretRef` field is not specified in the persistent volume (PV) configuration, the driver will attempt to retrieve the `azure-storage-account-{accountname}-secret` in the pod namespace.
     - If `azure-storage-account-{accountname}-secret` in the pod namespace does not exist, the driver will use the kubelet identity to retrieve the account key directly from the Azure storage account API, provided that the kubelet identity has reader access to the storage account.
     > If you have recently rotated the account key, it is important to update the account key stored in the Kubernetes secret. Additionally, the application pods that reference the Azure file volume should be restarted after the secret has been updated. In cases where two pods share the same PVC on the same node, it is necessary to reschedule the pods to a different node without that PVC mounted to ensure that remounting occurs successfully. To safely rotate the account key without experiencing downtime, you can follow the steps outlined [here](https://github.com/kubernetes-sigs/azurefile-csi-driver/issues/1218#issuecomment-1851996062).
