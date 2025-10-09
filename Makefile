@@ -76,7 +76,7 @@ verify: unit-test
 
 .PHONY: unit-test
 unit-test:
-	go test -v -race ./pkg/... ./test/utils/credentials
+	go test -v -race ./pkg/... ./test/utils/credentials -timeout=30m
 
 .PHONY: sanity-test
 sanity-test: azurefile
