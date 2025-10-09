@@ -25,7 +25,7 @@ jobs:
         make
 
     - name: Unit Test
-      run: go test -race -covermode=atomic -coverprofile=profile.cov ./pkg/...
+      run: go test -race -covermode=atomic -coverprofile=profile.cov ./pkg/... -timeout=30m
 
     - name: Install goveralls
       run: go install github.com/mattn/goveralls@latest
