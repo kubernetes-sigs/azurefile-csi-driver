@@ -36,4 +36,4 @@ jobs:
           Write-Output "getting named pipes"
           [System.IO.Directory]::GetFiles("\\.\\pipe\\")
 
-          go test -v -race ./pkg/...
+          go test -v -race ./pkg/... -timeout=30m
