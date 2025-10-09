@@ -91,9 +91,9 @@ k8s-azure-created-by: azure
 
  - VolumeID(`volumeHandle`) is the identifier of the volume handled by the driver, format of VolumeID: 
 ```
-{resource-group-name}#{account-name}#{file-share-name}#{placeholder}#{uuid}#{secret-namespace}
+{resource-group-name}#{account-name}#{file-share-name}#{placeholder}#{uuid}#{secret-namespace}#{subscription-id}
 ```
- > `placeholder`, `uuid`, `secret-namespace` are optional
+ > `placeholder`, `uuid`, `secret-namespace`, `subscription-id` are optional
 
  - file share name format created by dynamic provisioning(example)
 ```
