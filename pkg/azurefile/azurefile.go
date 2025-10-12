@@ -31,8 +31,10 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	armstorage "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/file"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/service"
@@ -89,7 +91,7 @@ const (
 	defaultAzureFileQuota = 100
 	minimumAccountQuota   = 100 // GB
 
-	DefaultTokenAudience = "api://AzureADTokenExchange" //nolint:gosec // G101 ignore this!
+	DefaultTokenAudience = "api://AzureADTokenExchange/.default" //nolint:gosec // G101 ignore this!
 	// key of snapshot name in metadata
 	snapshotNameKey = "initiator"
 
@@ -884,9 +886,21 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 	}
 
 	if mountWithWIToken {
-		klog.V(2).Infof("mountWithWorkloadIdentity is specified, use workload identity auth mount")
-		wiToken, err := parseServiceAccountToken(serviceAccountToken)
-		return rgName, accountName, accountKey, fileShareName, diskName, subsID, wiToken, err
+		if clientID == "" {
+			clientID = d.cloud.Config.AzureAuthConfig.UserAssignedIdentityID
+		}
+		klog.V(2).Infof("mountWithWorkloadIdentity is specified, use workload identity auth mount, clientID: %s, tenantID: %s", clientID, tenantID)
+		cred, err := azidentity.NewClientAssertionCredential(tenantID, clientID, func(context.Context) (string, error) {
+			return parseServiceAccountToken(serviceAccountToken)
+		}, &azidentity.ClientAssertionCredentialOptions{})
+		if err != nil {
+			return rgName, accountName, accountKey, fileShareName, diskName, subsID, "", fmt.Errorf("failed to create client assertion credential with clientID(%s), tenantID(%s): %v", clientID, tenantID, err)
+		}
+		token, err := cred.GetToken(ctx, policy.TokenRequestOptions{Scopes: []string{DefaultTokenAudience}})
+		if err != nil {
+			return rgName, accountName, accountKey, fileShareName, diskName, subsID, "", fmt.Errorf("failed to get token with clientID(%s), tenantID(%s): %v", clientID, tenantID, err)
+		}
+		return rgName, accountName, accountKey, fileShareName, diskName, subsID, token.Token, err
 	}
 
 	if clientID != "" {
