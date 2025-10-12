@@ -900,7 +900,12 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 		if err != nil {
 			return rgName, accountName, accountKey, fileShareName, diskName, subsID, "", fmt.Errorf("failed to get token with clientID(%s), tenantID(%s): %v", clientID, tenantID, err)
 		}
-		return rgName, accountName, accountKey, fileShareName, diskName, subsID, token.Token, err
+		accessToken, err := performTokenExchange(tenantID, clientID, token.Token)
+		if err != nil {
+			return rgName, accountName, accountKey, fileShareName, diskName, subsID, "", fmt.Errorf("performTokenExchange failed with error: %v", err)
+		}
+		klog.V(4).Infof("performTokenExchange successfully with clientID(%s), tenantID(%s)", clientID, tenantID)
+		return rgName, accountName, accountKey, fileShareName, diskName, subsID, accessToken, err
 	}
 
 	if clientID != "" {

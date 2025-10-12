@@ -17,18 +17,26 @@ limitations under the License.
 package azurefile
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/client-go/kubernetes"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -49,11 +57,22 @@ const (
 	DefaultAzureCredentialFileEnv = "AZURE_CREDENTIAL_FILE"
 	DefaultCredFilePathLinux      = "/etc/kubernetes/azure.json"
 	DefaultCredFilePathWindows    = "C:\\k\\azure.json"
+	maxReadLength                 = 10 * 1 << 20 // 10MB
 )
 
 var (
 	storageService = "Microsoft.Storage"
+	client         = &http.Client{
+		Transport: utilnet.SetTransportDefaults(&http.Transport{}),
+		Timeout:   time.Second * 60,
+	}
 )
+
+type AccessToken struct {
+	token_type   string
+	expires_in   int
+	access_token string
+}
 
 func getRuntimeClassForPod(ctx context.Context, kubeClient clientset.Interface, podName string, podNameSpace string) (string, error) {
 	if kubeClient == nil {
@@ -348,4 +367,60 @@ func inClusterConfig(enableWindowsHostProcess bool) (*rest.Config, error) {
 		BearerToken:     string(token),
 		BearerTokenFile: tokenFile,
 	}, nil
+}
+
+func performTokenExchange(tenantID, clientID, accessToken string) (string, error) {
+	var err error
+	data := url.Values{
+		"scope":                 []string{"https://graph.microsoft.com/.default"},
+		"client_id":             []string{clientID},
+		"client_assertion_type": []string{"urn:ietf:params:oauth:client-assertion-type:jwt-bearer"},
+		"client_assertion":      []string{accessToken},
+		"grant_type":            []string{"client_credentials"},
+	}
+
+	authEndpoint := fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", tenantID)
+
+	datac := data.Encode()
+	var r *http.Request
+	r, err = http.NewRequest("POST", authEndpoint, bytes.NewBufferString(datac))
+	if err != nil {
+		return "", fmt.Errorf("failed to construct request, got %w", err)
+	}
+	r.Header.Add("userAgent", "azurefile-csi-driver")
+	r.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	r.Header.Add("Content-Length", strconv.Itoa(len(datac)))
+
+	var exchange *http.Response
+	if exchange, err = client.Do(r); err != nil {
+		return "", fmt.Errorf("Www-Authenticate: failed to reach auth url %s", authEndpoint)
+	}
+
+	if exchange.Header != nil {
+		if correlationID, ok := exchange.Header["X-Ms-Correlation-Request-Id"]; ok {
+			klog.V(4).Infof("correlationID: %s", correlationID)
+		}
+	}
+
+	defer exchange.Body.Close()
+	if exchange.StatusCode != 200 {
+		return "", fmt.Errorf("Www-Authenticate: auth url %s responded with status code %d", authEndpoint, exchange.StatusCode)
+	}
+
+	var content []byte
+	limitedReader := &io.LimitedReader{R: exchange.Body, N: maxReadLength}
+	if content, err = io.ReadAll(limitedReader); err != nil {
+		return "", fmt.Errorf("Www-Authenticate: error reading response from %s", authEndpoint)
+	}
+
+	if limitedReader.N <= 0 {
+		return "", errors.New("the read limit is reached")
+	}
+
+	var tokenResp AccessToken
+	if err = json.Unmarshal(content, &tokenResp); err != nil {
+		return "", fmt.Errorf("Www-Authenticate: unable to read response %s", content)
+	}
+
+	return tokenResp.access_token, nil
 }
