@@ -273,8 +273,8 @@ github.com/mailru/easyjson v0.7.0/go.mod h1:KAzv3t3aY1NaHWoQz1+4F1ccyAH66Jk7yos7
 github.com/mailru/easyjson v0.7.7/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJJLY9Nlc=
 github.com/mailru/easyjson v0.9.0 h1:PrnmzHw7262yW8sTBwxi1PdJA3Iw/EKBa8psRf7d9a4=
 github.com/mailru/easyjson v0.9.0/go.mod h1:1+xMtQp2MRNVL/V1bOzuP3aP8VNwRW55fQUto+XFtTU=
-github.com/microsoft/wmi v0.37.0 h1:TQ0+JHz8ogtl6twPOOQXA2ON2ErUS8WyInSq+yY4AT4=
-github.com/microsoft/wmi v0.37.0/go.mod h1:XF+cfluA15xGnSCYkJIYuj2vWzdm2YrNuvqlC+baWY0=
+github.com/microsoft/wmi v0.38.1 h1:j+pZjiVnbDEnVqLa3f0VxFouQGe3SMYgi1BAUhI9PXE=
+github.com/microsoft/wmi v0.38.1/go.mod h1:XF+cfluA15xGnSCYkJIYuj2vWzdm2YrNuvqlC+baWY0=
 github.com/moby/spdystream v0.5.0 h1:7r0J1Si3QO/kjRitvSLVVFUjxMEb/YLj6S9FF62JBCU=
 github.com/moby/spdystream v0.5.0/go.mod h1:xBAYlnt/ay+11ShkdFKNAG7LsyK/tmNBVvVOwrfMgdI=
 github.com/moby/sys/mountinfo v0.7.2 h1:1shs6aH5s4o5H2zQLn796ADW1wMrIwHsyJ2v9KouLrg=
