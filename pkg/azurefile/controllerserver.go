@@ -611,7 +611,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	accountOptions.Name = accountName
 	secret := req.GetSecrets()
-	if len(secret) == 0 && (strings.EqualFold(useDataPlaneAPI, trueValue) || secretName != "") {
+	if len(secret) == 0 && strings.EqualFold(useDataPlaneAPI, trueValue) {
 		if accountKey == "" {
 			if accountKey, err = d.GetStorageAccesskey(ctx, accountOptions, secret, secretName, secretNamespace); err != nil {
 				return nil, status.Errorf(codes.Internal, "failed to GetStorageAccesskey on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
