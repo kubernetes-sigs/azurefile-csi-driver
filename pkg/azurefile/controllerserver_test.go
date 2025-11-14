@@ -1305,6 +1305,59 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			})
 		})
+		ginkgo.When("CreateVolume response reflects actual provisioned capacity for Premium NFS share below minimum size", func() {
+			ginkgo.It("should return 100GiB capacity when 100MiB is requested", func(ctx context.Context) {
+				name := "premiumstoacc"
+				SKU := "Premium_LRS"
+				value := "foo bar"
+				accounts := []*armstorage.Account{
+					{Name: &name, SKU: &armstorage.SKU{Name: to.Ptr(armstorage.SKUName(SKU))}},
+				}
+				keys := []*armstorage.AccountKey{
+					{Value: &value},
+				}
+				// Request 100MiB, which is below the 100GiB minimum for Premium shares
+				capRange := &csi.CapacityRange{RequiredBytes: 100 * 1024 * 1024} // 100MiB
+
+				allParam := map[string]string{
+					locationField:         "loc",
+					storageAccountField:   "premiumstoacc",
+					resourceGroupField:    "rg",
+					skuNameField:          "Premium_LRS",
+					protocolField:         "nfs",
+					shareNameField:        "",
+					secretNamespaceField:  "default",
+					mountPermissionsField: "0755",
+				}
+				req := &csi.CreateVolumeRequest{
+					Name:               "vol-small-nfs",
+					Parameters:         allParam,
+					VolumeCapabilities: stdVolCap,
+					CapacityRange:      capRange,
+				}
+
+				mockStorageAccountsClient := d.cloud.ComputeClientFactory.GetAccountClient().(*mock_accountclient.MockInterface)
+				mockSubnetClient := d.cloud.NetworkClientFactory.GetSubnetClient().(*mock_subnetclient.MockInterface)
+
+				mockFileClient.EXPECT().Create(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
+				mockFileClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().List(gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().GetProperties(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(accounts[0], nil).AnyTimes()
+				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armnetwork.Subnet{}, nil).AnyTimes()
+				mockSubnetClient.EXPECT().CreateOrUpdate(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+
+				resp, err := d.CreateVolume(ctx, req)
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(resp).NotTo(gomega.BeNil())
+				gomega.Expect(resp.Volume).NotTo(gomega.BeNil())
+				
+				// The response should reflect the actual provisioned capacity (100GiB), not the requested capacity (100MiB)
+				expectedCapacityBytes := int64(100 * 1024 * 1024 * 1024) // 100GiB in bytes
+				gomega.Expect(resp.Volume.CapacityBytes).To(gomega.Equal(expectedCapacityBytes))
+			})
+		})
 	})
 })
 
