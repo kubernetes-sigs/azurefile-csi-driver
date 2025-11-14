@@ -1352,7 +1352,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				gomega.Expect(resp).NotTo(gomega.BeNil())
 				gomega.Expect(resp.Volume).NotTo(gomega.BeNil())
-				
+
 				// The response should reflect the actual provisioned capacity (100GiB), not the requested capacity (100MiB)
 				expectedCapacityBytes := int64(100 * 1024 * 1024 * 1024) // 100GiB in bytes
 				gomega.Expect(resp.Volume.CapacityBytes).To(gomega.Equal(expectedCapacityBytes))

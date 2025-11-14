@@ -763,10 +763,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	// reset secretNamespace field in VolumeContext
 	setKeyValueInMap(parameters, secretNamespaceField, secretNamespace)
-	
+
 	// Return the actual provisioned capacity (fileShareSize may have been rounded up to meet minimum requirements)
 	actualCapacityBytes := util.GiBToBytes(int64(fileShareSize))
-	
+
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
 			VolumeId:      volumeID,
