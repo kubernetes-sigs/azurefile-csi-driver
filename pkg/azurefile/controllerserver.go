@@ -1219,13 +1219,7 @@ func (d *Driver) execAzcopyCopy(srcPath, dstPath string, azcopyCopyOptions, auth
 
 	// Use --trusted-microsoft-suffixes option to avoid failure caused by
 	if d.requiredAzCopyToTrust {
-		cmd := exec.Command("azcopy", "copy", "--trusted-microsoft-suffixes", d.getStorageEndPointSuffix(), srcPath, dstPath)
-		if len(authAzcopyEnv) > 0 {
-			cmd.Env = append(os.Environ(), authAzcopyEnv...)
-		}
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return out, fmt.Errorf("exec set-trusted-microsoft-suffixes error: %v, output: %s", err, string(out))
-		}
+		azcopyCopyOptions = append(azcopyCopyOptions, fmt.Sprintf("--trusted-microsoft-suffixes=%s", d.getStorageEndPointSuffix()))
 	}
 
 	cmd := exec.Command("azcopy", "copy", srcPath, dstPath)
