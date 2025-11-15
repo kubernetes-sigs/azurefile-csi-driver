@@ -1305,7 +1305,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			})
 		})
-		ginkgo.When("CreateVolume response reflects actual provisioned capacity for Premium NFS share below minimum size", func() {
+		ginkgo.When("CreateVolume response reflects actual provisioned capacity for Premium share below minimum size", func() {
 			ginkgo.It("should return 100GiB capacity when 100MiB is requested", func(ctx context.Context) {
 				name := "premiumstoacc"
 				SKU := "Premium_LRS"
@@ -1324,20 +1324,18 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 					storageAccountField:   "premiumstoacc",
 					resourceGroupField:    "rg",
 					skuNameField:          "Premium_LRS",
-					protocolField:         "nfs",
 					shareNameField:        "",
 					secretNamespaceField:  "default",
 					mountPermissionsField: "0755",
 				}
 				req := &csi.CreateVolumeRequest{
-					Name:               "vol-small-nfs",
+					Name:               "vol-small-premium",
 					Parameters:         allParam,
 					VolumeCapabilities: stdVolCap,
 					CapacityRange:      capRange,
 				}
 
 				mockStorageAccountsClient := d.cloud.ComputeClientFactory.GetAccountClient().(*mock_accountclient.MockInterface)
-				mockSubnetClient := d.cloud.NetworkClientFactory.GetSubnetClient().(*mock_subnetclient.MockInterface)
 
 				mockFileClient.EXPECT().Create(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
 				mockFileClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
@@ -1345,8 +1343,6 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				mockStorageAccountsClient.EXPECT().List(gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().GetProperties(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(accounts[0], nil).AnyTimes()
-				mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armnetwork.Subnet{}, nil).AnyTimes()
-				mockSubnetClient.EXPECT().CreateOrUpdate(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
 				resp, err := d.CreateVolume(ctx, req)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
