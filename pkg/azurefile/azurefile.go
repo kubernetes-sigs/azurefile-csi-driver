@@ -294,11 +294,12 @@ type Driver struct {
 	// azcopy for provide exec mock for ut
 	azcopy *fileutil.Azcopy
 
-	kubeconfig   string
-	endpoint     string
-	resolver     Resolver
-	directVolume DirectVolume
-	isKataNode   bool
+	kubeconfig            string
+	endpoint              string
+	resolver              Resolver
+	directVolume          DirectVolume
+	isKataNode            bool
+	requiredAzCopyToTrust bool
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -413,7 +414,14 @@ func (d *Driver) Run(ctx context.Context) error {
 	if err != nil {
 		klog.Fatalf("failed to get Azure Cloud Provider, error: %v", err)
 	}
+	// pass if the storageEndpointSuffix must be trusted by azCopy by checking if it is not in azcopyTrustedSuffixesAAD
+	requiredAzCopyToTrust := d.getStorageEndPointSuffix() != "" && !strings.Contains(azcopyTrustedSuffixesAAD, d.getStorageEndPointSuffix())
+
 	klog.V(2).Infof("cloud: %s, location: %s, rg: %s, VnetName: %s, VnetResourceGroup: %s, SubnetName: %s", d.cloud.Cloud, d.cloud.Location, d.cloud.ResourceGroup, d.cloud.VnetName, d.cloud.VnetResourceGroup, d.cloud.SubnetName)
+	if requiredAzCopyToTrust {
+		klog.V(2).Infof("storage endpoint suffix %s is not in azcopy trusted suffixes, azcopy will trust it temporarily during volume clone and snapshot restore", d.getStorageEndPointSuffix())
+	}
+	d.requiredAzCopyToTrust = requiredAzCopyToTrust
 
 	d.mounter, err = mounter.NewSafeMounter(d.enableWindowsHostProcess)
 	if err != nil {
