@@ -63,6 +63,9 @@ const (
 	authorizationPermissionMismatch = "AuthorizationPermissionMismatch"
 
 	createdByMetadata = "createdBy"
+
+	// refer https://github.com/Azure/azure-storage-azcopy/wiki/azcopy
+	azcopyTrustedSuffixesAAD = "*.core.windows.net;*.core.chinacloudapi.cn;*.core.cloudapi.de;*.core.usgovcloudapi.net;*.storage.azure.net"
 )
 
 var (
@@ -1250,6 +1253,12 @@ func (d *Driver) copyFileShareByAzcopy(ctx context.Context, srcFileShareName, ds
 
 // execAzcopyCopy exec azcopy copy command
 func (d *Driver) execAzcopyCopy(srcPath, dstPath string, azcopyCopyOptions, authAzcopyEnv []string) ([]byte, error) {
+
+	// Use --trusted-microsoft-suffixes option to avoid failure caused by
+	if d.requiredAzCopyToTrust {
+		azcopyCopyOptions = append(azcopyCopyOptions, fmt.Sprintf("--trusted-microsoft-suffixes=%s", d.getStorageEndPointSuffix()))
+	}
+
 	cmd := exec.Command("azcopy", "copy", srcPath, dstPath)
 	cmd.Args = append(cmd.Args, azcopyCopyOptions...)
 	if len(authAzcopyEnv) > 0 {
