@@ -6,11 +6,11 @@ image:
     pullPolicy: IfNotPresent
   csiProvisioner:
     repository: /oss/v2/kubernetes-csi/csi-provisioner
-    tag: v5.3.0
+    tag: v6.0.0
     pullPolicy: IfNotPresent
   csiResizer:
     repository: /oss/v2/kubernetes-csi/csi-resizer
-    tag: v1.14.0
+    tag: v2.0.0
     pullPolicy: IfNotPresent
   livenessProbe:
     repository: /oss/v2/kubernetes-csi/livenessprobe
@@ -134,11 +134,11 @@ snapshot:
   image:
     csiSnapshotter:
       repository: /oss/v2/kubernetes-csi/csi-snapshotter
-      tag: v8.3.0
+      tag: v8.4.0
       pullPolicy: IfNotPresent
     csiSnapshotController:
       repository: /oss/v2/kubernetes-csi/snapshot-controller
-      tag: v8.3.0
+      tag: v8.4.0
       pullPolicy: IfNotPresent
   snapshotController:
     name: csi-snapshot-controller
