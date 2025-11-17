@@ -65,7 +65,7 @@ kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-cs
 
 ## Static Provisioning
 
-> bring your own storage account
+> If you are using your own storage account, please ensure that the `SMBOauth` property is enabled for that account.
 
 1. create PV with your own account
     ```yml
@@ -96,7 +96,7 @@ kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-cs
         volumeHandle: "{resource-group-name}#{account-name}#{file-share-name}"
         volumeAttributes:
           resourceGroup: EXISTING_RESOURCE_GROUP_NAME   # optional, node resource group by default if it's not provided
-          storageAccount: EXISTING_STORAGE_ACCOUNT_NAME # optional, a new account will be created if it's not provided
+          storageAccount: EXISTING_STORAGE_ACCOUNT_NAME # ensure that the `SMBOauth` property is enabled on this account
           shareName: EXISTING_FILE_SHARE_NAME
           mountWithManagedIdentity: "true"
           # optional, clientID of the managed identity, kubelet identity would be used by default if it's empty
