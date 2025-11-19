@@ -8,7 +8,6 @@
 Microsoft.Storage/storageAccounts/read
 Microsoft.Storage/storageAccounts/write
 Microsoft.Storage/storageAccounts/listKeys/action
-Microsoft.Storage/operations/read
 # this is only necessary if the driver creates the storage account with a private endpoint:
 Microsoft.Network/virtualNetworks/join/action
 Microsoft.Network/virtualNetworks/subnets/join/action
