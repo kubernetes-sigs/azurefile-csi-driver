@@ -144,10 +144,16 @@ Get SMBClient events from Event Viewer under following path:
 </details>
 
 #### NFS
- 
+ - nfs mount without EncrptionInTransit
 ```console
 mkdir /tmp/test
 mount -v -t nfs -o vers=4,minorversion=1,sec=sys accountname.file.core.windows.net:/accountname/filesharename /tmp/test
+```
+
+ - nfs mount with EncrptionInTransit
+```console
+mkdir /tmp/test
+mount -v -t aznfs -o vers=4,minorversion=1,sec=sys accountname.file.core.windows.net:/accountname/filesharename /tmp/test
 ```
 
  - [Troubleshoot Azure File mount issues on AKS](http://aka.ms/filemounterror)
