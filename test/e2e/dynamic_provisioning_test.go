@@ -189,6 +189,9 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 					NameGenerate:      "test-volume-",
 					MountPathGenerate: "/mnt/test-",
 				},
+				MountOptions: []string{
+					"max_channels=4",
+				},
 			},
 		}
 		tags := "account=azurefile-test"
@@ -203,6 +206,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				"getLatestAccountKey":    "true",
 				"shareAccessTier":        "Premium",
 				"requireInfraEncryption": "true",
+				"enableMultichannel":     "true",
 			},
 			Tags: tags,
 		}
