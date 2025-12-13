@@ -1375,7 +1375,7 @@ func TestSetCredentialCache(t *testing.T) {
 			server:        "test.file.core.windows.net",
 			clientID:      "",
 			token:         "",
-			expectedError: "either clientID or token must be provided",
+			expectedError: "either clientID or tokenFile must be provided",
 		},
 		{
 			desc:          "both empty",
