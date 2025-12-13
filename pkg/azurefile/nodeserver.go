@@ -267,7 +267,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
 	}()
 
-	_, accountName, accountKey, fileShareName, diskName, _, wiToken, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), context)
+	_, accountName, accountKey, fileShareName, diskName, _, tenantID, tokenFilePath, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), context)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("GetAccountInfo(%s) failed with error: %v", volumeID, err))
 	}
@@ -411,7 +411,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			}
 			sensitiveMountOptions = []string{"sec=krb5,cruid=0,upcall_target=mount", fmt.Sprintf("username=%s", clientID)}
 			klog.V(2).Infof("using managed identity %s for volume %s with mount options: %v", clientID, volumeID, sensitiveMountOptions)
-		} else if wiToken != "" && runtime.GOOS != "windows" {
+		} else if tokenFilePath != "" && runtime.GOOS != "windows" {
 			sensitiveMountOptions = []string{"sec=krb5,cruid=0,upcall_target=mount"}
 			klog.V(2).Infof("using workload identity token for volume %s with mount options: %v", volumeID, sensitiveMountOptions)
 		} else {
@@ -474,8 +474,8 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			klog.V(2).Infof("mount with proxy succeeded for %s", cifsMountPath)
 		} else {
 			execFunc := func() error {
-				if (mountWithManagedIdentity || wiToken != "") && protocol != nfs && runtime.GOOS != "windows" {
-					if out, err := setCredentialCache(server, clientID, wiToken); err != nil {
+				if (mountWithManagedIdentity || tokenFilePath != "") && protocol != nfs && runtime.GOOS != "windows" {
+					if out, err := setCredentialCache(server, clientID, tenantID, tokenFilePath); err != nil {
 						return fmt.Errorf("setCredentialCache failed for %s with error: %v, output: %s", server, err, out)
 					}
 				}

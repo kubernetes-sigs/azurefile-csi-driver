@@ -417,17 +417,17 @@ func getDefaultBandwidth(requestGiB int, storageAccountType string) *int32 {
 	return &bandwidth
 }
 
-func setCredentialCache(server, clientID, token string) ([]byte, error) {
+func setCredentialCache(server, clientID, tenantID, tokenFile string) ([]byte, error) {
 	if server == "" {
 		return nil, fmt.Errorf("server must be provided")
 	}
-	if clientID == "" && token == "" {
-		return nil, fmt.Errorf("either clientID or token must be provided")
+	if clientID == "" && tokenFile == "" {
+		return nil, fmt.Errorf("either clientID or tokenFile must be provided")
 	}
 
 	var args []string
-	if token != "" {
-		args = []string{"set", "https://" + server, token}
+	if tokenFile != "" {
+		args = []string{"set", "https://" + server, "--tenant-id", tenantID, "--token-file", tokenFile}
 	} else {
 		args = []string{"set", "https://" + server, "--imds-client-id", clientID}
 	}

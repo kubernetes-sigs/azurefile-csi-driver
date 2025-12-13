@@ -1386,7 +1386,7 @@ func TestSetCredentialCache(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		_, err := setCredentialCache(test.server, test.clientID, test.token)
+		_, err := setCredentialCache(test.server, test.clientID, "", test.token)
 		if test.expectedError != "" {
 			if err == nil {
 				t.Errorf("test[%s]: expected error containing %q, got nil", test.desc, test.expectedError)
