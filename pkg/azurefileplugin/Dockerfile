@@ -36,6 +36,8 @@ COPY --from=builder --chown=root:root /usr/local/bin/azcopy /usr/local/bin/azcop
 
 RUN apt update && apt upgrade -y && apt-mark unhold libcap2 && clean-install ca-certificates cifs-utils util-linux e2fsprogs mount udev xfsprogs nfs-common netbase
 
+RUN apt remove curl -y
+
 COPY ./pkg/azurefile-proxy/*.sh /azurefile-proxy/
 COPY ./pkg/azurefile-proxy/azurefile-proxy.service /azurefile-proxy/
 COPY ./_output/${ARCH}/azurefile-proxy /azurefile-proxy/
