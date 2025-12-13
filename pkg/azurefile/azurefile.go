@@ -898,8 +898,11 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 	if mountWithWIToken {
 		if clientID == "" {
 			clientID = d.cloud.Config.AzureAuthConfig.UserAssignedIdentityID
+			if clientID == "" {
+				return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("clientID is empty for workload identity auth")
+			}
 		}
-		klog.V(2).Infof("mountWithWorkloadIdentity is specified, use workload identity auth mount, clientID: %s, tenantID: %s", clientID, tenantID)
+		klog.V(2).Infof("mountWithWorkloadIdentityToken is specified, use workload identity auth for mount, clientID: %s, tenantID: %s", clientID, tenantID)
 		token, err := parseServiceAccountToken(serviceAccountToken)
 		if err != nil {
 			return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("failed to parse service account token: %v", err)
