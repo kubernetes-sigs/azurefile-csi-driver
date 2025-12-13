@@ -1400,3 +1400,65 @@ func TestSetCredentialCache(t *testing.T) {
 func int32Ptr(i int32) *int32 {
 	return &i
 }
+
+func TestIsValidTokenFileName(t *testing.T) {
+	testCases := []struct {
+		name     string
+		fileName string
+		expected bool
+	}{
+		{
+			name:     "valid lowercase",
+			fileName: "token",
+			expected: true,
+		},
+		{
+			name:     "valid uppercase",
+			fileName: "TOKEN",
+			expected: true,
+		},
+		{
+			name:     "valid mixed alphanumeric with hyphen",
+			fileName: "Token-123",
+			expected: true,
+		},
+		{
+			name:     "valid mixed alphanumeric with hyphen#2",
+			fileName: "0ab48765-efce-4799-8a9c-c3e1de2ee42eg",
+			expected: true,
+		},
+		{
+			name:     "empty string",
+			fileName: "",
+			expected: false,
+		},
+		{
+			name:     "contains underscore",
+			fileName: "token_file",
+			expected: false,
+		},
+		{
+			name:     "contains dot",
+			fileName: "token.file",
+			expected: false,
+		},
+		{
+			name:     "contains space",
+			fileName: "token file",
+			expected: false,
+		},
+		{
+			name:     "contains slash",
+			fileName: "token/file",
+			expected: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isValidTokenFileName(tc.fileName); got != tc.expected {
+				t.Fatalf("isValidTokenFileName(%q) = %t, want %t", tc.fileName, got, tc.expected)
+			}
+		})
+	}
+}

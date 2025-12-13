@@ -907,7 +907,11 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 		if err != nil {
 			return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("failed to parse service account token: %v", err)
 		}
-		tokenFilePath = filepath.Join(defaultAzureOAuthTokenDir, clientID+accountName)
+		tokenFileName := clientID + accountName
+		if !isValidTokenFileName(tokenFileName) {
+			return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("invalid token file name(%s) generated for clientID(%s) and accountName(%s)", tokenFileName, clientID, accountName)
+		}
+		tokenFilePath = filepath.Join(defaultAzureOAuthTokenDir, tokenFileName)
 		if err := os.WriteFile(tokenFilePath, []byte(token), 0600); err != nil {
 			return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("failed to write azure oAuth token file(%s): %v", tokenFilePath, err)
 		}

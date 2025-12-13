@@ -438,3 +438,20 @@ func setCredentialCache(server, clientID, tenantID, tokenFile string) ([]byte, e
 	klog.V(2).Infof("Executing command: %q", cmd.String())
 	return cmd.CombinedOutput()
 }
+
+// isValidTokenFileName checks if the token file name is valid
+// fileName should only contain alphanumeric characters, hyphens
+func isValidTokenFileName(fileName string) bool {
+	if fileName == "" {
+		return false
+	}
+	for _, c := range fileName {
+		if !(('a' <= c && c <= 'z') ||
+			('A' <= c && c <= 'Z') ||
+			('0' <= c && c <= '9') ||
+			(c == '-')) {
+			return false
+		}
+	}
+	return true
+}
