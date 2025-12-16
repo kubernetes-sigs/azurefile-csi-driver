@@ -149,6 +149,7 @@ useDataPlaneAPI | specify whether use [data plane API](https://github.com/Azure/
   - In case a storage account is full, the driver will add a `skip-matching` tag to the account to prevent the creation of new file shares. This tag will remain for 30 minutes after a file share is deleted from the account. If the user wants to use the account immediately, they can manually remove the tag.
   - The default NFS mount options in this driver are `vers=4,minorversion=1,sec=sys`. It is not supported to specify these NFS mount options, including `nfsvers`.
   - when there is a large number of files inside an NFS volume, the process of setting volume ownership can slow down the NFS volume mount when `securityContext.fsGroup` is different from group ownership of volume. By configuring `fsGroupChangePolicy: None` in the `parameters` of storage class or persistent volume, you can bypass the volume ownership setting step, resulting in faster NFS volume mounts.
+       > when the issue is related to setting the volume ownership, the CSI driver logs will display the message: volume_linux.go:128] "Expected group ownership of volume did not match with Gid".
 
 #### `shareName` parameter supports following pv/pvc metadata conversion
 > if `shareName` value contains following strings, it would be converted into corresponding pv/pvc name or namespace
