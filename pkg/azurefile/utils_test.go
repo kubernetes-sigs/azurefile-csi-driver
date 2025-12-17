@@ -1071,6 +1071,11 @@ func TestIsValidSubscriptionID(t *testing.T) {
 			subsID:   "2025-04-15T11:06:21.0000000Z",
 			expected: false,
 		},
+		{
+			desc:     "valid subscription ID - uppercase letters",
+			subsID:   "C9D2281E-DCD5-4DFD-9A97-0D50377CDF76",
+			expected: true,
+		},
 	}
 
 	for _, test := range tests {
