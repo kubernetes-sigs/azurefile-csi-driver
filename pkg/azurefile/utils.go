@@ -357,5 +357,5 @@ func getFileServiceURL(accountName, storageEndpointSuffix string) string {
 }
 
 func isValidSubscriptionID(subsID string) bool {
-	return regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`).MatchString(subsID)
+	return regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`).MatchString(subsID)
 }
