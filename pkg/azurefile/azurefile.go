@@ -91,7 +91,7 @@ const (
 	defaultAzureFileQuota = 100
 	minimumAccountQuota   = 100 // GB
 
-	DefaultTokenAudience = "api://AzureADTokenExchange/.default" //nolint:gosec // G101 ignore this!
+	DefaultTokenAudience = "api://AzureADTokenExchange/.default"
 	// key of snapshot name in metadata
 	snapshotNameKey = "initiator"
 
