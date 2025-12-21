@@ -122,7 +122,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, shareAccessTier, accountAccessTier, rootSquashType, tagValueDelimiter string
 	var createAccount, useSeretCache, matchTags, selectRandomMatchingAccount, getLatestAccountKey, encryptInTransit bool
 	var vnetResourceGroup, vnetName, vnetLinkName, publicNetworkAccess, subnetName, shareNamePrefix, fsGroupChangePolicy, useDataPlaneAPI string
-	var requireInfraEncryption, disableDeleteRetentionPolicy, enableLFS, isMultichannelEnabled, allowSharedKeyAccess, isSmbOAuthEnabled *bool
+	var requireInfraEncryption, disableDeleteRetentionPolicy, enableLFS, isMultichannelEnabled, allowSharedKeyAccess, requiresSmbOAuth *bool
 	var provisionedBandwidthMibps, provisionedIops *int32
 	// set allowBlobPublicAccess as false by default
 	allowBlobPublicAccess := ptr.To(false)
@@ -231,9 +231,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		case serverNameField:
 		case folderNameField:
 		case clientIDField:
+		case tenantIDField:
 		case confidentialContainerLabelField:
 		case runtimeClassHandlerField:
 		case createFolderIfNotExistField:
+			// no op, only used in NodeStageVolume
 		case fsGroupChangePolicyField:
 			fsGroupChangePolicy = v
 		case mountPermissionsField:
@@ -301,7 +303,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", mountWithManagedIdentityField, v)
 			}
 			if value {
-				isSmbOAuthEnabled = &value
+				requiresSmbOAuth = &value
 			}
 		case mountWithWITokenField:
 			value, err := strconv.ParseBool(v)
@@ -309,7 +311,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", mountWithWITokenField, v)
 			}
 			if value {
-				isSmbOAuthEnabled = &value
+				requiresSmbOAuth = &value
 			}
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, "invalid parameter %q in storage class", k)
@@ -560,7 +562,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		StorageType:                             storage.StorageTypeFile,
 		StorageEndpointSuffix:                   storageEndpointSuffix,
 		IsMultichannelEnabled:                   isMultichannelEnabled,
-		IsSmbOAuthEnabled:                       isSmbOAuthEnabled,
+		IsSmbOAuthEnabled:                       requiresSmbOAuth,
 		PickRandomMatchingAccount:               selectRandomMatchingAccount,
 		GetLatestAccountKey:                     getLatestAccountKey,
 		SourceAccountName:                       srcAccountName,

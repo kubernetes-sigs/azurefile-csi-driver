@@ -421,12 +421,15 @@ func setCredentialCache(server, clientID, tenantID, tokenFile string) ([]byte, e
 	if server == "" {
 		return nil, fmt.Errorf("server must be provided")
 	}
-	if clientID == "" && tokenFile == "" {
-		return nil, fmt.Errorf("either clientID or tokenFile must be provided")
+	if clientID == "" {
+		return nil, fmt.Errorf("clientID must be provided")
 	}
 
 	var args []string
 	if tokenFile != "" {
+		if tenantID == "" {
+			return nil, fmt.Errorf("tenantID must be provided when tokenFile is provided")
+		}
 		args = []string{"set", "https://" + server, "--workload-identity", "--tenant-id", tenantID, "--client-id", clientID, "--token-file", tokenFile}
 	} else {
 		args = []string{"set", "https://" + server, "--imds-client-id", clientID}
@@ -434,7 +437,6 @@ func setCredentialCache(server, clientID, tenantID, tokenFile string) ([]byte, e
 
 	cmd := exec.Command("azfilesauthmanager", args...)
 	cmd.Env = append(os.Environ(), cmd.Env...)
-	// todo: only print command when token == ""
 	klog.V(2).Infof("Executing command: %q", cmd.String())
 	return cmd.CombinedOutput()
 }

@@ -1177,7 +1177,7 @@ func TestNodePublishVolumeIdempotentMount(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestUseWorkloadIdentity(t *testing.T) {
+func TestShouldUseServiceAccountToken(t *testing.T) {
 	tests := []struct {
 		name   string
 		attrib map[string]string
@@ -1213,9 +1213,9 @@ func TestUseWorkloadIdentity(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := useWorkloadIdentity(test.attrib)
+			result := shouldUseServiceAccountToken(test.attrib)
 			if result != test.expect {
-				t.Fatalf("useWorkloadIdentity() = %t, want %t for attrib %v", result, test.expect, test.attrib)
+				t.Fatalf("shouldUseServiceAccountToken() = %t, want %t for attrib %v", result, test.expect, test.attrib)
 			}
 		})
 	}
