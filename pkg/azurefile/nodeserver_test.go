@@ -762,6 +762,22 @@ func TestNodeStageVolume(t *testing.T) {
 			},
 		},
 		{
+			desc: "[Error] mountWithManagedIdentity and mountWithWIToken cannot be both true",
+			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					shareNameField:                "test_sharename",
+					storageAccountField:           "test_accountname",
+					serviceAccountTokenField:      "token",
+					mountWithManagedIdentityField: "true",
+					mountWithWITokenField:         "true",
+				},
+				Secrets: secrets},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "mountWithManagedIdentity and mountWithWIToken cannot be both true"),
+			},
+		},
+		{
 			desc: "[Success] Valid request with Kata CC Mount enabled",
 			setup: func() {
 				d.resolver = mockResolver
@@ -1177,7 +1193,7 @@ func TestNodePublishVolumeIdempotentMount(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestUseWorkloadIdentity(t *testing.T) {
+func TestShouldUseServiceAccountToken(t *testing.T) {
 	tests := []struct {
 		name   string
 		attrib map[string]string
@@ -1213,9 +1229,9 @@ func TestUseWorkloadIdentity(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := useWorkloadIdentity(test.attrib)
+			result := shouldUseServiceAccountToken(test.attrib)
 			if result != test.expect {
-				t.Fatalf("useWorkloadIdentity() = %t, want %t for attrib %v", result, test.expect, test.attrib)
+				t.Fatalf("shouldUseServiceAccountToken() = %t, want %t for attrib %v", result, test.expect, test.attrib)
 			}
 		})
 	}

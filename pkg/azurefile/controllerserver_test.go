@@ -1095,6 +1095,24 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 			})
 		})
 
+		ginkgo.When("mountWithManagedIdentity and mountWithWIToken cannot be both true", func() {
+			ginkgo.It("should fail", func(ctx context.Context) {
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name-valid-request",
+					VolumeCapabilities: stdVolCap,
+					CapacityRange:      lessThanPremCapRange,
+					Parameters: map[string]string{
+						mountWithManagedIdentityField: "true",
+						mountWithWITokenField:         "true",
+					},
+				}
+
+				expectedErr := status.Errorf(codes.InvalidArgument, "%s and %s cannot be both true in storage class", mountWithManagedIdentityField, mountWithWITokenField)
+				_, err := d.CreateVolume(ctx, req)
+				gomega.Expect(err).To(gomega.Equal(expectedErr))
+			})
+		})
+
 		ginkgo.When("invalid parameter", func() {
 			ginkgo.It("should fail", func(ctx context.Context) {
 				name := "baz"
