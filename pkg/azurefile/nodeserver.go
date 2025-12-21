@@ -76,7 +76,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	mountPermissions := d.mountPermissions
 	context := req.GetVolumeContext()
 	if context != nil {
-		if getValueInMap(context, serviceAccountTokenField) != "" && useWorkloadIdentity(context) {
+		if getValueInMap(context, serviceAccountTokenField) != "" && shouldUseServiceAccountToken(context) {
 			klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with service account token, clientID: %s, mountWithWIToken: %s", volumeID, target, getValueInMap(context, clientIDField), getValueInMap(context, mountWithWITokenField))
 			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
 				StagingTargetPath: target,
@@ -247,7 +247,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	volumeID := req.GetVolumeId()
 	context := req.GetVolumeContext()
 
-	if getValueInMap(context, serviceAccountTokenField) == "" && useWorkloadIdentity(context) {
+	if getValueInMap(context, serviceAccountTokenField) == "" && shouldUseServiceAccountToken(context) {
 		klog.V(2).Infof("Skip NodeStageVolume for volume(%s) since clientID(%s) or mountWithWIToken(%s) is provided but service account token is empty", volumeID, getValueInMap(context, clientIDField), getValueInMap(context, mountWithWITokenField))
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
@@ -421,6 +421,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			sensitiveMountOptions = []string{"sec=krb5,cruid=0,upcall_target=mount"}
 			klog.V(2).Infof("using workload identity token for volume %s with mount options: %v", volumeID, sensitiveMountOptions)
 			if tokenFilePath != "" {
+				// always set credential cache when token file is provided even mount does not happen
 				if out, err := setCredentialCache(server, clientID, tenantID, tokenFilePath); err != nil {
 					return nil, status.Errorf(codes.Internal, "setCredentialCache failed for %s with error: %v, output: %s", server, err, out)
 				}
@@ -845,8 +846,8 @@ func checkGidPresentInMountFlags(mountFlags []string) bool {
 	return false
 }
 
-// useWorkloadIdentity determines whether to use workload identity for authentication
-func useWorkloadIdentity(attrib map[string]string) bool {
+// shouldUseServiceAccountToken determines whether to use workload identity for authentication
+func shouldUseServiceAccountToken(attrib map[string]string) bool {
 	if getValueInMap(attrib, mountWithWITokenField) == trueValue {
 		return true
 	}
