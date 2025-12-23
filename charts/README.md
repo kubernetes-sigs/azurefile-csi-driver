@@ -61,7 +61,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `image.azurefile.tag`                             | azurefile-csi-driver container image tag                      | ``                                                            |
 | `image.azurefile.pullPolicy`                      | azurefile-csi-driver image pull policy                     | `IfNotPresent`                                                      |
 | `image.csiProvisioner.repository`                 | csi-provisioner container image                               | `/oss/kubernetes-csi/csi-provisioner`              |
-| `image.csiProvisioner.tag`                        | csi-provisioner container image tag                           | `v6.0.0`                                                            |
+| `image.csiProvisioner.tag`                        | csi-provisioner container image tag                           | `v6.1.0`                                                            |
 | `image.csiProvisioner.pullPolicy`                 | csi-provisioner image pull policy                          | `IfNotPresent`                                                      |
 | `image.csiResizer.repository`                     | csi-resizer container image                                   | `/oss/kubernetes-csi/csi-resizer`                  |
 | `image.csiResizer.tag`                            | csi-resizer container image tag                               | `v2.0.0`                                                            |
