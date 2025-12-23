@@ -21,17 +21,12 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"sync"
 
 	grpcprom "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	"google.golang.org/grpc"
 	"k8s.io/klog/v2"
 	mount_utils "k8s.io/mount-utils"
 	mount_azurefile "sigs.k8s.io/azurefile-csi-driver/pkg/azurefile-proxy/pb"
-)
-
-var (
-	mutex sync.Mutex
 )
 
 type MountServer struct {
@@ -52,8 +47,6 @@ func NewMountServiceServer() *MountServer {
 func (server *MountServer) MountAzureFile(_ context.Context,
 	req *mount_azurefile.MountAzureFileRequest,
 ) (resp *mount_azurefile.MountAzureFileResponse, err error) {
-	mutex.Lock()
-	defer mutex.Unlock()
 
 	source := req.GetSource()
 	target := req.GetTarget()
