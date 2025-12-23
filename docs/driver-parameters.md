@@ -150,6 +150,7 @@ useDataPlaneAPI | specify whether use [data plane API](https://github.com/Azure/
   - The default NFS mount options in this driver are `vers=4,minorversion=1,sec=sys`. It is not supported to specify these NFS mount options, including `nfsvers`.
   - when there is a large number of files inside an NFS volume, the process of setting volume ownership can slow down the NFS volume mount when `securityContext.fsGroup` is different from group ownership of volume. By configuring `fsGroupChangePolicy: None` in the `parameters` of storage class or persistent volume, you can bypass the volume ownership setting step, resulting in faster NFS volume mounts.
        > when the issue is related to setting the volume ownership, the CSI driver logs will display the message: volume_linux.go:128] "Expected group ownership of volume did not match with Gid".
+  - If there are CVEs in the `livenessprobe` and `csi-node-driver-registrar` sidecar images, you can run `kubectl edit ds -n kube-system csi-azurefile-node` to change the `imagePullPolicy` to `Always` for both sidecar containers. This will cause the CSI driver to restart and pull the latest patched images, thereby resolving the CVEs in these sidecar components.
 
 #### `shareName` parameter supports following pv/pvc metadata conversion
 > if `shareName` value contains following strings, it would be converted into corresponding pv/pvc name or namespace
