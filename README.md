@@ -51,7 +51,7 @@ This option does not depend on cloud provider config file, supports cross subscr
 ### Features
  - [Windows](./deploy/example/windows)
  - [NFS](./deploy/example/nfs)
- - [Volume Snapshot](./deploy/example/snapshot)
+ - [Volume Snapshot and Restore](./deploy/example/snapshot)
  - [Volume Expansion](./deploy/example/resize)
  - [Volume Cloning](./deploy/example/cloning)
  - [Mount with workload identity](./docs/workload-identity-static-pv-mount.md)
