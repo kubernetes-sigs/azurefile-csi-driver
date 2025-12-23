@@ -68,8 +68,12 @@ if [ "${INSTALL_AZUREFILE_PROXY}" = "true" ];then
   fi
   if [ "$updateAzurefileProxy" = "true" ];then
     echo "copy azurefile-proxy...."
+    # if it reports "Read-only file system" error here, return as success
+    if ! cp /azurefile-proxy/azurefile-proxy /host/usr/bin/azurefile-proxy --force; then
+      echo "Warning: failed to copy azurefile-proxy, possibly due to read-only file system, continue..."
+      exit 0
+    fi
     rm -rf /host/"$KUBELET_PATH"/plugins/file.csi.azure.com/azurefile-proxy.sock
-    cp /azurefile-proxy/azurefile-proxy /host/usr/bin/azurefile-proxy --force
     chmod 755 /host/usr/bin/azurefile-proxy
   fi
 
@@ -85,7 +89,12 @@ if [ "${INSTALL_AZUREFILE_PROXY}" = "true" ];then
   if [ "$updateService" = "true" ];then
     echo "copy azurefile-proxy.service...."
     mkdir -p /host/usr/lib/systemd/system
-    cp /azurefile-proxy/azurefile-proxy.service /host/usr/lib/systemd/system/azurefile-proxy.service
+
+    # if it reports "Read-only file system" error here, return as success
+    if ! cp /azurefile-proxy/azurefile-proxy.service /host/usr/lib/systemd/system/azurefile-proxy.service; then
+      echo "Warning: failed to copy azurefile-proxy.service, possibly due to read-only file system, continue..."
+      exit 0
+    fi
   fi
 
   $HOST_CMD systemctl daemon-reload
