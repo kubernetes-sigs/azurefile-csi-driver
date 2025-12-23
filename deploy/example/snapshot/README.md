@@ -1,6 +1,10 @@
-# Azure File Snapshot feature
+# Azure File Snapshot and Restore feature
 
-> From v1.30.2, CSI driver now supports the restoration of an SMB file share snapshot, but does not support the restoration of an NFS file share snapshot.
+> Restoring an NFS file share snapshot is supported starting from CSI driver version v1.33.4 or later.
+
+### Limitation of Azure file **restore** feature
+- Ensure that the virtual network hosting the driver controller pod is included in the allowed virtual networks list within the storage account's VNet settings.
+  - If the driver controller pod is managed by AKS, configure the storage account's VNet settings to `Enable from all networks`.
 
 ## Install CSI Driver
 
