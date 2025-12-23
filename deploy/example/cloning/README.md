@@ -7,8 +7,8 @@
 - ensure that you have granted the `Storage File Data Privileged Contributor` role to the CSI driver controller identity; otherwise, the driver will utilize an SAS key for volume cloning operations.
 
 ## Prerequisites
-- make sure that the virtual network hosting the driver controller pod is added to the list of allowed virtual networks in the storage account's VNet settings
-  - if the driver controller pod is managed by AKS, you need to set `Enable from all networks` in the storage account's VNet settings
+- Ensure that the virtual network hosting the driver controller pod is included in the allowed virtual networks list within the storage account's VNet settings.
+  - If the driver controller pod is managed by AKS, configure the storage account's VNet settings to `Enable from all networks`.
 
 ## Create a Source PVC
 
