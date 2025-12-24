@@ -134,15 +134,7 @@ func TestServerMountAzureFileTimeout(t *testing.T) {
 				},
 			}
 
-			req := mount_azurefile.MountAzureFileRequest{
-				Source:           tc.args.Source,
-				Target:           tc.args.Target,
-				Fstype:           tc.args.Fstype,
-				MountOptions:     tc.args.MountOptions,
-				SensitiveOptions: tc.args.SensitiveOptions,
-			}
-
-			res, err := mountServer.MountAzureFile(context.Background(), &req)
+			res, err := mountServer.MountAzureFile(context.Background(), &tc.args)
 
 			if tc.expectError {
 				require.Error(t, err)
