@@ -750,7 +750,9 @@ func TestGetAccountInfo(t *testing.T) {
 		if entries, err := os.ReadDir(defaultAzureOAuthTokenDir); err == nil {
 			for _, entry := range entries {
 				if !entry.IsDir() && strings.Contains(entry.Name(), "test-client-id") {
-					os.Remove(filepath.Join(defaultAzureOAuthTokenDir, entry.Name()))
+					if err := os.Remove(filepath.Join(defaultAzureOAuthTokenDir, entry.Name())); err != nil {
+						t.Logf("Warning: failed to remove test token file %s: %v", entry.Name(), err)
+					}
 				}
 			}
 		}
@@ -878,7 +880,7 @@ func TestGetAccountInfo(t *testing.T) {
 				mountWithWITokenField:    "true",
 				clientIDField:            "test-client-id",
 				tenantIDField:            "test-tenant-id",
-				serviceAccountTokenField: `{"api://AzureADTokenExchange":{"token":"test-token-value","expirationTimestamp":"2025-01-01T00:00:00Z"}}`,
+				serviceAccountTokenField: `{"api://AzureADTokenExchange":{"token":"test-token-value","expirationTimestamp":"2099-12-31T23:59:59Z"}}`,
 			},
 			expectErr:           false,
 			err:                 nil,
