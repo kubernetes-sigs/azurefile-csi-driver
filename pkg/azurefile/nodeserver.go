@@ -783,7 +783,6 @@ func (d *Driver) ensureMountPoint(target string, perm os.FileMode) (bool, error)
 }
 
 func (d *Driver) mountWithProxy(ctx context.Context, source, target, fsType string, options, sensitiveMountOptions []string) error {
-	klog.V(2).Infof("start connecting to azurefile proxy")
 	conn, err := grpc.NewClient(d.azurefileProxyEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		klog.Error("failed to connect to azurefile proxy:", err)
@@ -817,6 +816,7 @@ func (d *Driver) mountWithProxy(ctx context.Context, source, target, fsType stri
 	if err = volumehelper.WaitUntilTimeout(MountTimeoutInSec*time.Second, execFunc, timeoutFunc); err != nil {
 		klog.Error("GRPC call returned with an error:", err)
 	}
+	klog.V(2).Infof("mount %s on %s with azurefile proxy completed with error: %v", source, target, err)
 	return err
 }
 
