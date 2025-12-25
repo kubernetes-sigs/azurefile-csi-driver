@@ -741,6 +741,21 @@ func TestGetAccountInfo(t *testing.T) {
 
 	clientSet := fake.NewSimpleClientset()
 
+	// Setup: Ensure the OAuth token directory exists for testing
+	if err := os.MkdirAll(defaultAzureOAuthTokenDir, 0755); err != nil {
+		t.Logf("Warning: failed to create OAuth token directory %s: %v. Tests requiring file writes may fail.", defaultAzureOAuthTokenDir, err)
+	}
+	// Cleanup: Remove test token files after the test
+	defer func() {
+		if entries, err := os.ReadDir(defaultAzureOAuthTokenDir); err == nil {
+			for _, entry := range entries {
+				if !entry.IsDir() && strings.Contains(entry.Name(), "test-client-id") {
+					os.Remove(filepath.Join(defaultAzureOAuthTokenDir, entry.Name()))
+				}
+			}
+		}
+	}()
+
 	tests := []struct {
 		volumeID            string
 		rgName              string
@@ -751,6 +766,7 @@ func TestGetAccountInfo(t *testing.T) {
 		expectAccountName   string
 		expectFileShareName string
 		expectDiskName      string
+		expectTokenFilePath string
 	}{
 		{
 			volumeID: "##",
@@ -852,6 +868,25 @@ func TestGetAccountInfo(t *testing.T) {
 			expectFileShareName: "test_sharename",
 			expectDiskName:      "test_diskname",
 		},
+		{
+			volumeID: "vol_wi##",
+			rgName:   "vol_wi",
+			secrets:  emptySecret,
+			reqContext: map[string]string{
+				shareNameField:           "test_sharename",
+				storageAccountField:      "testaccount",
+				mountWithWITokenField:    "true",
+				clientIDField:            "test-client-id",
+				tenantIDField:            "test-tenant-id",
+				serviceAccountTokenField: `{"api://AzureADTokenExchange":{"token":"test-token-value","expirationTimestamp":"2025-01-01T00:00:00Z"}}`,
+			},
+			expectErr:           false,
+			err:                 nil,
+			expectAccountName:   "testaccount",
+			expectFileShareName: "test_sharename",
+			expectDiskName:      "",
+			expectTokenFilePath: filepath.Join(defaultAzureOAuthTokenDir, "test-client-id-testaccount"),
+		},
 	}
 
 	for _, test := range tests {
@@ -861,7 +896,7 @@ func TestGetAccountInfo(t *testing.T) {
 		d.kubeClient = clientSet
 		d.cloud.Environment = &azclient.Environment{StorageEndpointSuffix: "abc"}
 		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), test.rgName).Return(key, nil).AnyTimes()
-		rgName, accountName, _, fileShareName, diskName, _, _, _, err := d.GetAccountInfo(context.Background(), test.volumeID, test.secrets, test.reqContext)
+		rgName, accountName, _, fileShareName, diskName, _, _, tokenFilePath, err := d.GetAccountInfo(context.Background(), test.volumeID, test.secrets, test.reqContext)
 		if test.expectErr && err == nil {
 			t.Errorf("Unexpected non-error")
 			continue
@@ -876,6 +911,9 @@ func TestGetAccountInfo(t *testing.T) {
 			assert.Equal(t, test.expectAccountName, accountName, test.volumeID)
 			assert.Equal(t, test.expectFileShareName, fileShareName, test.volumeID)
 			assert.Equal(t, test.expectDiskName, diskName, test.volumeID)
+			if test.expectTokenFilePath != "" {
+				assert.Equal(t, test.expectTokenFilePath, tokenFilePath, test.volumeID)
+			}
 		}
 	}
 }
