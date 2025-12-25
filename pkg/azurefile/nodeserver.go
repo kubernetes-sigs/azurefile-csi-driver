@@ -478,8 +478,10 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 				}
 				return SMBMount(d.mounter, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions)
 			}
-			timeoutFunc := func() error { return fmt.Errorf("time out") }
-			if err := volumehelper.WaitUntilTimeout(90*time.Second, execFunc, timeoutFunc); err != nil {
+			timeoutFunc := func() error {
+				return fmt.Errorf("mount operation timed out after %d seconds: source=%s, target=%s", MountTimeoutInSec, source, cifsMountPath)
+			}
+			if err := volumehelper.WaitUntilTimeout(MountTimeoutInSec*time.Second, execFunc, timeoutFunc); err != nil {
 				var helpLinkMsg string
 				if d.appendMountErrorHelpLink {
 					helpLinkMsg = "\nPlease refer to http://aka.ms/filemounterror for possible causes and solutions for mount errors."
@@ -792,7 +794,6 @@ func (d *Driver) mountWithProxy(ctx context.Context, source, target, fsType stri
 			klog.Error("failed to close connection to azurefile proxy:", err)
 		}
 	}()
-	klog.V(2).Infof("connected to azurefile proxy successfully")
 
 	mountClient := NewMountClient(conn)
 	mountreq := mount_azurefile.MountAzureFileRequest{
@@ -803,12 +804,19 @@ func (d *Driver) mountWithProxy(ctx context.Context, source, target, fsType stri
 		SensitiveOptions: sensitiveMountOptions,
 	}
 	klog.V(2).Infof("begin to mount with azurefile proxy, source: %s, target: %s, fstype: %s, mountOptions: %v", source, target, fsType, options)
-	_, err = mountClient.service.MountAzureFile(ctx, &mountreq)
-	if err != nil {
-		klog.Error("GRPC call returned with an error:", err)
+	newCtx, cancel := context.WithTimeout(ctx, MountTimeoutInSec*time.Second)
+	defer cancel()
+	execFunc := func() error {
+		_, err := mountClient.service.MountAzureFile(newCtx, &mountreq)
 		return err
 	}
+	timeoutFunc := func() error {
+		return fmt.Errorf("mount with azurefile proxy timed out after %d seconds: source=%s, target=%s", MountTimeoutInSec, source, target)
+	}
 
+	if err = volumehelper.WaitUntilTimeout(MountTimeoutInSec*time.Second, execFunc, timeoutFunc); err != nil {
+		klog.Error("GRPC call returned with an error:", err)
+	}
 	return err
 }
 
