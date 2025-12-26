@@ -21,12 +21,15 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	grpcprom "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	"google.golang.org/grpc"
 	"k8s.io/klog/v2"
 	mount_utils "k8s.io/mount-utils"
+	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
 	mount_azurefile "sigs.k8s.io/azurefile-csi-driver/pkg/azurefile-proxy/pb"
+	volumehelper "sigs.k8s.io/azurefile-csi-driver/pkg/util"
 )
 
 type MountServer struct {
@@ -55,8 +58,16 @@ func (server *MountServer) MountAzureFile(_ context.Context,
 	sensitiveOptions := req.GetSensitiveOptions()
 	klog.V(2).Infof("received mount request: source: %s, target: %s, fstype: %s, options: %s", source, target, fstype, strings.Join(options, ","))
 
-	err = server.mounter.MountSensitive(source, target, fstype, options, sensitiveOptions)
-	if err != nil {
+	execFunc := func() error {
+		return server.mounter.MountSensitive(source, target, fstype, options, sensitiveOptions)
+	}
+
+	mountTimeoutInSec := azurefile.MountTimeoutInSec - 2
+	timeoutFunc := func() error {
+		return fmt.Errorf("mount operation timed out after %d seconds: source=%s, target=%s", mountTimeoutInSec, source, target)
+	}
+
+	if err = volumehelper.WaitUntilTimeout(time.Duration(mountTimeoutInSec)*time.Second, execFunc, timeoutFunc); err != nil {
 		klog.Error("azurefile mount failed: with error:", err.Error())
 		return nil, fmt.Errorf("azurefile mount failed: %v", err)
 	}
