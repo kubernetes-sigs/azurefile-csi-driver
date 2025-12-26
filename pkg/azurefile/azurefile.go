@@ -212,6 +212,8 @@ const (
 
 	standardv2 = "standardv2"
 	premiumv2  = "premiumv2"
+
+	MountTimeoutInSec = 90
 )
 
 var (
