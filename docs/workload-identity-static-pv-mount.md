@@ -61,6 +61,11 @@ az identity federated-credential create --name $FEDERATED_IDENTITY_NAME \
 ```
 
 ## option#1: dynamic provisioning with storage class
+- Ensure that the identity of your CSI driver control plane is assigned the `Storage Account Contributor role` for the storage account.
+ > if the storage account is created by the driver, then you need to grant `Storage Account Contributor` role to the resource group where the storage account is located.
+ > 
+ > AKS cluster control plane identity is assigned the `Storage Account Contributor role` on the node resource group for the storage account by default.
+
 ```yaml
 cat <<EOF | kubectl apply -f -
 apiVersion: storage.k8s.io/v1
