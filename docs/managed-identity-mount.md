@@ -26,9 +26,10 @@ clientID=`az identity list -g "$resourcegroup" --query "[?name == '$identityname
 ```
     
 ## Dynamic Provisioning
-- Ensure that the identity of your cluster control plane has been assigned the `Storage Account Contributor role` for the storage account.
- > if the storage account is created by the driver, then you need to grant `Storage Account Contributor` role to the resource group where the storage account is located
- > AKS cluster control plane identity has assigned the `Contributor` role on the node resource group by default.
+- Ensure that the identity of your CSI driver control plane is assigned the `Storage Account Contributor role` for the storage account.
+ > if the storage account is created by the driver, then you need to grant `Storage Account Contributor` role to the resource group where the storage account is located.
+ > 
+ > AKS cluster control plane identity is assigned the `Storage Account Contributor role` on the node resource group for the storage account by default.
 
 1. Create a storage class
     ```yml
