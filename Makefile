@@ -59,6 +59,8 @@ ARCH ?= amd64
 OSVERSION ?= 1809
 # Output type of docker buildx build
 OUTPUT_TYPE ?= registry
+# Set -short to skip cloud provider tests
+UNIT_TEST_ARGS ?=
 
 .EXPORT_ALL_VARIABLES:
 
@@ -76,7 +78,7 @@ verify: unit-test
 
 .PHONY: unit-test
 unit-test:
-	go test -v -race ./pkg/... ./test/utils/credentials -timeout=30m
+	go test -v -race $(UNIT_TEST_ARGS) ./pkg/... ./test/utils/credentials -timeout=30m
 
 .PHONY: sanity-test
 sanity-test: azurefile

@@ -25,6 +25,9 @@ import (
 )
 
 func TestCreateFileShare(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
 	testCases := []struct {
 		name     string
 		testFunc func(t *testing.T)
@@ -64,6 +67,9 @@ func TestNewAzureFileClient(t *testing.T) {
 }
 
 func TestDeleteFileShare(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
 	testCases := []struct {
 		name     string
 		testFunc func(t *testing.T)
@@ -90,6 +96,9 @@ func TestDeleteFileShare(t *testing.T) {
 }
 
 func TestResizeFileShare(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
 	testCases := []struct {
 		name     string
 		testFunc func(t *testing.T)
@@ -116,6 +125,9 @@ func TestResizeFileShare(t *testing.T) {
 }
 
 func TestGetFileShareQuotaDataPlane(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
 	testCases := []struct {
 		name     string
 		testFunc func(t *testing.T)

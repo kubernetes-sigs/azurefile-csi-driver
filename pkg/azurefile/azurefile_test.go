@@ -1828,6 +1828,9 @@ func TestIsSupportedPublicNetworkAccess(t *testing.T) {
 }
 
 func TestCreateFolderIfNotExists(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
 	d := NewFakeDriver()
 	ctx := context.Background()
 
