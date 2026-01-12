@@ -268,7 +268,7 @@ users:
 			t.Setenv("AZURE_FEDERATED_TOKEN_FILE", test.aadFederatedTokenFile)
 		}
 
-		cloud, _, err := getCloudProvider(context.Background(), test.kubeconfig, "", "", "", test.userAgent, test.allowEmptyCloudConfig, false, 5, 10)
+		cloud, _, err := getCloudProvider(context.Background(), test.kubeconfig, "", "azure-cloud-provider", "kube-system", test.userAgent, test.allowEmptyCloudConfig, false, 5, 10)
 		if test.expectedErr.DefaultError != nil && test.expectedErr.WindowsError != nil {
 			if !testutil.AssertError(err, &test.expectedErr) && !strings.Contains(err.Error(), test.expectedErr.DefaultError.Error()) {
 				t.Errorf("desc: %s,\n input: %q, getCloudProvider err: %v, expectedErr: %v", test.desc, test.kubeconfig, err, test.expectedErr)
