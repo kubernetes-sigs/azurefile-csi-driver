@@ -435,10 +435,12 @@ func TestChmodIfPermissionMismatch(t *testing.T) {
 	skipIfTestingOnWindows(t)
 	permissionMatchingPath, _ := getWorkDirPath("permissionMatchingPath")
 	_ = makeDir(permissionMatchingPath, 0755)
+	_ = os.Chmod(permissionMatchingPath, 0755&^os.ModeSetgid) // clear setgid bit
 	defer os.RemoveAll(permissionMatchingPath)
 
 	permissionMismatchPath, _ := getWorkDirPath("permissionMismatchPath")
 	_ = makeDir(permissionMismatchPath, 0721)
+	_ = os.Chmod(permissionMismatchPath, 0721&^os.ModeSetgid) // clear setgid bit
 	defer os.RemoveAll(permissionMismatchPath)
 
 	permissionMatchGidMismatchPath, _ := getWorkDirPath("permissionMatchGidMismatchPath")
