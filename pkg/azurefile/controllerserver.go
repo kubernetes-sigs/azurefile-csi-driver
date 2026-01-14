@@ -41,8 +41,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
+	csiMetrics "sigs.k8s.io/azurefile-csi-driver/pkg/metrics"
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
-	"sigs.k8s.io/cloud-provider-azure/pkg/metrics"
 	"sigs.k8s.io/cloud-provider-azure/pkg/provider/storage"
 )
 
@@ -557,10 +557,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		SourceAccountName:                       srcAccountName,
 	}
 
-	mc := metrics.NewMetricContext(azureFileCSIDriverName, requestName, d.cloud.ResourceGroup, subsID, d.Name)
+	csiMC := csiMetrics.NewCSIMetricContext(requestName)
 	isOperationSucceeded := false
 	defer func() {
-		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
+		csiMC.ObserveWithLabels(isOperationSucceeded,
+			"protocol", protocol,
+			"storage_account_type", sku)
 	}()
 
 	var accountKey, lockKey string
@@ -826,10 +828,10 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 		secret = createStorageAccountSecret(accountName, accountKey)
 	}
 
-	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_delete_volume", resourceGroupName, subsID, d.Name)
+	csiMC := csiMetrics.NewCSIMetricContext("controller_delete_volume")
 	isOperationSucceeded := false
 	defer func() {
-		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
+		csiMC.Observe(isOperationSucceeded)
 	}()
 
 	if err := d.DeleteFileShare(ctx, subsID, resourceGroupName, accountName, fileShareName, secret, useDataPlaneAPI); err != nil {
@@ -974,10 +976,10 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		useDataPlaneAPI = d.useDataPlaneAPI(ctx, sourceVolumeID, accountName)
 	}
 
-	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_create_snapshot", rgName, subsID, d.Name)
+	csiMC := csiMetrics.NewCSIMetricContext("controller_create_snapshot")
 	isOperationSucceeded := false
 	defer func() {
-		mc.ObserveOperationWithResult(isOperationSucceeded, SourceResourceID, sourceVolumeID, SnapshotName, snapshotName)
+		csiMC.Observe(isOperationSucceeded)
 	}()
 
 	exists, itemSnapshot, itemSnapshotTime, itemSnapshotQuota, err := d.snapshotExists(ctx, sourceVolumeID, snapshotName, req.GetSecrets(), useDataPlaneAPI)
@@ -1109,10 +1111,10 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 		subsID = d.cloud.SubscriptionID
 	}
 
-	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_delete_snapshot", rgName, subsID, d.Name)
+	csiMC := csiMetrics.NewCSIMetricContext("controller_delete_snapshot")
 	isOperationSucceeded := false
 	defer func() {
-		mc.ObserveOperationWithResult(isOperationSucceeded, SnapshotID, req.SnapshotId)
+		csiMC.Observe(isOperationSucceeded)
 	}()
 
 	var deleteErr error
@@ -1318,10 +1320,10 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 		}
 	}
 
-	mc := metrics.NewMetricContext(azureFileCSIDriverName, "controller_expand_volume", resourceGroupName, subsID, d.Name)
+	csiMC := csiMetrics.NewCSIMetricContext("controller_expand_volume")
 	isOperationSucceeded := false
 	defer func() {
-		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
+		csiMC.Observe(isOperationSucceeded)
 	}()
 
 	secrets := req.GetSecrets()
@@ -1402,9 +1404,6 @@ func (d *Driver) snapshotExists(ctx context.Context, sourceVolumeID, snapshotNam
 
 		// List share snapshots.
 		listSnapshot := serviceURL.NewListSharesPager(&service.ListSharesOptions{Include: service.ListSharesInclude{Metadata: true, Snapshots: true}})
-		if err != nil {
-			return false, "", time.Time{}, 0, err
-		}
 		for listSnapshot.More() {
 			response, err := listSnapshot.NextPage(ctx)
 			if err != nil {
