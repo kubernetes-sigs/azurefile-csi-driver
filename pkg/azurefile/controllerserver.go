@@ -561,7 +561,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	isOperationSucceeded := false
 	defer func() {
 		csiMC.ObserveWithLabels(isOperationSucceeded,
-			"protocol", protocol,
+			"protocol", string(shareProtocol),
 			"storage_account_type", sku)
 	}()
 
