@@ -838,6 +838,20 @@ func TestGetAccountInfo(t *testing.T) {
 			expectFileShareName: "test_sharename",
 			expectDiskName:      "test_diskname",
 		},
+		{
+			volumeID: "invalid_mountWithWITokenField_value##",
+			rgName:   "vol_2",
+			secrets:  emptySecret,
+			reqContext: map[string]string{
+				shareNameField:        "test_sharename",
+				mountWithWITokenField: "invalid",
+			},
+			expectErr:           true,
+			err:                 fmt.Errorf("invalid %s: %s in volume context", mountWithWITokenField, "invalid"),
+			expectAccountName:   "",
+			expectFileShareName: "test_sharename",
+			expectDiskName:      "test_diskname",
+		},
 	}
 
 	for _, test := range tests {
@@ -847,7 +861,7 @@ func TestGetAccountInfo(t *testing.T) {
 		d.kubeClient = clientSet
 		d.cloud.Environment = &azclient.Environment{StorageEndpointSuffix: "abc"}
 		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), test.rgName).Return(key, nil).AnyTimes()
-		rgName, accountName, _, fileShareName, diskName, _, err := d.GetAccountInfo(context.Background(), test.volumeID, test.secrets, test.reqContext)
+		rgName, accountName, _, fileShareName, diskName, _, _, _, err := d.GetAccountInfo(context.Background(), test.volumeID, test.secrets, test.reqContext)
 		if test.expectErr && err == nil {
 			t.Errorf("Unexpected non-error")
 			continue
@@ -2051,6 +2065,91 @@ func TestGetInfoFromSnapshotID(t *testing.T) {
 				assert.Equal(t, test.expectedShare, share)
 				assert.Equal(t, test.expectedTime, time)
 				assert.Equal(t, test.expectedSubs, subs)
+			}
+		})
+	}
+}
+
+func TestParseServiceAccountToken(t *testing.T) {
+	tests := []struct {
+		name          string
+		tokenStr      string
+		expectedToken string
+		expectedError string
+	}{
+		{
+			name:          "Empty token string",
+			tokenStr:      "",
+			expectedToken: "",
+			expectedError: "service account token is empty",
+		},
+		{
+			name:          "Invalid JSON",
+			tokenStr:      "invalid-json",
+			expectedToken: "",
+			expectedError: "failed to unmarshal service account tokens",
+		},
+		{
+			name:          "Valid token with audience",
+			tokenStr:      `{"api://AzureADTokenExchange":{"token":"test-token-value","expirationTimestamp":"2025-01-01T00:00:00Z"}}`,
+			expectedToken: "test-token-value",
+			expectedError: "",
+		},
+		{
+			name:          "Token with empty token value",
+			tokenStr:      `{"api://AzureADTokenExchange":{"token":"","expirationTimestamp":"2025-01-01T00:00:00Z"}}`,
+			expectedToken: "",
+			expectedError: "token for audience api://AzureADTokenExchange/.default not found",
+		},
+		{
+			name:          "Token with missing api://AzureADTokenExchange field",
+			tokenStr:      `{"someOtherField":{"token":"test-token","expirationTimestamp":"2025-01-01T00:00:00Z"}}`,
+			expectedToken: "",
+			expectedError: "token for audience api://AzureADTokenExchange/.default not found",
+		},
+		{
+			name:          "Token with partial JSON structure",
+			tokenStr:      `{"api://AzureADTokenExchange":{}}`,
+			expectedToken: "",
+			expectedError: "token for audience api://AzureADTokenExchange/.default not found",
+		},
+		{
+			name:          "Malformed JSON with extra characters",
+			tokenStr:      `{"api://AzureADTokenExchange":{"token":"test-token"}}extra`,
+			expectedToken: "",
+			expectedError: "failed to unmarshal service account tokens",
+		},
+		{
+			name:          "Token with special characters",
+			tokenStr:      `{"api://AzureADTokenExchange":{"token":"eyJhbGciOiJSUzI1NiIsImtpZCI6InRlc3QifQ.eyJzdWIiOiIxMjM0NTY3ODkwIn0.test","expirationTimestamp":"2025-01-01T00:00:00Z"}}`,
+			expectedToken: "eyJhbGciOiJSUzI1NiIsImtpZCI6InRlc3QifQ.eyJzdWIiOiIxMjM0NTY3ODkwIn0.test",
+			expectedError: "",
+		},
+		{
+			name:          "Token with unicode characters",
+			tokenStr:      `{"api://AzureADTokenExchange":{"token":"test-token-.","expirationTimestamp":"2025-01-01T00:00:00Z"}}`,
+			expectedToken: "test-token-.",
+			expectedError: "",
+		},
+		{
+			name:          "Token with whitespace in value",
+			tokenStr:      `{"api://AzureADTokenExchange":{"token":"  test-token  ","expirationTimestamp":"2025-01-01T00:00:00Z"}}`,
+			expectedToken: "  test-token  ",
+			expectedError: "",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			token, err := parseServiceAccountToken(test.tokenStr)
+
+			if test.expectedError != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), test.expectedError)
+				assert.Equal(t, "", token)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, test.expectedToken, token)
 			}
 		})
 	}
