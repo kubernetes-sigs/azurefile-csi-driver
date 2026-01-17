@@ -66,7 +66,9 @@ kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-cs
 
 ## Static Provisioning
 
-> If you are using your own storage account, please ensure that the `SMBOauth` property is enabled for that account.
+> If you are using your own storage account, please ensure that the `SMBOauth` property is enabled for that account by running following command:
+>
+> `az storage account update --name <account-name> --resource-group <resource-group-name> --enable-smb-oauth true`
 
 1. create PV with your own account
     ```yml
