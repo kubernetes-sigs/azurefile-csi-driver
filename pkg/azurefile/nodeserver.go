@@ -39,6 +39,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	mount_azurefile "sigs.k8s.io/azurefile-csi-driver/pkg/azurefile-proxy/pb"
+	csiMetrics "sigs.k8s.io/azurefile-csi-driver/pkg/metrics"
 	volumehelper "sigs.k8s.io/azurefile-csi-driver/pkg/util"
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	"sigs.k8s.io/cloud-provider-azure/pkg/metrics"
@@ -58,7 +59,12 @@ func NewMountClient(cc *grpc.ClientConn) *MountClient {
 }
 
 // NodePublishVolume mount the volume from staging to target path
-func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (resp *csi.NodePublishVolumeResponse, returnedErr error) {
+	csiMC := csiMetrics.NewCSIMetricContext("node_publish_volume")
+	defer func() {
+		csiMC.Observe(returnedErr == nil)
+	}()
+
 	volCap := req.GetVolumeCapability()
 	if volCap == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
@@ -197,7 +203,12 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 }
 
 // NodeUnpublishVolume unmount the volume from the target path
-func (d *Driver) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+func (d *Driver) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVolumeRequest) (resp *csi.NodeUnpublishVolumeResponse, returnedErr error) {
+	csiMC := csiMetrics.NewCSIMetricContext("node_unpublish_volume")
+	defer func() {
+		csiMC.Observe(returnedErr == nil)
+	}()
+
 	if len(req.GetVolumeId()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
 	}
@@ -224,14 +235,19 @@ func (d *Driver) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVo
 			return nil, status.Errorf(codes.Internal, "failed to direct volume remove mount info %s: %v", targetPath, err)
 		}
 	}
-
 	klog.V(2).Infof("NodeUnpublishVolume: unmount volume %s on %s successfully", volumeID, targetPath)
 
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
 // NodeStageVolume mount the volume to a staging path
-func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
+func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (resp *csi.NodeStageVolumeResponse, returnedErr error) {
+	requestName := "node_stage_volume"
+	csiMC := csiMetrics.NewCSIMetricContext(requestName)
+	defer func() {
+		csiMC.Observe(returnedErr == nil)
+	}()
+
 	if len(req.GetVolumeId()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
 	}
@@ -261,10 +277,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		klog.V(2).Infof("CSI volume is read-only, mounting with extra option ro")
 	}
 
-	mc := metrics.NewMetricContext(azureFileCSIDriverName, "node_stage_volume", d.cloud.ResourceGroup, "", d.Name)
-	isOperationSucceeded := false
+	mc := metrics.NewMetricContext(azureFileCSIDriverName, requestName, d.cloud.ResourceGroup, "", d.Name)
 	defer func() {
-		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
+		mc.ObserveOperationWithResult(returnedErr == nil, VolumeID, volumeID)
 	}()
 
 	_, accountName, accountKey, fileShareName, diskName, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), context)
@@ -573,12 +588,18 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}
 	}
 
-	isOperationSucceeded = true
 	return &csi.NodeStageVolumeResponse{}, nil
 }
 
 // NodeUnstageVolume unmount the volume from the staging path
 func (d *Driver) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
+	requestName := "node_unstage_volume"
+	csiMC := csiMetrics.NewCSIMetricContext(requestName)
+	isOperationSucceeded := false
+	defer func() {
+		csiMC.Observe(isOperationSucceeded)
+	}()
+
 	volumeID := req.GetVolumeId()
 	if len(volumeID) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
@@ -594,8 +615,7 @@ func (d *Driver) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolume
 	}
 	defer d.volumeLocks.Release(lockKey)
 
-	mc := metrics.NewMetricContext(azureFileCSIDriverName, "node_unstage_volume", d.cloud.ResourceGroup, "", d.Name)
-	isOperationSucceeded := false
+	mc := metrics.NewMetricContext(azureFileCSIDriverName, requestName, d.cloud.ResourceGroup, "", d.Name)
 	defer func() {
 		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
 	}()
