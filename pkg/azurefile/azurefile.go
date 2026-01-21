@@ -818,6 +818,9 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 	var getAccountKeyFromSecret, getLatestAccountKey, mountWithManagedIdentity bool
 	var clientID, tenantID, serviceAccountToken string
 
+	// Check secrets first for service account token (new behavior in K8s 1.35+)
+	serviceAccountToken = getValueInMap(secrets, serviceAccountTokenField)
+
 	for k, v := range reqContext {
 		switch strings.ToLower(k) {
 		case subscriptionIDField:
@@ -855,7 +858,10 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 		case tenantIDField:
 			tenantID = v
 		case strings.ToLower(serviceAccountTokenField):
-			serviceAccountToken = v
+			// Only use reqContext value if not already found in secrets (backward compatibility)
+			if serviceAccountToken == "" {
+				serviceAccountToken = v
+			}
 		}
 	}
 

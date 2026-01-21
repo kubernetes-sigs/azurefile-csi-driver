@@ -72,17 +72,20 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	}
 
 	volumeID := req.GetVolumeId()
+	secrets := req.GetSecrets()
 
 	mountPermissions := d.mountPermissions
 	context := req.GetVolumeContext()
+	serviceAccountTokens := getServiceAccountTokens(secrets, context)
 	if context != nil {
-		if !strings.EqualFold(getValueInMap(context, mountWithManagedIdentityField), trueValue) && getValueInMap(context, serviceAccountTokenField) != "" && getValueInMap(context, clientIDField) != "" {
+		if !strings.EqualFold(getValueInMap(context, mountWithManagedIdentityField), trueValue) && serviceAccountTokens != "" && getValueInMap(context, clientIDField) != "" {
 			klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with service account token, clientID: %s", volumeID, target, getValueInMap(context, clientIDField))
 			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
 				StagingTargetPath: target,
 				VolumeContext:     context,
 				VolumeCapability:  volCap,
 				VolumeId:          volumeID,
+				Secrets:           secrets,
 			})
 			return &csi.NodePublishVolumeResponse{}, err
 		}
@@ -246,8 +249,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	volumeID := req.GetVolumeId()
 	context := req.GetVolumeContext()
+	serviceAccountTokens := getServiceAccountTokens(req.GetSecrets(), context)
 
-	if getValueInMap(context, clientIDField) != "" && !strings.EqualFold(getValueInMap(context, mountWithManagedIdentityField), trueValue) && getValueInMap(context, serviceAccountTokenField) == "" {
+	if getValueInMap(context, clientIDField) != "" && !strings.EqualFold(getValueInMap(context, mountWithManagedIdentityField), trueValue) && serviceAccountTokens == "" {
 		klog.V(2).Infof("Skip NodeStageVolume for volume(%s) since clientID %s is provided but service account token is empty", volumeID, getValueInMap(context, clientIDField))
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
@@ -837,4 +841,17 @@ func checkGidPresentInMountFlags(mountFlags []string) bool {
 		}
 	}
 	return false
+}
+
+// getServiceAccountTokens retrieves service account tokens from the CSI request.
+// It first checks the secrets map (new behavior when driver opts in to
+// serviceAccountTokenInSecrets in Kubernetes 1.35+), then falls back to checking
+// volumeContext for backward compatibility.
+func getServiceAccountTokens(secrets, volumeContext map[string]string) string {
+	// Check secrets field first (new behavior when driver opts in)
+	if tokens := getValueInMap(secrets, serviceAccountTokenField); tokens != "" {
+		return tokens
+	}
+	// Fallback to volume context for backward compatibility
+	return getValueInMap(volumeContext, serviceAccountTokenField)
 }
