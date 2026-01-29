@@ -82,8 +82,8 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	mountPermissions := d.mountPermissions
 	context := req.GetVolumeContext()
 	if context != nil {
-		if !strings.EqualFold(getValueInMap(context, mountWithManagedIdentityField), trueValue) && getValueInMap(context, serviceAccountTokenField) != "" && getValueInMap(context, clientIDField) != "" {
-			klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with service account token, clientID: %s", volumeID, target, getValueInMap(context, clientIDField))
+		if getValueInMap(context, serviceAccountTokenField) != "" && shouldUseServiceAccountToken(context) {
+			klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with service account token, clientID: %s, mountWithWIToken: %s", volumeID, target, getValueInMap(context, clientIDField), getValueInMap(context, mountWithWITokenField))
 			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
 				StagingTargetPath: target,
 				VolumeContext:     context,
@@ -263,8 +263,8 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	volumeID := req.GetVolumeId()
 	context := req.GetVolumeContext()
 
-	if getValueInMap(context, clientIDField) != "" && !strings.EqualFold(getValueInMap(context, mountWithManagedIdentityField), trueValue) && getValueInMap(context, serviceAccountTokenField) == "" {
-		klog.V(2).Infof("Skip NodeStageVolume for volume(%s) since clientID %s is provided but service account token is empty", volumeID, getValueInMap(context, clientIDField))
+	if getValueInMap(context, serviceAccountTokenField) == "" && shouldUseServiceAccountToken(context) {
+		klog.V(2).Infof("Skip NodeStageVolume for volume(%s) since clientID(%s) or mountWithWIToken(%s) is provided but service account token is empty", volumeID, getValueInMap(context, clientIDField), getValueInMap(context, mountWithWITokenField))
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
 
@@ -282,7 +282,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		mc.ObserveOperationWithResult(returnedErr == nil, VolumeID, volumeID)
 	}()
 
-	_, accountName, accountKey, fileShareName, diskName, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), context)
+	_, accountName, accountKey, fileShareName, diskName, _, tenantID, tokenFilePath, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), context)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("GetAccountInfo(%s) failed with error: %v", volumeID, err))
 	}
@@ -292,7 +292,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	// don't respect fsType from req.GetVolumeCapability().GetMount().GetFsType()
 	// since it's ext4 by default on Linux
 	var fsType, server, protocol, ephemeralVolMountOptions, storageEndpointSuffix, folderName, clientID string
-	var ephemeralVol, createFolderIfNotExist, encryptInTransit, mountWithManagedIdentity bool
+	var ephemeralVol, createFolderIfNotExist, encryptInTransit, mountWithManagedIdentity, mountWithWIToken bool
 	fileShareNameReplaceMap := map[string]string{}
 
 	mountPermissions := d.mountPermissions
@@ -348,6 +348,11 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			if err != nil {
 				return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("Volume context property %q must be a boolean value: %v", k, err))
 			}
+		case mountWithWITokenField:
+			mountWithWIToken, err = strconv.ParseBool(v)
+			if err != nil {
+				return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("Volume context property %q must be a boolean value: %v", k, err))
+			}
 		case clientIDField:
 			clientID = v
 		}
@@ -367,6 +372,10 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	if !isSupportedFSGroupChangePolicy(fsGroupChangePolicy) {
 		return nil, status.Errorf(codes.InvalidArgument, "fsGroupChangePolicy(%s) is not supported, supported fsGroupChangePolicy list: %v", fsGroupChangePolicy, supportedFSGroupChangePolicyList)
+	}
+
+	if mountWithManagedIdentity && mountWithWIToken {
+		return nil, status.Error(codes.InvalidArgument, "mountWithManagedIdentity and mountWithWIToken cannot be both true")
 	}
 
 	lockKey := fmt.Sprintf("%s-%s", volumeID, targetPath)
@@ -420,12 +429,22 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		mountOptions = util.JoinMountOptions(mountFlags, []string{"vers=4,minorversion=1,sec=sys"})
 		mountOptions = appendDefaultNfsMountOptions(mountOptions, d.appendNoResvPortOption, d.appendActimeoOption)
 	} else {
+		if (mountWithManagedIdentity || mountWithWIToken) && clientID == "" {
+			clientID = d.cloud.Config.AzureAuthConfig.UserAssignedIdentityID
+		}
+
 		if mountWithManagedIdentity && runtime.GOOS != "windows" {
-			if clientID == "" {
-				clientID = d.cloud.Config.AzureAuthConfig.UserAssignedIdentityID
-			}
 			sensitiveMountOptions = []string{"sec=krb5,cruid=0,upcall_target=mount", fmt.Sprintf("username=%s", clientID)}
 			klog.V(2).Infof("using managed identity %s for volume %s with mount options: %v", clientID, volumeID, sensitiveMountOptions)
+		} else if mountWithWIToken && runtime.GOOS != "windows" {
+			sensitiveMountOptions = []string{"sec=krb5,cruid=0,upcall_target=mount"}
+			klog.V(2).Infof("using workload identity token for volume %s with mount options: %v", volumeID, sensitiveMountOptions)
+			if tokenFilePath != "" {
+				// always set credential cache when token file is provided even mount does not happen
+				if out, err := setCredentialCache(server, clientID, tenantID, tokenFilePath); err != nil {
+					return nil, status.Errorf(codes.Internal, "setCredentialCache failed for %s with error: %v, output: %s", server, err, out)
+				}
+			}
 		} else {
 			if accountName == "" || accountKey == "" {
 				return nil, status.Errorf(codes.Internal, "accountName(%s) or accountKey is empty", accountName)
@@ -487,7 +506,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		} else {
 			execFunc := func() error {
 				if mountWithManagedIdentity && protocol != nfs && runtime.GOOS != "windows" {
-					if out, err := setCredentialCache(server, clientID); err != nil {
+					if out, err := setCredentialCache(server, clientID, tenantID, tokenFilePath); err != nil {
 						return fmt.Errorf("setCredentialCache failed for %s with error: %v, output: %s", server, err, out)
 					}
 				}
@@ -855,6 +874,17 @@ func checkGidPresentInMountFlags(mountFlags []string) bool {
 		if strings.HasPrefix(mountFlag, "gid") {
 			return true
 		}
+	}
+	return false
+}
+
+// shouldUseServiceAccountToken determines whether a service account token should be used for authentication based on the volume context attributes.
+func shouldUseServiceAccountToken(attrib map[string]string) bool {
+	if getValueInMap(attrib, mountWithWITokenField) == trueValue {
+		return true
+	}
+	if getValueInMap(attrib, clientIDField) != "" && !strings.EqualFold(getValueInMap(attrib, mountWithManagedIdentityField), trueValue) {
+		return true
 	}
 	return false
 }

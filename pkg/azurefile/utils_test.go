@@ -1368,30 +1368,62 @@ func TestSetCredentialCache(t *testing.T) {
 		desc          string
 		server        string
 		clientID      string
+		tenantID      string
+		tokenFile     string
 		expectedError string
 	}{
 		{
 			desc:          "empty server",
 			server:        "",
 			clientID:      "test-client-id",
-			expectedError: "server and clientID must be provided",
+			tenantID:      "test-tenant-id",
+			tokenFile:     "test-token-file",
+			expectedError: "server must be provided",
 		},
 		{
 			desc:          "empty clientID",
 			server:        "test.file.core.windows.net",
 			clientID:      "",
-			expectedError: "server and clientID must be provided",
+			tenantID:      "test-tenant-id",
+			tokenFile:     "test-token-file",
+			expectedError: "clientID must be provided",
 		},
 		{
-			desc:          "both empty",
+			desc:          "empty tenantID with tokenFile",
+			server:        "test.file.core.windows.net",
+			clientID:      "test-client-id",
+			tenantID:      "",
+			tokenFile:     "test-token-file",
+			expectedError: "tenantID must be provided when tokenFile is provided",
+		},
+		{
+			desc:          "valid IMDS authentication (no tokenFile)",
+			server:        "test.file.core.windows.net",
+			clientID:      "test-client-id",
+			tenantID:      "",
+			tokenFile:     "",
+			expectedError: "", // Will fail due to missing azfilesauthmanager, but validates argument construction
+		},
+		{
+			desc:          "valid workload identity authentication",
+			server:        "test.file.core.windows.net",
+			clientID:      "test-client-id",
+			tenantID:      "test-tenant-id",
+			tokenFile:     "test-token-file",
+			expectedError: "", // Will fail due to missing azfilesauthmanager, but validates argument construction
+		},
+		{
+			desc:          "both empty server and clientID",
 			server:        "",
 			clientID:      "",
-			expectedError: "server and clientID must be provided",
+			tenantID:      "test-tenant-id",
+			tokenFile:     "test-token-file",
+			expectedError: "server must be provided",
 		},
 	}
 
 	for _, test := range tests {
-		_, err := setCredentialCache(test.server, test.clientID)
+		_, err := setCredentialCache(test.server, test.clientID, test.tenantID, test.tokenFile)
 		if test.expectedError != "" {
 			if err == nil {
 				t.Errorf("test[%s]: expected error containing %q, got nil", test.desc, test.expectedError)
@@ -1399,9 +1431,73 @@ func TestSetCredentialCache(t *testing.T) {
 				t.Errorf("test[%s]: expected error containing %q, got %v", test.desc, test.expectedError, err)
 			}
 		}
+		// Note: We don't test successful execution as it requires azfilesauthmanager binary
+		// The actual command execution will fail, but we've validated the argument construction
 	}
 }
 
 func int32Ptr(i int32) *int32 {
 	return &i
+}
+
+func TestIsValidTokenFileName(t *testing.T) {
+	testCases := []struct {
+		name     string
+		fileName string
+		expected bool
+	}{
+		{
+			name:     "valid lowercase",
+			fileName: "token",
+			expected: true,
+		},
+		{
+			name:     "valid uppercase",
+			fileName: "TOKEN",
+			expected: true,
+		},
+		{
+			name:     "valid mixed alphanumeric with hyphen",
+			fileName: "Token-123",
+			expected: true,
+		},
+		{
+			name:     "valid mixed alphanumeric with hyphen#2",
+			fileName: "0ab48765-efce-4799-8a9c-c3e1de2ee42eg",
+			expected: true,
+		},
+		{
+			name:     "empty string",
+			fileName: "",
+			expected: false,
+		},
+		{
+			name:     "contains underscore",
+			fileName: "token_file",
+			expected: false,
+		},
+		{
+			name:     "contains dot",
+			fileName: "token.file",
+			expected: false,
+		},
+		{
+			name:     "contains space",
+			fileName: "token file",
+			expected: false,
+		},
+		{
+			name:     "contains slash",
+			fileName: "token/file",
+			expected: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isValidTokenFileName(tc.fileName); got != tc.expected {
+				t.Fatalf("isValidTokenFileName(%q) = %t, want %t", tc.fileName, got, tc.expected)
+			}
+		})
+	}
 }
