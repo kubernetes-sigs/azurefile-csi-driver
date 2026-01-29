@@ -178,6 +178,12 @@ users:
 			expectedErr:           testutil.TestError{},
 		},
 		{
+			desc:                  "no-need-kubeconfig",
+			kubeconfig:            "no-need-kubeconfig",
+			allowEmptyCloudConfig: true,
+			expectedErr:           testutil.TestError{},
+		},
+		{
 			desc:                  "[failure][disallowEmptyCloudConfig] out of cluster, no kubeconfig, no credential file",
 			kubeconfig:            "",
 			allowEmptyCloudConfig: false,
@@ -309,10 +315,11 @@ var _ = ginkgo.Describe("AzureFile", func() {
 		mockClientFactory = mock_azclient.NewMockClientFactory(ctrl)
 		mockClientFactory.EXPECT().GetSubnetClient().Return(mockSubnetClient).AnyTimes()
 		config := azureconfig.Config{
-			ResourceGroup: "rg",
-			Location:      "loc",
-			VnetName:      "fake-vnet",
-			SubnetName:    "fake-subnet",
+			ResourceGroup:     "rg",
+			VnetResourceGroup: "vnet-rg",
+			Location:          "loc",
+			VnetName:          "fake-vnet",
+			SubnetName:        "fake-subnet",
 		}
 
 		var err error
@@ -324,6 +331,7 @@ var _ = ginkgo.Describe("AzureFile", func() {
 	ginkgo.AfterEach(func() {
 		ctrl.Finish()
 	})
+
 	ginkgo.It("[fail] subnet name is nil", func() {
 		mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armnetwork.Subnet{}, nil).Times(1)
 		_, err := d.updateSubnetServiceEndpoints(ctx, "", "", "subnetname")
