@@ -181,8 +181,7 @@ linux:
   enabled: true
   dsName: csi-azurefile-node # daemonset name
   dnsPolicy: Default # available values: Default, ClusterFirst, ClusterFirstWithHostNet, None
-  kubelet: /var/lib/kubelet/pods
-  kubeletDir: /var/lib/kubelet
+  kubelet: /var/lib/kubelet
   kubeconfig: ""
   distro: debian # available values: debian, fedora
   mountPermissions: 0777
