@@ -1,8 +1,6 @@
 module sigs.k8s.io/azurefile-csi-driver
 
-go 1.24.6
-
-toolchain go1.24.7
+go 1.25
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.20.0
@@ -20,7 +18,7 @@ require (
 	github.com/kubernetes-csi/csi-lib-utils v0.14.1
 	github.com/kubernetes-csi/csi-proxy/client v1.0.1
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
-	github.com/microsoft/wmi v0.38.3
+	github.com/microsoft/wmi v0.39.0
 	github.com/onsi/ginkgo/v2 v2.28.0
 	github.com/onsi/gomega v1.39.1
 	github.com/pkg/errors v0.9.1

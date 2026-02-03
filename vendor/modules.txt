@@ -324,8 +324,8 @@ github.com/kylelemons/godebug/pretty
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
-# github.com/microsoft/wmi v0.38.3
-## explicit; go 1.24.3
+# github.com/microsoft/wmi v0.39.0
+## explicit; go 1.25
 github.com/microsoft/wmi/go/wmi
 github.com/microsoft/wmi/pkg/base/credential
 github.com/microsoft/wmi/pkg/base/host
