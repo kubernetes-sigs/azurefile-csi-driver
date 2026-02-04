@@ -742,11 +742,15 @@ func (az *AccountRepo) createPrivateEndpoint(ctx context.Context, accountName st
 	if err != nil {
 		return err
 	}
+	// Only update the subnet if we need to change PrivateEndpointNetworkPolicies.
+	// This prevents overwriting user-configured policies like NetworkSecurityGroupEnabled or RouteTableEnabled.
 	needSubnetUpdate := false
 	if subnet.Properties == nil {
 		klog.Errorf("Properties of (%s, %s) is nil", vnetName, subnetName)
 	} else {
 		// Disable the private endpoint network policies before creating private endpoint
+		// only if they are nil or explicitly Enabled. If they're already set to
+		// NetworkSecurityGroupEnabled, RouteTableEnabled, or Disabled, we preserve that setting.
 		if subnet.Properties.PrivateEndpointNetworkPolicies == nil || *subnet.Properties.PrivateEndpointNetworkPolicies == armnetwork.VirtualNetworkPrivateEndpointNetworkPoliciesEnabled {
 			subnet.Properties.PrivateEndpointNetworkPolicies = to.Ptr(armnetwork.VirtualNetworkPrivateEndpointNetworkPoliciesDisabled)
 			needSubnetUpdate = true
