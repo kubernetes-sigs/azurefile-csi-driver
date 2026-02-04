@@ -742,19 +742,23 @@ func (az *AccountRepo) createPrivateEndpoint(ctx context.Context, accountName st
 	if err != nil {
 		return err
 	}
+	needSubnetUpdate := false
 	if subnet.Properties == nil {
 		klog.Errorf("Properties of (%s, %s) is nil", vnetName, subnetName)
 	} else {
 		// Disable the private endpoint network policies before creating private endpoint
 		if subnet.Properties.PrivateEndpointNetworkPolicies == nil || *subnet.Properties.PrivateEndpointNetworkPolicies == armnetwork.VirtualNetworkPrivateEndpointNetworkPoliciesEnabled {
 			subnet.Properties.PrivateEndpointNetworkPolicies = to.Ptr(armnetwork.VirtualNetworkPrivateEndpointNetworkPoliciesDisabled)
+			needSubnetUpdate = true
 		} else {
 			klog.V(2).Infof("PrivateEndpointNetworkPolicies is already set to %s for subnet (%s, %s)", *subnet.Properties.PrivateEndpointNetworkPolicies, vnetName, subnetName)
 		}
 	}
 
-	if err := az.subnetRepo.CreateOrUpdate(ctx, vnetResourceGroup, vnetName, subnetName, *subnet); err != nil {
-		return err
+	if needSubnetUpdate {
+		if err := az.subnetRepo.CreateOrUpdate(ctx, vnetResourceGroup, vnetName, subnetName, *subnet); err != nil {
+			return err
+		}
 	}
 
 	//Create private endpoint
