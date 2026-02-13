@@ -14,21 +14,24 @@
 
 PKG = sigs.k8s.io/azurefile-csi-driver
 GIT_COMMIT ?= $(shell git rev-parse HEAD)
-REGISTRY ?= andyzhangx
+REGISTRY = mcr.microsoft.com/oss/v2/kubernetes-csi
 REGISTRY_NAME ?= $(shell echo $(REGISTRY) | sed "s/.azurecr.io//g")
 IMAGE_NAME ?= azurefile-csi
-IMAGE_VERSION ?= v1.36.0
+IMAGE_VERSION = v1.35.0
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
 ifndef PUBLISH
-override IMAGE_VERSION := e2e-$(GIT_COMMIT)
+override IMAGE_VERSION := $(IMAGE_VERSION)
 endif
+endif
+ifdef WINDOWS_USE_HOST_PROCESS_CONTAINERS
+override IMAGE_VERSION = v1.35.0
 endif
 CSI_IMAGE_TAG ?= $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_VERSION)
 CSI_IMAGE_TAG_LATEST = $(REGISTRY)/$(IMAGE_NAME):latest
 BUILD_DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS ?= "-X ${PKG}/pkg/azurefile.driverVersion=${IMAGE_VERSION} -X ${PKG}/pkg/azurefile.gitCommit=${GIT_COMMIT} -X ${PKG}/pkg/azurefile.buildDate=${BUILD_DATE} -s -w -extldflags '-static'"
-E2E_HELM_OPTIONS ?= --set image.azurefile.repository=$(REGISTRY)/$(IMAGE_NAME) --set image.azurefile.tag=$(IMAGE_VERSION) --set node.enableKataCCMount=true --set linux.dnsPolicy=ClusterFirstWithHostNet --set driver.userAgentSuffix="e2e-test" --set controller.runOnControlPlane=true --set controller.replicas=1 --set snapshot.snapshotController.replicas=1 --set node.azurefileProxy.migrateK8sRepo=true --set node.azurefileProxy.enabled=true --set node.azurefileProxy.installAznfsMount=true
+E2E_HELM_OPTIONS ?= --set image.azurefile.repository=$(REGISTRY)/$(IMAGE_NAME) --set image.azurefile.tag=$(IMAGE_VERSION) --set node.enableKataCCMount=true --set linux.dnsPolicy=ClusterFirstWithHostNet --set driver.userAgentSuffix="e2e-test" --set controller.runOnControlPlane=true --set controller.replicas=1 --set snapshot.snapshotController.replicas=1 --set node.azurefileProxy.enabled=true --set node.azurefileProxy.installAznfsMount=true
 E2E_HELM_OPTIONS += ${EXTRA_HELM_OPTIONS}
 ifdef KUBERNETES_VERSION # disable kubelet-registration-probe on capz cluster testing
 E2E_HELM_OPTIONS += --set linux.enableRegistrationProbe=false --set windows.enableRegistrationProbe=false
@@ -95,11 +98,6 @@ e2e-test:
 
 .PHONY: e2e-bootstrap
 e2e-bootstrap: install-helm
-ifdef WINDOWS_USE_HOST_PROCESS_CONTAINERS
-	(docker pull $(CSI_IMAGE_TAG) && docker pull $(CSI_IMAGE_TAG)-windows-hp) || make container-all push-manifest
-else
-	docker pull $(CSI_IMAGE_TAG) || make container-all push-manifest
-endif
 ifdef TEST_WINDOWS
 	helm install azurefile-csi-driver charts/latest/azurefile-csi-driver --namespace kube-system --wait --timeout=15m -v=5 --debug \
 		${E2E_HELM_OPTIONS} \
