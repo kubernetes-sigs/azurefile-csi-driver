@@ -43,7 +43,6 @@ import (
 	"k8s.io/utils/ptr"
 	csiMetrics "sigs.k8s.io/azurefile-csi-driver/pkg/metrics"
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
-	"sigs.k8s.io/cloud-provider-azure/pkg/metrics"
 	"sigs.k8s.io/cloud-provider-azure/pkg/provider/storage"
 )
 
@@ -517,14 +516,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
-	csiMC := csiMetrics.NewCSIMetricContext(requestName)
-	isOperationSucceeded := false
-	defer func() {
-		csiMC.ObserveWithLabels(isOperationSucceeded,
-			"protocol", string(shareProtocol),
-			"storage_account_type", sku)
-	}()
-
 	if sourceID != "" {
 		_, srcAccountName, _, _, _, _, err = GetFileShareInfo(sourceID) //nolint:dogsled
 		if err != nil {
@@ -567,9 +558,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		SourceAccountName:                       srcAccountName,
 	}
 
-	mc := metrics.NewMetricContext(azureFileCSIDriverName, requestName, d.cloud.ResourceGroup, subsID, d.Name)
+	mc := csiMetrics.NewCSIMetricContext(requestName).WithBasicVolumeInfo(d.cloud.ResourceGroup, subsID, d.Name)
+	isOperationSucceeded := false
 	defer func() {
-		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
+		mc.WithAdditionalVolumeInfo(VolumeID, volumeID).ObserveWithLabels(isOperationSucceeded, csiMetrics.Protocol, string(shareProtocol), csiMetrics.StorageAccountType, sku)
 	}()
 
 	var accountKey, lockKey string
@@ -791,12 +783,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 // DeleteVolume delete an azure file
 func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (resp *csi.DeleteVolumeResponse, returnedErr error) {
-	requestName := "controller_delete_volume"
-	csiMC := csiMetrics.NewCSIMetricContext(requestName)
-	defer func() {
-		csiMC.Observe(returnedErr == nil)
-	}()
-
 	volumeID := req.GetVolumeId()
 	if len(volumeID) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
@@ -841,9 +827,9 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 		secret = createStorageAccountSecret(accountName, accountKey)
 	}
 
-	mc := metrics.NewMetricContext(azureFileCSIDriverName, requestName, resourceGroupName, subsID, d.Name)
+	mc := csiMetrics.NewCSIMetricContext("controller_delete_volume").WithBasicVolumeInfo(resourceGroupName, subsID, d.Name)
 	defer func() {
-		mc.ObserveOperationWithResult(returnedErr == nil, VolumeID, volumeID)
+		mc.WithAdditionalVolumeInfo(VolumeID, volumeID).Observe(returnedErr == nil)
 	}()
 
 	if err := d.DeleteFileShare(ctx, subsID, resourceGroupName, accountName, fileShareName, secret, useDataPlaneAPI); err != nil {
@@ -950,12 +936,6 @@ func (d *Driver) ControllerUnpublishVolume(_ context.Context, _ *csi.ControllerU
 
 // CreateSnapshot create a snapshot
 func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequest) (resp *csi.CreateSnapshotResponse, returnedErr error) {
-	requestName := "controller_create_snapshot"
-	csiMC := csiMetrics.NewCSIMetricContext(requestName)
-	defer func() {
-		csiMC.Observe(returnedErr == nil)
-	}()
-
 	sourceVolumeID := req.GetSourceVolumeId()
 	snapshotName := req.Name
 	if len(snapshotName) == 0 {
@@ -993,9 +973,9 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		useDataPlaneAPI = d.useDataPlaneAPI(ctx, sourceVolumeID, accountName)
 	}
 
-	mc := metrics.NewMetricContext(azureFileCSIDriverName, requestName, rgName, subsID, d.Name)
+	mc := csiMetrics.NewCSIMetricContext("controller_create_snapshot").WithBasicVolumeInfo(rgName, subsID, d.Name)
 	defer func() {
-		mc.ObserveOperationWithResult(returnedErr == nil, SourceResourceID, sourceVolumeID, SnapshotName, snapshotName)
+		mc.WithAdditionalVolumeInfo(SourceResourceID, sourceVolumeID, SnapshotName, snapshotName).Observe(returnedErr == nil)
 	}()
 
 	exists, itemSnapshot, itemSnapshotTime, itemSnapshotQuota, err := d.snapshotExists(ctx, sourceVolumeID, snapshotName, req.GetSecrets(), useDataPlaneAPI)
@@ -1105,13 +1085,6 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 
 // DeleteSnapshot delete a snapshot (todo)
 func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
-	requestName := "controller_delete_snapshot"
-	csiMC := csiMetrics.NewCSIMetricContext(requestName)
-	isOperationSucceeded := false
-	defer func() {
-		csiMC.Observe(isOperationSucceeded)
-	}()
-
 	if len(req.SnapshotId) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Snapshot ID must be provided")
 	}
@@ -1133,9 +1106,10 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 		subsID = d.cloud.SubscriptionID
 	}
 
-	mc := metrics.NewMetricContext(azureFileCSIDriverName, requestName, rgName, subsID, d.Name)
+	mc := csiMetrics.NewCSIMetricContext("controller_delete_snapshot").WithBasicVolumeInfo(rgName, subsID, d.Name)
+	isOperationSucceeded := false
 	defer func() {
-		mc.ObserveOperationWithResult(isOperationSucceeded, SnapshotID, req.SnapshotId)
+		mc.WithAdditionalVolumeInfo(SnapshotID, req.SnapshotId).Observe(isOperationSucceeded)
 	}()
 
 	var deleteErr error
@@ -1303,13 +1277,6 @@ func (d *Driver) execAzcopyCopy(srcPath, dstPath string, azcopyCopyOptions, auth
 
 // ControllerExpandVolume controller expand volume
 func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
-	requestName := "controller_expand_volume"
-	csiMC := csiMetrics.NewCSIMetricContext(requestName)
-	isOperationSucceeded := false
-	defer func() {
-		csiMC.Observe(isOperationSucceeded)
-	}()
-
 	volumeID := req.GetVolumeId()
 	if len(volumeID) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
@@ -1348,9 +1315,10 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 		}
 	}
 
-	mc := metrics.NewMetricContext(azureFileCSIDriverName, requestName, resourceGroupName, subsID, d.Name)
+	mc := csiMetrics.NewCSIMetricContext("controller_expand_volume").WithBasicVolumeInfo(resourceGroupName, subsID, d.Name)
+	isOperationSucceeded := false
 	defer func() {
-		mc.ObserveOperationWithResult(isOperationSucceeded, VolumeID, volumeID)
+		mc.WithAdditionalVolumeInfo(VolumeID, volumeID).Observe(isOperationSucceeded)
 	}()
 
 	secrets := req.GetSecrets()
