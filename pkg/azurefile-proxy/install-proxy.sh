@@ -28,7 +28,7 @@ if [ "${INSTALL_AZNFS_MOUNT}" = "true" ];then
   # install aznfs-mount on ubuntu
   if [ "$DISTRIBUTION" = "ubuntu" ];then
     if [ -z "${AZNFS_UBUNTU_VERSION}" ]; then
-      AZNFS_UBUNTU_VERSION="3.0.10"
+      AZNFS_UBUNTU_VERSION="3.0.14"
     fi
     echo "install aznfs v$AZNFS_UBUNTU_VERSION...."
     # shellcheck disable=SC1091
