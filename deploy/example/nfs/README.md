@@ -10,7 +10,7 @@
  - [Optional] Create a `Premium_LRS` or `Premium_ZRS` Azure storage account with following configurations to support NFS share
    > `Premium_ZRS` account type is only supported in [limited region support](https://docs.microsoft.com/en-us/azure/storage/common/storage-redundancy#zone-redundant-storage)
    - account kind: `FileStorage`
-   - Require secure transfer for REST API operations(enable HTTPS traffic only): `false`
+   - Set `Require secure transfer for REST API operations(enable HTTPS traffic only)` as `false` when Encrypt in Transit(EiT) feature is not enabled
    - select virtual network of agent nodes in `Firewalls and virtual networks`
    - specify `storageAccount` in below storage class `parameters`
 
