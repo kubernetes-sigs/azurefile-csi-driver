@@ -282,8 +282,8 @@ github.com/josharian/intern
 # github.com/json-iterator/go v1.1.12
 ## explicit; go 1.12
 github.com/json-iterator/go
-# github.com/kata-containers/kata-containers/src/runtime v0.0.0-20240702121346-ef3f6515cf8a
-## explicit; go 1.21
+# github.com/kata-containers/kata-containers/src/runtime v0.0.0-20260219194250-ea53779b908a
+## explicit; go 1.24.13
 github.com/kata-containers/kata-containers/src/runtime/pkg/direct-volume
 # github.com/kubernetes-csi/csi-lib-utils v0.14.1
 ## explicit; go 1.18
