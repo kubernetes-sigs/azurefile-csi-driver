@@ -241,7 +241,7 @@ spec:
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
-            - mountPath: {{ .Values.linux.kubelet }}/
+            - mountPath: {{ .Values.linux.kubelet }}/pods
               mountPropagation: Bidirectional
               name: mountpoint-dir
             - mountPath: /etc/kubernetes/
@@ -283,7 +283,7 @@ spec:
             type: DirectoryOrCreate
           name: socket-dir
         - hostPath:
-            path: {{ .Values.linux.kubelet }}/
+            path: {{ .Values.linux.kubelet }}/pods
             type: DirectoryOrCreate
           name: mountpoint-dir
         - hostPath:
