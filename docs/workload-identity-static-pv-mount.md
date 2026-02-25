@@ -3,7 +3,10 @@
 
 ### Limitations
  - This feature is not supported for NFS mount since NFS mount does not need credentials.
- - This feature would still retrieve storage account key using federated identity credentials and mount Azure File share using key-based authentication.
+ - This feature would retrieve storage account key using federated identity credentials by default, you could mount with workload identity token only (**Preview**) by configuring as following:
+    > mounting with workload identity token only is supported from v1.35.0
+    - set `mountWithWorkloadIdentityToken: "true"` in `parameters` of storage class or persistent volume
+    - grant `Storage File Data SMB MI Admin` role instead of `Storage Account Contributor` role to the managed identity
 
 ## Prerequisites
 ### 1. Create a cluster with oidc-issuer enabled and get the AKS cluster credential
@@ -31,7 +34,16 @@ az identity create --name $UAMI --resource-group $RESOURCE_GROUP
 export USER_ASSIGNED_CLIENT_ID="$(az identity show -g $RESOURCE_GROUP --name $UAMI --query 'clientId' -o tsv)"
 export IDENTITY_TENANT=$(az aks show --name $CLUSTER_NAME --resource-group $RESOURCE_GROUP --query identity.tenantId -o tsv)
 export ACCOUNT_SCOPE=$(az storage account show --name $ACCOUNT --query id -o tsv)
+```
+
+ - option#1: grant `Storage Account Contributor` role to the managed identity to retrieve account key (default)
+```console
 az role assignment create --role "Storage Account Contributor" --assignee $USER_ASSIGNED_CLIENT_ID --scope $ACCOUNT_SCOPE
+```
+
+ - option#2: grant the `Storage File Data SMB MI Admin` role to the managed identity for mounting using a workload identity token exclusively, without relying on account key authentication.
+```console
+az role assignment create --role "Storage File Data SMB MI Admin" --assignee $USER_ASSIGNED_CLIENT_ID --scope $ACCOUNT_SCOPE
 ```
 
 ### 4. Create a service account on AKS
@@ -77,6 +89,7 @@ parameters:
   storageaccount: $ACCOUNT # required
   clientID: $USER_ASSIGNED_CLIENT_ID # required
   resourcegroup: $STORAGE_RESOURCE_GROUP # optional, specified when the storage account is not under AKS node resource group(which is prefixed with "MC_")
+  mountWithWorkloadIdentityToken: "true" # only supported from CSI driver v1.35.0
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
 allowVolumeExpansion: true
