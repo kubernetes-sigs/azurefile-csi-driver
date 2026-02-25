@@ -83,7 +83,7 @@ cat <<EOF | kubectl apply -f -
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: azurefile-csi
+  name: azurefile-csi-wi
 provisioner: file.csi.azure.com
 parameters:
   storageaccount: $ACCOUNT # required
@@ -139,7 +139,7 @@ spec:
     - metadata:
         name: persistent-storage
       spec:
-        storageClassName: azurefile-csi
+        storageClassName: azurefile-csi-wi
         accessModes: ["ReadWriteMany"]
         resources:
           requests:
