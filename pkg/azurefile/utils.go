@@ -42,6 +42,8 @@ const (
 	tagKeyValueDelimiter = "="
 )
 
+var subscriptionIDRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
 // lockMap used to lock on entries
 type lockMap struct {
 	sync.Mutex
@@ -361,7 +363,7 @@ func getFileServiceURL(accountName, storageEndpointSuffix string) string {
 }
 
 func isValidSubscriptionID(subsID string) bool {
-	return regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`).MatchString(subsID)
+	return subscriptionIDRegex.MatchString(subsID)
 }
 
 // RemoveOptionIfExists removes the given option from the list of options
