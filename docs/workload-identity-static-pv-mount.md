@@ -148,6 +148,11 @@ EOF
 ```
 
 ## option#2: static provision with PV
+
+> If you are using your own storage account and `mountWithWorkloadIdentityToken: "true"` in pv parameters, please ensure that the `SMBOauth` property is enabled for that account by running following command:
+>
+> `az storage account update --name <account-name> --resource-group <resource-group-name> --enable-smb-oauth true`
+
 ```yaml
 cat <<EOF | kubectl apply -f -
 apiVersion: v1
