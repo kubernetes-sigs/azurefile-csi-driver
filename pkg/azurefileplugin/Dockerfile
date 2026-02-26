@@ -23,7 +23,7 @@ ARG ARCH
 RUN apt update \
     && apt install -y curl \
     && curl -Lso /tmp/packages-microsoft-prod-22.04.deb https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb \
-    && curl -Ls https://github.com/Azure/azure-storage-azcopy/releases/download/v10.31.1/azcopy_linux_${ARCH}_10.31.1.tar.gz \
+    && curl -Ls https://github.com/Azure/azure-storage-azcopy/releases/download/v10.32.1/azcopy_linux_${ARCH}_10.32.1.tar.gz \
         | tar xvzf - --strip-components=1 -C /usr/local/bin/ --wildcards "*/azcopy"
 
 FROM base
