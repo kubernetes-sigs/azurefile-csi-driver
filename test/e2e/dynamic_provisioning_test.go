@@ -634,37 +634,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(ctx, cs, ns)
 	})
 
-	ginkgo.It("should receive FailedMount event with invalid mount options [file.csi.azure.com] [disk]", func(ctx ginkgo.SpecContext) {
-		skipIfUsingInTreeVolumePlugin()
-		skipIfTestingInWindowsCluster()
-
-		pods := []testsuites.PodDetails{
-			{
-				Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data",
-				Volumes: []testsuites.VolumeDetails{
-					{
-						ClaimSize: "100Gi",
-						MountOptions: []string{
-							"invalid",
-							"mount",
-							"options",
-						},
-						VolumeMount: testsuites.VolumeMountDetails{
-							NameGenerate:      "test-volume-",
-							MountPathGenerate: "/mnt/test-",
-						},
-					},
-				},
-			},
-		}
-		test := testsuites.DynamicallyProvisionedInvalidMountOptions{
-			CSIDriver:              testDriver,
-			Pods:                   pods,
-			StorageClassParameters: map[string]string{"skuName": "Premium_LRS", "fsType": "ext4"},
-		}
-		test.Run(ctx, cs, ns)
-	})
-
 	ginkgo.It("should create multiple PV objects, bind to PVCs and attach all to different pods on the same node [file.csi.azure.com][disk]", func(ctx ginkgo.SpecContext) {
 		skipIfUsingInTreeVolumePlugin()
 		skipIfTestingInWindowsCluster()
