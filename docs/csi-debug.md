@@ -91,10 +91,24 @@ nc -v -w 2 accountname.file.core.windows.net 443
 ```
  
 #### SMB
- - On Linux node
+ - Mount with account key on Linux node
 ```console
 mkdir /tmp/test
-sudo mount -v -t cifs //accountname.file.core.windows.net/filesharename /tmp/test -o  username=accountname,password=accountkey,dir_mode=0777,file_mode=0777,cache=strict,actimeo=30
+sudo mount -v -t cifs //accountname.file.core.windows.net/filesharename /tmp/test -o username=accountname,password=accountkey,dir_mode=0777,file_mode=0777,cache=strict,actimeo=30
+```
+
+ - Mount with managed identity on Linux node
+```console
+# exec into a CSI driver daemonset pod
+kubectl exec -it csi-azurefile-node-xxx -c azurefile -n kube-system -- sh
+# set up authentication credential using managed identity
+azfilesauthmanager set https://accountname.file.core.windows.net --imds-client-id {managed-identity-id}
+azfilesauthmanager list
+# mount with managed identity credential
+mkdir /tmp/test
+sudo mount -v -t cifs //accountname.file.core.windows.net/filesharename /tmp/test -o username={managed-identity-id},sec=krb5,cruid=0,upcall_target=mount,dir_mode=0777,file_mode=0777,cache=strict,actimeo=30
+# if there is error, get following log file
+cat /var/log/azfilesauth.log
 ```
 
 #### get os version on the node
