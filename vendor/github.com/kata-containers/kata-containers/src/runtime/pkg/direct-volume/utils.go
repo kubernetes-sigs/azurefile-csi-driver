@@ -99,18 +99,18 @@ func VolumeMountInfo(volumePath string) (*MountInfo, error) {
 	return &mountInfo, nil
 }
 
-// RecordSandboxId associates a sandbox id with a direct volume.
-func RecordSandboxId(sandboxId string, volumePath string) error {
+// RecordSandboxID associates a sandbox id with a direct volume.
+func RecordSandboxID(sandboxID string, volumePath string) error {
 	encodedPath := b64.URLEncoding.EncodeToString([]byte(volumePath))
 	mountInfoFilePath := filepath.Join(kataDirectVolumeRootPath, encodedPath, mountInfoFileName)
 	if _, err := os.Stat(mountInfoFilePath); err != nil {
 		return err
 	}
 
-	return os.WriteFile(filepath.Join(kataDirectVolumeRootPath, encodedPath, sandboxId), []byte(""), 0600)
+	return os.WriteFile(filepath.Join(kataDirectVolumeRootPath, encodedPath, sandboxID), []byte(""), 0600)
 }
 
-func GetSandboxIdForVolume(volumePath string) (string, error) {
+func GetSandboxIDForVolume(volumePath string) (string, error) {
 	files, err := os.ReadDir(filepath.Join(kataDirectVolumeRootPath, b64.URLEncoding.EncodeToString([]byte(volumePath))))
 	if err != nil {
 		return "", err
