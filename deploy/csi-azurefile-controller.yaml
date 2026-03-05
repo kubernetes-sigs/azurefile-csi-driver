@@ -37,7 +37,7 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: csi-provisioner
-          image: mcr.microsoft.com/oss/v2/kubernetes-csi/csi-provisioner:v6.1.1
+          image: mcr.microsoft.com/oss/v2/kubernetes-csi/csi-provisioner:v6.2.0
           args:
             - "-v=2"
             - "--csi-address=$(ADDRESS)"
@@ -47,7 +47,6 @@ spec:
             - "--extra-create-metadata=true"
             - "--kube-api-qps=50"
             - "--kube-api-burst=100"
-            - "--feature-gates=HonorPVReclaimPolicy=true"
             - "--retry-interval-max=30m"
           env:
             - name: ADDRESS
