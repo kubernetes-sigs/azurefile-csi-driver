@@ -66,7 +66,7 @@ spec:
             - name: host-etc
               mountPath: /host/etc
             - name: mountpoint-dir
-              mountPath: /var/lib/kubelet/
+              mountPath: /var/lib/kubelet/pods
               mountPropagation: Bidirectional
       containers:
         - name: liveness-probe
@@ -159,7 +159,7 @@ spec:
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
-            - mountPath: /var/lib/kubelet/
+            - mountPath: /var/lib/kubelet/pods
               mountPropagation: Bidirectional
               name: mountpoint-dir
             - mountPath: /etc/kubernetes/
@@ -189,7 +189,7 @@ spec:
               drop:
                 - ALL
           volumeMounts:
-            - mountPath: /var/lib/kubelet/
+            - mountPath: /var/lib/kubelet/pods
               mountPropagation: Bidirectional
               name: mountpoint-dir
             - name: azfilesauth
@@ -218,7 +218,7 @@ spec:
             type: DirectoryOrCreate
           name: socket-dir
         - hostPath:
-            path: /var/lib/kubelet/
+            path: /var/lib/kubelet/pods
             type: DirectoryOrCreate
           name: mountpoint-dir
         - hostPath:
