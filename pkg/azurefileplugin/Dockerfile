@@ -45,7 +45,7 @@ RUN chmod +x /azurefile-proxy/*.sh && \
   chmod +x /azurefile-proxy/azurefile-proxy
 
 COPY --from=builder --chown=root:root /tmp/packages-microsoft-prod-22.04.deb /azurefile-proxy/packages-microsoft-prod-22.04.deb
-RUN dpkg -i /azurefile-proxy/packages-microsoft-prod-22.04.deb && apt update && apt install -y azfilesauth=1.0-8 && rm -f /azurefile-proxy/packages-microsoft-prod-22.04.deb
+RUN dpkg -i /azurefile-proxy/packages-microsoft-prod-22.04.deb && apt update && apt install -y azfilesauth=1.0-10 && rm -f /azurefile-proxy/packages-microsoft-prod-22.04.deb
 
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"
