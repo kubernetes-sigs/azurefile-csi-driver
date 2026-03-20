@@ -172,7 +172,7 @@ spec:
           command:
             - "/bin/bash"
             - "-c"
-            - set -euo pipefail; while true; do echo \$(date) >> /mnt/azurefile/outfile; sleep 1; done
+            - set -euo pipefail; while true; do echo $(date) >> /mnt/azurefile/outfile; sleep 1; done
           volumeMounts:
             - name: persistent-storage
               mountPath: /mnt/azurefile
@@ -276,7 +276,7 @@ spec:
           command:
             - "/bin/sh"
             - "-c"
-            - while true; do echo \$(date) >> /mnt/azurefile/outfile; sleep 1; done
+            - while true; do echo $(date) >> /mnt/azurefile/outfile; sleep 1; done
           volumeMounts:
             - name: azurefile
               mountPath: "/mnt/azurefile"
