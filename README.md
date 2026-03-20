@@ -68,14 +68,14 @@ Install the driver on a Kubernetes cluster:
 - Install by [Helm charts](./charts)
 - Install by [kubectl](./docs/install-azurefile-csi-driver.md)
 
-**Open source CSI driver:**
+**Install Open source CSI driver:**
 
 | Platform | Guide |
 |----------|-------|
 | AKS | [Install on AKS](./docs/install-driver-on-aks.md) |
 | Azure Red Hat OpenShift | [Install on ARO](https://github.com/ezYakaEagle442/aro-pub-storage/blob/master/setup-store-CSI-driver-azure-file.md) |
 
-**Managed CSI driver:**
+**Install Managed CSI driver:**
 
 | Platform | Guide |
 |----------|-------|
