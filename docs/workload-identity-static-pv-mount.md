@@ -1,55 +1,90 @@
-# workload identity support on static provisioning
- - supported from v1.30.1 (from AKS 1.29 with `tokenRequests` field support in `CSIDriver`)
+# Workload Identity Support for Azure File CSI Driver
 
-### Limitations
- - This feature is not supported for NFS mount since NFS mount does not need credentials.
- - This feature would retrieve storage account key using federated identity credentials by default, you could mount with workload identity token only (**Preview**) by configuring as following:
-    > mounting with workload identity token only is supported from v1.35.0
-    - set `mountWithWorkloadIdentityToken: "true"` in `parameters` of storage class or persistent volume
-    - grant `Storage File Data SMB MI Admin` role instead of `Storage Account Contributor` role to the managed identity
+- **Supported from:** v1.30.1 (AKS 1.29+ with `tokenRequests` field support in `CSIDriver`)
+
+## Limitations
+
+- This feature is **not supported for NFS mounts** since NFS does not require credentials.
+- By default, this feature retrieves the storage account key using federated identity credentials. Alternatively, you can mount with a **workload identity token only** (Preview) by:
+  - Setting `mountWithWorkloadIdentityToken: "true"` in the `parameters` of the StorageClass or PersistentVolume
+  - Granting the `Storage File Data SMB MI Admin` role (instead of `Storage Account Contributor`) to the managed identity
+
+  > [!NOTE]
+  > Mounting with workload identity token only is supported from **v1.35.0**.
 
 ## Prerequisites
-### 1. Create a cluster with oidc-issuer enabled and get the AKS cluster credential
-Refer to the [documentation](https://learn.microsoft.com/en-us/azure/aks/use-oidc-issuer#create-an-aks-cluster-with-oidc-issuer) for instructions on creating a new AKS cluster with the `--enable-oidc-issuer` parameter and get the AKS credentials. And export following environment variables:
-```console
+
+### 1. Create an AKS cluster with OIDC issuer enabled
+
+Refer to the [documentation](https://learn.microsoft.com/en-us/azure/aks/use-oidc-issuer#create-an-aks-cluster-with-oidc-issuer) for instructions on creating a new AKS cluster with the `--enable-oidc-issuer` parameter and retrieving the AKS credentials.
+
+Export the following environment variables:
+
+```bash
 export RESOURCE_GROUP=<your resource group name>
 export CLUSTER_NAME=<your cluster name>
 export REGION=<your region>
 ```
 
 ### 2. Bring your own storage account
-Refer to the [documentation](https://learn.microsoft.com/en-us/azure/storage/files/storage-how-to-use-files-portal?tabs=azure-cli) for instructions on creating a new storage account and file share, or alternatively, utilize your existing storage account and file share. And export following environment variables:
-```console
+
+Refer to the [documentation](https://learn.microsoft.com/en-us/azure/storage/files/storage-how-to-use-files-portal?tabs=azure-cli) for instructions on creating a new storage account and file share, or use your existing ones.
+
+Export the following environment variables:
+
+```bash
 export STORAGE_RESOURCE_GROUP=<your storage account resource group>
 export ACCOUNT=<your storage account name>
-export SHARE=<your fileshare name> # optional
+export SHARE=<your file share name>  # optional
 ```
 
-### 3. Create or bring your own managed identity and grant role to the managed identity
-> you could leverage the built-in user assigned managed identity bound to the AKS agent node pool(with name [`AKS Cluster Name-agentpool`](https://docs.microsoft.com/en-us/azure/aks/use-managed-identity#summary-of-managed-identities)) in node resource group
-```console
+### 3. Create a managed identity and grant the required role
+
+> [!TIP]
+> You can leverage the built-in user-assigned managed identity bound to the AKS agent node pool (named [`<AKS Cluster Name>-agentpool`](https://docs.microsoft.com/en-us/azure/aks/use-managed-identity#summary-of-managed-identities)) in the node resource group.
+
+Create a managed identity and retrieve its properties:
+
+```bash
 export UAMI=<your managed identity name>
-az identity create --name $UAMI --resource-group $RESOURCE_GROUP
+az identity create --name "$UAMI" --resource-group "$RESOURCE_GROUP"
 
-export USER_ASSIGNED_CLIENT_ID="$(az identity show -g $RESOURCE_GROUP --name $UAMI --query 'clientId' -o tsv)"
-export IDENTITY_TENANT=$(az aks show --name $CLUSTER_NAME --resource-group $RESOURCE_GROUP --query identity.tenantId -o tsv)
-export ACCOUNT_SCOPE=$(az storage account show --name $ACCOUNT --query id -o tsv)
+export USER_ASSIGNED_CLIENT_ID="$(az identity show \
+  -g "$RESOURCE_GROUP" --name "$UAMI" --query 'clientId' -o tsv)"
+
+export IDENTITY_TENANT="$(az aks show \
+  --name "$CLUSTER_NAME" --resource-group "$RESOURCE_GROUP" \
+  --query identity.tenantId -o tsv)"
+
+export ACCOUNT_SCOPE="$(az storage account show \
+  --name "$ACCOUNT" --query id -o tsv)"
 ```
 
- - option#1: grant `Storage Account Contributor` role to the managed identity to retrieve account key (default)
-```console
-az role assignment create --role "Storage Account Contributor" --assignee $USER_ASSIGNED_CLIENT_ID --scope $ACCOUNT_SCOPE
+Then choose **one** of the following role assignment options:
+
+**Option A:** Grant `Storage Account Contributor` to retrieve account key (default)
+
+```bash
+az role assignment create \
+  --role "Storage Account Contributor" \
+  --assignee "$USER_ASSIGNED_CLIENT_ID" \
+  --scope "$ACCOUNT_SCOPE"
 ```
 
- - option#2: grant the `Storage File Data SMB MI Admin` role to the managed identity for mounting using a workload identity token exclusively, without relying on account key authentication.
-```console
-az role assignment create --role "Storage File Data SMB MI Admin" --assignee $USER_ASSIGNED_CLIENT_ID --scope $ACCOUNT_SCOPE
+**Option B:** Grant `Storage File Data SMB MI Admin` for mounting with workload identity token only (no account key)
+
+```bash
+az role assignment create \
+  --role "Storage File Data SMB MI Admin" \
+  --assignee "$USER_ASSIGNED_CLIENT_ID" \
+  --scope "$ACCOUNT_SCOPE"
 ```
 
 ### 4. Create a service account on AKS
-```console
-export SERVICE_ACCOUNT_NAME=<your sa name>
-export SERVICE_ACCOUNT_NAMESPACE=<your sa namespace>
+
+```bash
+export SERVICE_ACCOUNT_NAME=<your service account name>
+export SERVICE_ACCOUNT_NAMESPACE=<your service account namespace>
 
 cat <<EOF | kubectl apply -f -
 apiVersion: v1
@@ -60,25 +95,33 @@ metadata:
 EOF
 ```
 
-### 5. Create the federated identity credential between the managed identity, service account issuer, and subject using the `az identity federated-credential create` command.
-```console
-export FEDERATED_IDENTITY_NAME=<your federated identity name>
-export AKS_OIDC_ISSUER="$(az aks show --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME --query "oidcIssuerProfile.issuerUrl" -o tsv)"
+### 5. Create the federated identity credential
 
-az identity federated-credential create --name $FEDERATED_IDENTITY_NAME \
---identity-name $UAMI \
---resource-group $RESOURCE_GROUP \
---issuer $AKS_OIDC_ISSUER \
---subject system:serviceaccount:${SERVICE_ACCOUNT_NAMESPACE}:${SERVICE_ACCOUNT_NAME}
+Create the federated identity credential between the managed identity, service account issuer, and subject:
+
+```bash
+export FEDERATED_IDENTITY_NAME=<your federated identity name>
+export AKS_OIDC_ISSUER="$(az aks show \
+  --resource-group "$RESOURCE_GROUP" --name "$CLUSTER_NAME" \
+  --query "oidcIssuerProfile.issuerUrl" -o tsv)"
+
+az identity federated-credential create \
+  --name "$FEDERATED_IDENTITY_NAME" \
+  --identity-name "$UAMI" \
+  --resource-group "$RESOURCE_GROUP" \
+  --issuer "$AKS_OIDC_ISSUER" \
+  --subject "system:serviceaccount:${SERVICE_ACCOUNT_NAMESPACE}:${SERVICE_ACCOUNT_NAME}"
 ```
 
-## option#1: dynamic provisioning with storage class
-- Ensure that the identity of your CSI driver control plane is assigned the `Storage Account Contributor role` for the storage account.
- > if the storage account is created by the driver, then you need to grant `Storage Account Contributor` role to the resource group where the storage account is located.
- > 
- > AKS cluster control plane identity is assigned the `Storage Account Contributor role` on the node resource group for the storage account by default.
+## Option 1: Dynamic Provisioning with StorageClass
 
-```yaml
+Ensure that the CSI driver control plane identity is assigned the **`Storage Account Contributor`** role for the storage account.
+
+> [!NOTE]
+> - If the storage account is created by the driver, grant the `Storage Account Contributor` role on the **resource group** where the storage account is located.
+> - AKS cluster control plane identity is assigned the `Storage Account Contributor` role on the node resource group by default.
+
+```bash
 cat <<EOF | kubectl apply -f -
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -86,21 +129,21 @@ metadata:
   name: azurefile-csi-wi
 provisioner: file.csi.azure.com
 parameters:
-  storageaccount: $ACCOUNT # required
-  clientID: $USER_ASSIGNED_CLIENT_ID # required
-  resourcegroup: $STORAGE_RESOURCE_GROUP # optional, specified when the storage account is not under AKS node resource group(which is prefixed with "MC_")
-  mountWithWorkloadIdentityToken: "true" # only supported from CSI driver v1.35.0
+  storageaccount: $ACCOUNT                       # required
+  clientID: $USER_ASSIGNED_CLIENT_ID             # required
+  resourcegroup: $STORAGE_RESOURCE_GROUP         # optional, only needed when storage account is outside the node resource group (MC_*)
+  mountWithWorkloadIdentityToken: "true"         # only supported from CSI driver v1.35.0
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
 allowVolumeExpansion: true
 mountOptions:
-  - dir_mode=0777  # modify this permission if you want to enhance the security
+  - dir_mode=0777    # modify for enhanced security
   - file_mode=0777
   - mfsymlinks
-  - cache=strict  # https://linux.die.net/man/8/mount.cifs
-  - nosharesock  # reduce probability of reconnect race
-  - actimeo=30  # reduce latency for metadata-heavy workload
-  - nobrl  # disable sending byte range lock requests to the server and for applications which have challenges with posix locks
+  - cache=strict     # https://linux.die.net/man/8/mount.cifs
+  - nosharesock      # reduce probability of reconnect race
+  - actimeo=30       # reduce latency for metadata-heavy workloads
+  - nobrl            # disable byte range lock requests to the server
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -112,12 +155,15 @@ metadata:
 spec:
   serviceName: statefulset-azurefile
   replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
   template:
     metadata:
       labels:
         app: nginx
     spec:
-      serviceAccountName: $SERVICE_ACCOUNT_NAME  #required, make sure the pod have the required permissions to mount volume
+      serviceAccountName: $SERVICE_ACCOUNT_NAME  # required for workload identity
       nodeSelector:
         "kubernetes.io/os": linux
       containers:
@@ -126,15 +172,12 @@ spec:
           command:
             - "/bin/bash"
             - "-c"
-            - set -euo pipefail; while true; do echo $(date) >> /mnt/azurefile/outfile; sleep 1; done
+            - set -euo pipefail; while true; do echo \$(date) >> /mnt/azurefile/outfile; sleep 1; done
           volumeMounts:
             - name: persistent-storage
               mountPath: /mnt/azurefile
   updateStrategy:
     type: RollingUpdate
-  selector:
-    matchLabels:
-      app: nginx
   volumeClaimTemplates:
     - metadata:
         name: persistent-storage
@@ -147,13 +190,19 @@ spec:
 EOF
 ```
 
-## option#2: static provision with PV
+## Option 2: Static Provisioning with PersistentVolume
 
-> If you are using your own storage account and `mountWithWorkloadIdentityToken: "true"` in pv parameters, please ensure that the `SMBOauth` property is enabled for that account by running following command:
+> [!IMPORTANT]
+> If you are using your own storage account with `mountWithWorkloadIdentityToken: "true"` in the PV parameters, ensure that the **SMBOauth** property is enabled:
 >
-> `az storage account update --name <account-name> --resource-group <resource-group-name> --enable-smb-oauth true`
+> ```bash
+> az storage account update \
+>   --name <account-name> \
+>   --resource-group <resource-group-name> \
+>   --enable-smb-oauth true
+> ```
 
-```yaml
+```bash
 cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: PersistentVolume
@@ -169,22 +218,22 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: azurefile-csi
   mountOptions:
-    - dir_mode=0777  # modify this permission if you want to enhance the security
+    - dir_mode=0777    # modify for enhanced security
     - file_mode=0777
     - mfsymlinks
-    - cache=strict  # https://linux.die.net/man/8/mount.cifs
-    - nosharesock  # reduce probability of reconnect race
-    - actimeo=30  # reduce latency for metadata-heavy workload
-    - nobrl  # disable sending byte range lock requests to the server and for applications which have challenges with posix locks
+    - cache=strict     # https://linux.die.net/man/8/mount.cifs
+    - nosharesock      # reduce probability of reconnect race
+    - actimeo=30       # reduce latency for metadata-heavy workloads
+    - nobrl            # disable byte range lock requests to the server
   csi:
     driver: file.csi.azure.com
     # make sure volumeHandle is unique for every identical share in the cluster
     volumeHandle: "{resource-group-name}#{account-name}#{file-share-name}"
     volumeAttributes:
-      storageaccount: $ACCOUNT # required
-      shareName: $SHARE  # required
-      clientID: $USER_ASSIGNED_CLIENT_ID # required
-      resourcegroup: $STORAGE_RESOURCE_GROUP # optional, specified when the storage account is not under AKS node resource group(which is prefixed with "MC_")
+      storageaccount: $ACCOUNT                   # required
+      shareName: $SHARE                          # required
+      clientID: $USER_ASSIGNED_CLIENT_ID         # required
+      resourcegroup: $STORAGE_RESOURCE_GROUP     # optional, only needed when storage account is outside the node resource group (MC_*)
 ---
 kind: PersistentVolumeClaim
 apiVersion: v1
@@ -203,10 +252,10 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  labels:
-    app: nginx
   name: deployment-azurefile
   namespace: ${SERVICE_ACCOUNT_NAMESPACE}
+  labels:
+    app: nginx
 spec:
   replicas: 1
   selector:
@@ -218,7 +267,7 @@ spec:
         app: nginx
       name: deployment-azurefile
     spec:
-      serviceAccountName: $SERVICE_ACCOUNT_NAME  #required, Pod lacks the necessary permission to mount the volume without this field
+      serviceAccountName: $SERVICE_ACCOUNT_NAME  # required for workload identity
       nodeSelector:
         "kubernetes.io/os": linux
       containers:
@@ -227,7 +276,7 @@ spec:
           command:
             - "/bin/sh"
             - "-c"
-            - while true; do echo $(date) >> /mnt/azurefile/outfile; sleep 1; done
+            - while true; do echo \$(date) >> /mnt/azurefile/outfile; sleep 1; done
           volumeMounts:
             - name: azurefile
               mountPath: "/mnt/azurefile"
