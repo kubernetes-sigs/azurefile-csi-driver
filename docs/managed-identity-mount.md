@@ -144,3 +144,10 @@ spec:
 ```bash
 kubectl create -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/deployment.yaml
 ```
+
+ - Once the example pod is running successfully, you will see the following output:
+
+```sh
+# kubectl exec -it statefulset-azurefile-0 -- mount | grep cifs
+//accountname.file.core.windows.net/pvc-1bfefee3-652e-4fd3-b32d-30044f28ef0e on /mnt/azurefile type cifs (rw,relatime,vers=3.1.1,sec=krb5,cruid=0,cache=strict,upcall_target=mount,username=c56002c7-a601-44d1-b5d0-9bbc593edb12,uid=0,noforceuid,gid=0,noforcegid,addr=52.239.239.104,file_mode=0777,dir_mode=0777,soft,persistenthandles,nounix,serverino,mapposix,nobrl,mfsymlinks,rsize=1048576,wsize=1048576,bsize=1048576,retrans=1,echo_interval=60,nosharesock,actimeo=30,closetimeo=1)
+```
