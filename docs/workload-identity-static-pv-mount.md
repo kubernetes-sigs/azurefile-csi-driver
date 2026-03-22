@@ -49,15 +49,11 @@ Create a managed identity and retrieve its properties:
 export UAMI=<your managed identity name>
 az identity create --name "$UAMI" --resource-group "$RESOURCE_GROUP"
 
-export USER_ASSIGNED_CLIENT_ID="$(az identity show \
-  -g "$RESOURCE_GROUP" --name "$UAMI" --query 'clientId' -o tsv)"
+export USER_ASSIGNED_CLIENT_ID="$(az identity show -g "$RESOURCE_GROUP" --name "$UAMI" --query 'clientId' -o tsv)"
 
-export IDENTITY_TENANT="$(az aks show \
-  --name "$CLUSTER_NAME" --resource-group "$RESOURCE_GROUP" \
-  --query identity.tenantId -o tsv)"
+export IDENTITY_TENANT="$(az aks show --name "$CLUSTER_NAME" --resource-group "$RESOURCE_GROUP" --query identity.tenantId -o tsv)"
 
-export ACCOUNT_SCOPE="$(az storage account show \
-  --name "$ACCOUNT" --query id -o tsv)"
+export ACCOUNT_SCOPE="$(az storage account show --name "$ACCOUNT" --query id -o tsv)"
 ```
 
 Then choose **one** of the following role assignment options:
@@ -65,19 +61,13 @@ Then choose **one** of the following role assignment options:
 **Option A:** Grant `Storage Account Contributor` to retrieve account key (default)
 
 ```bash
-az role assignment create \
-  --role "Storage Account Contributor" \
-  --assignee "$USER_ASSIGNED_CLIENT_ID" \
-  --scope "$ACCOUNT_SCOPE"
+az role assignment create --role "Storage Account Contributor"--assignee "$USER_ASSIGNED_CLIENT_ID" --scope "$ACCOUNT_SCOPE"
 ```
 
 **Option B:** Grant `Storage File Data SMB MI Admin` for mounting with workload identity token only (no account key)
 
 ```bash
-az role assignment create \
-  --role "Storage File Data SMB MI Admin" \
-  --assignee "$USER_ASSIGNED_CLIENT_ID" \
-  --scope "$ACCOUNT_SCOPE"
+az role assignment create --role "Storage File Data SMB MI Admin" --assignee "$USER_ASSIGNED_CLIENT_ID" --scope "$ACCOUNT_SCOPE"
 ```
 
 ### 4. Create a service account on AKS
