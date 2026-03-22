@@ -26,21 +26,18 @@ Make sure the managed identity is granted the **`Storage File Data SMB MI Admin`
 
 > [!NOTE]
 > If the storage account is created by the driver (dynamic provisioning), you need to grant the `Storage File Data SMB MI Admin` role on the **resource group** where the storage account is located.
+> 
+> If you encounter permission issues when running the az role assignment create command, you can assign the necessary role through the Azure portal's `Access Control (IAM)` page.
 
 ```bash
 # Get the principal ID of the managed identity
-mid="$(az identity list -g "$resourcegroup" \
-  --query "[?name == 'managedIdentityName'].principalId" -o tsv)"
+mid="$(az identity list -g "$resourcegroup" --query "[?name == 'managedIdentityName'].principalId" -o tsv)"
 
 # Get the storage account resource ID
-said="$(az storage account list -g "$resourcegroup" \
-  --query "[?name == '$storageaccountname'].id" -o tsv)"
+said="$(az storage account list -g "$resourcegroup" --query "[?name == '$storageaccountname'].id" -o tsv)"
 
 # Assign the role
-az role assignment create \
-  --assignee-object-id "$mid" \
-  --role "Storage File Data SMB MI Admin" \
-  --scope "$said"
+az role assignment create --assignee-object-id "$mid" --role "Storage File Data SMB MI Admin" --scope "$said"
 ```
 
 ### 2. Retrieve the client ID of the managed identity
@@ -49,8 +46,7 @@ az role assignment create \
 > Skip this step if you plan to use the kubelet identity. The CSI driver defaults to the kubelet identity when the `clientID` parameter is not provided in the StorageClass or PersistentVolume.
 
 ```bash
-clientID=$(az identity list -g "$resourcegroup" \
-  --query "[?name == '$identityname'].clientId" -o tsv)
+clientID=$(az identity list -g "$resourcegroup" --query "[?name == '$identityname'].clientId" -o tsv)
 ```
 
 ## Dynamic Provisioning
