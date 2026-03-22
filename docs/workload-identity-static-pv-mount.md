@@ -61,7 +61,7 @@ Then choose **one** of the following role assignment options:
 **Option A:** Grant `Storage Account Contributor` to retrieve account key (default)
 
 > [!TIP]
-> If you encounter permission issues when running the az role assignment create command, you can assign the necessary role through the Azure portal's Access Control (IAM) page.
+> If you encounter permission issues when running the az role assignment create command, you can assign the necessary role through the Azure portal's `Access Control (IAM)` page.
 
 ```bash
 az role assignment create --role "Storage Account Contributor"--assignee "$USER_ASSIGNED_CLIENT_ID" --scope "$ACCOUNT_SCOPE"
@@ -123,7 +123,7 @@ metadata:
 provisioner: file.csi.azure.com
 parameters:
   storageaccount: $ACCOUNT                 # required
-  clientID: $USER_ASSIGNED_CLIENT_ID       # required
+  clientID: $USER_ASSIGNED_CLIENT_ID       # optional, defaults to kubelet identity
   resourcegroup: $STORAGE_RESOURCE_GROUP   # optional, only needed when storage account is outside the node resource group (MC_*)
   mountWithWorkloadIdentityToken: "true"   # only supported from CSI driver v1.35.0
 reclaimPolicy: Delete
