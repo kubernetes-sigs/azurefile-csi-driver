@@ -119,10 +119,10 @@ metadata:
   name: azurefile-csi-wi
 provisioner: file.csi.azure.com
 parameters:
-  storageaccount: $ACCOUNT                       # required
-  clientID: $USER_ASSIGNED_CLIENT_ID             # required
-  resourcegroup: $STORAGE_RESOURCE_GROUP         # optional, only needed when storage account is outside the node resource group (MC_*)
-  mountWithWorkloadIdentityToken: "true"         # only supported from CSI driver v1.35.0
+  storageaccount: $ACCOUNT                 # required
+  clientID: $USER_ASSIGNED_CLIENT_ID       # required
+  resourcegroup: $STORAGE_RESOURCE_GROUP   # optional, only needed when storage account is outside the node resource group (MC_*)
+  mountWithWorkloadIdentityToken: "true"   # only supported from CSI driver v1.35.0
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
 allowVolumeExpansion: true
@@ -220,10 +220,10 @@ spec:
     # make sure volumeHandle is unique for every identical share in the cluster
     volumeHandle: "{resource-group-name}#{account-name}#{file-share-name}"
     volumeAttributes:
-      storageaccount: $ACCOUNT                   # required
-      shareName: $SHARE                          # required
-      clientID: $USER_ASSIGNED_CLIENT_ID         # required
-      resourcegroup: $STORAGE_RESOURCE_GROUP     # optional, only needed when storage account is outside the node resource group (MC_*)
+      storageaccount: $ACCOUNT                # required
+      shareName: $SHARE                       # required
+      clientID: $USER_ASSIGNED_CLIENT_ID      # required
+      resourcegroup: $STORAGE_RESOURCE_GROUP  # optional, only needed when storage account is outside the node resource group (MC_*)
 ---
 kind: PersistentVolumeClaim
 apiVersion: v1
@@ -280,4 +280,11 @@ spec:
       maxUnavailable: 1
     type: RollingUpdate
 EOF
+```
+
+ - Once the example pod is running successfully, you will see the following output:
+
+```sh
+# kubectl exec -it statefulset-azurefile-0 -- mount | grep cifs
+//accountname.file.core.windows.net/pvc-d62dcee0-9102-417f-9869-5f0e885f7f10 on /mnt/azurefile type cifs (rw,relatime,vers=3.1.1,sec=krb5,cruid=0,cache=strict,upcall_target=mount,username=root,uid=0,noforceuid,gid=0,noforcegid,addr=52.239.239.104,file_mode=0777,dir_mode=0777,soft,persistenthandles,nounix,serverino,mapposix,nobrl,mfsymlinks,rsize=1048576,wsize=1048576,bsize=1048576,retrans=1,echo_interval=60,nosharesock,actimeo=30,closetimeo=1)
 ```
