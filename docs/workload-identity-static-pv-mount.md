@@ -61,7 +61,7 @@ Then choose **one** of the following role assignment options:
 **Option A:** Grant `Storage Account Contributor` to retrieve account key (default)
 
 > [!TIP]
-> If you encounter permission issues when running the az role assignment create command, you can assign the necessary role through the Azure portal's `Access Control (IAM)` page.
+> If you encounter permission issues when running the `az role assignment create` command, you can assign the necessary role through the Azure portal's `Access Control (IAM)` page.
 
 ```bash
 az role assignment create --role "Storage Account Contributor"--assignee "$USER_ASSIGNED_CLIENT_ID" --scope "$ACCOUNT_SCOPE"
