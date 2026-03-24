@@ -1082,6 +1082,13 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *storage.Ac
 			return true, err
 		}
 
+		// Check if the file share already exists before attempting to create it.
+		// This allows read-only permissions to suffice when no creation is needed.
+		if _, err := fileClient.GetFileShareQuota(ctx, shareOptions.Name); err == nil {
+			klog.V(2).Infof("file share(%s) already exists, skip creating", shareOptions.Name)
+			return true, nil
+		}
+
 		if err = fileClient.CreateFileShare(ctx, shareOptions); err != nil {
 			if strings.Contains(err.Error(), "ShareAlreadyExists") {
 				klog.Warningf("CreateFileShare(%s) on account(%s) failed with error(%v), return as success", shareOptions.Name, accountOptions.Name, err)
