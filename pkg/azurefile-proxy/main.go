@@ -35,6 +35,10 @@ var (
 func main() {
 	klog.InitFlags(nil)
 	_ = flag.Set("logtostderr", "true")
+	// Opt into the new klog behavior so that -stderrthreshold is honored
+	// even when -logtostderr=true (requires klog v2.140.0+).
+	_ = flag.Set("legacy_stderr_threshold_behavior", "false")
+	_ = flag.Set("stderrthreshold", "INFO")
 	flag.Parse()
 	proto, addr, err := csicommon.ParseEndpoint(*azurefileProxyEndpoint)
 	if err != nil {
