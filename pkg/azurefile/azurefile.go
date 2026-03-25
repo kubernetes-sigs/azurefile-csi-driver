@@ -81,10 +81,9 @@ const (
 	fileShareNameMinLength = 3
 	fileShareNameMaxLength = 63
 
-	minimumPremiumShareSize   = 100 // GB
-	minimumPremiumV2ShareSize = 32  // GB
-	// Minimum size of Azure Premium Files is 100GiB, and PremiumV2 Files is 32GiB.
-	// See https://docs.microsoft.com/en-us/azure/storage/files/storage-files-planning#provisioned-shares
+	minimumPremiumShareSize = 100 // GiB. Minimum size of Azure Premium Files (provisioned v1).
+	minimumV2ShareSize      = 32  // GiB. Minimum size of Azure provisioned v2 Files (PremiumV2/StandardV2).
+	// See https://learn.microsoft.com/en-us/azure/storage/files/understanding-billing#provisioned-v2-provisioning
 	defaultAzureFileQuota = 100
 	minimumAccountQuota   = 100 // GB
 
