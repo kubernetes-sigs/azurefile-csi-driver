@@ -426,7 +426,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	fileShareSize := int(requestGiB)
 
-	if account != "" && resourceGroup != "" && sku == "" && fileShareSize < minimumPremiumV2ShareSize {
+	if account != "" && resourceGroup != "" && sku == "" && fileShareSize < minimumV2ShareSize {
 		if d.cloud == nil || d.cloud.ComputeClientFactory == nil {
 			return nil, status.Errorf(codes.Internal, "cloud provider is not initialized")
 		}
@@ -443,16 +443,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
-	// account kind should be FileStorage for Premium File
+	// account kind should be FileStorage for Premium File (v1)
 	accountKind := string(armstorage.KindStorageV2)
 	if strings.HasPrefix(strings.ToLower(sku), premium) {
 		accountKind = string(armstorage.KindFileStorage)
-		if strings.Contains(strings.ToLower(sku), "v2") {
-			if fileShareSize < minimumPremiumV2ShareSize {
-				klog.V(2).Infof("fileShareSize(%d) is less than minimumPremiumV2ShareSize(%d), using minimumPremiumV2ShareSize", fileShareSize, minimumPremiumV2ShareSize)
-				fileShareSize = minimumPremiumV2ShareSize
-			}
-		} else {
+		if !strings.Contains(strings.ToLower(sku), "v2") {
 			if fileShareSize < minimumPremiumShareSize {
 				klog.V(2).Infof("fileShareSize(%d) is less than minimumPremiumShareSize(%d), using minimumPremiumShareSize", fileShareSize, minimumPremiumShareSize)
 				fileShareSize = minimumPremiumShareSize
@@ -460,9 +455,13 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
-	// use v2 account kind for v2 sku
+	// use v2 account kind for v2 sku (both PremiumV2 and StandardV2)
 	if strings.Contains(strings.ToLower(sku), "v2") {
 		accountKind = string(armstorage.KindFileStorage)
+		if fileShareSize < minimumV2ShareSize {
+			klog.V(2).Infof("fileShareSize(%d) is less than minimumV2ShareSize(%d) for v2 sku(%s), using minimumV2ShareSize", fileShareSize, minimumV2ShareSize, sku)
+			fileShareSize = minimumV2ShareSize
+		}
 		if provisionedIops == nil {
 			provisionedIops = getDefaultIOPS(fileShareSize, sku)
 			klog.V(2).Infof("setting provisionedIops as %d", ptr.Deref(provisionedIops, 0))
