@@ -51,6 +51,7 @@ subscriptionID | specify Azure subscription ID where Azure file share will be cr
 shareName | specify Azure file share name | existing or new Azure file name | No | if empty, driver will generate an Azure file share name
 shareNamePrefix | specify Azure file share name prefix created by driver | can only contain lowercase letters, numbers, hyphens, and length should be less than 21 | No |
 folderName | specify folder name in Azure file share | existing folder name in Azure file share | No | if folder name does not exist in file share, mount would fail
+createFolderIfNotExist | specify whether to create the folder if it does not exist in the Azure file share (supported from v1.34.0) | `true`,`false` | No | `false`
 shareAccessTier | [Access tier for file share](https://docs.microsoft.com/en-us/azure/storage/files/storage-files-planning#storage-tiers) (this parameter is ignored when using bring your own account key scenario) | For general-purpose v2 account, the available tiers are `TransactionOptimized`(default), `Hot`, and `Cool`. For file storage account, the available tier is `Premium`. | No | empty(use default setting for different storage account types)
 server | specify Azure storage account server address | existing server address, e.g. `accountname.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
 disableDeleteRetentionPolicy | specify whether disable DeleteRetentionPolicy for storage account created by driver | `true`,`false` | No | `false`
@@ -113,6 +114,7 @@ volumeAttributes.resourceGroup | Azure resource group name | existing resource g
 volumeAttributes.storageAccount | existing storage account name | existing storage account name | Yes |
 volumeAttributes.shareName | Azure file share name | existing Azure file share name | Yes |
 volumeAttributes.folderName | specify folder name in Azure file share | existing folder name in Azure file share | No | if folder name does not exist in file share, mount would fail
+volumeAttributes.createFolderIfNotExist | specify whether to create the folder if it does not exist in the Azure file share (supported from v1.34.0) | `true`,`false` | No | `false`
 volumeAttributes.protocol | specify file share protocol | `smb`, `nfs` | No | `smb`
 volumeAttributes.server | specify Azure storage account server address | existing server address, e.g. `accountname.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
 volumeAttributes.storageEndpointSuffix | specify Azure storage endpoint suffix | `core.windows.net`, `core.chinacloudapi.cn`, etc | No | if empty, driver will use default storage endpoint suffix according to cloud environment, e.g. `core.windows.net`
