@@ -1084,9 +1084,22 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *storage.Ac
 
 		// Check if the file share already exists before attempting to create it.
 		// This allows read-only permissions to suffice when no creation is needed.
-		if _, err := fileClient.GetFileShareQuota(ctx, shareOptions.Name); err == nil {
+		if _, quotaErr := fileClient.GetFileShareQuota(ctx, shareOptions.Name); quotaErr == nil {
 			klog.V(2).Infof("file share(%s) already exists, skip creating", shareOptions.Name)
 			return true, nil
+		} else {
+			var respErr *azcore.ResponseError
+			// If the error is NotFound, proceed to create the share.
+			if errors.As(quotaErr, &respErr) && respErr.StatusCode == http.StatusNotFound {
+				// fall through to CreateFileShare below
+			} else if isRetriableError(quotaErr) {
+				klog.Warningf("GetFileShareQuota(%s) on account(%s) failed with retriable error(%v), waiting for retrying", shareOptions.Name, accountOptions.Name, quotaErr)
+				sleepIfThrottled(quotaErr, fileOpThrottlingSleepSec)
+				return false, nil
+			} else {
+				klog.Warningf("GetFileShareQuota(%s) on account(%s) returned non-404 error(%v), assuming share exists, skip creating", shareOptions.Name, accountOptions.Name, quotaErr)
+				return true, nil
+			}
 		}
 
 		if err = fileClient.CreateFileShare(ctx, shareOptions); err != nil {
