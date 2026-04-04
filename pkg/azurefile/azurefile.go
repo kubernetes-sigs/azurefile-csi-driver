@@ -1098,8 +1098,9 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *storage.Ac
 			sleepIfThrottled(quotaErr, fileOpThrottlingSleepSec)
 			return false, nil
 		} else {
-			klog.Warningf("GetFileShareQuota(%s) on account(%s) returned non-404 error(%v), assuming share exists, skip creating", shareOptions.Name, accountOptions.Name, quotaErr)
-			return true, nil
+			// For non-404, non-retriable errors (e.g. 403 Forbidden), fall through to Create
+			// rather than assuming the share exists, to avoid silently skipping creation.
+			klog.Warningf("GetFileShareQuota(%s) on account(%s) returned error(%v), proceeding to create", shareOptions.Name, accountOptions.Name, quotaErr)
 		}
 
 		if err = fileClient.CreateFileShare(ctx, shareOptions); err != nil {

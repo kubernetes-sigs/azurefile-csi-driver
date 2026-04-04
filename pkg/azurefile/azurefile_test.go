@@ -1039,11 +1039,13 @@ func TestDriverCreateFileShare(t *testing.T) {
 			expectCreate:        true,
 		},
 		{
-			desc:                "GetFileShareQuota returns non-404 error, assume share exists, skip create",
+			desc:                "GetFileShareQuota returns non-404 error, fall through to create",
 			mockedFileShareResp: &armstorage.FileShare{},
 			mockedFileShareErr:  fmt.Errorf("quota check error"),
+			mockedCreateResp:    &armstorage.FileShare{},
+			mockedCreateErr:     nil,
 			expectedError:       nil,
-			expectCreate:        false,
+			expectCreate:        true,
 		},
 	}
 
