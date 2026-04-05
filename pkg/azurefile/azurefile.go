@@ -1089,7 +1089,7 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *storage.Ac
 			klog.V(2).Infof("file share(%s) already exists, skip creating", shareOptions.Name)
 			return true, nil
 		}
-		klog.V(2).Infof("GetFileShareQuota(%s) on account(%s) returned error(%v), proceeding to create", shareOptions.Name, accountOptions.Name, quotaErr)
+		klog.V(6).Infof("GetFileShareQuota(%s) on account(%s) returned error(%v), proceeding to create", shareOptions.Name, accountOptions.Name, quotaErr)
 
 		if err = fileClient.CreateFileShare(ctx, shareOptions); err != nil {
 			if strings.Contains(err.Error(), "ShareAlreadyExists") {
