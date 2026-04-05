@@ -876,6 +876,7 @@ func TestGetAccountInfo(t *testing.T) {
 		mockStorageAccountsClient := mock_accountclient.NewMockInterface(ctrl)
 		d.cloud.ComputeClientFactory = mock_azclient.NewMockClientFactory(ctrl)
 		d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetAccountClient().Return(mockStorageAccountsClient).AnyTimes()
+		d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetAccountClientForSub(gomock.Any()).Return(mockStorageAccountsClient, nil).AnyTimes()
 		d.kubeClient = clientSet
 		d.cloud.Environment = &azclient.Environment{StorageEndpointSuffix: "abc"}
 		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), test.rgName).Return(key, nil).AnyTimes()
