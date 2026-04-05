@@ -397,9 +397,17 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 	if folderName != "" {
 		if createFolderIfNotExist {
-			if err := d.createFolderIfNotExists(ctx, accountName, accountKey, fileShareName, folderName, storageEndpointSuffix); err != nil {
-				klog.Warningf("Failed to create folder %s in share %s: %v", folderName, fileShareName, err)
-				// Continue with mounting - folder might already exist or be created by other means
+			if protocol == nfs {
+				// For NFS, account key is not available. Mount the share root
+				// to a temporary path, create the folder, then unmount.
+				if err := d.createFolderOnNfsShare(ctx, source, folderName, mountFlags); err != nil {
+					klog.Warningf("Failed to create folder %s on NFS share: %v", folderName, err)
+				}
+			} else {
+				if err := d.createFolderIfNotExists(ctx, accountName, accountKey, fileShareName, folderName, storageEndpointSuffix); err != nil {
+					klog.Warningf("Failed to create folder %s in share %s: %v", folderName, fileShareName, err)
+					// Continue with mounting - folder might already exist or be created by other means
+				}
 			}
 		}
 		source = fmt.Sprintf("%s%s%s", source, osSeparator, folderName)
@@ -885,4 +893,35 @@ func shouldUseServiceAccountToken(attrib map[string]string) bool {
 		return true
 	}
 	return false
+}
+
+// createFolderOnNfsShare mounts the NFS share root to a temporary directory,
+// creates the folder path, then unmounts. This avoids the need for an account
+// key which is not available in NFS mode.
+func (d *Driver) createFolderOnNfsShare(ctx context.Context, nfsSource, folderName string, mountFlags []string) error {
+	tempDir, err := os.MkdirTemp("", "nfs-folder-create-")
+	if err != nil {
+		return fmt.Errorf("failed to create temp dir: %v", err)
+	}
+	defer os.Remove(tempDir)
+
+	mountOptions := util.JoinMountOptions(mountFlags, []string{"vers=4,minorversion=1,sec=sys"})
+	mountOptions = appendDefaultNfsMountOptions(mountOptions, d.appendNoResvPortOption, d.appendActimeoOption)
+
+	klog.V(2).Infof("Mounting NFS share %s to temp dir %s to create folder %s", nfsSource, tempDir, folderName)
+	if err := d.mounter.Mount(nfsSource, tempDir, nfs, mountOptions); err != nil {
+		return fmt.Errorf("failed to mount NFS share %s to %s: %v", nfsSource, tempDir, err)
+	}
+	defer func() {
+		if err := d.mounter.Unmount(tempDir); err != nil {
+			klog.Warningf("Failed to unmount temp dir %s: %v", tempDir, err)
+		}
+	}()
+
+	folderPath := filepath.Join(tempDir, folderName)
+	if err := os.MkdirAll(folderPath, 0755); err != nil {
+		return fmt.Errorf("failed to create folder %s: %v", folderPath, err)
+	}
+	klog.V(2).Infof("Successfully created folder %s on NFS share", folderName)
+	return nil
 }
