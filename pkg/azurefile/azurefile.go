@@ -881,7 +881,21 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 	}
 	if protocol == nfs && fileShareName != "" {
 		// nfs protocol does not need account key, return directly
-		return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, err
+		// unless createFolderIfNotExist is set with a folderName, which requires account key for data plane API
+		var needAccountKey bool
+		var hasFolder bool
+		for k, v := range reqContext {
+			switch strings.ToLower(k) {
+			case createFolderIfNotExistField:
+				needAccountKey = strings.EqualFold(v, trueValue)
+			case folderNameField:
+				hasFolder = v != ""
+			}
+		}
+		if !needAccountKey || !hasFolder {
+			return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, err
+		}
+		klog.V(2).Infof("NFS protocol with createFolderIfNotExist, fetching account key for data plane API")
 	}
 
 	if secretNamespace == "" {
