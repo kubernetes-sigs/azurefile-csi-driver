@@ -1196,7 +1196,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().GetProperties(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.Account{Tags: map[string]*string{"TestKey": &tagValue}}, nil).AnyTimes()
 				mockStorageAccountsClient.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
-				mockFileClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
+				mockFileClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{}, &azcore.ResponseError{StatusCode: http.StatusNotFound}).AnyTimes()
 
 				_, err = d.CreateVolume(ctx, req)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())

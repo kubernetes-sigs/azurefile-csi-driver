@@ -1022,6 +1022,72 @@ func TestGetFileShareQuota(t *testing.T) {
 	}
 }
 
+func TestDriverCreateFileShare(t *testing.T) {
+	d := NewFakeDriver()
+	d.cloud = &storage.AccountRepo{}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	shareQuota := int32(10)
+	resourceGroupName := "rg"
+	accountName := "accountname"
+	fileShareName := "filesharename"
+
+	tests := []struct {
+		desc                string
+		mockedFileShareResp *armstorage.FileShare
+		mockedFileShareErr  error
+		mockedCreateResp    *armstorage.FileShare
+		mockedCreateErr     error
+		expectedError       error
+		expectCreate        bool
+	}{
+		{
+			desc:                "file share already exists, skip create",
+			mockedFileShareResp: &armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: &shareQuota}},
+			mockedFileShareErr:  nil,
+			expectedError:       nil,
+			expectCreate:        false,
+		},
+		{
+			desc:                "file share does not exist, create it",
+			mockedFileShareResp: &armstorage.FileShare{},
+			mockedFileShareErr:  &azcore.ResponseError{StatusCode: http.StatusNotFound},
+			mockedCreateResp:    &armstorage.FileShare{},
+			mockedCreateErr:     nil,
+			expectedError:       nil,
+			expectCreate:        true,
+		},
+		{
+			desc:                "GetFileShareQuota returns non-404 error, fall through to create",
+			mockedFileShareResp: &armstorage.FileShare{},
+			mockedFileShareErr:  fmt.Errorf("quota check error"),
+			mockedCreateResp:    &armstorage.FileShare{},
+			mockedCreateErr:     nil,
+			expectedError:       nil,
+			expectCreate:        true,
+		},
+	}
+
+	for _, test := range tests {
+		mockFileClient := mock_fileshareclient.NewMockInterface(ctrl)
+		clientFactory := mock_azclient.NewMockClientFactory(ctrl)
+		clientFactory.EXPECT().GetFileShareClientForSub(gomock.Any()).Return(mockFileClient, nil).AnyTimes()
+		d.cloud.ComputeClientFactory = clientFactory
+		mockFileClient.EXPECT().Get(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedFileShareResp, test.mockedFileShareErr).AnyTimes()
+		if test.expectCreate {
+			mockFileClient.EXPECT().Create(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.mockedCreateResp, test.mockedCreateErr).Times(1)
+		}
+		err := d.CreateFileShare(context.TODO(), &storage.AccountOptions{
+			ResourceGroup:  resourceGroupName,
+			Name:           accountName,
+			SubscriptionID: "subsID",
+		}, &ShareOptions{Name: fileShareName, RequestGiB: int(shareQuota)}, map[string]string{}, "")
+		if !reflect.DeepEqual(err, test.expectedError) {
+			t.Errorf("test[%s]: unexpected error: %v, expected error: %v", test.desc, err, test.expectedError)
+		}
+	}
+}
+
 func TestRun(t *testing.T) {
 	fakeCredFile := "fake-cred-file.json"
 	fakeCredContent := `{
