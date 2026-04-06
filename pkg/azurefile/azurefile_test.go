@@ -811,6 +811,24 @@ func TestGetAccountInfo(t *testing.T) {
 			expectDiskName:      "",
 		},
 		{
+			volumeID: "uniqe-volumeid-nfs-createfolder",
+			rgName:   "vol_nfs",
+			secrets:  emptySecret,
+			reqContext: map[string]string{
+				resourceGroupField:          "vol_nfs",
+				storageAccountField:         "test_accountname",
+				shareNameField:              "test_sharename",
+				protocolField:               "nfs",
+				createFolderIfNotExistField: "true",
+				folderNameField:             "testfolder",
+			},
+			expectErr:           false,
+			err:                 nil,
+			expectAccountName:   "test_accountname",
+			expectFileShareName: "test_sharename",
+			expectDiskName:      "",
+		},
+		{
 			volumeID: "invalid_getLatestAccountKey_value##",
 			rgName:   "vol_2",
 			secrets:  emptySecret,
@@ -858,9 +876,10 @@ func TestGetAccountInfo(t *testing.T) {
 		mockStorageAccountsClient := mock_accountclient.NewMockInterface(ctrl)
 		d.cloud.ComputeClientFactory = mock_azclient.NewMockClientFactory(ctrl)
 		d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetAccountClient().Return(mockStorageAccountsClient).AnyTimes()
+		d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetAccountClientForSub(gomock.Any()).Return(mockStorageAccountsClient, nil).AnyTimes()
 		d.kubeClient = clientSet
 		d.cloud.Environment = &azclient.Environment{StorageEndpointSuffix: "abc"}
-		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), test.rgName).Return(key, nil).AnyTimes()
+		mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(key, nil).AnyTimes()
 		rgName, accountName, _, fileShareName, diskName, _, _, _, err := d.GetAccountInfo(context.Background(), test.volumeID, test.secrets, test.reqContext)
 		if test.expectErr && err == nil {
 			t.Errorf("Unexpected non-error")
