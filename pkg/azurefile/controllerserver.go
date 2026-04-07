@@ -483,6 +483,14 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	// replace pv/pvc name namespace metadata in fileShareName
 	validFileShareName := replaceWithMap(fileShareName, fileShareNameReplaceMap)
+
+	// replace pv/pvc name namespace metadata in folderName(subDir)
+	if folderName := getValueInMap(parameters, folderNameField); folderName != "" {
+		validFolderName := replaceWithMap(folderName, fileShareNameReplaceMap)
+		if validFolderName != folderName {
+			setKeyValueInMap(parameters, folderNameField, validFolderName)
+		}
+	}
 	if validFileShareName == "" {
 		name := volName
 		if shareNamePrefix != "" {
