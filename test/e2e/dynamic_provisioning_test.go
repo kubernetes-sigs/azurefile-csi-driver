@@ -1450,7 +1450,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			StorageClassParameters: map[string]string{
 				"skuName":                "Premium_LRS",
 				"protocol":               "nfs",
-				"rootSquashType":         "RootSquash",
 				"mountPermissions":       "0777",
 				"folderName":             "test-folder/sub1/sub2",
 				"createFolderIfNotExist": "true",
