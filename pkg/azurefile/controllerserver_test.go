@@ -639,6 +639,68 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 			gomega.Expect(err).To(gomega.Equal(expectedErr))
 		})
 	})
+	ginkgo.When("invalid allowCrossTenantReplication value", func() {
+		ginkgo.It("should fail", func(ctx context.Context) {
+			allParam := map[string]string{
+				allowCrossTenantReplicationField: "invalid",
+			}
+
+			req := &csi.CreateVolumeRequest{
+				Name:               "random-vol-name-allowCrossTenantReplication-invalid",
+				CapacityRange:      stdCapRange,
+				VolumeCapabilities: stdVolCap,
+				Parameters:         allParam,
+			}
+			d.cloud = &storage.AccountRepo{
+				Config: config.Config{},
+			}
+
+			expectedErr := status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", allowCrossTenantReplicationField, "invalid")
+			_, err := d.CreateVolume(ctx, req)
+			gomega.Expect(err).To(gomega.Equal(expectedErr))
+		})
+	})
+	ginkgo.When("valid allowCrossTenantReplication value set to false", func() {
+		ginkgo.It("should fail with storeAccountKey not supported when shared access key disabled", func(ctx context.Context) {
+			allParam := map[string]string{
+				skuNameField:                     "premium",
+				storageAccountTypeField:          "stoacctype",
+				locationField:                    "loc",
+				storageAccountField:              "stoacc",
+				resourceGroupField:               "rg",
+				shareNameField:                   "",
+				diskNameField:                    "diskname.vhd",
+				fsTypeField:                      "",
+				storeAccountKeyField:             "storeaccountkey",
+				secretNamespaceField:             "default",
+				mountPermissionsField:            "0755",
+				accountQuotaField:                "1000",
+				allowCrossTenantReplicationField: "false",
+				allowSharedKeyAccessField:        "false",
+			}
+
+			fakeCloud := &storage.AccountRepo{
+				Config: config.Config{
+					ResourceGroup: "rg",
+					Location:      "loc",
+					VnetName:      "fake-vnet",
+					SubnetName:    "fake-subnet",
+				},
+			}
+
+			req := &csi.CreateVolumeRequest{
+				Name:               "random-vol-name-vol-cap-cross-tenant",
+				CapacityRange:      stdCapRange,
+				VolumeCapabilities: stdVolCap,
+				Parameters:         allParam,
+			}
+			d.cloud = fakeCloud
+
+			expectedErr := status.Errorf(codes.InvalidArgument, "storeAccountKey is not supported for account with shared access key disabled")
+			_, err := d.CreateVolume(ctx, req)
+			gomega.Expect(err).To(gomega.Equal(expectedErr))
+		})
+	})
 	ginkgo.When("No valid key, check all params, with less than min premium volume", func() {
 		ginkgo.It("should fail", func(ctx context.Context) {
 			name := "baz"
