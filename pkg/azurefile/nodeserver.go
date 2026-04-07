@@ -383,8 +383,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		storageEndpointSuffix = d.getStorageEndPointSuffix()
 	}
 
-	// replace pv/pvc name namespace metadata in fileShareName
+	// replace pv/pvc name namespace metadata in fileShareName and folderName
 	fileShareName = replaceWithMap(fileShareName, fileShareNameReplaceMap)
+	folderName = replaceWithMap(folderName, fileShareNameReplaceMap)
 
 	osSeparator := string(os.PathSeparator)
 	if strings.TrimSpace(server) == "" {
