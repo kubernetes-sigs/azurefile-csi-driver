@@ -127,7 +127,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	// set allowBlobPublicAccess as false by default
 	allowBlobPublicAccess := ptr.To(false)
 
-	fileShareNameReplaceMap := map[string]string{}
+	volumeMetadataReplaceMap := map[string]string{}
 	// store account key to k8s secret by default
 	storeAccountKey := true
 
@@ -198,7 +198,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			disableDeleteRetentionPolicy = &value
 		case pvcNamespaceKey:
 			pvcNamespace = v
-			fileShareNameReplaceMap[pvcNamespaceMetadata] = v
+			volumeMetadataReplaceMap[pvcNamespaceMetadata] = v
 		case storageEndpointSuffixField:
 			storageEndpointSuffix = v
 		case networkEndpointTypeField:
@@ -226,9 +226,9 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			}
 			allowSharedKeyAccess = &value
 		case pvcNameKey:
-			fileShareNameReplaceMap[pvcNameMetadata] = v
+			volumeMetadataReplaceMap[pvcNameMetadata] = v
 		case pvNameKey:
-			fileShareNameReplaceMap[pvNameMetadata] = v
+			volumeMetadataReplaceMap[pvNameMetadata] = v
 		case serverNameField:
 		case folderNameField:
 		case clientIDField:
@@ -482,11 +482,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	// replace pv/pvc name namespace metadata in fileShareName
-	validFileShareName := replaceWithMap(fileShareName, fileShareNameReplaceMap)
+	validFileShareName := replaceWithMap(fileShareName, volumeMetadataReplaceMap)
 
 	// replace pv/pvc name namespace metadata in folderName(subDir)
 	if folderName := getValueInMap(parameters, folderNameField); folderName != "" {
-		validFolderName := replaceWithMap(folderName, fileShareNameReplaceMap)
+		validFolderName := replaceWithMap(folderName, volumeMetadataReplaceMap)
 		if validFolderName != folderName {
 			setKeyValueInMap(parameters, folderNameField, validFolderName)
 		}
