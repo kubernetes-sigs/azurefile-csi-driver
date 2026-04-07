@@ -252,7 +252,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			scParameters["networkEndpointType"] = "privateEndpoint"
 			scParameters["accessTier"] = "Hot"
 			scParameters["selectRandomMatchingAccount"] = "true"
-			scParameters["folderName"] = "test-folder/subfolder1/subfolder2"
+			scParameters["folderName"] = "${pvc.metadata.namespace}/${pvc.metadata.name}/${pv.metadata.name}"
 			scParameters["createFolderIfNotExist"] = "true"
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
@@ -1451,7 +1451,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				"skuName":                "Premium_LRS",
 				"protocol":               "nfs",
 				"mountPermissions":       "0777",
-				"folderName":             "test-folder/sub1/sub2",
+				"folderName":             "${pvc.metadata.namespace}/${pvc.metadata.name}/${pv.metadata.name}",
 				"createFolderIfNotExist": "true",
 			},
 		}
