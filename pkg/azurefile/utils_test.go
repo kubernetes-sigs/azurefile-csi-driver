@@ -804,6 +804,8 @@ func TestFolderNamePlaceholderExpansion(t *testing.T) {
 		}
 	}
 }
+
+func TestIsReadOnlyFromCapability(t *testing.T) {
 	testCases := []struct {
 		name           string
 		vc             *csi.VolumeCapability
