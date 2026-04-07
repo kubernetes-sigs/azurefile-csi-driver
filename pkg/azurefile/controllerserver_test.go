@@ -429,6 +429,31 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 			gomega.Expect(err).To(gomega.Equal(expectedErr))
 		})
 	})
+	ginkgo.When("folderName with placeholder expansion", func() {
+		ginkgo.It("should expand placeholders and continue", func(ctx context.Context) {
+			allParam := map[string]string{
+				skuNameField:               "premium",
+				resourceGroupField:         "rg",
+				createAccountField:         "true",
+				pvcNameKey:                 "my-pvc",
+				pvNameKey:                  "my-pv",
+				pvcNamespaceKey:            "my-ns",
+				folderNameField:            "${pvc.metadata.name}/${pvc.metadata.namespace}/${pv.metadata.name}",
+				storageEndpointSuffixField: ".core",
+			}
+
+			req := &csi.CreateVolumeRequest{
+				Name:               "random-vol-name-folderName-expand",
+				CapacityRange:      stdCapRange,
+				VolumeCapabilities: stdVolCap,
+				Parameters:         allParam,
+			}
+			_, err := d.CreateVolume(ctx, req)
+			gomega.Expect(err).To(gomega.HaveOccurred())
+			// Verify placeholder expansion happened by checking parameters were modified in place
+			gomega.Expect(allParam[folderNameField]).To(gomega.Equal("my-pvc/my-ns/my-pv"))
+		})
+	})
 	ginkgo.When("Invalid protocol & fsType combination", func() {
 		ginkgo.It("should fail", func(ctx context.Context) {
 			allParam := map[string]string{
