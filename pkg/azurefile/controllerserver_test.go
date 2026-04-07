@@ -432,14 +432,29 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 	ginkgo.When("folderName with placeholder expansion", func() {
 		ginkgo.It("should expand placeholders and continue", func(ctx context.Context) {
 			allParam := map[string]string{
-				skuNameField:               "premium",
-				resourceGroupField:         "rg",
-				createAccountField:         "true",
-				pvcNameKey:                 "my-pvc",
-				pvNameKey:                  "my-pv",
-				pvcNamespaceKey:            "my-ns",
-				folderNameField:            "${pvc.metadata.name}/${pvc.metadata.namespace}/${pv.metadata.name}",
-				storageEndpointSuffixField: ".core",
+				skuNameField:            "premium",
+				storageAccountTypeField: "stoacctype",
+				locationField:           "loc",
+				storageAccountField:     "stoacc",
+				resourceGroupField:      "rg",
+				pvcNameKey:              "my-pvc",
+				pvNameKey:               "my-pv",
+				pvcNamespaceKey:         "my-ns",
+				folderNameField:         "${pvc.metadata.name}/${pvc.metadata.namespace}/${pv.metadata.name}",
+				shareNameField:          "testshare",
+				diskNameField:           "diskname.vhd",
+				fsTypeField:             "",
+				storeAccountKeyField:    "storeaccountkey",
+				secretNamespaceField:    "default",
+			}
+
+			fakeCloud := &storage.AccountRepo{
+				Config: config.Config{
+					ResourceGroup: "rg",
+					Location:      "loc",
+					VnetName:      "fake-vnet",
+					SubnetName:    "fake-subnet",
+				},
 			}
 
 			req := &csi.CreateVolumeRequest{
@@ -448,6 +463,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				VolumeCapabilities: stdVolCap,
 				Parameters:         allParam,
 			}
+			d.cloud = fakeCloud
 			_, err := d.CreateVolume(ctx, req)
 			gomega.Expect(err).To(gomega.HaveOccurred())
 			// Verify placeholder expansion happened by checking parameters were modified in place
