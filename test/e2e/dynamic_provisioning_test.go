@@ -1452,7 +1452,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				"protocol":               "nfs",
 				"rootSquashType":         "RootSquash",
 				"mountPermissions":       "0755",
-				"allowSharedKeyAccess":   "false",
 				"folderName":             "test-folder/sub1/sub2",
 				"createFolderIfNotExist": "true",
 			},
