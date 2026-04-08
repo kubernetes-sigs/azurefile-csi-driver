@@ -748,6 +748,63 @@ func TestReplaceWithMap(t *testing.T) {
 	}
 }
 
+func TestFolderNamePlaceholderExpansion(t *testing.T) {
+	tests := []struct {
+		desc       string
+		folderName string
+		replaceMap map[string]string
+		expected   string
+	}{
+		{
+			desc:       "expand all placeholders in folderName",
+			folderName: pvcNamespaceMetadata + "/" + pvcNameMetadata + "/" + pvNameMetadata,
+			replaceMap: map[string]string{
+				pvcNamespaceMetadata: "test-ns",
+				pvcNameMetadata:      "test-pvc",
+				pvNameMetadata:       "test-pv",
+			},
+			expected: "test-ns/test-pvc/test-pv",
+		},
+		{
+			desc:       "expand partial placeholders",
+			folderName: "static-prefix/" + pvcNameMetadata,
+			replaceMap: map[string]string{
+				pvcNameMetadata: "my-pvc",
+			},
+			expected: "static-prefix/my-pvc",
+		},
+		{
+			desc:       "no placeholders in folderName",
+			folderName: "static-folder/subfolder",
+			replaceMap: map[string]string{
+				pvcNameMetadata: "my-pvc",
+			},
+			expected: "static-folder/subfolder",
+		},
+		{
+			desc:       "empty folderName",
+			folderName: "",
+			replaceMap: map[string]string{
+				pvcNameMetadata: "my-pvc",
+			},
+			expected: "",
+		},
+		{
+			desc:       "empty replaceMap",
+			folderName: pvcNameMetadata + "/" + pvNameMetadata,
+			replaceMap: map[string]string{},
+			expected:   pvcNameMetadata + "/" + pvNameMetadata,
+		},
+	}
+
+	for _, test := range tests {
+		result := replaceWithMap(test.folderName, test.replaceMap)
+		if result != test.expected {
+			t.Errorf("test[%s]: unexpected output: %v, expected result: %v", test.desc, result, test.expected)
+		}
+	}
+}
+
 func TestIsReadOnlyFromCapability(t *testing.T) {
 	testCases := []struct {
 		name           string
