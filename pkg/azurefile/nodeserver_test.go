@@ -582,6 +582,23 @@ func TestNodeStageVolume(t *testing.T) {
 			},
 		},
 		{
+			desc: "folderName placeholder expansion",
+			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					shareNameField:             "test_sharename",
+					serverNameField:            "test_servername",
+					storageEndpointSuffixField: ".core",
+					folderNameField:            "${pvc.metadata.name}/${pvc.metadata.namespace}",
+					pvcNameKey:                 "my-pvc",
+					pvcNamespaceKey:            "my-ns",
+					pvNameKey:                  "my-pv",
+				}},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Errorf(codes.Internal, "accountName() or accountKey is empty"),
+			},
+		},
+		{
 			desc: "[Error] Volume operation in progress",
 			setup: func() {
 				d.volumeLocks.TryAcquire(fmt.Sprintf("%s-%s", "vol_1##", sourceTest))
