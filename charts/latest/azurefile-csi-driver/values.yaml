@@ -22,14 +22,6 @@ image:
     pullPolicy: IfNotPresent
 
 
-nodeDriverRegistrar:
-  healthPort: 29617
-  livenessProbe:
-    initialDelaySeconds: 20
-    timeoutSeconds: 10
-    periodSeconds: 5
-    failureThreshold: 2
-
 ## Reference to one or more secrets to be used when pulling images
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
@@ -140,6 +132,13 @@ node:
   metricsPort: 29615
   livenessProbe:
     healthPort: 29613
+  nodeDriverRegistrar:
+    healthPort: 29617
+    livenessProbe:
+      initialDelaySeconds: 20
+      timeoutSeconds: 10
+      periodSeconds: 5
+      failureThreshold: 2
   logLevel: 5
   azurefileProxy:
     enabled: true
