@@ -135,6 +135,7 @@ spec:
             - --csi-address=$(ADDRESS)
             - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
             - --v=2
+            - --http-endpoint=localhost:{{ .Values.node.nodeDriverRegistrar.healthPort }}
           env:
             - name: ADDRESS
               value: /csi/csi.sock
@@ -147,6 +148,19 @@ spec:
             - name: registration-dir
               mountPath: /registration
           resources: {{- toYaml .Values.linux.resources.nodeDriverRegistrar | nindent 12 }}
+          ports:
+            - name: healthz
+              containerPort: {{ .Values.node.nodeDriverRegistrar.healthPort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              host: localhost
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: {{ .Values.node.nodeDriverRegistrar.livenessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.node.nodeDriverRegistrar.livenessProbe.timeoutSeconds }}
+            periodSeconds: {{ .Values.node.nodeDriverRegistrar.livenessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.node.nodeDriverRegistrar.livenessProbe.failureThreshold }}
 {{- if .Values.node.enableManagedIdentityAuth }}
         - name: azfilesrefresh
 {{- if hasPrefix "/" .Values.image.azurefile.repository }}
