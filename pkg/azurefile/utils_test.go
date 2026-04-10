@@ -1523,6 +1523,7 @@ func TestIsValidFolderName(t *testing.T) {
 		{name: "greater than", folder: "my>folder", expectErr: true},
 		{name: "pipe", folder: "my|folder", expectErr: true},
 		{name: "control char", folder: "my\x01folder", expectErr: true},
+		{name: "null byte", folder: "my\x00folder", expectErr: true},
 		{name: "dot dot segment", folder: "..", expectErr: true},
 		{name: "dot dot in path", folder: "a/../b", expectErr: true},
 		{name: "ends with period", folder: "folder.", expectErr: true},
