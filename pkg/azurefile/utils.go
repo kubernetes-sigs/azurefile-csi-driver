@@ -455,6 +455,11 @@ func isValidFolderName(folderName string) error {
 		return nil
 	}
 
+	// reject null bytes early — they truncate C strings and are a path injection risk
+	if strings.ContainsRune(folderName, 0) {
+		return fmt.Errorf("folderName(%q) contains null byte which is not allowed", folderName)
+	}
+
 	segments := strings.Split(strings.Trim(folderName, "/"), "/")
 	for _, seg := range segments {
 		if seg == "" {
