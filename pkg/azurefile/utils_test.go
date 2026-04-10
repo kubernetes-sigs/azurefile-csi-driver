@@ -1588,7 +1588,7 @@ func TestIsValidFolderName(t *testing.T) {
 		{name: "nested segment ends with period", folder: "a/b./c", expectErr: true},
 		{name: "valid hyphen and underscore", folder: "my-folder_name", expectErr: false},
 		{name: "valid dots in middle", folder: "my.folder.name", expectErr: false},
-		{name: "valid single dot segment", folder: ".", expectErr: true},
+		{name: "invalid single dot segment", folder: ".", expectErr: true},
 		{name: "reserved name CON is allowed", folder: "CON", expectErr: false},
 	}
 
