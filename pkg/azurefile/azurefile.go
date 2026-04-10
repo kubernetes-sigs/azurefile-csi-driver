@@ -127,6 +127,7 @@ const (
 	allowBlobPublicAccessField        = "allowblobpublicaccess"
 	publicNetworkAccessField          = "publicnetworkaccess"
 	allowSharedKeyAccessField         = "allowsharedkeyaccess"
+	allowCrossTenantReplicationField  = "allowcrosstenantreplication"
 	storageEndpointSuffixField        = "storageendpointsuffix"
 	fsGroupChangePolicyField          = "fsgroupchangepolicy"
 	ephemeralField                    = "csi.storage.k8s.io/ephemeral"
