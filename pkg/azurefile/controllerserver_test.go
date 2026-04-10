@@ -265,6 +265,23 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 			gomega.Expect(err).To(gomega.Equal(expectedErr))
 		})
 	})
+	ginkgo.When("Invalid folderName", func() {
+		ginkgo.It("should fail", func(ctx context.Context) {
+			allParam := map[string]string{
+				folderNameField: "my|folder",
+			}
+
+			req := &csi.CreateVolumeRequest{
+				Name:               "folderName-invalid",
+				CapacityRange:      stdCapRange,
+				VolumeCapabilities: stdVolCap,
+				Parameters:         allParam,
+			}
+			expectedErr := status.Errorf(codes.InvalidArgument, "invalid folderName in storage class: folderName(\"my|folder\") contains invalid character in segment \"my|folder\", characters \\:*?\"<>| are not allowed")
+			_, err := d.CreateVolume(ctx, req)
+			gomega.Expect(err).To(gomega.Equal(expectedErr))
+		})
+	})
 	ginkgo.When("Invalid PublicNetworkAccess", func() {
 		ginkgo.It("should fail", func(ctx context.Context) {
 			allParam := map[string]string{
