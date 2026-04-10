@@ -303,6 +303,11 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			diskName = v
 		case folderNameField:
 			folderName = v
+			if folderName != "" {
+				if err := isValidFolderName(folderName); err != nil {
+					return nil, status.Errorf(codes.InvalidArgument, "invalid folderName: %v", err)
+				}
+			}
 		case createFolderIfNotExistField:
 			createFolderIfNotExist = strings.EqualFold(v, trueValue)
 		case serverNameField:

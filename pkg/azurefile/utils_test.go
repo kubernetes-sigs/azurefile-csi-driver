@@ -1501,3 +1501,49 @@ func TestIsValidTokenFileName(t *testing.T) {
 		})
 	}
 }
+
+func TestIsValidFolderName(t *testing.T) {
+	tests := []struct {
+		name      string
+		folder    string
+		expectErr bool
+	}{
+		{name: "valid simple", folder: "myfolder", expectErr: false},
+		{name: "valid nested", folder: "a/b/c", expectErr: false},
+		{name: "valid with leading slash", folder: "/myfolder", expectErr: false},
+		{name: "valid with trailing slash", folder: "myfolder/", expectErr: false},
+		{name: "valid with pvc placeholder", folder: "${pvc.metadata.name}", expectErr: false},
+		{name: "empty string is allowed", folder: "", expectErr: false},
+		{name: "backslash", folder: "my\\folder", expectErr: true},
+		{name: "colon", folder: "my:folder", expectErr: true},
+		{name: "asterisk", folder: "my*folder", expectErr: true},
+		{name: "question mark", folder: "my?folder", expectErr: true},
+		{name: "double quote", folder: `my"folder`, expectErr: true},
+		{name: "less than", folder: "my<folder", expectErr: true},
+		{name: "greater than", folder: "my>folder", expectErr: true},
+		{name: "pipe", folder: "my|folder", expectErr: true},
+		{name: "control char", folder: "my\x01folder", expectErr: true},
+		{name: "dot dot segment", folder: "..", expectErr: true},
+		{name: "dot dot in path", folder: "a/../b", expectErr: true},
+		{name: "ends with period", folder: "folder.", expectErr: true},
+		{name: "ends with space", folder: "folder ", expectErr: true},
+		{name: "empty segment", folder: "a//b", expectErr: true},
+		{name: "nested segment ends with period", folder: "a/b./c", expectErr: true},
+		{name: "valid hyphen and underscore", folder: "my-folder_name", expectErr: false},
+		{name: "valid dots in middle", folder: "my.folder.name", expectErr: false},
+		{name: "valid single dot segment", folder: ".", expectErr: true},
+		{name: "reserved name CON is allowed", folder: "CON", expectErr: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := isValidFolderName(tc.folder)
+			if tc.expectErr && err == nil {
+				t.Fatalf("isValidFolderName(%q) expected error but got nil", tc.folder)
+			}
+			if !tc.expectErr && err != nil {
+				t.Fatalf("isValidFolderName(%q) unexpected error: %v", tc.folder, err)
+			}
+		})
+	}
+}
