@@ -1472,6 +1472,13 @@ func isKataNode(ctx context.Context, nodeID, confidentialContainerLabel string, 
 // createFolderIfNotExists creates a folder in Azure File Share if it doesn't already exist
 // This function handles nested paths by creating each directory level recursively
 func (d *Driver) createFolderIfNotExists(ctx context.Context, accountName, accountKey, fileShareName, folderName, storageEndpointSuffix string) error {
+	if accountName == "" {
+		return fmt.Errorf("accountName is empty")
+	}
+	if fileShareName == "" {
+		return fmt.Errorf("fileShareName is empty")
+	}
+
 	fileClient, err := newAzureFileClient(accountName, accountKey, storageEndpointSuffix)
 	if err != nil {
 		return fmt.Errorf("create Azure File client(%s) failed: %w", accountName, err)
