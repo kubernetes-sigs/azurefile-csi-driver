@@ -1473,11 +1473,14 @@ func isKataNode(ctx context.Context, nodeID, confidentialContainerLabel string, 
 func (d *Driver) createFolderIfNotExists(ctx context.Context, accountName, accountKey, fileShareName, folderName, storageEndpointSuffix string) error {
 	fileClient, err := newAzureFileClient(accountName, accountKey, storageEndpointSuffix)
 	if err != nil {
-		return fmt.Errorf("create Azure File client(%s) failed: %v", accountName, err)
+		return fmt.Errorf("create Azure File client(%s) failed: %w", accountName, err)
 	}
 	dc, ok := fileClient.(*azureFileDataplaneClient)
-	if !ok || dc.Client == nil {
-		return fmt.Errorf("create Azure File client(%s) failed: unexpected client type or nil client", accountName)
+	if !ok {
+		return fmt.Errorf("create Azure File client(%s) failed: expected *azureFileDataplaneClient but got %T", accountName, fileClient)
+	}
+	if dc.Client == nil {
+		return fmt.Errorf("create Azure File client(%s) failed: dataplane client is nil", accountName)
 	}
 
 	shareClient := dc.Client.NewShareClient(fileShareName)
