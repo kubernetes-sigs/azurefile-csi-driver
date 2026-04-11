@@ -1473,11 +1473,15 @@ func isKataNode(ctx context.Context, nodeID, confidentialContainerLabel string, 
 // This function handles nested paths by creating each directory level recursively
 func (d *Driver) createFolderIfNotExists(ctx context.Context, accountName, accountKey, fileShareName, folderName, storageEndpointSuffix string) error {
 	fileClient, err := newAzureFileClient(accountName, accountKey, storageEndpointSuffix)
-	if err != nil || fileClient.(*azureFileDataplaneClient).Client == nil {
+	if err != nil {
 		return fmt.Errorf("create Azure File client(%s) failed: %v", accountName, err)
 	}
+	dc, ok := fileClient.(*azureFileDataplaneClient)
+	if !ok || dc.Client == nil {
+		return fmt.Errorf("create Azure File client(%s) failed: unexpected client type or nil client", accountName)
+	}
 
-	shareClient := fileClient.(*azureFileDataplaneClient).Client.NewShareClient(fileShareName)
+	shareClient := dc.Client.NewShareClient(fileShareName)
 
 	// Performance optimization: First check if the complete directory structure already exists
 	// This is the most common case and avoids unnecessary recursive checking
@@ -1502,12 +1506,12 @@ func (d *Driver) createFolderIfNotExists(ctx context.Context, accountName, accou
 
 	// Build path incrementally and create each directory level
 	currentPath := ""
-	for i, component := range pathComponents {
+	for _, component := range pathComponents {
 		if component == "" {
 			continue // Skip empty components
 		}
 
-		if i > 0 {
+		if currentPath != "" {
 			currentPath += "/"
 		}
 		currentPath += component
