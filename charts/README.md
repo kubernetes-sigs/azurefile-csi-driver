@@ -124,6 +124,11 @@ The following table lists the configurable parameters of the latest Azure File C
 | `node.allowInlineVolumeKeyAccessWithIdentity`     | Whether allow accessing storage account key using cluster identity for inline volume          | `false`
 | `node.maxUnavailable`                             | `maxUnavailable` value of driver node daemonset                            | `1`
 | `node.livenessProbe.healthPort `                  | health check port for liveness probe                   | `29613` |
+| `node.nodeDriverRegistrar.healthPort`                        | health check port for node-driver-registrar liveness probe                                                 | `29617`                                                 |
+| `node.nodeDriverRegistrar.livenessProbe.initialDelaySeconds` | node-driver-registrar liveness probe initialDelaySeconds                                                   | `20`                                                    |
+| `node.nodeDriverRegistrar.livenessProbe.timeoutSeconds`      | node-driver-registrar liveness probe timeoutSeconds                                                        | `10`                                                    |
+| `node.nodeDriverRegistrar.livenessProbe.periodSeconds`       | node-driver-registrar liveness probe periodSeconds                                                         | `20`                                                     |
+| `node.nodeDriverRegistrar.livenessProbe.failureThreshold`    | node-driver-registrar liveness probe failureThreshold                                                      | `2`                                                     |
 | `node.logLevel`                                   | node driver log level                                                          |`5`                                                           |
 | `snapshot.enabled`                                | whether enable snapshot feature                            | `false`                                                        |
 | `snapshot.image.csiSnapshotter.repository`        | csi-snapshotter container image                               | `/oss/kubernetes-csi/csi-snapshotter`         |
