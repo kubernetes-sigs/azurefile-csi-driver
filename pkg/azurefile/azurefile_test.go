@@ -1949,7 +1949,16 @@ func TestCreateFolderIfNotExists(t *testing.T) {
 			fileShareName:         "testshare",
 			folderName:            "testfolder",
 			storageEndpointSuffix: "core.windows.net",
-			expectedError:         "create Azure File client",
+			expectedError:         "accountName is empty",
+		},
+		{
+			name:                  "Empty file share name",
+			accountName:           "testaccount",
+			accountKey:            base64.StdEncoding.EncodeToString([]byte("testkey")),
+			fileShareName:         "",
+			folderName:            "testfolder",
+			storageEndpointSuffix: "core.windows.net",
+			expectedError:         "fileShareName is empty",
 		},
 		{
 			name:                  "Invalid account key",
