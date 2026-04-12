@@ -443,6 +443,54 @@ func setCredentialCache(server, clientID, tenantID, tokenFile string) ([]byte, e
 	return cmd.CombinedOutput()
 }
 
+// invalidFolderNameChars contains characters not allowed in Azure file share folder names
+var invalidFolderNameChars = regexp.MustCompile(`[\\:*?"<>|]`)
+
+// isValidFolderName checks if a folder name is valid for Azure file share.
+// Empty folderName is allowed. Folder name may contain "/" as path separator for nested folders.
+// Each path segment must not contain \:*?"<>| or control characters,
+// must not be ".." (directory traversal), and must not end with a period or space.
+func isValidFolderName(folderName string) error {
+	if folderName == "" {
+		return nil
+	}
+
+	// reject null bytes early — they truncate C strings and are a path injection risk
+	if strings.ContainsRune(folderName, 0) {
+		return fmt.Errorf("folderName(%q) contains null byte which is not allowed", folderName)
+	}
+
+	segments := strings.Split(strings.Trim(folderName, "/"), "/")
+	for _, seg := range segments {
+		if seg == "" {
+			return fmt.Errorf("folderName contains empty path segment")
+		}
+
+		// ".." and "." are not allowed as path segments (directory traversal)
+		if seg == ".." || seg == "." {
+			return fmt.Errorf("folderName(%q) contains disallowed path segment %q", folderName, seg)
+		}
+
+		// check for invalid characters
+		if invalidFolderNameChars.MatchString(seg) {
+			return fmt.Errorf("folderName(%q) contains invalid character in segment %q, characters \\:*?\"<>| are not allowed", folderName, seg)
+		}
+
+		// check for control characters (0x00-0x1F)
+		for _, c := range seg {
+			if c >= 0x00 && c <= 0x1F {
+				return fmt.Errorf("folderName(%q) contains control character in segment %q", folderName, seg)
+			}
+		}
+
+		// must not end with period or space
+		if strings.HasSuffix(seg, ".") || strings.HasSuffix(seg, " ") {
+			return fmt.Errorf("folderName(%q) segment %q must not end with a period or space", folderName, seg)
+		}
+	}
+	return nil
+}
+
 // isValidTokenFileName checks if the token file name is valid
 // fileName should only contain alphanumeric characters, hyphens
 func isValidTokenFileName(fileName string) bool {
