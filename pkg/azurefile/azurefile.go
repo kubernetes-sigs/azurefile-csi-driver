@@ -1472,12 +1472,26 @@ func isKataNode(ctx context.Context, nodeID, confidentialContainerLabel string, 
 // createFolderIfNotExists creates a folder in Azure File Share if it doesn't already exist
 // This function handles nested paths by creating each directory level recursively
 func (d *Driver) createFolderIfNotExists(ctx context.Context, accountName, accountKey, fileShareName, folderName, storageEndpointSuffix string) error {
-	fileClient, err := newAzureFileClient(accountName, accountKey, storageEndpointSuffix)
-	if err != nil || fileClient.(*azureFileDataplaneClient).Client == nil {
-		return fmt.Errorf("create Azure File client(%s) failed: %v", accountName, err)
+	if accountName == "" {
+		return fmt.Errorf("accountName is empty")
+	}
+	if fileShareName == "" {
+		return fmt.Errorf("fileShareName is empty")
 	}
 
-	shareClient := fileClient.(*azureFileDataplaneClient).Client.NewShareClient(fileShareName)
+	fileClient, err := newAzureFileClient(accountName, accountKey, storageEndpointSuffix)
+	if err != nil {
+		return fmt.Errorf("create Azure File client(%s) failed: %w", accountName, err)
+	}
+	dc, ok := fileClient.(*azureFileDataplaneClient)
+	if !ok {
+		return fmt.Errorf("create Azure File client(%s) failed: expected *azureFileDataplaneClient but got %T", accountName, fileClient)
+	}
+	if dc.Client == nil {
+		return fmt.Errorf("create Azure File client(%s) failed: dataplane client is nil", accountName)
+	}
+
+	shareClient := dc.Client.NewShareClient(fileShareName)
 
 	// Performance optimization: First check if the complete directory structure already exists
 	// This is the most common case and avoids unnecessary recursive checking
@@ -1502,12 +1516,12 @@ func (d *Driver) createFolderIfNotExists(ctx context.Context, accountName, accou
 
 	// Build path incrementally and create each directory level
 	currentPath := ""
-	for i, component := range pathComponents {
+	for _, component := range pathComponents {
 		if component == "" {
 			continue // Skip empty components
 		}
 
-		if i > 0 {
+		if currentPath != "" {
 			currentPath += "/"
 		}
 		currentPath += component
