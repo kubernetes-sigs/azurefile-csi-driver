@@ -645,7 +645,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 		})
 	})
 	ginkgo.When("privateDNSZoneResourceGroup with private endpoint", func() {
-		ginkgo.It("should propagate into cloud-provider calls", func(ctx context.Context) {
+		ginkgo.It("should pass parameter validation", func(ctx context.Context) {
 			allParam := map[string]string{
 				networkEndpointTypeField:         "privateendpoint",
 				privateDNSZoneResourceGroupField: "dns-rg",
