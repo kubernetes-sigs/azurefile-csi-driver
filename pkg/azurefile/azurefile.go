@@ -157,6 +157,7 @@ const (
 	vhdSuffix                         = ".vhd"
 	metaDataNode                      = "node"
 	networkEndpointTypeField          = "networkendpointtype"
+	privateDNSZoneResourceGroupField  = "privatednszoneresourcegroup"
 	vnetResourceGroupField            = "vnetresourcegroup"
 	vnetNameField                     = "vnetname"
 	vnetLinkNameField                 = "vnetlinkname"
