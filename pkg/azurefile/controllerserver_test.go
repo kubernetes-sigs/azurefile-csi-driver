@@ -623,6 +623,58 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 			gomega.Expect(err).To(gomega.Equal(expectedErr))
 		})
 	})
+	ginkgo.When("privateDNSZoneResourceGroup without private endpoint", func() {
+		ginkgo.It("should fail", func(ctx context.Context) {
+			allParam := map[string]string{
+				privateDNSZoneResourceGroupField: "dns-rg",
+			}
+
+			req := &csi.CreateVolumeRequest{
+				Name:               "invalid-privateDNSZoneResourceGroup-without-private-endpoint",
+				CapacityRange:      stdCapRange,
+				VolumeCapabilities: stdVolCap,
+				Parameters:         allParam,
+			}
+			d.cloud = &storage.AccountRepo{
+				Config: config.Config{},
+			}
+
+			expectedErr := status.Errorf(codes.InvalidArgument, "%s(%s) is only supported with private endpoint", privateDNSZoneResourceGroupField, "dns-rg")
+			_, err := d.CreateVolume(ctx, req)
+			gomega.Expect(err).To(gomega.Equal(expectedErr))
+		})
+	})
+	ginkgo.When("privateDNSZoneResourceGroup with private endpoint", func() {
+		ginkgo.It("should pass parameter validation", func(ctx context.Context) {
+			allParam := map[string]string{
+				networkEndpointTypeField:         "privateendpoint",
+				privateDNSZoneResourceGroupField: "dns-rg",
+			}
+
+			fakeCloud := &storage.AccountRepo{
+				Config: config.Config{
+					ResourceGroup: "rg",
+					Location:      "loc",
+					VnetName:      "fake-vnet",
+					SubnetName:    "fake-subnet",
+				},
+			}
+
+			req := &csi.CreateVolumeRequest{
+				Name:               "valid-privateDNSZoneResourceGroup-with-private-endpoint",
+				CapacityRange:      stdCapRange,
+				VolumeCapabilities: stdVolCap,
+				Parameters:         allParam,
+			}
+			d.cloud = fakeCloud
+
+			// The request should get past parameter validation (no InvalidArgument error)
+			// and fail later in EnsureStorageAccount due to nil clientFactory
+			_, err := d.CreateVolume(ctx, req)
+			gomega.Expect(err).To(gomega.HaveOccurred())
+			gomega.Expect(err.Error()).To(gomega.ContainSubstring("failed to ensure storage account"))
+		})
+	})
 	ginkgo.When("Failed to update subnet service endpoints", func() {
 		ginkgo.It("should fail", func(ctx context.Context) {
 			allParam := map[string]string{
