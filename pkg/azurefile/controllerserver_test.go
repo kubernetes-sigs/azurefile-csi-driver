@@ -623,6 +623,27 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 			gomega.Expect(err).To(gomega.Equal(expectedErr))
 		})
 	})
+	ginkgo.When("privateDNSZoneResourceGroup without private endpoint", func() {
+		ginkgo.It("should fail", func(ctx context.Context) {
+			allParam := map[string]string{
+				privateDNSZoneResourceGroupField: "dns-rg",
+			}
+
+			req := &csi.CreateVolumeRequest{
+				Name:               "invalid-privateDNSZoneResourceGroup-without-private-endpoint",
+				CapacityRange:      stdCapRange,
+				VolumeCapabilities: stdVolCap,
+				Parameters:         allParam,
+			}
+			d.cloud = &storage.AccountRepo{
+				Config: config.Config{},
+			}
+
+			expectedErr := status.Errorf(codes.InvalidArgument, "%s(%s) is only supported with private endpoint", privateDNSZoneResourceGroupField, "dns-rg")
+			_, err := d.CreateVolume(ctx, req)
+			gomega.Expect(err).To(gomega.Equal(expectedErr))
+		})
+	})
 	ginkgo.When("Failed to update subnet service endpoints", func() {
 		ginkgo.It("should fail", func(ctx context.Context) {
 			allParam := map[string]string{

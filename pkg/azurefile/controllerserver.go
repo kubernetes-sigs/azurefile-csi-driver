@@ -121,7 +121,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	var sku, subsID, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
 	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, shareAccessTier, accountAccessTier, rootSquashType, tagValueDelimiter string
 	var createAccount, useSeretCache, matchTags, selectRandomMatchingAccount, getLatestAccountKey, encryptInTransit, mountWithManagedIdentity, mountWithWIToken bool
-	var vnetResourceGroup, vnetName, vnetLinkName, publicNetworkAccess, subnetName, shareNamePrefix, fsGroupChangePolicy, useDataPlaneAPI, privateDNSResourceGroup string
+	var vnetResourceGroup, vnetName, vnetLinkName, publicNetworkAccess, subnetName, shareNamePrefix, fsGroupChangePolicy, useDataPlaneAPI, privateDNSZoneResourceGroup string
 	var requireInfraEncryption, disableDeleteRetentionPolicy, enableLFS, isMultichannelEnabled, allowSharedKeyAccess, allowCrossTenantReplication *bool
 	var provisionedBandwidthMibps, provisionedIops *int32
 	// set allowBlobPublicAccess as false by default
@@ -203,8 +203,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			storageEndpointSuffix = v
 		case networkEndpointTypeField:
 			networkEndpointType = v
-		case privateDNSResourceGroupField:
-			privateDNSResourceGroup = v
+		case privateDNSZoneResourceGroupField:
+			privateDNSZoneResourceGroup = v
 		case accessTierField:
 			shareAccessTier = v
 		case shareAccessTierField:
@@ -397,8 +397,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 		createPrivateEndpoint = ptr.To(true)
 	} else {
-		if privateDNSResourceGroup != "" {
-			return nil, status.Errorf(codes.InvalidArgument, "privateDNSResourceGroup(%s) is only supported with private endpoint", privateDNSResourceGroup)
+		if privateDNSZoneResourceGroup != "" {
+			return nil, status.Errorf(codes.InvalidArgument, "%s(%s) is only supported with private endpoint", privateDNSZoneResourceGroupField, privateDNSZoneResourceGroup)
 		}
 	}
 	var vnetResourceIDs []string
@@ -579,7 +579,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		VirtualNetworkResourceIDs:               vnetResourceIDs,
 		CreateAccount:                           createAccount,
 		CreatePrivateEndpoint:                   createPrivateEndpoint,
-		PrivateDNSZoneResourceGroup:             privateDNSResourceGroup,
+		PrivateDNSZoneResourceGroup:             privateDNSZoneResourceGroup,
 		EnableLargeFileShare:                    enableLFS,
 		DisableFileServiceDeleteRetentionPolicy: disableDeleteRetentionPolicy,
 		AllowBlobPublicAccess:                   allowBlobPublicAccess,
