@@ -612,7 +612,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		if v, ok := d.volMap.Load(volName); ok {
 			accountName = v.(string)
 		} else {
-			lockKey = fmt.Sprintf("%s%s%s%s%s%s%s%v%v%v%v%v%v%v", sku, accountKind, resourceGroup, location, protocol, subsID, accountAccessTier,
+			lockKey = fmt.Sprintf("%s%s%s%s%s%s%s%s%v%v%v%v%v%v%v", sku, accountKind, resourceGroup, location, protocol, subsID, accountAccessTier, privateDNSZoneResourceGroup,
 				ptr.Deref(createPrivateEndpoint, false), ptr.Deref(allowBlobPublicAccess, false), ptr.Deref(requireInfraEncryption, false),
 				ptr.Deref(enableLFS, false), ptr.Deref(disableDeleteRetentionPolicy, false),
 				ptr.Deref(allowCrossTenantReplication, true), ptr.Deref(allowSharedKeyAccess, true))
