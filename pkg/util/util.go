@@ -98,7 +98,7 @@ type Azcopy struct {
 }
 
 // GetAzcopyJob get the azcopy job status if job existed
-func (ac *Azcopy) GetAzcopyJob(dstFileshare string, authAzcopyEnv []string) (AzcopyJobState, string, error) {
+func (ac *Azcopy) GetAzcopyJob(dstFileshare string, authAzcopyEnv []string) (AzcopyJobState, string, string, error) {
 	cmdStr := fmt.Sprintf("azcopy jobs list | grep %s -B 3", dstFileshare)
 	// cmd output example:
 	// JobId: ed1c3833-eaff-fe42-71d7-513fb065a9d9
@@ -114,18 +114,18 @@ func (ac *Azcopy) GetAzcopyJob(dstFileshare string, authAzcopyEnv []string) (Azc
 	// if grep command returns nothing, the exec will return exit status 1 error, so filter this error
 	if err != nil && err.Error() != "exit status 1" {
 		klog.Warningf("failed to get azcopy job with error: %v, jobState: %v", err, AzcopyJobError)
-		return AzcopyJobError, "", fmt.Errorf("couldn't list jobs in azcopy %v", err)
+		return AzcopyJobError, "", "", fmt.Errorf("couldn't list jobs in azcopy %v", err)
 	}
 	jobid, jobState, err := parseAzcopyJobList(out)
 	if err != nil || jobState == AzcopyJobError {
 		klog.Warningf("failed to get azcopy job with error: %v, jobState: %v", err, jobState)
-		return AzcopyJobError, "", fmt.Errorf("couldn't parse azcopy job list in azcopy %v", err)
+		return AzcopyJobError, "", jobid, fmt.Errorf("couldn't parse azcopy job list in azcopy %v", err)
 	}
 	if jobState == AzcopyJobCompleted || jobState == AzcopyJobCompletedWithErrors || jobState == AzcopyJobCompletedWithSkipped || jobState == AzcopyJobCompletedWithErrorsAndSkipped {
-		return jobState, "100.0", err
+		return jobState, "100.0", jobid, err
 	}
 	if jobid == "" {
-		return jobState, "", err
+		return jobState, "", jobid, err
 	}
 	cmdPercentStr := fmt.Sprintf("azcopy jobs show %s | grep Percent", jobid)
 	// cmd out example:
@@ -133,14 +133,14 @@ func (ac *Azcopy) GetAzcopyJob(dstFileshare string, authAzcopyEnv []string) (Azc
 	summary, err := ac.ExecCmd.RunCommand(cmdPercentStr, authAzcopyEnv)
 	if err != nil {
 		klog.Warningf("failed to get azcopy job with error: %v, jobState: %v", err, AzcopyJobError)
-		return AzcopyJobError, "", fmt.Errorf("couldn't show jobs summary in azcopy %v", err)
+		return AzcopyJobError, "", jobid, fmt.Errorf("couldn't show jobs summary in azcopy %v", err)
 	}
 	jobState, percent, err := parseAzcopyJobShow(summary)
 	if err != nil || jobState == AzcopyJobError {
 		klog.Warningf("failed to get azcopy job with error: %v, jobState: %v", err, jobState)
-		return AzcopyJobError, "", fmt.Errorf("couldn't parse azcopy job show in azcopy %v", err)
+		return AzcopyJobError, "", jobid, fmt.Errorf("couldn't parse azcopy job show in azcopy %v", err)
 	}
-	return jobState, percent, nil
+	return jobState, percent, jobid, nil
 }
 
 func (ac *Azcopy) CleanJobs() (string, error) {
