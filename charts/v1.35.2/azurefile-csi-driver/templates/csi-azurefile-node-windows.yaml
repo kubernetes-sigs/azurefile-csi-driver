@@ -172,7 +172,7 @@ spec:
                   fieldPath: spec.nodeName
             - name: AZURE_GO_SDK_LOG_LEVEL
               value: {{ .Values.driver.azureGoSDKLogLevel }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ .Values.image.azurefile.pullPolicy }}
           volumeMounts:
             - name: kubelet-dir
               mountPath: "C:\\var\\lib\\kubelet"

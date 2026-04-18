@@ -71,7 +71,7 @@ spec:
 {{- else }}
           image: "{{ .Values.image.azurefile.repository }}:{{ .Values.image.azurefile.tag }}-windows-hp"
 {{- end }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ .Values.image.azurefile.pullPolicy }}
           command:
             - "powershell.exe"
             - "-c"
@@ -155,7 +155,7 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ .Values.image.azurefile.pullPolicy }}
           resources: {{- toYaml .Values.windows.resources.azurefile | nindent 12 }}
           securityContext:
             capabilities:
