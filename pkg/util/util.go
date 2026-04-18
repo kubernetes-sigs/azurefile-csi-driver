@@ -41,6 +41,7 @@ const (
 	AzcopyJobCompletedWithErrors           AzcopyJobState = "CompletedWithErrors"
 	AzcopyJobCompletedWithSkipped          AzcopyJobState = "CompletedWithSkipped"
 	AzcopyJobCompletedWithErrorsAndSkipped AzcopyJobState = "CompletedWithErrorsAndSkipped"
+	AzcopyMultipleJobsFound                AzcopyJobState = "MultipleJobsFound"
 )
 
 // RoundUpBytes rounds up the volume size in bytes up to multiplications of GiB
@@ -154,9 +155,16 @@ func parseAzcopyJobList(joblist string) (string, AzcopyJobState, error) {
 	if len(jobSegments) < 2 {
 		return jobid, AzcopyJobNotFound, nil
 	}
+	// If there are multiple jobs just return error
+	if len(jobSegments) > 2 {
+		return jobid, AzcopyMultipleJobsFound, fmt.Errorf("multiple copy jobs found ")
+	}
 	jobSegments = jobSegments[1:]
 	for _, job := range jobSegments {
 		segments := strings.Split(job, "\n")
+		if jobid == "" {
+			jobid = segments[0]
+		}
 		if len(segments) < 4 {
 			return jobid, AzcopyJobError, fmt.Errorf("error parsing jobs list: %s", job)
 		}

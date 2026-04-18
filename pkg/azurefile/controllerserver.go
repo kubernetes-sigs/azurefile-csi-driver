@@ -1234,6 +1234,9 @@ func (d *Driver) copyFileShareByAzcopy(ctx context.Context, srcFileShareName, ds
 	klog.V(2).Infof("azcopy job status: %s, copy percent: %s%%, jobid: %s, error: %v", jobState, percent, jobid, err)
 
 	switch jobState {
+	case util.AzcopyMultipleJobsFound:
+		klog.Warningf("Multiple copy job exist for copy of fileshare %s to %s", srcFileShareName, dstFileShareName)
+		return err
 	case util.AzcopyJobCompleted:
 		klog.V(2).Infof("Already copied fileshare %s to %s successfully", srcFileShareName, dstFileShareName)
 		return err
@@ -1264,8 +1267,10 @@ func (d *Driver) copyFileShareByAzcopy(ctx context.Context, srcFileShareName, ds
 			}
 			if jobState == util.AzcopyJobRunning {
 				return false, nil
+			} else if jobState == util.AzcopyJobCompleted {
+				return true, nil
 			}
-			return true, nil
+			return true, fmt.Errorf("copy job in unexpected status: %s", jobState)
 		})
 	case util.AzcopyJobNotFound:
 		klog.V(2).Infof("copy fileshare %s:%s to %s:%s", srcAccountName, srcFileShareName, dstAccountName, dstFileShareName)
