@@ -4,6 +4,6 @@
 >  - please use helm install method for more customization, e.g. Azure Stack, RedHat OpenShift support.
 
  - [install CSI driver master version](./install-csi-driver-master.md)(only for testing purpose)
- - [install v1.35.1 CSI driver](./install-csi-driver-v1.35.1.md)
- - [install v1.34.4 CSI driver](./install-csi-driver-v1.34.4.md)
- - [install v1.33.8 CSI driver](./install-csi-driver-v1.33.8.md)
+ - [install v1.35.2 CSI driver](./install-csi-driver-v1.35.2.md)
+ - [install v1.34.5 CSI driver](./install-csi-driver-v1.34.5.md)
+ - [install v1.33.9 CSI driver](./install-csi-driver-v1.33.9.md)

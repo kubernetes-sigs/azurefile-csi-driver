@@ -21,9 +21,9 @@ This driver allows Kubernetes to access [Azure File](https://docs.microsoft.com/
 | Driver Version | Image                                                            | Supported K8s Version |
 |----------------|------------------------------------------------------------------|-----------------------|
 | master branch  | `mcr.microsoft.com/k8s/csi/azurefile-csi:latest`                | 1.21+                 |
-| v1.35.1        | `mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.35.1` | 1.21+                 |
-| v1.34.4        | `mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.34.4` | 1.21+                 |
-| v1.33.8        | `mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.33.8` | 1.21+                 |
+| v1.35.2        | `mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.35.2` | 1.21+                 |
+| v1.34.5        | `mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.34.5` | 1.21+                 |
+| v1.33.9        | `mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.33.9` | 1.21+                 |
 
 ## Driver Parameters
 
