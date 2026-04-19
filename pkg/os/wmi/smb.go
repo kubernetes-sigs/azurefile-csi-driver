@@ -17,25 +17,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cim
+package wmi
 
 import (
+	"fmt"
 	"strings"
+)
 
-	"github.com/microsoft/wmi/pkg/base/query"
-	cim "github.com/microsoft/wmi/pkg/wmiinstance"
+const (
+	MSFTSmbGlobalMappingClass = "MSFT_SmbGlobalMapping"
 )
 
 // Refer to https://learn.microsoft.com/en-us/previous-versions/windows/desktop/smb/msft-smbmapping
 const (
-	SmbMappingStatusOK int32 = iota
+	SmbMappingStatusOK uint32 = iota
 	SmbMappingStatusPaused
 	SmbMappingStatusDisconnected
 	SmbMappingStatusNetworkError
 	SmbMappingStatusConnecting
 	SmbMappingStatusReconnecting
 	SmbMappingStatusUnavailable
+)
 
+const (
 	credentialDelimiter = ":"
 )
 
@@ -61,46 +65,58 @@ func escapeUserName(userName string) string {
 //
 // Refer to https://pkg.go.dev/github.com/microsoft/wmi/server2019/root/microsoft/windows/smb#MSFT_SmbGlobalMapping
 // for the WMI class definition.
-func QuerySmbGlobalMappingByRemotePath(remotePath string) (*cim.WmiInstance, error) {
-	smbQuery := query.NewWmiQuery("MSFT_SmbGlobalMapping", "RemotePath", escapeQueryParameter(remotePath))
-	instances, err := QueryInstances(WMINamespaceSmb, smbQuery)
+func QuerySmbGlobalMappingByRemotePath(scope *Scope, remotePath string) (*COMDispatchObject, error) {
+	q := NewQuery(MSFTSmbGlobalMappingClass).
+		WithNamespace(WMINamespaceSmb).
+		WithCondition("RemotePath", "=", escapeQueryParameter(remotePath))
+
+	smb, err := QueryFirstObjectWithBuilder(scope, q)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to query SMB global mapping by remote path %s: %w", remotePath, err)
 	}
 
-	return instances[0], err
+	return smb, nil
 }
 
 // GetSmbGlobalMappingStatus returns the status of an SMB global mapping.
-func GetSmbGlobalMappingStatus(inst *cim.WmiInstance) (int32, error) {
-	statusProp, err := inst.GetProperty("Status")
+func GetSmbGlobalMappingStatus(smb *COMDispatchObject) (uint32, error) {
+	statusProp, err := smb.GetProperty("Status")
 	if err != nil {
-		return SmbMappingStatusUnavailable, err
+		return SmbMappingStatusUnavailable, fmt.Errorf("failed to get SMB global mapping status %v. error: %w", smb, err)
 	}
 
-	return statusProp.(int32), nil
+	return NewSafeVariant(statusProp).Uint32(), nil
 }
 
 // RemoveSmbGlobalMappingByRemotePath removes an SMB global mapping matching to the remote path.
 //
 // Refer to https://pkg.go.dev/github.com/microsoft/wmi/server2019/root/microsoft/windows/smb#MSFT_SmbGlobalMapping
 // for the WMI class definition.
-func RemoveSmbGlobalMappingByRemotePath(remotePath string) error {
-	smbQuery := query.NewWmiQuery("MSFT_SmbGlobalMapping", "RemotePath", escapeQueryParameter(remotePath))
-	instances, err := QueryInstances(WMINamespaceSmb, smbQuery)
+func RemoveSmbGlobalMappingByRemotePath(scope *Scope, remotePath string) error {
+	q := NewQuery(MSFTSmbGlobalMappingClass).
+		WithNamespace(WMINamespaceSmb).
+		WithCondition("RemotePath", "=", escapeQueryParameter(remotePath))
+
+	smb, err := QueryFirstObjectWithBuilder(scope, q)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to query SMB global mapping by remote path %s: %w", remotePath, err)
 	}
 
-	_, err = instances[0].InvokeMethod("Remove", true)
-	return err
+	result, err := smb.CallUint32("Remove", true)
+	if err != nil {
+		return fmt.Errorf("failed to remove SMB global mapping by remote path %s: %w", remotePath, err)
+	}
+	if result != 0 {
+		return NewWMIError(MSFTSmbGlobalMappingClass, "Remove", smb.Dispatch(), result)
+	}
+	return nil
 }
 
 // NewSmbGlobalMapping creates a new SMB global mapping to the remote path.
 //
 // Refer to https://pkg.go.dev/github.com/microsoft/wmi/server2019/root/microsoft/windows/smb#MSFT_SmbGlobalMapping
 // for the WMI class definition.
-func NewSmbGlobalMapping(remotePath, username, password string, requirePrivacy bool) (int, error) {
+func NewSmbGlobalMapping(remotePath, username, password string, requirePrivacy bool) error {
 	params := map[string]interface{}{
 		"RemotePath":     remotePath,
 		"RequirePrivacy": requirePrivacy,
@@ -111,6 +127,12 @@ func NewSmbGlobalMapping(remotePath, username, password string, requirePrivacy b
 		params["Credential"] = escapeUserName(username) + credentialDelimiter + password
 	}
 
-	result, _, err := InvokeCimMethod(WMINamespaceSmb, "MSFT_SmbGlobalMapping", "Create", params)
-	return result, err
+	result, _, err := CallMethodOnWMIClass(WMINamespaceSmb, MSFTSmbGlobalMappingClass, "Create", params, DiscardOutputParameter)
+	if err != nil {
+		return fmt.Errorf("failed to create SMB global mapping: %w", err)
+	}
+	if result != 0 {
+		return NewWMIError(MSFTSmbGlobalMappingClass, "Create", nil, result)
+	}
+	return nil
 }
