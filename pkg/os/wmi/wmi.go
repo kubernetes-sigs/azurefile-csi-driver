@@ -191,6 +191,39 @@ func formatValue(v any) string {
 // that error is returned by WithCOMThread.
 func WithCOMThread(fn func() error) error {
 	runtime.LockOSThread()
+
+// RPC_E_TOO_LATE is returned when CoInitializeSecurity has already been called.
+const rpcETooLate = 0x80010119
+
+var (
+	modole32               = windows.NewLazySystemDLL("ole32.dll")
+	procCoInitializeSecurity = modole32.NewProc("CoInitializeSecurity")
+)
+
+// initializeSecurity calls CoInitializeSecurity with default settings.
+// It is safe to call multiple times; RPC_E_TOO_LATE is suppressed.
+func initializeSecurity() error {
+	// CoInitializeSecurity(pSecDesc, cAuthSvc, asAuthSvc, pReserved1,
+	//   dwAuthnLevel, dwImpLevel, pAuthList, dwCapabilities, pReserved3)
+	hr, _, _ := procCoInitializeSecurity.Call(
+		0,                         // pSecDesc
+		uintptr(0xFFFFFFFF),       // cAuthSvc = -1 (COM negotiate)
+		0,                         // asAuthSvc
+		0,                         // pReserved1
+		0,                         // RPC_C_AUTHN_LEVEL_DEFAULT
+		3,                         // RPC_C_IMP_LEVEL_IMPERSONATE
+		0,                         // pAuthList
+		0,                         // dwCapabilities
+		0,                         // pReserved3
+	)
+	if hr != 0 {
+		if hr == rpcETooLate {
+			return nil
+		}
+		return fmt.Errorf("CoInitializeSecurity failed: HRESULT 0x%08x", hr)
+	}
+	return nil
+}
 	defer runtime.UnlockOSThread()
 
 	if err := ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED); err != nil {
@@ -206,6 +239,13 @@ func WithCOMThread(fn func() error) error {
 		klog.V(10).Infof("COM library is initialized for the calling thread")
 	}
 	defer ole.CoUninitialize()
+
+	// Initialize COM security. RPC_C_IMP_LEVEL_IMPERSONATE allows WMI
+	// to impersonate the caller, which is required for most WMI/DCOM operations.
+	// Ignore RPC_E_TOO_LATE (0x80010119) if security was already initialized.
+	if err := initializeSecurity(); err != nil {
+		klog.V(4).Infof("CoInitializeSecurity failed (non-fatal): %v", err)
+	}
 
 	return fn()
 }
@@ -233,7 +273,6 @@ func WithWMIService(namespace string, fn func(*ole.IDispatch) error) error {
 	}
 	defer serviceRaw.Clear()
 	service := serviceRaw.ToIDispatch()
-	defer service.Release()
 
 	return fn(service)
 }
@@ -248,7 +287,6 @@ func Query(namespace, query string, fn func(item *ole.IDispatch) error) error {
 		}
 		defer resultRaw.Clear()
 		result := resultRaw.ToIDispatch()
-		defer result.Release()
 
 		countVar, err := oleutil.GetProperty(result, "Count")
 		if err != nil {
@@ -377,7 +415,6 @@ func CallMethodOnWMIClass(namespace, class, methodName string, input map[string]
 		}
 		defer classRaw.Clear()
 		classInst := classRaw.ToIDispatch()
-		defer classInst.Release()
 
 		methodsRaw, err := oleutil.GetProperty(classInst, "Methods_")
 		if err != nil {

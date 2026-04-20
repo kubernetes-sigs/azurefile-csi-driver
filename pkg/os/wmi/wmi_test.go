@@ -49,7 +49,7 @@ func TestQueryBuilderBuild(t *testing.T) {
 		{
 			name:     "select specific fields",
 			builder:  NewQuery("MSFT_Disk").Select("Number", "Size"),
-			expected: "SELECT Number,Size FROM MSFT_Disk",
+			expected: "SELECT Number, Size FROM MSFT_Disk",
 		},
 		{
 			name:     "with condition string",
