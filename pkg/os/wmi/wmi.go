@@ -191,25 +191,19 @@ func formatValue(v any) string {
 const rpcETooLate = 0x80010119
 
 var (
-	modole32                = windows.NewLazySystemDLL("ole32.dll")
-	procCoInitializeSecurity = modole32.NewProc("CoInitializeSecurity")
+	modole32			= windows.NewLazySystemDLL("ole32.dll")
+	procCoInitializeSecurity	= modole32.NewProc("CoInitializeSecurity")
 )
 
 // initializeSecurity calls CoInitializeSecurity with default settings.
 // It is safe to call multiple times; RPC_E_TOO_LATE is suppressed.
 func initializeSecurity() error {
-	// CoInitializeSecurity(pSecDesc, cAuthSvc, asAuthSvc, pReserved1,
-	//   dwAuthnLevel, dwImpLevel, pAuthList, dwCapabilities, pReserved3)
+	// Call CoInitializeSecurity with:
+	// pSecDesc=nil, cAuthSvc=-1(negotiate), asAuthSvc=nil, pReserved1=nil,
+	// dwAuthnLevel=DEFAULT(0), dwImpLevel=IMPERSONATE(3),
+	// pAuthList=nil, dwCapabilities=0, pReserved3=nil
 	hr, _, _ := procCoInitializeSecurity.Call(
-		0, // pSecDesc
-		uintptr(0xFFFFFFFF), // cAuthSvc = -1 (COM negotiate)
-		0, // asAuthSvc
-		0, // pReserved1
-		0, // RPC_C_AUTHN_LEVEL_DEFAULT
-		3, // RPC_C_IMP_LEVEL_IMPERSONATE
-		0, // pAuthList
-		0, // dwCapabilities
-		0, // pReserved3
+		0, uintptr(0xFFFFFFFF), 0, 0, 0, 3, 0, 0, 0,
 	)
 	if hr != 0 {
 		if hr == rpcETooLate {
