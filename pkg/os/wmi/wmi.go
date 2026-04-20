@@ -191,7 +191,7 @@ func formatValue(v any) string {
 const rpcETooLate = 0x80010119
 
 var (
-	modole32                = windows.NewLazySystemDLL("ole32.dll")
+	modole32                 = windows.NewLazySystemDLL("ole32.dll")
 	procCoInitializeSecurity = modole32.NewProc("CoInitializeSecurity")
 )
 
