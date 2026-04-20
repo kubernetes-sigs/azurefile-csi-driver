@@ -231,6 +231,7 @@ func WithWMIService(namespace string, fn func(*ole.IDispatch) error) error {
 	if err != nil {
 		return err
 	}
+	defer serviceRaw.Clear()
 	service := serviceRaw.ToIDispatch()
 	defer service.Release()
 
@@ -245,6 +246,7 @@ func Query(namespace, query string, fn func(item *ole.IDispatch) error) error {
 			klog.V(4).Infof("ExecQuery: (namespace: %s, query: %s), error: %v", namespace, query, err)
 			return err
 		}
+		defer resultRaw.Clear()
 		result := resultRaw.ToIDispatch()
 		defer result.Release()
 
@@ -252,6 +254,7 @@ func Query(namespace, query string, fn func(item *ole.IDispatch) error) error {
 		if err != nil {
 			return err
 		}
+		defer countVar.Clear()
 		count := NewSafeVariant(countVar).Int()
 		klog.V(10).Infof("ExecQuery: (namespace: %s, query: %s) -> count: %d", namespace, query, count)
 
@@ -372,6 +375,7 @@ func CallMethodOnWMIClass(namespace, class, methodName string, input map[string]
 		if err != nil {
 			return fmt.Errorf("get class %s failed: %w", class, err)
 		}
+		defer classRaw.Clear()
 		classInst := classRaw.ToIDispatch()
 		defer classInst.Release()
 
@@ -744,7 +748,7 @@ func WithScope(fn func(*Scope) error) error {
 type WMIError struct {
 	Method  string
 	Class   string
-	Target  *ole.IDispatch
+	Target  string
 	Code    uint32
 	Details string
 }
@@ -754,7 +758,7 @@ func NewWMIError(class, method string, target *ole.IDispatch, code uint32) *WMIE
 	return &WMIError{
 		Class:  class,
 		Method: method,
-		Target: target,
+		Target: fmt.Sprintf("%v", target),
 		Code:   code,
 	}
 }
