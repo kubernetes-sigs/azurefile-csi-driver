@@ -43,13 +43,6 @@ const (
 	credentialDelimiter = ":"
 )
 
-// escapeQueryParameter escapes a parameter for WMI Queries
-func escapeQueryParameter(s string) string {
-	s = strings.ReplaceAll(s, "'", "''")
-	s = strings.ReplaceAll(s, "\\", "\\\\")
-	return s
-}
-
 func escapeUserName(userName string) string {
 	// refer to https://github.com/PowerShell/PowerShell/blob/9303de597da55963a6e26a8fe164d0b256ca3d4d/src/Microsoft.PowerShell.Commands.Management/cimSupport/cmdletization/cim/cimConverter.cs#L169-L170
 	userName = strings.ReplaceAll(userName, "\\", "\\\\")
@@ -68,7 +61,7 @@ func escapeUserName(userName string) string {
 func QuerySmbGlobalMappingByRemotePath(scope *Scope, remotePath string) (*COMDispatchObject, error) {
 	q := NewQuery(MSFTSmbGlobalMappingClass).
 		WithNamespace(WMINamespaceSmb).
-		WithCondition("RemotePath", "=", escapeQueryParameter(remotePath))
+		WithCondition("RemotePath", "=", remotePath)
 
 	smb, err := QueryFirstObjectWithBuilder(scope, q)
 	if err != nil {
@@ -95,7 +88,7 @@ func GetSmbGlobalMappingStatus(smb *COMDispatchObject) (uint32, error) {
 func RemoveSmbGlobalMappingByRemotePath(scope *Scope, remotePath string) error {
 	q := NewQuery(MSFTSmbGlobalMappingClass).
 		WithNamespace(WMINamespaceSmb).
-		WithCondition("RemotePath", "=", escapeQueryParameter(remotePath))
+		WithCondition("RemotePath", "=", remotePath)
 
 	smb, err := QueryFirstObjectWithBuilder(scope, q)
 	if err != nil {

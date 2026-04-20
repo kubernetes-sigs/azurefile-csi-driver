@@ -155,7 +155,10 @@ func formatValue(v any) string {
 	switch x := v.(type) {
 
 	case string:
-		return "'" + strings.ReplaceAll(x, "'", "\\'") + "'"
+		// WQL escaping: double single quotes and escape backslashes
+		escaped := strings.ReplaceAll(x, "'", "''")
+		escaped = strings.ReplaceAll(escaped, "\\", "\\\\")
+		return "'" + escaped + "'"
 
 	case int, int32, int64, uint, uint32, uint64:
 		return fmt.Sprintf("%v", x)
@@ -259,7 +262,7 @@ func Query(namespace, query string, fn func(item *ole.IDispatch) error) error {
 		for i := 0; i < count; i++ {
 			itemRaw, err := oleutil.CallMethod(result, "ItemIndex", i)
 			if err != nil {
-				continue
+				return fmt.Errorf("wmi query item retrieval failed (namespace: %s, query: %s, index: %d): %w", namespace, query, i, err)
 			}
 
 			err = func() error {
@@ -403,9 +406,11 @@ func CallMethodOnWMIClass(namespace, class, methodName string, input map[string]
 				inParamsInst := inParamsInstRaw.ToIDispatch()
 
 				for k, v := range input {
-					if _, err := oleutil.PutProperty(inParamsInst, k, v); err != nil {
+					putResult, err := oleutil.PutProperty(inParamsInst, k, v)
+					if err != nil {
 						return fmt.Errorf("set param %s failed: %w", k, err)
 					}
+					putResult.Clear()
 				}
 
 				params = append(params, inParamsInst)
