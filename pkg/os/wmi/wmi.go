@@ -201,15 +201,15 @@ func initializeSecurity() error {
 	// CoInitializeSecurity(pSecDesc, cAuthSvc, asAuthSvc, pReserved1,
 	//   dwAuthnLevel, dwImpLevel, pAuthList, dwCapabilities, pReserved3)
 	hr, _, _ := procCoInitializeSecurity.Call(
-		0,                    // pSecDesc
+		0, // pSecDesc
 		uintptr(0xFFFFFFFF), // cAuthSvc = -1 (COM negotiate)
-		0,                    // asAuthSvc
-		0,                    // pReserved1
-		0,                    // RPC_C_AUTHN_LEVEL_DEFAULT
-		3,                    // RPC_C_IMP_LEVEL_IMPERSONATE
-		0,                    // pAuthList
-		0,                    // dwCapabilities
-		0,                    // pReserved3
+		0, // asAuthSvc
+		0, // pReserved1
+		0, // RPC_C_AUTHN_LEVEL_DEFAULT
+		3, // RPC_C_IMP_LEVEL_IMPERSONATE
+		0, // pAuthList
+		0, // dwCapabilities
+		0, // pReserved3
 	)
 	if hr != 0 {
 		if hr == rpcETooLate {
