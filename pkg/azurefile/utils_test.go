@@ -1480,7 +1480,7 @@ func TestSetCredentialCache(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		_, err := setCredentialCache(test.server, test.clientID, test.tenantID, test.tokenFile)
+		_, err := setCredentialCache(test.server, test.clientID, test.tenantID, test.tokenFile, "")
 		if test.expectedError != "" {
 			if err == nil {
 				t.Errorf("test[%s]: expected error containing %q, got nil", test.desc, test.expectedError)
@@ -1490,6 +1490,45 @@ func TestSetCredentialCache(t *testing.T) {
 		}
 		// Note: We don't test successful execution as it requires azfilesauthmanager binary
 		// The actual command execution will fail, but we've validated the argument construction
+	}
+
+	// Test direct token mode
+	tokenTests := []struct {
+		desc          string
+		server        string
+		token         string
+		expectedError string
+	}{
+		{
+			desc:          "token mode: empty server",
+			server:        "",
+			token:         "test-oauth-token",
+			expectedError: "server must be provided",
+		},
+		{
+			desc:          "token mode: valid token bypasses clientID check",
+			server:        "test.file.core.windows.net",
+			token:         "test-oauth-token",
+			expectedError: "", // Will fail due to missing azfilesauthmanager, but must NOT fail with clientID/tenantID error
+		},
+	}
+
+	for _, test := range tokenTests {
+		_, err := setCredentialCache(test.server, "", "", "", test.token)
+		if test.expectedError != "" {
+			if err == nil {
+				t.Errorf("test[%s]: expected error containing %q, got nil", test.desc, test.expectedError)
+			} else if !strings.Contains(err.Error(), test.expectedError) {
+				t.Errorf("test[%s]: expected error containing %q, got %v", test.desc, test.expectedError, err)
+			}
+		} else if err != nil {
+			// Token mode should not return clientID/tenantID validation errors
+			errMsg := err.Error()
+			if strings.Contains(errMsg, "clientID must be provided") || strings.Contains(errMsg, "tenantID must be provided") {
+				t.Errorf("test[%s]: token mode should bypass clientID/tenantID validation, got: %v", test.desc, err)
+			}
+			// Other errors (e.g., azfilesauthmanager not found) are expected in test environment
+		}
 	}
 }
 
