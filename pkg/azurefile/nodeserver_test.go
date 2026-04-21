@@ -829,7 +829,7 @@ func TestNodeStageVolume(t *testing.T) {
 			},
 		},
 		{
-			desc: "[Error] mountWithManagedIdentity and mountWithWIToken cannot be both true",
+			desc: "[Error] only one of mountWithManagedIdentity, mountWithOAuthToken, and mountWithWorkloadIdentityToken can be true",
 			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
 				VolumeCapability: &stdVolCap,
 				VolumeContext: map[string]string{
@@ -841,7 +841,55 @@ func TestNodeStageVolume(t *testing.T) {
 				},
 				Secrets: secrets},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.InvalidArgument, "mountWithManagedIdentity and mountWithWIToken cannot be both true"),
+				DefaultError: status.Error(codes.InvalidArgument, "only one of mountWithManagedIdentity, mountWithOAuthToken, and mountWithWorkloadIdentityToken can be true"),
+			},
+		},
+		{
+			desc: "[Error] mountWithOAuthToken not supported with NFS",
+			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					shareNameField:           "test_sharename",
+					storageAccountField:      "test_accountname",
+					mountWithOAuthTokenField: "true",
+					protocolField:            "nfs",
+				},
+				Secrets: secrets},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "mountWithOAuthToken is not supported with NFS protocol"),
+				WindowsError: status.Error(codes.InvalidArgument, "mountWithOAuthToken is not supported on Windows"),
+			},
+		},
+		{
+			desc: "[Error] mountWithOAuthToken missing secretName",
+			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					shareNameField:           "test_sharename",
+					storageAccountField:      "test_accountname",
+					mountWithOAuthTokenField: "true",
+				},
+				Secrets: secrets},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "secretName is required when mountWithOAuthToken is true"),
+				WindowsError: status.Error(codes.InvalidArgument, "mountWithOAuthToken is not supported on Windows"),
+			},
+		},
+		{
+			desc: "[Error] mountWithOAuthToken with createFolderIfNotExist",
+			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					shareNameField:              "test_sharename",
+					storageAccountField:         "test_accountname",
+					mountWithOAuthTokenField:    "true",
+					secretNameField:             "test-secret",
+					createFolderIfNotExistField: "true",
+				},
+				Secrets: secrets},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "createFolderIfNotExist is not supported with mountWithOAuthToken"),
+				WindowsError: status.Error(codes.InvalidArgument, "mountWithOAuthToken is not supported on Windows"),
 			},
 		},
 		{
