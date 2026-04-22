@@ -1363,7 +1363,7 @@ func (d *Driver) GetStorageAccesskeyWithSubsID(ctx context.Context, subsID, acco
 // return <accountName, accountKey, oauthToken, error>
 func (d *Driver) GetStorageAccountFromSecret(ctx context.Context, secretName, secretNamespace string) (string, string, string, error) {
 	if d.kubeClient == nil {
-		return "", "", "", fmt.Errorf("could not get account key from secret(%s): KubeClient is nil", secretName)
+		return "", "", "", fmt.Errorf("could not get credentials from secret(%s): KubeClient is nil", secretName)
 	}
 
 	secret, err := d.kubeClient.CoreV1().Secrets(secretNamespace).Get(ctx, secretName, metav1.GetOptions{})
