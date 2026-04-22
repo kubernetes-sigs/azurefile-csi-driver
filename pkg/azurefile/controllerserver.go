@@ -327,6 +327,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			if err != nil {
 				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", mountWithWITokenField, v)
 			}
+		case mountWithOAuthTokenField:
+			// ignored in controller, handled in NodeStageVolume
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, "invalid parameter %q in storage class", k)
 		}
