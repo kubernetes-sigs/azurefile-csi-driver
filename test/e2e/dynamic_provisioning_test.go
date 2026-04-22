@@ -435,6 +435,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
 							MountPathGenerate: "/mnt/test-",
+							ReadOnly:          true,
 						},
 						AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadOnlyMany},
 					},
@@ -467,6 +468,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
 							MountPathGenerate: "/mnt/test-",
+							ReadOnly:          true,
 						},
 						AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadOnlyMany},
 					},
