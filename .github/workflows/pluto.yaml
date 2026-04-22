@@ -14,7 +14,7 @@ jobs:
       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
     - name: Download pluto
-      uses: FairwindsOps/pluto/github-action@fecfabc295821130532c5f77b27aa8ffe2c1c5a0 # master
+      uses: FairwindsOps/pluto/github-action@0713a5bb59439ed1b9cd3d9365e365048fcdb0f4 # master
 
     - name: Check deploy folder
       run: |
