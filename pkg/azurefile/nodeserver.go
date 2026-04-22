@@ -880,8 +880,8 @@ func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, server st
 		return fmt.Errorf("%s not found in secret %s/%s", defaultSecretOAuthToken, secretNamespace, secretName)
 	}
 
-	if out, err := setCredentialCache(server, "", "", "", oauthToken); err != nil {
-		return fmt.Errorf("setCredentialCache failed for %s: %v, output: %s", server, err, out)
+	if _, err := setCredentialCache(server, "", "", "", oauthToken); err != nil {
+		return fmt.Errorf("setCredentialCache failed for %s: %v", server, err)
 	}
 
 	klog.V(2).Infof("setCredentialCacheWithOAuthToken: refreshed credential cache for server %s using secret %s/%s", server, secretNamespace, secretName)
