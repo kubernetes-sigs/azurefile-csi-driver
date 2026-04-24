@@ -2901,3 +2901,157 @@ var _ = ginkgo.Describe("TestGetAzcopyAuth", func() {
 		})
 	})
 })
+
+var _ = ginkgo.Describe("TestControllerModifyVolume", func() {
+	var ctrl *gomock.Controller
+	var d *Driver
+	ginkgo.BeforeEach(func() {
+		ctrl = gomock.NewController(ginkgo.GinkgoT())
+		d = NewFakeDriver()
+		d.AddControllerServiceCapabilities(
+			[]csi.ControllerServiceCapability_RPC_Type{
+				csi.ControllerServiceCapability_RPC_MODIFY_VOLUME,
+			})
+		d.cloud = &storage.AccountRepo{}
+		d.cloud.ComputeClientFactory = mock_azclient.NewMockClientFactory(ctrl)
+	})
+	ginkgo.AfterEach(func() {
+		ctrl.Finish()
+	})
+	ginkgo.When("Volume ID missing", func() {
+		ginkgo.It("should fail", func(ctx context.Context) {
+			req := &csi.ControllerModifyVolumeRequest{}
+			expectedErr := status.Error(codes.InvalidArgument, "Volume ID missing in request")
+			_, err := d.ControllerModifyVolume(ctx, req)
+			gomega.Expect(err).To(gomega.Equal(expectedErr))
+		})
+	})
+	ginkgo.When("Mutable parameters missing", func() {
+		ginkgo.It("should succeed as no-op", func(ctx context.Context) {
+			req := &csi.ControllerModifyVolumeRequest{
+				VolumeId: "rg#account#share###",
+			}
+			_, err := d.ControllerModifyVolume(ctx, req)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		})
+	})
+	ginkgo.When("Invalid Volume ID", func() {
+		ginkgo.It("should fail", func(ctx context.Context) {
+			req := &csi.ControllerModifyVolumeRequest{
+				VolumeId:          "vol_1",
+				MutableParameters: map[string]string{"provisionediops": "5000"},
+			}
+			_, err := d.ControllerModifyVolume(ctx, req)
+			gomega.Expect(err).To(gomega.HaveOccurred())
+			gomega.Expect(err.Error()).To(gomega.ContainSubstring("GetFileShareInfo"))
+		})
+	})
+	ginkgo.When("Invalid provisionedIOPS value", func() {
+		ginkgo.It("should fail", func(ctx context.Context) {
+			req := &csi.ControllerModifyVolumeRequest{
+				VolumeId:          "rg#account#share###",
+				MutableParameters: map[string]string{"provisionediops": "invalid"},
+			}
+			_, err := d.ControllerModifyVolume(ctx, req)
+			gomega.Expect(err).To(gomega.HaveOccurred())
+			gomega.Expect(err.Error()).To(gomega.ContainSubstring("invalid provisionediops"))
+		})
+	})
+	ginkgo.When("Invalid provisionedBandwidth value", func() {
+		ginkgo.It("should fail", func(ctx context.Context) {
+			req := &csi.ControllerModifyVolumeRequest{
+				VolumeId:          "rg#account#share###",
+				MutableParameters: map[string]string{"provisionedbandwidth": "-1"},
+			}
+			_, err := d.ControllerModifyVolume(ctx, req)
+			gomega.Expect(err).To(gomega.HaveOccurred())
+			gomega.Expect(err.Error()).To(gomega.ContainSubstring("invalid provisionedbandwidth"))
+		})
+	})
+	ginkgo.When("Unsupported mutable parameter", func() {
+		ginkgo.It("should fail", func(ctx context.Context) {
+			req := &csi.ControllerModifyVolumeRequest{
+				VolumeId:          "rg#account#share###",
+				MutableParameters: map[string]string{"unsupported": "value"},
+			}
+			_, err := d.ControllerModifyVolume(ctx, req)
+			gomega.Expect(err).To(gomega.HaveOccurred())
+			gomega.Expect(err.Error()).To(gomega.ContainSubstring("unsupported mutable parameter"))
+		})
+	})
+	ginkgo.When("Valid request with both IOPS and bandwidth", func() {
+		ginkgo.It("should succeed", func(ctx context.Context) {
+			req := &csi.ControllerModifyVolumeRequest{
+				VolumeId: "rg#account#share###",
+				MutableParameters: map[string]string{
+					"provisionediops":      "5000",
+					"provisionedbandwidth": "200",
+				},
+			}
+			mockFileClient := mock_fileshareclient.NewMockInterface(ctrl)
+			iops := int32(3000)
+			bw := int32(125)
+			shareQuota := int32(100)
+			mockFileClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
+				&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{
+					ShareQuota:                &shareQuota,
+					ProvisionedIops:           &iops,
+					ProvisionedBandwidthMibps: &bw,
+				}}, nil).AnyTimes()
+			mockFileClient.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+			d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetFileShareClientForSub(gomock.Any()).Return(mockFileClient, nil).AnyTimes()
+
+			resp, err := d.ControllerModifyVolume(ctx, req)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(resp).To(gomega.Equal(&csi.ControllerModifyVolumeResponse{}))
+		})
+	})
+	ginkgo.When("Valid request with only IOPS", func() {
+		ginkgo.It("should succeed", func(ctx context.Context) {
+			req := &csi.ControllerModifyVolumeRequest{
+				VolumeId: "rg#account#share###",
+				MutableParameters: map[string]string{
+					"provisionediops": "8000",
+				},
+			}
+			mockFileClient := mock_fileshareclient.NewMockInterface(ctrl)
+			iops := int32(3000)
+			shareQuota := int32(100)
+			mockFileClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
+				&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{
+					ShareQuota:      &shareQuota,
+					ProvisionedIops: &iops,
+				}}, nil).AnyTimes()
+			mockFileClient.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+			d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetFileShareClientForSub(gomock.Any()).Return(mockFileClient, nil).AnyTimes()
+
+			resp, err := d.ControllerModifyVolume(ctx, req)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(resp).To(gomega.Equal(&csi.ControllerModifyVolumeResponse{}))
+		})
+	})
+	ginkgo.When("Valid request with only bandwidth", func() {
+		ginkgo.It("should succeed", func(ctx context.Context) {
+			req := &csi.ControllerModifyVolumeRequest{
+				VolumeId: "rg#account#share###",
+				MutableParameters: map[string]string{
+					"provisionedbandwidth": "500",
+				},
+			}
+			mockFileClient := mock_fileshareclient.NewMockInterface(ctrl)
+			bw := int32(125)
+			shareQuota := int32(100)
+			mockFileClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
+				&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{
+					ShareQuota:                &shareQuota,
+					ProvisionedBandwidthMibps: &bw,
+				}}, nil).AnyTimes()
+			mockFileClient.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+			d.cloud.ComputeClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetFileShareClientForSub(gomock.Any()).Return(mockFileClient, nil).AnyTimes()
+
+			resp, err := d.ControllerModifyVolume(ctx, req)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(resp).To(gomega.Equal(&csi.ControllerModifyVolumeResponse{}))
+		})
+	})
+})

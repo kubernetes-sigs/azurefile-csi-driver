@@ -50,4 +50,5 @@ type azureFileClient interface {
 	DeleteFileShare(ctx context.Context, name string) error
 	GetFileShareQuota(ctx context.Context, name string) (int, error)
 	ResizeFileShare(ctx context.Context, name string, sizeGiB int) error
+	ModifyFileShare(ctx context.Context, name string, provisionedIops *int32, provisionedBandwidthMibps *int32) error
 }
