@@ -1,0 +1,9 @@
+---
+apiVersion: storage.k8s.io/v1
+kind: VolumeAttributesClass
+metadata:
+  name: premiumv2-fileshare-class
+driverName: file.csi.azure.com
+parameters:
+  provisionedIOPS: "5000"
+  provisionedBandwidth: "200"

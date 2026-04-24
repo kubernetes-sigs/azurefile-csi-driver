@@ -118,6 +118,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if parameters == nil {
 		parameters = make(map[string]string)
 	}
+	// Merge mutable parameters (from VolumeAttributesClass) into parameters.
+	// Mutable parameters take precedence over storage class parameters.
+	for k, v := range req.GetMutableParameters() {
+		parameters[k] = v
+	}
 	var sku, subsID, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
 	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, shareAccessTier, accountAccessTier, rootSquashType, tagValueDelimiter string
 	var createAccount, useSeretCache, matchTags, selectRandomMatchingAccount, getLatestAccountKey, encryptInTransit, mountWithManagedIdentity, mountWithWIToken bool
@@ -1633,7 +1638,85 @@ func (d *Driver) generateSASToken(ctx context.Context, accountName, accountKey, 
 	return sasToken, nil
 }
 
-// ControllerModifyVolume modify volume
-func (d *Driver) ControllerModifyVolume(context.Context, *csi.ControllerModifyVolumeRequest) (*csi.ControllerModifyVolumeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "")
+// ControllerModifyVolume modifies a volume's mutable parameters (e.g. provisioned IOPS, bandwidth)
+func (d *Driver) ControllerModifyVolume(ctx context.Context, req *csi.ControllerModifyVolumeRequest) (*csi.ControllerModifyVolumeResponse, error) {
+	volumeID := req.GetVolumeId()
+	if len(volumeID) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
+	}
+	if err := d.ValidateControllerServiceRequest(csi.ControllerServiceCapability_RPC_MODIFY_VOLUME); err != nil {
+		return nil, err
+	}
+
+	resourceGroupName, accountName, fileShareName, _, secretNamespace, subsID, err := GetFileShareInfo(volumeID)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "GetFileShareInfo(%s) failed with error: %v", volumeID, err)
+	}
+	if resourceGroupName == "" {
+		resourceGroupName = d.cloud.ResourceGroup
+	}
+	if !isValidSubscriptionID(subsID) {
+		subsID = d.cloud.SubscriptionID
+	}
+
+	mutableParams := req.GetMutableParameters()
+	if len(mutableParams) == 0 {
+		klog.V(2).Infof("ControllerModifyVolume(%s) succeeded with no mutable parameters", volumeID)
+		return &csi.ControllerModifyVolumeResponse{}, nil
+	}
+
+	var provisionedIops, provisionedBandwidthMibps *int32
+	for k, v := range mutableParams {
+		switch strings.ToLower(k) {
+		case provisionedIopsField:
+			value, parseErr := strconv.ParseInt(v, 10, 32)
+			if parseErr != nil || value < 0 {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s", provisionedIopsField, v)
+			}
+			provisionedIops = to.Ptr(int32(value))
+		case provisionedBandwidthField:
+			value, parseErr := strconv.ParseInt(v, 10, 32)
+			if parseErr != nil || value < 0 {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s", provisionedBandwidthField, v)
+			}
+			provisionedBandwidthMibps = to.Ptr(int32(value))
+		default:
+			return nil, status.Errorf(codes.InvalidArgument, "unsupported mutable parameter: %s", k)
+		}
+	}
+
+	if provisionedIops == nil && provisionedBandwidthMibps == nil {
+		return nil, status.Error(codes.InvalidArgument, "at least one of provisionedIOPS or provisionedBandwidth must be specified")
+	}
+
+	mc := csiMetrics.NewCSIMetricContext("controller_modify_volume").WithBasicVolumeInfo(resourceGroupName, subsID, d.Name)
+	isOperationSucceeded := false
+	defer func() {
+		mc.WithAdditionalVolumeInfo(VolumeID, volumeID).Observe(isOperationSucceeded)
+	}()
+
+	secrets := req.GetSecrets()
+	useDataPlaneAPI := d.useDataPlaneAPI(ctx, volumeID, accountName)
+	if len(secrets) == 0 && strings.EqualFold(useDataPlaneAPI, trueValue) {
+		reqContext := map[string]string{}
+		if secretNamespace != "" {
+			setKeyValueInMap(reqContext, secretNamespaceField, secretNamespace)
+		}
+		_, _, accountKey, _, _, _, _, _, err := d.GetAccountInfo(ctx, volumeID, secrets, reqContext)
+		if err != nil {
+			return nil, status.Errorf(codes.NotFound, "get account info from(%s) failed with error: %v", volumeID, err)
+		}
+		secrets = createStorageAccountSecret(accountName, accountKey)
+	}
+
+	klog.V(2).Infof("ControllerModifyVolume: volumeID(%s) resourceGroup(%s) account(%s) share(%s) provisionedIOPS(%v) provisionedBandwidth(%v)",
+		volumeID, resourceGroupName, accountName, fileShareName, provisionedIops, provisionedBandwidthMibps)
+
+	if err = d.ModifyFileShare(ctx, subsID, resourceGroupName, accountName, fileShareName, provisionedIops, provisionedBandwidthMibps, secrets, useDataPlaneAPI); err != nil {
+		return nil, status.Errorf(codes.Internal, "modify volume(%s) failed with error: %v", volumeID, err)
+	}
+
+	isOperationSucceeded = true
+	klog.V(2).Infof("ControllerModifyVolume(%s) succeeded", volumeID)
+	return &csi.ControllerModifyVolumeResponse{}, nil
 }
