@@ -304,6 +304,18 @@ func getValueInMap(m map[string]string, key string) string {
 	return ""
 }
 
+// getSecretNamespace resolves the secret namespace from volume context,
+// falling back to PVC namespace, then to "default".
+func getSecretNamespace(volumeContext map[string]string) string {
+	if ns := getValueInMap(volumeContext, secretNamespaceField); ns != "" {
+		return ns
+	}
+	if ns := getValueInMap(volumeContext, pvcNamespaceKey); ns != "" {
+		return ns
+	}
+	return defaultNamespace
+}
+
 // replaceWithMap replace key with value for str
 func replaceWithMap(str string, m map[string]string) string {
 	for k, v := range m {

@@ -195,13 +195,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 			if accountName == "" {
 				// resolve accountName from secret if not in volume context
 				secretName := getValueInMap(context, secretNameField)
-				secretNamespace := getValueInMap(context, secretNamespaceField)
-				if secretNamespace == "" {
-					secretNamespace = getValueInMap(context, pvcNamespaceKey)
-					if secretNamespace == "" {
-						secretNamespace = defaultNamespace
-					}
-				}
+				secretNamespace := getSecretNamespace(context)
 				if secretName != "" {
 					if name, _, _, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace); err == nil && name != "" {
 						accountName = name
@@ -899,13 +893,7 @@ func (d *Driver) ensureMountPoint(target string, perm os.FileMode) (bool, error)
 // to update the credential cache.
 func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, server string, volumeContext map[string]string) error {
 	secretName := getValueInMap(volumeContext, secretNameField)
-	secretNamespace := getValueInMap(volumeContext, secretNamespaceField)
-	if secretNamespace == "" {
-		secretNamespace = getValueInMap(volumeContext, pvcNamespaceKey)
-		if secretNamespace == "" {
-			secretNamespace = defaultNamespace
-		}
-	}
+	secretNamespace := getSecretNamespace(volumeContext)
 	if secretName == "" {
 		return fmt.Errorf("secretName is required when %s is true", mountWithOAuthTokenField)
 	}
