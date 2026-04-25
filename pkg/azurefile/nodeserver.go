@@ -115,28 +115,6 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 			return &csi.NodePublishVolumeResponse{}, err
 		}
 
-		// mountWithOAuthToken: refresh OAuth token from secret without re-mounting
-		if strings.EqualFold(getValueInMap(context, mountWithOAuthTokenField), trueValue) {
-			server := getValueInMap(context, serverNameField)
-			if server == "" {
-				accountName := getValueInMap(context, storageAccountField)
-				storageEndpointSuffix := getValueInMap(context, storageEndpointSuffixField)
-				if storageEndpointSuffix == "" {
-					storageEndpointSuffix = d.getStorageEndPointSuffix()
-				}
-				if accountName != "" {
-					server = fmt.Sprintf("%s.file.%s", accountName, storageEndpointSuffix)
-				}
-			}
-			if server == "" {
-				return nil, status.Errorf(codes.InvalidArgument, "NodePublishVolume: server is empty for volume(%s) with mountWithOAuthToken", volumeID)
-			}
-			if err := d.setCredentialCacheWithOAuthToken(ctx, server, context); err != nil {
-				return nil, status.Errorf(codes.Internal, "NodePublishVolume: failed to refresh OAuth token for volume(%s): %v", volumeID, err)
-			}
-			klog.V(2).Infof("NodePublishVolume: refreshed OAuth token credential cache for volume(%s) server(%s)", volumeID, server)
-		}
-
 		if perm := getValueInMap(context, mountPermissionsField); perm != "" {
 			var err error
 			if mountPermissions, err = strconv.ParseUint(perm, 8, 32); err != nil {
