@@ -460,6 +460,7 @@ func (d *Driver) Run(ctx context.Context) error {
 			csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
 			csi.ControllerServiceCapability_RPC_SINGLE_NODE_MULTI_WRITER,
 			csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
+			csi.ControllerServiceCapability_RPC_MODIFY_VOLUME,
 		})
 	d.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{
 		csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
@@ -1204,6 +1205,46 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 		}
 		if isRetriableError(err) {
 			klog.Warningf("ResizeFileShare(%s) on account(%s) with new size(%d) failed with error(%v), waiting for retrying", shareName, accountName, sizeGiB, err)
+			sleepIfThrottled(err, fileOpThrottlingSleepSec)
+			return false, nil
+		}
+		return true, err
+	})
+}
+
+// ModifyFileShare modifies the provisioned IOPS and bandwidth of a file share
+func (d *Driver) ModifyFileShare(ctx context.Context, subsID, resourceGroup, accountName, shareName string, provisionedIops *int32, provisionedBandwidthMibps *int32, secrets map[string]string, useDataPlaneAPI string) error {
+	return wait.ExponentialBackoff(getBackOff(d.cloud.Config), func() (bool, error) {
+		var err error
+		if len(secrets) > 0 {
+			accountName, accountKey, rerr := getStorageAccount(secrets)
+			if rerr != nil {
+				return true, rerr
+			}
+			fileClient, rerr := newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix())
+			if rerr != nil {
+				return true, rerr
+			}
+			err = fileClient.ModifyFileShare(ctx, shareName, provisionedIops, provisionedBandwidthMibps)
+		} else if d.cloud != nil && d.cloud.AuthProvider != nil && strings.EqualFold(useDataPlaneAPI, oauth) {
+			fileClient, rerr := newAzureFileClientWithOAuth(d.cloud.AuthProvider.GetAzIdentity(), accountName, d.getStorageEndPointSuffix())
+			if rerr != nil {
+				return true, rerr
+			}
+			err = fileClient.ModifyFileShare(ctx, shareName, provisionedIops, provisionedBandwidthMibps)
+		} else {
+			mgmtClient, rerr := newAzureFileMgmtClient(d.cloud, &storage.AccountOptions{
+				SubscriptionID: subsID,
+				ResourceGroup:  resourceGroup,
+				Name:           accountName,
+			})
+			if rerr != nil {
+				return true, rerr
+			}
+			err = mgmtClient.ModifyFileShare(ctx, shareName, provisionedIops, provisionedBandwidthMibps)
+		}
+		if isRetriableError(err) {
+			klog.Warningf("ModifyFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", shareName, accountName, err)
 			sleepIfThrottled(err, fileOpThrottlingSleepSec)
 			return false, nil
 		}
