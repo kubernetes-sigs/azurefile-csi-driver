@@ -97,6 +97,12 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		_, err = azureClient.EnsureResourceGroup(ctx, creds.ResourceGroup, creds.Location, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
+		// Assign Storage File Data Privileged Contributor role to kubelet identity
+		// This is required for mountWithManagedIdentity e2e tests
+		if err := azureClient.EnsureKubeletStorageFileDataRole(ctx, creds.ResourceGroup); err != nil {
+			log.Printf("Warning: failed to assign Storage File Data role to kubelet identity: %v", err)
+		}
+
 		// check whether current region supports Premium_ZRS with NFS protocol
 		supportedRegions := []string{"southeastasia", "australiaeast", "europenorth", "europewest", "francecentral", "japaneast", "uksouth", "useast", "useast2", "uswest2"}
 		for _, region := range supportedRegions {
