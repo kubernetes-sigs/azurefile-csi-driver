@@ -94,28 +94,6 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 			return &csi.NodePublishVolumeResponse{}, err
 		}
 
-		// mountWithOAuthToken: refresh OAuth token from secret without re-mounting
-		if strings.EqualFold(getValueInMap(context, mountWithOAuthTokenField), trueValue) {
-			server := getValueInMap(context, serverNameField)
-			if server == "" {
-				accountName := getValueInMap(context, storageAccountField)
-				storageEndpointSuffix := getValueInMap(context, storageEndpointSuffixField)
-				if storageEndpointSuffix == "" {
-					storageEndpointSuffix = "core.windows.net"
-				}
-				if accountName != "" {
-					server = fmt.Sprintf("%s.file.%s", accountName, storageEndpointSuffix)
-				}
-			}
-			if server == "" {
-				return nil, status.Errorf(codes.InvalidArgument, "NodePublishVolume: server is empty for volume(%s) with mountWithOAuthToken", volumeID)
-			}
-			if err := d.setCredentialCacheWithOAuthToken(ctx, server, context); err != nil {
-				return nil, status.Errorf(codes.Internal, "NodePublishVolume: failed to refresh OAuth token for volume(%s): %v", volumeID, err)
-			}
-			klog.V(2).Infof("NodePublishVolume: refreshed OAuth token credential cache for volume(%s) server(%s)", volumeID, server)
-		}
-
 		// ephemeral volume
 		if strings.EqualFold(context[ephemeralField], trueValue) {
 			setKeyValueInMap(context, secretNamespaceField, context[podNamespaceField])
@@ -132,6 +110,28 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 				VolumeId:          volumeID,
 			})
 			return &csi.NodePublishVolumeResponse{}, err
+		}
+
+		// mountWithOAuthToken: refresh OAuth token from secret without re-mounting
+		if strings.EqualFold(getValueInMap(context, mountWithOAuthTokenField), trueValue) {
+			server := getValueInMap(context, serverNameField)
+			if server == "" {
+				accountName := getValueInMap(context, storageAccountField)
+				storageEndpointSuffix := getValueInMap(context, storageEndpointSuffixField)
+				if storageEndpointSuffix == "" {
+					storageEndpointSuffix = d.getStorageEndPointSuffix()
+				}
+				if accountName != "" {
+					server = fmt.Sprintf("%s.file.%s", accountName, storageEndpointSuffix)
+				}
+			}
+			if server == "" {
+				return nil, status.Errorf(codes.InvalidArgument, "NodePublishVolume: server is empty for volume(%s) with mountWithOAuthToken", volumeID)
+			}
+			if err := d.setCredentialCacheWithOAuthToken(ctx, server, context); err != nil {
+				return nil, status.Errorf(codes.Internal, "NodePublishVolume: failed to refresh OAuth token for volume(%s): %v", volumeID, err)
+			}
+			klog.V(2).Infof("NodePublishVolume: refreshed OAuth token credential cache for volume(%s) server(%s)", volumeID, server)
 		}
 
 		if perm := getValueInMap(context, mountPermissionsField); perm != "" {
@@ -491,6 +491,10 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		} else if mountWithOAuthToken && runtime.GOOS != "windows" {
 			sensitiveMountOptions = []string{"sec=krb5,cruid=0,upcall_target=mount"}
 			klog.V(2).Infof("using OAuth token from secret for volume %s", volumeID)
+			// always refresh credential cache when mountWithOAuthToken is set, even if mount does not happen
+			if err := d.setCredentialCacheWithOAuthToken(ctx, server, context); err != nil {
+				return nil, status.Errorf(codes.Internal, "setCredentialCacheWithOAuthToken failed for %s with error: %v", server, err)
+			}
 		} else {
 			if accountName == "" || accountKey == "" {
 				return nil, status.Errorf(codes.Internal, "accountName(%s) or accountKey is empty", accountName)
@@ -554,11 +558,6 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 				if mountWithManagedIdentity && protocol != nfs && runtime.GOOS != "windows" {
 					if out, err := setCredentialCache(server, clientID, tenantID, tokenFilePath, ""); err != nil {
 						return fmt.Errorf("setCredentialCache failed for %s with error: %v, output: %s", server, err, out)
-					}
-				}
-				if mountWithOAuthToken && protocol != nfs && runtime.GOOS != "windows" {
-					if err := d.setCredentialCacheWithOAuthToken(ctx, server, context); err != nil {
-						return fmt.Errorf("setCredentialCacheWithOAuthToken failed for %s with error: %v", server, err)
 					}
 				}
 				return SMBMount(d.mounter, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions)
@@ -900,8 +899,9 @@ func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, server st
 		return fmt.Errorf("%s not found in secret %s/%s", defaultSecretOAuthToken, secretNamespace, secretName)
 	}
 
-	if _, err := setCredentialCache(server, "", "", "", oauthToken); err != nil {
-		return fmt.Errorf("setCredentialCache failed for %s: %v", server, err)
+	if output, err := setCredentialCache(server, "", "", "", oauthToken); err != nil {
+		redactedOutput := strings.ReplaceAll(string(output), oauthToken, "<redacted>")
+		return fmt.Errorf("setCredentialCache failed for %s with output: %s, error: %v", server, redactedOutput, err)
 	}
 
 	klog.V(2).Infof("setCredentialCacheWithOAuthToken: refreshed credential cache for server %s using secret %s/%s", server, secretNamespace, secretName)
