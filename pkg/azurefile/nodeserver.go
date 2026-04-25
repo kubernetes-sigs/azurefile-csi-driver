@@ -17,6 +17,7 @@ limitations under the License.
 package azurefile
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -942,11 +943,19 @@ func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, server st
 		return fmt.Errorf("%s not found in secret %s/%s", defaultSecretOAuthToken, secretNamespace, secretName)
 	}
 
+	// check if token has changed by comparing SHA256 hash
+	tokenSHA := fmt.Sprintf("%x", sha256.Sum256([]byte(oauthToken)))
+	if cachedSHA, ok := d.oauthTokenSHAMap.Load(server); ok && cachedSHA.(string) == tokenSHA {
+		klog.V(4).Infof("setCredentialCacheWithOAuthToken: OAuth token unchanged for server %s, skipping refresh", server)
+		return nil
+	}
+
 	if output, err := setCredentialCache(server, "", "", "", oauthToken); err != nil {
 		redactedOutput := strings.ReplaceAll(string(output), oauthToken, "<redacted>")
 		return fmt.Errorf("setCredentialCache failed for %s with output: %s, error: %v", server, redactedOutput, err)
 	}
 
+	d.oauthTokenSHAMap.Store(server, tokenSHA)
 	klog.V(2).Infof("setCredentialCacheWithOAuthToken: refreshed credential cache for server %s using secret %s/%s", server, secretNamespace, secretName)
 	return nil
 }

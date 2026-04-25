@@ -295,6 +295,8 @@ type Driver struct {
 	secretCacheMap azcache.Resource
 	// a map storing all volumes using data plane API <volumeID, value>
 	dataPlaneAPIVolMap sync.Map
+	// a map storing OAuth token SHA per server to avoid unnecessary credential cache refresh
+	oauthTokenSHAMap sync.Map
 	// a timed cache storing all storage accounts that are using data plane API temporarily
 	dataPlaneAPIAccountCache azcache.Resource
 	// a timed cache storing account search history (solve account list throttling issue)
