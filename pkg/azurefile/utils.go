@@ -435,6 +435,9 @@ func setCredentialCache(server, clientID, tenantID, tokenFile, token string) ([]
 	if server == "" {
 		return nil, fmt.Errorf("server must be provided")
 	}
+	if token != "" && tokenFile != "" {
+		return nil, fmt.Errorf("token and tokenFile are mutually exclusive, only one can be provided")
+	}
 
 	serverURL := "https://" + server
 	var args []string
