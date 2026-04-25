@@ -94,18 +94,6 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 			return &csi.NodePublishVolumeResponse{}, err
 		}
 
-		// mountWithOAuthToken: delegate to NodeStageVolume to refresh OAuth token from secret
-		if strings.EqualFold(getValueInMap(context, mountWithOAuthTokenField), trueValue) {
-			klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with OAuth token from secret", volumeID, target)
-			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
-				StagingTargetPath: target,
-				VolumeContext:     context,
-				VolumeCapability:  volCap,
-				VolumeId:          volumeID,
-			})
-			return &csi.NodePublishVolumeResponse{}, err
-		}
-
 		// ephemeral volume
 		if strings.EqualFold(context[ephemeralField], trueValue) {
 			setKeyValueInMap(context, secretNamespaceField, context[podNamespaceField])
