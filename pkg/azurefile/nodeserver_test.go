@@ -311,6 +311,40 @@ func TestNodePublishVolume(t *testing.T) {
 			cleanup: func() {
 			},
 		},
+		{
+			desc: "[Error] mountWithOAuthToken with empty server",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "vol_1",
+				TargetPath:        targetTest,
+				StagingTargetPath: sourceTest,
+				VolumeContext: map[string]string{
+					mountWithOAuthTokenField: "true",
+					secretNameField:          "test-secret",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Errorf(codes.InvalidArgument, "NodePublishVolume: server is empty for volume(%s) with mountWithOAuthToken", "vol_1"),
+			},
+		},
+		{
+			desc: "[Error] mountWithOAuthToken with server but secret fetch fails",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "vol_1",
+				TargetPath:        targetTest,
+				StagingTargetPath: sourceTest,
+				VolumeContext: map[string]string{
+					mountWithOAuthTokenField: "true",
+					serverNameField:          "testaccount.file.core.windows.net",
+					secretNameField:          "test-secret",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Errorf(codes.Internal, "NodePublishVolume: failed to refresh OAuth token for volume(%s): %v", "vol_1", fmt.Errorf("failed to get secret %s/%s: %v", "default", "test-secret", fmt.Errorf("could not get credentials from secret(%s): KubeClient is nil", "test-secret"))),
+			},
+			setup: func() {
+				d.kubeClient = nil
+			},
+		},
 	}
 
 	// Setup
