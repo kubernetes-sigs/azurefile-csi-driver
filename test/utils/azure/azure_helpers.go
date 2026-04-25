@@ -19,13 +19,14 @@ package azure
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	armauthorization "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
-	armcontainerservice "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
+	armcompute "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	resources "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	storage "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v2"
 	"github.com/google/uuid"
@@ -41,7 +42,8 @@ type Client struct {
 	groupsClient     resourcegroupclient.Interface
 	accountsClient   accountclient.Interface
 	filesharesClient fileshareclient.Interface
-	aksClient        *armcontainerservice.ManagedClustersClient
+	vmssClient       *armcompute.VirtualMachineScaleSetsClient
+	vmClient         *armcompute.VirtualMachinesClient
 	roleClient       *armauthorization.RoleAssignmentsClient
 }
 
@@ -76,9 +78,13 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 		return nil, err
 	}
 
-	aksClient, err := armcontainerservice.NewManagedClustersClient(subscriptionID, cred, nil)
+	vmssClient, err := armcompute.NewVirtualMachineScaleSetsClient(subscriptionID, cred, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create AKS client: %v", err)
+		return nil, fmt.Errorf("failed to create VMSS client: %v", err)
+	}
+	vmClient, err := armcompute.NewVirtualMachinesClient(subscriptionID, cred, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create VM client: %v", err)
 	}
 	roleClient, err := armauthorization.NewRoleAssignmentsClient(subscriptionID, cred, nil)
 	if err != nil {
@@ -90,7 +96,8 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 		groupsClient:     factory.GetResourceGroupClient(),
 		accountsClient:   factory.GetAccountClient(),
 		filesharesClient: factory.GetFileShareClient(),
-		aksClient:        aksClient,
+		vmssClient:       vmssClient,
+		vmClient:         vmClient,
 		roleClient:       roleClient,
 	}, nil
 }
@@ -163,24 +170,91 @@ func stringPointer(s string) *string {
 	return &s
 }
 
-// GetKubeletIdentityObjectID retrieves the kubelet managed identity object ID from an AKS cluster.
-// It lists all AKS clusters in the given resource group and returns the kubelet identity of the first one found.
-func (az *Client) GetKubeletIdentityObjectID(ctx context.Context, resourceGroup string) (string, error) {
-	pager := az.aksClient.NewListByResourceGroupPager(resourceGroup, nil)
-	for pager.More() {
-		page, err := pager.NextPage(ctx)
+// GetNodeIdentityPrincipalIDs retrieves the principal IDs of managed identities from VMSS and VMs in the resource group.
+// Supports both system-assigned and user-assigned managed identities.
+// This works for both CAPZ and AKS clusters regardless of whether they use VMSS or availability set VMs.
+func (az *Client) GetNodeIdentityPrincipalIDs(ctx context.Context, resourceGroup string) ([]string, error) {
+	var principalIDs []string
+
+	// Check VMSS
+	log.Printf("Listing VMSS in resource group %s ...", resourceGroup)
+	vmssPager := az.vmssClient.NewListPager(resourceGroup, nil)
+	for vmssPager.More() {
+		page, err := vmssPager.NextPage(ctx)
 		if err != nil {
-			return "", fmt.Errorf("failed to list AKS clusters in resource group %s: %v", resourceGroup, err)
+			return nil, fmt.Errorf("failed to list VMSS in resource group %s: %v", resourceGroup, err)
 		}
-		for _, cluster := range page.Value {
-			if cluster.Properties != nil && cluster.Properties.IdentityProfile != nil {
-				if kubeletIdentity, ok := cluster.Properties.IdentityProfile["kubeletidentity"]; ok && kubeletIdentity.ObjectID != nil {
-					return *kubeletIdentity.ObjectID, nil
+		for _, vmss := range page.Value {
+			name := ""
+			if vmss.Name != nil {
+				name = *vmss.Name
+			}
+			if vmss.Identity == nil {
+				log.Printf("VMSS %s has no managed identity, skipping", name)
+				continue
+			}
+			// System-assigned identity
+			if vmss.Identity.PrincipalID != nil && *vmss.Identity.PrincipalID != "" {
+				log.Printf("VMSS %s: found system-assigned identity, principalID=%s", name, *vmss.Identity.PrincipalID)
+				principalIDs = append(principalIDs, *vmss.Identity.PrincipalID)
+			}
+			// User-assigned identities
+			for uaID, uaIdentity := range vmss.Identity.UserAssignedIdentities {
+				if uaIdentity != nil && uaIdentity.PrincipalID != nil && *uaIdentity.PrincipalID != "" {
+					log.Printf("VMSS %s: found user-assigned identity %s, principalID=%s", name, uaID, *uaIdentity.PrincipalID)
+					principalIDs = append(principalIDs, *uaIdentity.PrincipalID)
 				}
 			}
 		}
 	}
-	return "", fmt.Errorf("no AKS cluster with kubelet identity found in resource group %s", resourceGroup)
+
+	// Check individual VMs (availability set scenario)
+	log.Printf("Listing VMs in resource group %s ...", resourceGroup)
+	vmPager := az.vmClient.NewListPager(resourceGroup, nil)
+	for vmPager.More() {
+		page, err := vmPager.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list VMs in resource group %s: %v", resourceGroup, err)
+		}
+		for _, vm := range page.Value {
+			name := ""
+			if vm.Name != nil {
+				name = *vm.Name
+			}
+			if vm.Identity == nil {
+				log.Printf("VM %s has no managed identity, skipping", name)
+				continue
+			}
+			// System-assigned identity
+			if vm.Identity.PrincipalID != nil && *vm.Identity.PrincipalID != "" {
+				log.Printf("VM %s: found system-assigned identity, principalID=%s", name, *vm.Identity.PrincipalID)
+				principalIDs = append(principalIDs, *vm.Identity.PrincipalID)
+			}
+			// User-assigned identities
+			for uaID, uaIdentity := range vm.Identity.UserAssignedIdentities {
+				if uaIdentity != nil && uaIdentity.PrincipalID != nil && *uaIdentity.PrincipalID != "" {
+					log.Printf("VM %s: found user-assigned identity %s, principalID=%s", name, uaID, *uaIdentity.PrincipalID)
+					principalIDs = append(principalIDs, *uaIdentity.PrincipalID)
+				}
+			}
+		}
+	}
+
+	if len(principalIDs) == 0 {
+		return nil, fmt.Errorf("no VMSS or VM with managed identity found in resource group %s", resourceGroup)
+	}
+
+	// Deduplicate
+	seen := make(map[string]bool)
+	unique := principalIDs[:0]
+	for _, id := range principalIDs {
+		if !seen[id] {
+			seen[id] = true
+			unique = append(unique, id)
+		}
+	}
+	log.Printf("Found %d unique principal IDs in resource group %s", len(unique), resourceGroup)
+	return unique, nil
 }
 
 // AssignRoleToIdentity assigns an Azure role to a principal on a resource group scope.
@@ -210,14 +284,25 @@ func (az *Client) AssignRoleToIdentity(ctx context.Context, resourceGroup, princ
 	return nil
 }
 
-// EnsureKubeletStorageFileDataRole gets the kubelet identity from the AKS cluster in the given
-// resource group and assigns it the "Storage File Data Privileged Contributor" role on that resource group.
-func (az *Client) EnsureKubeletStorageFileDataRole(ctx context.Context, resourceGroup string) error {
-	principalID, err := az.GetKubeletIdentityObjectID(ctx, resourceGroup)
+// EnsureNodeStorageFileDataRole gets the node identities from VMSS and VMs in the given
+// resource group and assigns them the "Storage File Data SMB Share Elevated Contributor" role.
+func (az *Client) EnsureNodeStorageFileDataRole(ctx context.Context, resourceGroup string) error {
+	log.Printf("Begin to assign Storage File Data SMB Share Elevated Contributor role to node identities in resource group %s", resourceGroup)
+	principalIDs, err := az.GetNodeIdentityPrincipalIDs(ctx, resourceGroup)
 	if err != nil {
+		log.Printf("Failed to get node identity principal IDs: %v", err)
 		return err
 	}
-	// Storage File Data Privileged Contributor
-	const storageFileDataPrivilegedContributorRoleID = "69566ab7-960f-475b-8e7c-b3118f30c6bd"
-	return az.AssignRoleToIdentity(ctx, resourceGroup, principalID, storageFileDataPrivilegedContributorRoleID)
+	// Storage File Data SMB Share Elevated Contributor
+	const storageFileDataSMBShareElevatedContributorRoleID = "a7264617-510b-434b-a828-9731dc254ea7"
+	for _, principalID := range principalIDs {
+		log.Printf("Assigning Storage File Data SMB Share Elevated Contributor role to principal %s ...", principalID)
+		if err := az.AssignRoleToIdentity(ctx, resourceGroup, principalID, storageFileDataSMBShareElevatedContributorRoleID); err != nil {
+			log.Printf("Failed to assign role to principal %s: %v", principalID, err)
+			return err
+		}
+		log.Printf("Successfully assigned Storage File Data SMB Share Elevated Contributor role to principal %s", principalID)
+	}
+	log.Printf("Successfully assigned Storage File Data SMB Share Elevated Contributor role to all %d node identities", len(principalIDs))
+	return nil
 }
