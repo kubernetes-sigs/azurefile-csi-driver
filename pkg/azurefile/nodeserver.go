@@ -197,9 +197,11 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 				secretName := getValueInMap(context, secretNameField)
 				secretNamespace := getSecretNamespace(context)
 				if secretName != "" {
-					if name, _, _, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace); err == nil && name != "" {
-						accountName = name
+					name, _, _, secretErr := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
+					if secretErr != nil {
+						return nil, status.Errorf(codes.Internal, "NodePublishVolume: failed to get account from secret %s/%s: %v", secretNamespace, secretName, secretErr)
 					}
+					accountName = name
 				}
 			}
 			storageEndpointSuffix := getValueInMap(context, storageEndpointSuffixField)

@@ -18,6 +18,7 @@ package azurefile
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net"
@@ -35,6 +36,9 @@ import (
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 	clientset "k8s.io/client-go/kubernetes"
 	mount "k8s.io/mount-utils"
 	"k8s.io/utils/exec"
@@ -1361,5 +1365,90 @@ func makeFakeOutput(output string, err error) testingexec.FakeAction {
 	o := output
 	return func() ([]byte, []byte, error) {
 		return []byte(o), nil, err
+	}
+}
+
+func TestSetCredentialCacheWithOAuthToken(t *testing.T) {
+	d := NewFakeDriver()
+
+	tests := []struct {
+		desc          string
+		server        string
+		volumeContext map[string]string
+		setupDriver   func()
+		expectedErr   string
+		expectSkip    bool
+	}{
+		{
+			desc:   "missing secretName",
+			server: "testaccount.file.core.windows.net",
+			volumeContext: map[string]string{
+				mountWithOAuthTokenField: "true",
+			},
+			expectedErr: "secretName is required",
+		},
+		{
+			desc:   "kubeClient is nil",
+			server: "testaccount.file.core.windows.net",
+			volumeContext: map[string]string{
+				secretNameField: "test-secret",
+			},
+			setupDriver: func() {
+				d.kubeClient = nil
+			},
+			expectedErr: "KubeClient is nil",
+		},
+		{
+			desc:   "oauthtoken missing in secret",
+			server: "testaccount.file.core.windows.net",
+			volumeContext: map[string]string{
+				secretNameField: "test-secret",
+			},
+			setupDriver: func() {
+				secret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: "default"},
+					Data:       map[string][]byte{defaultSecretAccountName: []byte("testaccount")},
+				}
+				d.kubeClient = fake.NewSimpleClientset(secret)
+			},
+			expectedErr: fmt.Sprintf("%s not found in secret", defaultSecretOAuthToken),
+		},
+		{
+			desc:   "skip refresh when token SHA unchanged",
+			server: "testaccount.file.core.windows.net",
+			volumeContext: map[string]string{
+				secretNameField: "test-secret",
+			},
+			setupDriver: func() {
+				token := "test-oauth-token-value"
+				secret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: "default"},
+					Data: map[string][]byte{
+						defaultSecretAccountName: []byte("testaccount"),
+						defaultSecretOAuthToken:  []byte(token),
+					},
+				}
+				d.kubeClient = fake.NewSimpleClientset(secret)
+				// pre-populate SHA cache
+				tokenSHA := fmt.Sprintf("%x", sha256.Sum256([]byte(token)))
+				d.oauthTokenSHAMap.Store("testaccount.file.core.windows.net", tokenSHA)
+			},
+			expectSkip: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			if test.setupDriver != nil {
+				test.setupDriver()
+			}
+			err := d.setCredentialCacheWithOAuthToken(context.Background(), test.server, test.volumeContext)
+			if test.expectSkip {
+				assert.NoError(t, err)
+			} else if test.expectedErr != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), test.expectedErr)
+			}
+		})
 	}
 }
