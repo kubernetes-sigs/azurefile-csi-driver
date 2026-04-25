@@ -336,7 +336,6 @@ func TestNodePublishVolume(t *testing.T) {
 				StagingTargetPath: sourceTest,
 				VolumeContext: map[string]string{
 					mountWithOAuthTokenField: "true",
-					secretNameField:          "test-secret",
 				},
 			},
 			expectedErr: testutil.TestError{
