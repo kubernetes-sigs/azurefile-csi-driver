@@ -316,7 +316,7 @@ func TestNodePublishVolume(t *testing.T) {
 			},
 		},
 		{
-			desc: "[Error] mountWithOAuthToken with empty server",
+			desc: "[Error] mountWithOAuthToken with missing secretName",
 			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
 				VolumeId:          "vol_1",
 				TargetPath:        targetTest,
@@ -326,7 +326,7 @@ func TestNodePublishVolume(t *testing.T) {
 				},
 			},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Errorf(codes.InvalidArgument, "NodePublishVolume: server is empty for volume(%s) with mountWithOAuthToken", "vol_1"),
+				DefaultError: status.Errorf(codes.InvalidArgument, "NodePublishVolume: secretName is required for volume(%s) with mountWithOAuthToken", "vol_1"),
 			},
 		},
 		{
@@ -1405,13 +1405,11 @@ func makeFakeOutput(output string, err error) testingexec.FakeAction {
 }
 
 func TestSetCredentialCacheWithOAuthToken(t *testing.T) {
-	d := NewFakeDriver()
-
 	tests := []struct {
 		desc          string
 		server        string
 		volumeContext map[string]string
-		setupDriver   func()
+		setupDriver   func(d *Driver)
 		expectedErr   string
 		expectSkip    bool
 	}{
@@ -1429,7 +1427,7 @@ func TestSetCredentialCacheWithOAuthToken(t *testing.T) {
 			volumeContext: map[string]string{
 				secretNameField: "test-secret",
 			},
-			setupDriver: func() {
+			setupDriver: func(d *Driver) {
 				d.kubeClient = nil
 			},
 			expectedErr: "KubeClient is nil",
@@ -1440,7 +1438,7 @@ func TestSetCredentialCacheWithOAuthToken(t *testing.T) {
 			volumeContext: map[string]string{
 				secretNameField: "test-secret",
 			},
-			setupDriver: func() {
+			setupDriver: func(d *Driver) {
 				secret := &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: "default"},
 					Data:       map[string][]byte{defaultSecretAccountName: []byte("testaccount")},
@@ -1455,7 +1453,7 @@ func TestSetCredentialCacheWithOAuthToken(t *testing.T) {
 			volumeContext: map[string]string{
 				secretNameField: "test-secret",
 			},
-			setupDriver: func() {
+			setupDriver: func(d *Driver) {
 				token := "test-oauth-token-value"
 				secret := &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: "default"},
@@ -1475,8 +1473,9 @@ func TestSetCredentialCacheWithOAuthToken(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
+			d := NewFakeDriver()
 			if test.setupDriver != nil {
-				test.setupDriver()
+				test.setupDriver(d)
 			}
 			err := d.setCredentialCacheWithOAuthToken(context.Background(), test.server, test.volumeContext)
 			if test.expectSkip {
