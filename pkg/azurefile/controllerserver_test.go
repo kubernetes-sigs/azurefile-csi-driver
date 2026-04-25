@@ -1279,7 +1279,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 					},
 				}
 
-				expectedErr := status.Errorf(codes.InvalidArgument, "%s and %s cannot be both true in storage class", mountWithManagedIdentityField, mountWithWITokenField)
+				expectedErr := status.Errorf(codes.InvalidArgument, "only one of mountWithManagedIdentity, mountWithOAuthToken, and mountWithWorkloadIdentityToken can be true in storage class")
 				_, err := d.CreateVolume(ctx, req)
 				gomega.Expect(err).To(gomega.Equal(expectedErr))
 			})

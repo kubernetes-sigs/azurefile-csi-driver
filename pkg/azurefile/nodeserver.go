@@ -179,21 +179,17 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		mountOptions = append(mountOptions, "ro")
 	}
 
-	mnt, err := d.ensureMountPoint(target, os.FileMode(mountPermissions))
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Could not mount target %s: %v", target, err)
-	}
-	if mnt {
-		klog.V(2).Infof("NodePublishVolume: %s is already mounted", target)
-	}
-
-	// mountWithOAuthToken: refresh OAuth token from secret after idempotency check
-	if context != nil && strings.EqualFold(getValueInMap(context, mountWithOAuthTokenField), trueValue) {
-		server := getValueInMap(context, serverNameField)
-		if server == "" {
+	// mountWithOAuthToken: validate inputs and resolve server before ensureMountPoint
+	var oauthServer string
+	isMountWithOAuthToken := context != nil && strings.EqualFold(getValueInMap(context, mountWithOAuthTokenField), trueValue)
+	if isMountWithOAuthToken {
+		if strings.TrimSpace(getValueInMap(context, secretNameField)) == "" {
+			return nil, status.Errorf(codes.InvalidArgument, "NodePublishVolume: secretName is required for volume(%s) with mountWithOAuthToken", volumeID)
+		}
+		oauthServer = getValueInMap(context, serverNameField)
+		if oauthServer == "" {
 			accountName := getValueInMap(context, storageAccountField)
 			if accountName == "" {
-				// resolve accountName from secret if not in volume context
 				secretName := getValueInMap(context, secretNameField)
 				secretNamespace := getSecretNamespace(context)
 				if secretName != "" {
@@ -209,19 +205,28 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 				storageEndpointSuffix = d.getStorageEndPointSuffix()
 			}
 			if accountName != "" {
-				server = fmt.Sprintf("%s.file.%s", accountName, storageEndpointSuffix)
+				oauthServer = fmt.Sprintf("%s.file.%s", accountName, storageEndpointSuffix)
 			}
 		}
-		if server == "" {
+		if oauthServer == "" {
 			return nil, status.Errorf(codes.InvalidArgument, "NodePublishVolume: server is empty for volume(%s) with mountWithOAuthToken", volumeID)
 		}
-		if strings.TrimSpace(getValueInMap(context, secretNameField)) == "" {
-			return nil, status.Errorf(codes.InvalidArgument, "NodePublishVolume: secretName is required for volume(%s) with mountWithOAuthToken", volumeID)
-		}
-		if err := d.setCredentialCacheWithOAuthToken(ctx, server, context); err != nil {
+	}
+
+	mnt, err := d.ensureMountPoint(target, os.FileMode(mountPermissions))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Could not mount target %s: %v", target, err)
+	}
+	if mnt {
+		klog.V(2).Infof("NodePublishVolume: %s is already mounted", target)
+	}
+
+	// mountWithOAuthToken: refresh credential cache after idempotency check
+	if isMountWithOAuthToken {
+		if err := d.setCredentialCacheWithOAuthToken(ctx, oauthServer, context); err != nil {
 			return nil, status.Errorf(codes.Internal, "NodePublishVolume: failed to refresh OAuth token for volume(%s): %v", volumeID, err)
 		}
-		klog.V(2).Infof("NodePublishVolume: refreshed OAuth token credential cache for volume(%s) server(%s)", volumeID, server)
+		klog.V(2).Infof("NodePublishVolume: refreshed OAuth token credential cache for volume(%s) server(%s)", volumeID, oauthServer)
 	}
 
 	if mnt {
