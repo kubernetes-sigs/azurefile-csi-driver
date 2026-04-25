@@ -215,6 +215,9 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		if server == "" {
 			return nil, status.Errorf(codes.InvalidArgument, "NodePublishVolume: server is empty for volume(%s) with mountWithOAuthToken", volumeID)
 		}
+		if strings.TrimSpace(getValueInMap(context, secretNameField)) == "" {
+			return nil, status.Errorf(codes.InvalidArgument, "NodePublishVolume: secretName is required for volume(%s) with mountWithOAuthToken", volumeID)
+		}
 		if err := d.setCredentialCacheWithOAuthToken(ctx, server, context); err != nil {
 			return nil, status.Errorf(codes.Internal, "NodePublishVolume: failed to refresh OAuth token for volume(%s): %v", volumeID, err)
 		}
