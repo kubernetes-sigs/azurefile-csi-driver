@@ -95,7 +95,6 @@ spec:
             - "--kube-api-burst=100"
             - "--feature-gates=HonorPVReclaimPolicy=true"
             - "--retry-interval-max=30m"
-
             - "--feature-gates=VolumeAttributesClass=true"
           env:
             - name: ADDRESS
@@ -145,7 +144,6 @@ spec:
             - "--leader-election-namespace={{ .Release.Namespace }}"
             - '-handle-volume-inuse-error=false'
             - '-timeout=120s'
-
             - '-feature-gates=RecoverVolumeExpansionFailure=true,VolumeAttributesClass=true'
             - "--retry-interval-max=30m"
           env:
