@@ -26,6 +26,8 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	armauthorization "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	armcompute "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
@@ -80,15 +82,21 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 		return nil, err
 	}
 
-	vmssClient, err := armcompute.NewVirtualMachineScaleSetsClient(subscriptionID, cred, nil)
+	armClientOpts := &arm.ClientOptions{
+		ClientOptions: policy.ClientOptions{
+			Cloud: clientOps,
+		},
+	}
+
+	vmssClient, err := armcompute.NewVirtualMachineScaleSetsClient(subscriptionID, cred, armClientOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create VMSS client: %v", err)
 	}
-	vmClient, err := armcompute.NewVirtualMachinesClient(subscriptionID, cred, nil)
+	vmClient, err := armcompute.NewVirtualMachinesClient(subscriptionID, cred, armClientOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create VM client: %v", err)
 	}
-	roleClient, err := armauthorization.NewRoleAssignmentsClient(subscriptionID, cred, nil)
+	roleClient, err := armauthorization.NewRoleAssignmentsClient(subscriptionID, cred, armClientOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create role assignments client: %v", err)
 	}
