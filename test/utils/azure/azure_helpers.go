@@ -180,10 +180,8 @@ func stringPointer(s string) *string {
 // GetNodeIdentityPrincipalIDs retrieves the principal IDs of managed identities from VMSS and VMs in the resource group.
 // Supports both system-assigned and user-assigned managed identities.
 // This works for both CAPZ and AKS clusters regardless of whether they use VMSS or availability set VMs.
-// Returns deduplicated principal IDs and the first user-assigned identity client ID found.
-func (az *Client) GetNodeIdentityPrincipalIDs(ctx context.Context, resourceGroup string) ([]string, string, error) {
+func (az *Client) GetNodeIdentityPrincipalIDs(ctx context.Context, resourceGroup string) ([]string, error) {
 	var principalIDs []string
-	var firstClientID string
 
 	// Check VMSS
 	log.Printf("Listing VMSS in resource group %s ...", resourceGroup)
@@ -191,7 +189,7 @@ func (az *Client) GetNodeIdentityPrincipalIDs(ctx context.Context, resourceGroup
 	for vmssPager.More() {
 		page, err := vmssPager.NextPage(ctx)
 		if err != nil {
-			return nil, "", fmt.Errorf("failed to list VMSS in resource group %s: %v", resourceGroup, err)
+			return nil, fmt.Errorf("failed to list VMSS in resource group %s: %v", resourceGroup, err)
 		}
 		for _, vmss := range page.Value {
 			name := ""
@@ -212,9 +210,6 @@ func (az *Client) GetNodeIdentityPrincipalIDs(ctx context.Context, resourceGroup
 				if uaIdentity != nil && uaIdentity.PrincipalID != nil && *uaIdentity.PrincipalID != "" {
 					log.Printf("VMSS %s: found user-assigned identity %s, principalID=%s", name, uaID, *uaIdentity.PrincipalID)
 					principalIDs = append(principalIDs, *uaIdentity.PrincipalID)
-					if firstClientID == "" && uaIdentity.ClientID != nil && *uaIdentity.ClientID != "" {
-						firstClientID = *uaIdentity.ClientID
-					}
 				}
 			}
 		}
@@ -226,7 +221,7 @@ func (az *Client) GetNodeIdentityPrincipalIDs(ctx context.Context, resourceGroup
 	for vmPager.More() {
 		page, err := vmPager.NextPage(ctx)
 		if err != nil {
-			return nil, "", fmt.Errorf("failed to list VMs in resource group %s: %v", resourceGroup, err)
+			return nil, fmt.Errorf("failed to list VMs in resource group %s: %v", resourceGroup, err)
 		}
 		for _, vm := range page.Value {
 			name := ""
@@ -247,16 +242,13 @@ func (az *Client) GetNodeIdentityPrincipalIDs(ctx context.Context, resourceGroup
 				if uaIdentity != nil && uaIdentity.PrincipalID != nil && *uaIdentity.PrincipalID != "" {
 					log.Printf("VM %s: found user-assigned identity %s, principalID=%s", name, uaID, *uaIdentity.PrincipalID)
 					principalIDs = append(principalIDs, *uaIdentity.PrincipalID)
-					if firstClientID == "" && uaIdentity.ClientID != nil && *uaIdentity.ClientID != "" {
-						firstClientID = *uaIdentity.ClientID
-					}
 				}
 			}
 		}
 	}
 
 	if len(principalIDs) == 0 {
-		return nil, "", fmt.Errorf("no VMSS or VM with managed identity found in resource group %s", resourceGroup)
+		return nil, fmt.Errorf("no VMSS or VM with managed identity found in resource group %s", resourceGroup)
 	}
 
 	// Deduplicate
@@ -269,7 +261,7 @@ func (az *Client) GetNodeIdentityPrincipalIDs(ctx context.Context, resourceGroup
 		}
 	}
 	log.Printf("Found %d unique principal IDs in resource group %s", len(unique), resourceGroup)
-	return unique, firstClientID, nil
+	return unique, nil
 }
 
 // AssignRoleToIdentity assigns an Azure role to a principal on a resource group scope.
@@ -304,13 +296,12 @@ func (az *Client) AssignRoleToIdentity(ctx context.Context, resourceGroup, princ
 
 // EnsureNodeStorageFileDataRole gets the node identities from VMSS and VMs in the given
 // resource group and assigns them the "Storage File Data SMB Share Elevated Contributor" role.
-// It returns the first user-assigned managed identity client ID found (for use in StorageClass clientID).
-func (az *Client) EnsureNodeStorageFileDataRole(ctx context.Context, resourceGroup string) (string, error) {
+func (az *Client) EnsureNodeStorageFileDataRole(ctx context.Context, resourceGroup string) error {
 	log.Printf("Begin to assign Storage File Data SMB Share Elevated Contributor role to node identities in resource group %s", resourceGroup)
-	principalIDs, clientID, err := az.GetNodeIdentityPrincipalIDs(ctx, resourceGroup)
+	principalIDs, err := az.GetNodeIdentityPrincipalIDs(ctx, resourceGroup)
 	if err != nil {
 		log.Printf("Failed to get node identity principal IDs: %v", err)
-		return "", err
+		return err
 	}
 	// Storage File Data SMB Share Elevated Contributor
 	const storageFileDataSMBShareElevatedContributorRoleID = "a7264617-510b-434b-a828-9731dc254ea7"
@@ -318,13 +309,10 @@ func (az *Client) EnsureNodeStorageFileDataRole(ctx context.Context, resourceGro
 		log.Printf("Assigning Storage File Data SMB Share Elevated Contributor role to principal %s ...", principalID)
 		if err := az.AssignRoleToIdentity(ctx, resourceGroup, principalID, storageFileDataSMBShareElevatedContributorRoleID); err != nil {
 			log.Printf("Failed to assign role to principal %s: %v", principalID, err)
-			return "", err
+			return err
 		}
 		log.Printf("Successfully assigned Storage File Data SMB Share Elevated Contributor role to principal %s", principalID)
 	}
 	log.Printf("Successfully assigned Storage File Data SMB Share Elevated Contributor role to all %d node identities", len(principalIDs))
-	if clientID != "" {
-		log.Printf("First user-assigned managed identity clientID: %s", clientID)
-	}
-	return clientID, nil
+	return nil
 }

@@ -64,7 +64,6 @@ var (
 	supportZRSwithNFS              bool
 	supportSnapshotwithNFS         bool
 	supportEncryptInTransitwithNFS bool
-	nodeIdentityClientID           string
 )
 
 type testCmd struct {
@@ -101,11 +100,8 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		// Assign Storage File Data SMB Share Elevated Contributor role to node identities
 		// This is required for mountWithManagedIdentity e2e tests (CAPZ only)
 		if isCapzTest {
-			clientID, err := azureClient.EnsureNodeStorageFileDataRole(ctx, creds.ResourceGroup)
-			if err != nil {
+			if err := azureClient.EnsureNodeStorageFileDataRole(ctx, creds.ResourceGroup); err != nil {
 				log.Printf("Warning: failed to assign Storage File Data SMB Share Elevated Contributor role to node identity: %v", err)
-			} else {
-				nodeIdentityClientID = clientID
 			}
 		}
 
