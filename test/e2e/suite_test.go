@@ -97,11 +97,11 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		_, err = azureClient.EnsureResourceGroup(ctx, creds.ResourceGroup, creds.Location, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		// Assign Storage File Data SMB Share Elevated Contributor role to node identities
+		// Assign Storage File Data SMB MI Admin role to node identities
 		// This is required for mountWithManagedIdentity e2e tests (CAPZ only)
 		if isCapzTest {
 			if err := azureClient.EnsureNodeStorageFileDataRole(ctx, creds.ResourceGroup); err != nil {
-				log.Printf("Warning: failed to assign Storage File Data SMB Share Elevated Contributor role to node identity: %v", err)
+				log.Printf("Warning: failed to assign Storage File Data SMB MI Admin role to node identity: %v", err)
 			}
 		}
 
