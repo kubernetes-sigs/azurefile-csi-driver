@@ -84,7 +84,7 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 	if err != nil {
 		return nil, fmt.Errorf("failed to get default ARM client options: %v", err)
 	}
-	armClientOpts.Cloud = clientOps.Cloud
+	armClientOpts.Cloud = clientOps
 
 	vmssClient, err := armcompute.NewVirtualMachineScaleSetsClient(subscriptionID, cred, armClientOpts)
 	if err != nil {
