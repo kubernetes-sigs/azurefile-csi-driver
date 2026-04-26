@@ -1896,6 +1896,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		scParameters := map[string]string{
 			"skuName":                  "Standard_LRS",
 			"mountWithManagedIdentity": "true",
+			"clientID":                 nodeIdentityClientID,
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
 			CSIDriver:              testDriver,
