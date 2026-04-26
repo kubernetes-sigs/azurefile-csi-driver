@@ -26,8 +26,6 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	armauthorization "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	armcompute "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
@@ -82,10 +80,9 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 		return nil, err
 	}
 
-	armClientOpts := &arm.ClientOptions{
-		ClientOptions: policy.ClientOptions{
-			Cloud: clientOps,
-		},
+	armClientOpts, err := azclient.GetDefaultResourceClientOption(armConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get default ARM client options: %v", err)
 	}
 
 	vmssClient, err := armcompute.NewVirtualMachineScaleSetsClient(subscriptionID, cred, armClientOpts)
@@ -277,7 +274,7 @@ func (az *Client) AssignRoleToIdentity(ctx context.Context, resourceGroup, princ
 	fullRoleDefID := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s", az.subscriptionID, roleDefinitionID)
 
 	// Deterministic assignment ID based on scope+principal+role to avoid duplicate assignments on retry
-	assignmentID := uuid.NewSHA1(uuid.NameSpaceURL, []byte(scope+principalID+roleDefinitionID)).String()
+	assignmentID := uuid.NewSHA1(uuid.NameSpaceURL, []byte(scope+"|"+principalID+"|"+roleDefinitionID)).String()
 
 	_, err := az.roleClient.Create(ctx, scope, assignmentID, armauthorization.RoleAssignmentCreateParameters{
 		Properties: &armauthorization.RoleAssignmentProperties{
