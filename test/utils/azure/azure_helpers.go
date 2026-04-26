@@ -18,12 +18,14 @@ package azure
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
-	"strings"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	armauthorization "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	armcompute "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
@@ -265,7 +267,9 @@ func (az *Client) GetNodeIdentityPrincipalIDs(ctx context.Context, resourceGroup
 func (az *Client) AssignRoleToIdentity(ctx context.Context, resourceGroup, principalID, roleDefinitionID string) error {
 	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s", az.subscriptionID, resourceGroup)
 	fullRoleDefID := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s", az.subscriptionID, roleDefinitionID)
-	assignmentID := uuid.New().String()
+
+	// Deterministic assignment ID based on scope+principal+role to avoid duplicate assignments on retry
+	assignmentID := uuid.NewSHA1(uuid.NameSpaceURL, []byte(scope+principalID+roleDefinitionID)).String()
 
 	_, err := az.roleClient.Create(ctx, scope, assignmentID, armauthorization.RoleAssignmentCreateParameters{
 		Properties: &armauthorization.RoleAssignmentProperties{
@@ -275,8 +279,9 @@ func (az *Client) AssignRoleToIdentity(ctx context.Context, resourceGroup, princ
 		},
 	}, nil)
 	if err != nil {
-		// Ignore "RoleAssignmentExists" conflict errors
-		if strings.Contains(err.Error(), "RoleAssignmentExists") {
+		// Ignore conflict (HTTP 409) — role assignment already exists
+		var respErr *azcore.ResponseError
+		if ok := errors.As(err, &respErr); ok && respErr.StatusCode == http.StatusConflict {
 			return nil
 		}
 		return fmt.Errorf("failed to create role assignment for principal %s with role %s on scope %s: %v", principalID, roleDefinitionID, scope, err)

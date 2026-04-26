@@ -100,7 +100,7 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		// Assign Storage File Data SMB Share Elevated Contributor role to node identities
 		// This is required for mountWithManagedIdentity e2e tests
 		if err := azureClient.EnsureNodeStorageFileDataRole(ctx, creds.ResourceGroup); err != nil {
-			log.Printf("Warning: failed to assign Storage File Data SMB Share Elevated Contributor role to node identity: %v", err)
+			log.Printf("Warning: failed to assign Storage File Data SMB Share Elevated Contributor role to node identity: %v (non-AKS clusters may not have managed identities)", err)
 		}
 
 		// check whether current region supports Premium_ZRS with NFS protocol
