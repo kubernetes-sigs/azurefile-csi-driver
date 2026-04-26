@@ -208,7 +208,11 @@ func (az *Client) GetNodeIdentityPrincipalIDs(ctx context.Context, resourceGroup
 			// User-assigned identities
 			for uaID, uaIdentity := range vmss.Identity.UserAssignedIdentities {
 				if uaIdentity != nil && uaIdentity.PrincipalID != nil && *uaIdentity.PrincipalID != "" {
-					log.Printf("VMSS %s: found user-assigned identity %s, principalID=%s", name, uaID, *uaIdentity.PrincipalID)
+					clientID := ""
+					if uaIdentity.ClientID != nil {
+						clientID = *uaIdentity.ClientID
+					}
+					log.Printf("VMSS %s: found user-assigned identity %s, principalID=%s, clientID=%s", name, uaID, *uaIdentity.PrincipalID, clientID)
 					principalIDs = append(principalIDs, *uaIdentity.PrincipalID)
 				}
 			}
@@ -240,7 +244,11 @@ func (az *Client) GetNodeIdentityPrincipalIDs(ctx context.Context, resourceGroup
 			// User-assigned identities
 			for uaID, uaIdentity := range vm.Identity.UserAssignedIdentities {
 				if uaIdentity != nil && uaIdentity.PrincipalID != nil && *uaIdentity.PrincipalID != "" {
-					log.Printf("VM %s: found user-assigned identity %s, principalID=%s", name, uaID, *uaIdentity.PrincipalID)
+					clientID := ""
+					if uaIdentity.ClientID != nil {
+						clientID = *uaIdentity.ClientID
+					}
+					log.Printf("VM %s: found user-assigned identity %s, principalID=%s, clientID=%s", name, uaID, *uaIdentity.PrincipalID, clientID)
 					principalIDs = append(principalIDs, *uaIdentity.PrincipalID)
 				}
 			}
@@ -268,7 +276,7 @@ func (az *Client) GetNodeIdentityPrincipalIDs(ctx context.Context, resourceGroup
 // roleDefinitionID should be just the GUID of the role definition.
 // Common roles:
 //   - Storage File Data Privileged Contributor: 69566ab7-960f-475b-8e7c-b3118f30c6bd
-//   - Storage File Data SMB Share Elevated Contributor: a7264617-510b-434b-a828-9731dc254ea7
+//   - Storage File Data SMB MI Admin: a235d3ee-5935-4cfb-8cc5-a3303ad5995e
 func (az *Client) AssignRoleToIdentity(ctx context.Context, resourceGroup, principalID, roleDefinitionID string) error {
 	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s", az.subscriptionID, resourceGroup)
 	fullRoleDefID := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s", az.subscriptionID, roleDefinitionID)
@@ -295,24 +303,24 @@ func (az *Client) AssignRoleToIdentity(ctx context.Context, resourceGroup, princ
 }
 
 // EnsureNodeStorageFileDataRole gets the node identities from VMSS and VMs in the given
-// resource group and assigns them the "Storage File Data SMB Share Elevated Contributor" role.
+// resource group and assigns them the "Storage File Data SMB MI Admin" role.
 func (az *Client) EnsureNodeStorageFileDataRole(ctx context.Context, resourceGroup string) error {
-	log.Printf("Begin to assign Storage File Data SMB Share Elevated Contributor role to node identities in resource group %s", resourceGroup)
+	log.Printf("Begin to assign Storage File Data SMB MI Admin role to node identities in resource group %s", resourceGroup)
 	principalIDs, err := az.GetNodeIdentityPrincipalIDs(ctx, resourceGroup)
 	if err != nil {
 		log.Printf("Failed to get node identity principal IDs: %v", err)
 		return err
 	}
-	// Storage File Data SMB Share Elevated Contributor
-	const storageFileDataSMBShareElevatedContributorRoleID = "a7264617-510b-434b-a828-9731dc254ea7"
+	// Storage File Data SMB MI Admin
+	const storageFileDataSMBMIAdminRoleID = "a235d3ee-5935-4cfb-8cc5-a3303ad5995e"
 	for _, principalID := range principalIDs {
-		log.Printf("Assigning Storage File Data SMB Share Elevated Contributor role to principal %s ...", principalID)
-		if err := az.AssignRoleToIdentity(ctx, resourceGroup, principalID, storageFileDataSMBShareElevatedContributorRoleID); err != nil {
+		log.Printf("Assigning Storage File Data SMB MI Admin role to principal %s ...", principalID)
+		if err := az.AssignRoleToIdentity(ctx, resourceGroup, principalID, storageFileDataSMBMIAdminRoleID); err != nil {
 			log.Printf("Failed to assign role to principal %s: %v", principalID, err)
 			return err
 		}
-		log.Printf("Successfully assigned Storage File Data SMB Share Elevated Contributor role to principal %s", principalID)
+		log.Printf("Successfully assigned Storage File Data SMB MI Admin role to principal %s", principalID)
 	}
-	log.Printf("Successfully assigned Storage File Data SMB Share Elevated Contributor role to all %d node identities", len(principalIDs))
+	log.Printf("Successfully assigned Storage File Data SMB MI Admin role to all %d node identities", len(principalIDs))
 	return nil
 }
