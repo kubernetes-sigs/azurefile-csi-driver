@@ -64,6 +64,7 @@ var (
 	supportZRSwithNFS              bool
 	supportSnapshotwithNFS         bool
 	supportEncryptInTransitwithNFS bool
+	miRoleSetupSucceeded           bool
 )
 
 type testCmd struct {
@@ -102,6 +103,8 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		if isCapzTest {
 			if err := azureClient.EnsureNodeStorageFileDataRole(ctx, creds.ResourceGroup); err != nil {
 				log.Printf("Warning: failed to assign Storage File Data SMB MI Admin role to node identity: %v", err)
+			} else {
+				miRoleSetupSucceeded = true
 			}
 		}
 

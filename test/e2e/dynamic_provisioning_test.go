@@ -1879,6 +1879,9 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		if !isCapzTest {
 			ginkgo.Skip("test case is only available for capz test")
 		}
+		if !miRoleSetupSucceeded {
+			ginkgo.Skip("MI role assignment did not succeed, skipping managed identity mount test")
+		}
 		pods := []testsuites.PodDetails{
 			{
 				Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data",
