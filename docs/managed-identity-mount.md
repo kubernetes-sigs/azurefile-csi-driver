@@ -167,17 +167,4 @@ Verify the following:
 
 1. **The managed identity has the correct role assignment.** Ensure the managed identity is assigned the **`Storage File Data SMB MI Admin`** role on the storage account (or the resource group for dynamic provisioning). Other roles such as `Storage File Data SMB Share Contributor` or `Storage File Data SMB Share Elevated Contributor` are **not sufficient** for managed identity mount.
 
-   ```bash
-   # Verify role assignment
-   az role assignment list --assignee <managed-identity-principal-id> --scope <storage-account-resource-id> --query "[].roleDefinitionName" -o tsv
-   ```
-
 2. **The SMBOauth property is enabled on the storage account.** Without this, the storage account does not support Kerberos ticket acquisition for managed identity authentication.
-
-   ```bash
-   # Check SMBOauth status
-   az storage account show --name <account-name> --resource-group <resource-group-name> --query "azureFilesIdentityBasedAuthentication"
-
-   # Enable SMBOauth if not enabled
-   az storage account update --name <account-name> --resource-group <resource-group-name> --enable-smb-oauth true
-   ```
