@@ -101,11 +101,9 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		// Assign Storage File Data SMB MI Admin role to node identities
 		// This is required for mountWithManagedIdentity e2e tests (CAPZ only)
 		if isCapzTest {
-			if err := azureClient.EnsureNodeStorageFileDataRole(ctx, creds.ResourceGroup); err != nil {
-				log.Printf("Warning: failed to assign Storage File Data SMB MI Admin role to node identity: %v", err)
-			} else {
-				miRoleSetupSucceeded = true
-			}
+			err := azureClient.EnsureNodeStorageFileDataRole(ctx, creds.ResourceGroup)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to assign Storage File Data SMB MI Admin role to node identity")
+			miRoleSetupSucceeded = true
 		}
 
 		// check whether current region supports Premium_ZRS with NFS protocol
