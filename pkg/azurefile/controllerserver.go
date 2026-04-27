@@ -1728,16 +1728,17 @@ func (d *Driver) ControllerModifyVolume(ctx context.Context, req *csi.Controller
 
 // serializeTags produces a deterministic string representation of a tags map
 // by sorting keys and joining as "k1=v1,k2=v2".
-// serializeTags produces a deterministic JSON string from a tags map.
-// json.Marshal sorts map keys alphabetically and escapes special characters,
-// avoiding ambiguity that hand-rolled k=v serialization would have.
+// serializeTags returns a deterministic JSON string for a tags map.
+// json.Marshal sorts map keys and escapes special characters in values.
 func serializeTags(tags map[string]string) string {
 	if len(tags) == 0 {
 		return ""
 	}
 	b, err := json.Marshal(tags)
 	if err != nil {
-		return fmt.Sprintf("%v", tags)
+		// json.Marshal on map[string]string should never fail,
+		// but return empty string rather than non-deterministic output
+		return ""
 	}
 	return string(b)
 }
