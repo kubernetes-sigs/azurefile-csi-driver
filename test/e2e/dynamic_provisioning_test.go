@@ -574,6 +574,62 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(ctx, cs, ns)
 	})
 
+	ginkgo.It("should create a PremiumV2 volume and modify its IOPS and bandwidth via VolumeAttributesClass [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+		reclaimPolicy := v1.PersistentVolumeReclaimDelete
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data && while true; do sleep 3600; done",
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize:     "100Gi",
+						ReclaimPolicy: &reclaimPolicy,
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+					},
+				},
+			},
+		}
+		test := testsuites.DynamicallyProvisionedModifyVolumeTest{
+			CSIDriver: testDriver,
+			Pods:      pods,
+			StorageClassParameters: map[string]string{
+				"skuName": "PremiumV2_LRS",
+			},
+			VolumeAttributesClass: testDriver.GetVolumeAttributesClass(ns.Name),
+		}
+		test.Run(ctx, cs, ns)
+	})
+
+	ginkgo.It("should create a StandardV2 volume and modify its IOPS and bandwidth via VolumeAttributesClass [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+		reclaimPolicy := v1.PersistentVolumeReclaimDelete
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data && while true; do sleep 3600; done",
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize:     "100Gi",
+						ReclaimPolicy: &reclaimPolicy,
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+					},
+				},
+			},
+		}
+		test := testsuites.DynamicallyProvisionedModifyVolumeTest{
+			CSIDriver: testDriver,
+			Pods:      pods,
+			StorageClassParameters: map[string]string{
+				"skuName": "StandardV2_LRS",
+			},
+			VolumeAttributesClass: testDriver.GetVolumeAttributesClass(ns.Name),
+		}
+		test.Run(ctx, cs, ns)
+	})
+
 	ginkgo.It("should create a volume on demand and resize it [kubernetes.io/azure-file] [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
 		pods := []testsuites.PodDetails{
 			{

@@ -141,6 +141,17 @@ Name | Meaning | Available Value | Mandatory | Default value
 --- | --- | --- | --- | ---
 useDataPlaneAPI | specify whether use [data plane API](https://github.com/Azure/azure-sdk-for-go/blob/master/storage/share.go) for snapshot create/delete, this could solve the SRP API throttling issue since data plane API has almost no limit, while it would fail when there is firewall or vnet setting on storage account | `true`,`false` | No | `false`
 
+### `VolumeAttributesClass`
+
+> Supported from Azure File CSI driver v1.35.0. Requires Kubernetes 1.31+ (beta) or 1.34+ (GA).
+
+Name | Meaning | Available Value | Mandatory | Default value
+--- | --- | --- | --- | ---
+provisionedIOPS | provisioned IOPS for [file share v2](https://learn.microsoft.com/en-us/azure/storage/files/understanding-billing#provisioned-v2-provisioning-detail). Only applicable to PremiumV2 and StandardV2 SKUs. | integer string, e.g. `"5000"` | No |
+provisionedBandwidth | provisioned throughput (MiB/s) for [file share v2](https://learn.microsoft.com/en-us/azure/storage/files/understanding-billing#provisioned-v2-provisioning-detail). Only applicable to PremiumV2 and StandardV2 SKUs. | integer string, e.g. `"200"` | No |
+
+> For usage examples, see [ModifyVolume example](../deploy/example/modifyvolume/README.md).
+
 ### Tips
   - mounting Azure SMB File share requires account key
     - If you set `storeAccountKey: "false"` in the storage class, the driver will not store the account key as a Kubernetes secret,  the driver will not store the account key as a Kubernetes secret. Instead, the driver will use the kubelet identity to retrieve the account key during volume mount (make sure kubelet identity has reader access to the storage account).
