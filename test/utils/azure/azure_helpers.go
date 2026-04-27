@@ -293,9 +293,9 @@ func (az *Client) AssignRoleToIdentity(ctx context.Context, resourceGroup, princ
 		},
 	}, nil)
 	if err != nil {
-		// Ignore conflict (HTTP 409) — role assignment already exists
+		// Ignore conflict only when role assignment already exists
 		var respErr *azcore.ResponseError
-		if ok := errors.As(err, &respErr); ok && respErr.StatusCode == http.StatusConflict {
+		if ok := errors.As(err, &respErr); ok && respErr.StatusCode == http.StatusConflict && respErr.ErrorCode == "RoleAssignmentExists" {
 			return nil
 		}
 		return fmt.Errorf("failed to create role assignment for principal %s with role %s on scope %s: %v", principalID, roleDefinitionID, scope, err)
