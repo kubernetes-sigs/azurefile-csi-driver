@@ -18,6 +18,7 @@ package azurefile
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -618,10 +619,14 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		if v, ok := d.volMap.Load(volName); ok {
 			accountName = v.(string)
 		} else {
-			lockKey = fmt.Sprintf("%s%s%s%s%s%s%s%s%v%v%v%v%v%v%v", sku, accountKind, resourceGroup, location, protocol, subsID, accountAccessTier, privateDNSZoneResourceGroup,
+			lockKey = fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%v|%v|%v|%v|%v|%v|%v|%v|%v|%v|%s|%s|%s|%s|%s|%v|%s|%s",
+				sku, accountKind, resourceGroup, location, protocol, subsID, accountAccessTier, privateDNSZoneResourceGroup,
 				ptr.Deref(createPrivateEndpoint, false), ptr.Deref(allowBlobPublicAccess, false), ptr.Deref(requireInfraEncryption, false),
 				ptr.Deref(enableLFS, false), ptr.Deref(disableDeleteRetentionPolicy, false),
-				ptr.Deref(allowCrossTenantReplication, true), ptr.Deref(allowSharedKeyAccess, true))
+				ptr.Deref(allowCrossTenantReplication, true), ptr.Deref(allowSharedKeyAccess, true),
+				ptr.Deref(requiresSmbOAuth, false), ptr.Deref(isMultichannelEnabled, false),
+				enableHTTPSTrafficOnly, publicNetworkAccess, vnetResourceGroup, vnetName, vnetLinkName, subnetName,
+				matchTags, serializeTags(tags), storageEndpointSuffix)
 			// search in cache first
 			cache, err := d.accountSearchCache.Get(ctx, lockKey, azcache.CacheReadTypeDefault)
 			if err != nil {
@@ -1719,4 +1724,19 @@ func (d *Driver) ControllerModifyVolume(ctx context.Context, req *csi.Controller
 	isOperationSucceeded = true
 	klog.V(2).Infof("ControllerModifyVolume(%s) succeeded", volumeID)
 	return &csi.ControllerModifyVolumeResponse{}, nil
+}
+
+// serializeTags returns a deterministic JSON string for a tags map.
+// json.Marshal sorts map keys and escapes special characters in values.
+func serializeTags(tags map[string]string) string {
+	if len(tags) == 0 {
+		return ""
+	}
+	b, err := json.Marshal(tags)
+	if err != nil {
+		// json.Marshal on map[string]string should never fail,
+		// but return empty string rather than non-deterministic output
+		return ""
+	}
+	return string(b)
 }
