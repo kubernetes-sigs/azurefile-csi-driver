@@ -20,8 +20,10 @@ limitations under the License.
 package smb
 
 import (
+	"fmt"
+
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/azurefile-csi-driver/pkg/os/cim"
+	wmi "sigs.k8s.io/azurefile-csi-driver/pkg/os/wmi"
 )
 
 var _ SMBAPI = &cimSMBAPI{}
@@ -34,43 +36,48 @@ func NewCimSMBAPI() *cimSMBAPI {
 
 func (*cimSMBAPI) IsSmbMapped(remotePath string) (bool, error) {
 	var isMapped bool
-	err := cim.WithCOMThread(func() error {
-		inst, err := cim.QuerySmbGlobalMappingByRemotePath(remotePath)
-		if err != nil {
-			klog.V(6).Infof("error querying smb mapping for remote path %s. err: %v", remotePath, err)
-			return err
-		}
+	err := wmi.WithCOMThread(func() error {
+		return wmi.WithScope(func(scope *wmi.Scope) error {
+			inst, err := wmi.QuerySmbGlobalMappingByRemotePath(scope, remotePath)
+			if err != nil {
+				klog.V(6).Infof("error querying smb mapping for remote path %s. err: %v", remotePath, err)
+				return err
+			}
 
-		status, err := cim.GetSmbGlobalMappingStatus(inst)
-		if err != nil {
-			klog.V(6).Infof("error getting smb mapping status for remote path %s. err: %v", remotePath, err)
-			return err
-		}
+			status, err := wmi.GetSmbGlobalMappingStatus(inst)
+			if err != nil {
+				klog.V(6).Infof("error getting smb mapping status for remote path %s. err: %v", remotePath, err)
+				return err
+			}
 
-		isMapped = status == cim.SmbMappingStatusOK
-		return nil
+			isMapped = status == wmi.SmbMappingStatusOK
+			return nil
+		})
 	})
-	return isMapped, cim.IgnoreNotFound(err)
+	return isMapped, wmi.IgnoreNotFound(err)
 }
 
 func (*cimSMBAPI) NewSmbGlobalMapping(remotePath, username, password string) error {
-	return cim.WithCOMThread(func() error {
-		result, err := cim.NewSmbGlobalMapping(remotePath, username, password, true)
+	requirePrivacy := true
+	return wmi.WithCOMThread(func() error {
+		err := wmi.NewSmbGlobalMapping(remotePath, username, password, requirePrivacy)
 		if err != nil {
-			klog.V(6).Infof("error creating smb mapping for remote path %s. result %d, err: %v", remotePath, result, err)
-			return err
+			klog.V(6).Infof("error creating smb mapping for remote path %s. err: %v", remotePath, err)
+			return fmt.Errorf("create SMB mapping failed for %s: %w", remotePath, err)
 		}
 		return nil
 	})
 }
 
 func (*cimSMBAPI) RemoveSmbGlobalMapping(remotePath string) error {
-	return cim.WithCOMThread(func() error {
-		err := cim.RemoveSmbGlobalMappingByRemotePath(remotePath)
-		if err != nil {
-			klog.V(6).Infof("error removing smb mapping for remote path %s. err: %v", remotePath, err)
-			return err
-		}
-		return nil
+	return wmi.WithCOMThread(func() error {
+		return wmi.WithScope(func(scope *wmi.Scope) error {
+			err := wmi.RemoveSmbGlobalMappingByRemotePath(scope, remotePath)
+			if err != nil {
+				klog.V(6).Infof("error removing smb mapping for remote path %s. err: %v", remotePath, err)
+				return fmt.Errorf("error remove smb mapping '%s'. err: %w", remotePath, err)
+			}
+			return nil
+		})
 	})
 }
