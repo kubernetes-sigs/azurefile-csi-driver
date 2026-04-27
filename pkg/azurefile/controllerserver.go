@@ -18,11 +18,11 @@ package azurefile
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
 	"os/exec"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -618,14 +618,14 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		if v, ok := d.volMap.Load(volName); ok {
 			accountName = v.(string)
 		} else {
-			lockKey = fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%v|%v|%v|%v|%v|%v|%v|%v|%v|%v|%s|%s|%s|%s|%s|%v|%v",
+			lockKey = fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%v|%v|%v|%v|%v|%v|%v|%v|%v|%v|%s|%s|%s|%s|%s|%v|%s|%s",
 				sku, accountKind, resourceGroup, location, protocol, subsID, accountAccessTier, privateDNSZoneResourceGroup,
 				ptr.Deref(createPrivateEndpoint, false), ptr.Deref(allowBlobPublicAccess, false), ptr.Deref(requireInfraEncryption, false),
 				ptr.Deref(enableLFS, false), ptr.Deref(disableDeleteRetentionPolicy, false),
 				ptr.Deref(allowCrossTenantReplication, true), ptr.Deref(allowSharedKeyAccess, true),
 				ptr.Deref(requiresSmbOAuth, false), ptr.Deref(isMultichannelEnabled, false),
 				enableHTTPSTrafficOnly, publicNetworkAccess, vnetResourceGroup, vnetName, vnetLinkName, subnetName,
-				matchTags, serializeTags(tags))
+				matchTags, serializeTags(tags), storageEndpointSuffix)
 			// search in cache first
 			cache, err := d.accountSearchCache.Get(ctx, lockKey, azcache.CacheReadTypeDefault)
 			if err != nil {
@@ -1727,18 +1727,12 @@ func (d *Driver) ControllerModifyVolume(ctx context.Context, req *csi.Controller
 
 // serializeTags produces a deterministic string representation of a tags map
 // by sorting keys and joining as "k1=v1,k2=v2".
+// serializeTags produces a deterministic string representation of a tags map.
+// Uses json.Marshal which sorts keys and properly escapes values.
 func serializeTags(tags map[string]string) string {
 	if len(tags) == 0 {
 		return ""
 	}
-	keys := make([]string, 0, len(tags))
-	for k := range tags {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	pairs := make([]string, 0, len(tags))
-	for _, k := range keys {
-		pairs = append(pairs, k+"="+tags[k])
-	}
-	return strings.Join(pairs, ",")
+	b, _ := json.Marshal(tags)
+	return string(b)
 }
