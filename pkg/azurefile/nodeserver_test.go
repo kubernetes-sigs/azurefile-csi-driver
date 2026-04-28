@@ -216,7 +216,7 @@ func TestNodePublishVolume(t *testing.T) {
 			},
 		},
 		{
-			desc: "[Success] Ephemeral volume with mountWithManagedIdentity should preserve storageAccount",
+			desc: "[Error] Ephemeral volume with mountWithManagedIdentity should preserve storageAccount",
 			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
 				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed83",
 				TargetPath: targetTest,
@@ -228,7 +228,9 @@ func TestNodePublishVolume(t *testing.T) {
 					mountWithManagedIdentityField: "true",
 				},
 			},
-			expectedErr: testutil.TestError{},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.Internal, fmt.Sprintf("volume(csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed83) mount //teststorageaccount.file.core.windows.net/testshare on %s failed with setCredentialCache failed for teststorageaccount.file.core.windows.net with error: clientID must be provided, output: ", targetTest)),
+			},
 		},
 		{
 			desc: "[Success] Valid request read only",
