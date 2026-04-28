@@ -874,7 +874,10 @@ func (t *TestPod) SetLabel(labels map[string]string) {
 
 func (t *TestPod) SetServiceAccountName(name string) {
 	t.pod.Spec.ServiceAccountName = name
-	t.pod.Spec.AutomountServiceAccountToken = ptr.To(true)
+}
+
+func (t *TestPod) SetAutomountServiceAccountToken(enabled bool) {
+	t.pod.Spec.AutomountServiceAccountToken = ptr.To(enabled)
 }
 
 type TestSecret struct {

@@ -49,6 +49,7 @@ func (t *DynamicallyProvisionedCmdVolumeTest) Run(ctx context.Context, client cl
 
 		if t.ServiceAccountName != "" {
 			tpod.SetServiceAccountName(t.ServiceAccountName)
+			tpod.SetAutomountServiceAccountToken(true)
 		}
 
 		ginkgo.By("deploying the pod")
