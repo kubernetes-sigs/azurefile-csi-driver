@@ -70,7 +70,6 @@ var (
 	supportEncryptInTransitwithNFS bool
 	miRoleSetupSucceeded           bool
 	wiSetupSucceeded               bool
-	wiClientID                     string
 )
 
 type testCmd struct {
@@ -410,7 +409,6 @@ func setupWorkloadIdentity(ctx context.Context, cs clientset.Interface, azureCli
 		return fmt.Errorf("failed to get node identity: %v", err)
 	}
 	log.Printf("Node identity clientID: %s, principalID: %s", nodeClientID, principalID)
-	wiClientID = nodeClientID
 
 	identityResourceID, err := azureClient.GetNodeIdentityResourceID(ctx, creds.ResourceGroup)
 	if err != nil {
