@@ -18,6 +18,7 @@ package azurefile
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net"
@@ -35,7 +36,10 @@ import (
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 	mount "k8s.io/mount-utils"
 	"k8s.io/utils/exec"
 	testingexec "k8s.io/utils/exec/testing"
@@ -272,6 +276,39 @@ func TestNodePublishVolume(t *testing.T) {
 				mockDirectVolume.EXPECT().Add(targetTest, gomock.Any()).Return(nil)
 			},
 			cleanup: func() {
+			},
+		},
+		{
+			desc: "[Error] mountWithOAuthToken with missing secretName",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "vol_1",
+				TargetPath:        targetTest,
+				StagingTargetPath: sourceTest,
+				VolumeContext: map[string]string{
+					mountWithOAuthTokenField: "true",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Errorf(codes.InvalidArgument, "NodePublishVolume: secretName is required for volume(%s) with mountWithOAuthToken", "vol_1"),
+			},
+		},
+		{
+			desc: "[Error] mountWithOAuthToken with server but secret fetch fails",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "vol_1",
+				TargetPath:        targetTest,
+				StagingTargetPath: sourceTest,
+				VolumeContext: map[string]string{
+					mountWithOAuthTokenField: "true",
+					serverNameField:          "testaccount.file.core.windows.net",
+					secretNameField:          "test-secret",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Errorf(codes.Internal, "NodePublishVolume: failed to refresh OAuth token for volume(%s): %v", "vol_1", fmt.Errorf("failed to get secret %s/%s: %v", "default", "test-secret", fmt.Errorf("could not get credentials from secret(%s): KubeClient is nil", "test-secret"))),
+			},
+			setup: func() {
+				d.kubeClient = nil
 			},
 		},
 	}
@@ -792,7 +829,7 @@ func TestNodeStageVolume(t *testing.T) {
 			},
 		},
 		{
-			desc: "[Error] mountWithManagedIdentity and mountWithWIToken cannot be both true",
+			desc: "[Error] only one of mountWithManagedIdentity, mountWithOAuthToken, and mountWithWorkloadIdentityToken can be true",
 			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
 				VolumeCapability: &stdVolCap,
 				VolumeContext: map[string]string{
@@ -804,7 +841,55 @@ func TestNodeStageVolume(t *testing.T) {
 				},
 				Secrets: secrets},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.InvalidArgument, "mountWithManagedIdentity and mountWithWIToken cannot be both true"),
+				DefaultError: status.Error(codes.InvalidArgument, fmt.Sprintf("only one of %q, %q, and %q can be true", mountWithManagedIdentityField, mountWithOAuthTokenField, mountWithWITokenField)),
+			},
+		},
+		{
+			desc: "[Error] mountWithOAuthToken not supported with NFS",
+			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					shareNameField:           "test_sharename",
+					storageAccountField:      "test_accountname",
+					mountWithOAuthTokenField: "true",
+					protocolField:            "nfs",
+				},
+				Secrets: secrets},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "mountWithOAuthToken is not supported with NFS protocol"),
+				WindowsError: status.Error(codes.InvalidArgument, "mountWithOAuthToken is not supported on Windows"),
+			},
+		},
+		{
+			desc: "[Error] mountWithOAuthToken missing secretName",
+			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					shareNameField:           "test_sharename",
+					storageAccountField:      "test_accountname",
+					mountWithOAuthTokenField: "true",
+				},
+				Secrets: secrets},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "secretName is required when mountWithOAuthToken is true"),
+				WindowsError: status.Error(codes.InvalidArgument, "mountWithOAuthToken is not supported on Windows"),
+			},
+		},
+		{
+			desc: "[Error] mountWithOAuthToken with createFolderIfNotExist",
+			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					shareNameField:              "test_sharename",
+					storageAccountField:         "test_accountname",
+					mountWithOAuthTokenField:    "true",
+					secretNameField:             "test-secret",
+					createFolderIfNotExistField: "true",
+				},
+				Secrets: secrets},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "createFolderIfNotExist is not supported with mountWithOAuthToken"),
+				WindowsError: status.Error(codes.InvalidArgument, "mountWithOAuthToken is not supported on Windows"),
 			},
 		},
 		{
@@ -1279,5 +1364,89 @@ func makeFakeOutput(output string, err error) testingexec.FakeAction {
 	o := output
 	return func() ([]byte, []byte, error) {
 		return []byte(o), nil, err
+	}
+}
+
+func TestSetCredentialCacheWithOAuthToken(t *testing.T) {
+	tests := []struct {
+		desc          string
+		server        string
+		volumeContext map[string]string
+		setupDriver   func(d *Driver)
+		expectedErr   string
+		expectSkip    bool
+	}{
+		{
+			desc:   "missing secretName",
+			server: "testaccount.file.core.windows.net",
+			volumeContext: map[string]string{
+				mountWithOAuthTokenField: "true",
+			},
+			expectedErr: "secretName is required",
+		},
+		{
+			desc:   "kubeClient is nil",
+			server: "testaccount.file.core.windows.net",
+			volumeContext: map[string]string{
+				secretNameField: "test-secret",
+			},
+			setupDriver: func(d *Driver) {
+				d.kubeClient = nil
+			},
+			expectedErr: "KubeClient is nil",
+		},
+		{
+			desc:   "oauthtoken missing in secret",
+			server: "testaccount.file.core.windows.net",
+			volumeContext: map[string]string{
+				secretNameField: "test-secret",
+			},
+			setupDriver: func(d *Driver) {
+				secret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: "default"},
+					Data:       map[string][]byte{defaultSecretAccountName: []byte("testaccount")},
+				}
+				d.kubeClient = fake.NewSimpleClientset(secret)
+			},
+			expectedErr: fmt.Sprintf("%s not found in secret", defaultSecretOAuthToken),
+		},
+		{
+			desc:   "skip refresh when token SHA unchanged",
+			server: "testaccount.file.core.windows.net",
+			volumeContext: map[string]string{
+				secretNameField: "test-secret",
+			},
+			setupDriver: func(d *Driver) {
+				token := "test-oauth-token-value"
+				secret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: "default"},
+					Data: map[string][]byte{
+						defaultSecretAccountName: []byte("testaccount"),
+						defaultSecretOAuthToken:  []byte(token),
+					},
+				}
+				d.kubeClient = fake.NewSimpleClientset(secret)
+				// pre-populate SHA cache
+				tokenSHA := fmt.Sprintf("%x", sha256.Sum256([]byte(token)))
+				d.oauthTokenSHAMap.Store("testaccount.file.core.windows.net", tokenSHA)
+			},
+			expectSkip: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			d := NewFakeDriver()
+			if test.setupDriver != nil {
+				test.setupDriver(d)
+			}
+			err := d.setCredentialCacheWithOAuthToken(context.Background(), test.server, test.volumeContext)
+			if test.expectSkip {
+				assert.NoError(t, err)
+			} else if test.expectedErr != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), test.expectedErr)
+			}
+		})
 	}
 }

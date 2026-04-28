@@ -173,7 +173,10 @@ const (
 	runtimeClassHandlerField          = "runtimeclasshandler"
 	defaultRuntimeClassHandler        = "kata-cc"
 	mountWithManagedIdentityField     = "mountwithmanagedidentity"
+	mountWithOAuthTokenField          = "mountwithoauthtoken"
 	mountWithWITokenField             = "mountwithworkloadidentitytoken"
+
+	defaultSecretOAuthToken = "oauthtoken"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
 	// this is a workaround fix for 429 throttling issue, will update cloud provider for better fix later
@@ -292,6 +295,8 @@ type Driver struct {
 	secretCacheMap azcache.Resource
 	// a map storing all volumes using data plane API <volumeID, value>
 	dataPlaneAPIVolMap sync.Map
+	// a map storing OAuth token SHA per server to avoid unnecessary credential cache refresh
+	oauthTokenSHAMap sync.Map
 	// a timed cache storing all storage accounts that are using data plane API temporarily
 	dataPlaneAPIAccountCache azcache.Resource
 	// a timed cache storing account search history (solve account list throttling issue)
@@ -824,7 +829,7 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 
 	var protocol, accountKey, secretName, pvcNamespace string
 	// getAccountKeyFromSecret indicates whether get account key only from k8s secret
-	var getAccountKeyFromSecret, getLatestAccountKey, mountWithManagedIdentity, mountWithWIToken bool
+	var getAccountKeyFromSecret, getLatestAccountKey, mountWithManagedIdentity, mountWithOAuthToken, mountWithWIToken bool
 	var clientID, tenantID, tokenFilePath, serviceAccountToken string
 
 	for k, v := range reqContext {
@@ -860,6 +865,10 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 		case mountWithManagedIdentityField:
 			if mountWithManagedIdentity, err = strconv.ParseBool(v); err != nil {
 				return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("invalid %s: %s in volume context", mountWithManagedIdentityField, v)
+			}
+		case mountWithOAuthTokenField:
+			if mountWithOAuthToken, err = strconv.ParseBool(v); err != nil {
+				return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("invalid %s: %s in volume context", mountWithOAuthTokenField, v)
 			}
 		case mountWithWITokenField:
 			if mountWithWIToken, err = strconv.ParseBool(v); err != nil {
@@ -902,6 +911,21 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 
 	if mountWithManagedIdentity {
 		klog.V(2).Infof("mountWithManagedIdentity is true, use managed identity auth")
+		return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, nil
+	}
+
+	if mountWithOAuthToken {
+		klog.V(2).Infof("mountWithOAuthToken is true, use OAuth token from secret for mount")
+		// Read accountName from secret if not already set
+		if accountName == "" && secretName != "" {
+			name, _, _, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
+			if err != nil {
+				return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("failed to get account name from secret for mountWithOAuthToken: %v", err)
+			}
+			if name != "" {
+				accountName = name
+			}
+		}
 		return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, nil
 	}
 
@@ -957,7 +981,7 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 			if secretName != "" {
 				var name string
 				// 2. if not found in cache, get account key from kubernetes secret
-				name, accountKey, err = d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
+				name, accountKey, _, err = d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
 				if name != "" {
 					accountName = name
 				}
@@ -1354,7 +1378,7 @@ func (d *Driver) GetStorageAccesskey(ctx context.Context, accountOptions *storag
 	if secretName == "" {
 		secretName = fmt.Sprintf(secretNameTemplate, accountName)
 	}
-	_, accountKey, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
+	_, accountKey, _, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
 	if err != nil {
 		klog.V(2).Infof("could not get account(%s) key from secret(%s), error: %v, use cluster identity to get account key instead", accountOptions.Name, secretName, err)
 		accountKey, err = d.GetStorageAccesskeyWithSubsID(ctx, accountOptions.SubscriptionID, accountOptions.Name, accountOptions.ResourceGroup, accountOptions.GetLatestAccountKey)
@@ -1378,21 +1402,22 @@ func (d *Driver) GetStorageAccesskeyWithSubsID(ctx context.Context, subsID, acco
 	return d.cloud.GetStorageAccesskey(ctx, accountClient, account, resourceGroup, getLatestAccountKey)
 }
 
-// GetStorageAccountFromSecret get storage account key from k8s secret
-// return <accountName, accountKey, error>
-func (d *Driver) GetStorageAccountFromSecret(ctx context.Context, secretName, secretNamespace string) (string, string, error) {
+// GetStorageAccountFromSecret get storage account key and OAuth token from k8s secret
+// return <accountName, accountKey, oauthToken, error>
+func (d *Driver) GetStorageAccountFromSecret(ctx context.Context, secretName, secretNamespace string) (string, string, string, error) {
 	if d.kubeClient == nil {
-		return "", "", fmt.Errorf("could not get account key from secret(%s): KubeClient is nil", secretName)
+		return "", "", "", fmt.Errorf("could not get credentials from secret(%s): KubeClient is nil", secretName)
 	}
 
 	secret, err := d.kubeClient.CoreV1().Secrets(secretNamespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil {
-		return "", "", fmt.Errorf("could not get secret(%v): %v", secretName, err)
+		return "", "", "", fmt.Errorf("could not get secret(%v): %v", secretName, err)
 	}
 
-	accountName := strings.TrimSpace(string(secret.Data[defaultSecretAccountName][:]))
-	accountKey := strings.TrimSpace(string(secret.Data[defaultSecretAccountKey][:]))
-	return accountName, accountKey, nil
+	accountName := strings.TrimSpace(string(secret.Data[defaultSecretAccountName]))
+	accountKey := strings.TrimSpace(string(secret.Data[defaultSecretAccountKey]))
+	oauthToken := strings.TrimSpace(string(secret.Data[defaultSecretOAuthToken]))
+	return accountName, accountKey, oauthToken, nil
 }
 
 // getSubnetResourceID get default subnet resource ID from cloud provider config

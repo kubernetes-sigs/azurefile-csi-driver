@@ -304,6 +304,18 @@ func getValueInMap(m map[string]string, key string) string {
 	return ""
 }
 
+// getSecretNamespace resolves the secret namespace from volume context,
+// falling back to PVC namespace, then to "default".
+func getSecretNamespace(volumeContext map[string]string) string {
+	if ns := getValueInMap(volumeContext, secretNamespaceField); ns != "" {
+		return ns
+	}
+	if ns := getValueInMap(volumeContext, pvcNamespaceKey); ns != "" {
+		return ns
+	}
+	return defaultNamespace
+}
+
 // replaceWithMap replace key with value for str
 func replaceWithMap(str string, m map[string]string) string {
 	for k, v := range m {
@@ -419,27 +431,42 @@ func getDefaultBandwidth(requestGiB int, storageAccountType string) *int32 {
 	return &bandwidth
 }
 
-func setCredentialCache(server, clientID, tenantID, tokenFile string) ([]byte, error) {
+func setCredentialCache(server, clientID, tenantID, tokenFile, token string) ([]byte, error) {
 	if server == "" {
 		return nil, fmt.Errorf("server must be provided")
 	}
-	if clientID == "" {
-		return nil, fmt.Errorf("clientID must be provided")
+	if token != "" && tokenFile != "" {
+		return nil, fmt.Errorf("token and tokenFile are mutually exclusive, only one can be provided")
 	}
 
+	serverURL := "https://" + server
 	var args []string
-	if tokenFile != "" {
+	switch {
+	case token != "":
+		// direct token mode: azfilesauthmanager set https://<server> <access_token>
+		args = []string{"set", serverURL, token}
+	case tokenFile != "":
+		if clientID == "" {
+			return nil, fmt.Errorf("clientID must be provided")
+		}
 		if tenantID == "" {
 			return nil, fmt.Errorf("tenantID must be provided when tokenFile is provided")
 		}
-		args = []string{"set", "https://" + server, "--workload-identity", "--tenant-id", tenantID, "--client-id", clientID, "--token-file", tokenFile}
-	} else {
-		args = []string{"set", "https://" + server, "--imds-client-id", clientID}
+		args = []string{"set", serverURL, "--workload-identity", "--tenant-id", tenantID, "--client-id", clientID, "--token-file", tokenFile}
+	default:
+		if clientID == "" {
+			return nil, fmt.Errorf("clientID must be provided")
+		}
+		args = []string{"set", serverURL, "--imds-client-id", clientID}
 	}
 
 	cmd := exec.Command("azfilesauthmanager", args...)
 	cmd.Env = append(os.Environ(), cmd.Env...)
-	klog.V(2).Infof("Executing command: %q", cmd.String())
+	if token != "" {
+		klog.V(2).Infof("Executing command: azfilesauthmanager set %s <token-redacted>", serverURL)
+	} else {
+		klog.V(2).Infof("Executing command: %q", cmd.String())
+	}
 	return cmd.CombinedOutput()
 }
 
