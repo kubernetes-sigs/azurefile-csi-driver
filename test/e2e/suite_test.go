@@ -385,7 +385,7 @@ const (
 	wiServiceAccountName        = "azurefile-wi-test-sa"
 	wiServiceAccountNamespace   = "default"
 	wiFederatedCredentialName   = "azurefile-e2e-wi-fic"
-	wiStorageFileDataSMBMIAdmin = "a235d3ee-5935-4cfb-8cc5-a3303ad5995e" // Storage File Data SMB Share Elevated Contributor role GUID
+	wiStorageFileDataSMBMIAdmin = "a235d3ee-5935-4cfb-8cc5-a3303ad5995e" // Storage File Data SMB MI Admin role GUID
 )
 
 // setupWorkloadIdentity configures workload identity for e2e tests:
@@ -463,7 +463,7 @@ func setupWorkloadIdentity(ctx context.Context, cs clientset.Interface, azureCli
 	}
 	log.Printf("Service account %s created/updated in namespace %s", wiServiceAccountName, wiServiceAccountNamespace)
 
-	// Step 5: Assign Storage File Data SMB Share Elevated Contributor role to identity
+	// Step 5: Assign Storage File Data SMB MI Admin role to identity
 	err = azureClient.AssignRoleToIdentity(ctx, creds.ResourceGroup, identityInfo.PrincipalID, wiStorageFileDataSMBMIAdmin)
 	if err != nil {
 		return fmt.Errorf("failed to assign Storage File Data SMB MI Admin role: %v", err)
