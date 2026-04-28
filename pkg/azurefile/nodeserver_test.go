@@ -248,8 +248,8 @@ func TestNodePublishVolume(t *testing.T) {
 				},
 			},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Errorf(codes.Internal, "volume(csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed84) mount //teststorageaccount.file.core.windows.net/testshare on %s failed with azure file plugin failure with error: , output: ", targetTest),
-				WindowsError: status.Errorf(codes.Internal, "volume(csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed84) mount //teststorageaccount.file.core.windows.net/testshare on %s failed with accountName(teststorageaccount) or accountKey is empty, output: ", targetTest),
+				DefaultError: status.Errorf(codes.InvalidArgument, "GetAccountInfo(csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed84) failed with error: clientID is empty for workload identity auth"),
+				WindowsError: status.Errorf(codes.InvalidArgument, "GetAccountInfo(csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed84) failed with error: clientID is empty for workload identity auth"),
 			},
 		},
 		{
