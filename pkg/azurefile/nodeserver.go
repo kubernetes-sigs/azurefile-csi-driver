@@ -97,8 +97,8 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		// ephemeral volume
 		if strings.EqualFold(context[ephemeralField], trueValue) {
 			setKeyValueInMap(context, secretNamespaceField, context[podNamespaceField])
-			useManagedIdentity := strings.EqualFold(context[mountWithManagedIdentityField], trueValue)
-			useWIToken := strings.EqualFold(context[mountWithWITokenField], trueValue)
+			useManagedIdentity := strings.EqualFold(getValueInMap(context, mountWithManagedIdentityField), trueValue)
+			useWIToken := strings.EqualFold(getValueInMap(context, mountWithWITokenField), trueValue)
 			if !d.allowInlineVolumeKeyAccessWithIdentity && !useManagedIdentity && !useWIToken {
 				// only get storage account from secret when not using managed identity or workload identity
 				setKeyValueInMap(context, getAccountKeyFromSecretField, trueValue)
