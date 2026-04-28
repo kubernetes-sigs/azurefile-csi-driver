@@ -393,7 +393,7 @@ const (
 // 2. Gets the node identity client ID and principal ID
 // 3. Creates a federated identity credential
 // 4. Creates a Kubernetes service account with WI annotation
-// 5. Assigns Storage File Data SMB Share Elevated Contributor role to the identity
+// 5. Assigns Storage File Data SMB MI Admin role to the identity
 func setupWorkloadIdentity(ctx context.Context, cs clientset.Interface, azureClient *azure.Client, creds *credentials.Credentials) error {
 	log.Println("Setting up workload identity for e2e tests...")
 
@@ -466,10 +466,9 @@ func setupWorkloadIdentity(ctx context.Context, cs clientset.Interface, azureCli
 	// Step 5: Assign Storage File Data SMB Share Elevated Contributor role to identity
 	err = azureClient.AssignRoleToIdentity(ctx, creds.ResourceGroup, identityInfo.PrincipalID, wiStorageFileDataSMBMIAdmin)
 	if err != nil {
-		log.Printf("WARNING: failed to assign Storage File Data SMB MI Admin role: %v (may already exist)", err)
-	} else {
-		log.Printf("Assigned Storage File Data SMB MI Admin role to identity")
+		return fmt.Errorf("failed to assign Storage File Data SMB MI Admin role: %v", err)
 	}
+	log.Printf("Assigned Storage File Data SMB MI Admin role to identity")
 
 	return nil
 }
