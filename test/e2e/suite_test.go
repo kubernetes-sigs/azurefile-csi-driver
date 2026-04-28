@@ -34,6 +34,7 @@ import (
 	"github.com/onsi/ginkgo/v2/reporters"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
@@ -384,7 +385,7 @@ const (
 	wiServiceAccountName        = "azurefile-wi-test-sa"
 	wiServiceAccountNamespace   = "default"
 	wiFederatedCredentialName   = "azurefile-e2e-wi-fic"
-	wiStorageAccountContributor = "17d1049b-9a84-46fb-8f53-869881c3d3ab" // Storage Account Contributor role GUID
+	wiStorageFileDataSMBMIAdmin = "a235d3ee-5935-4cfb-8cc5-a3303ad5995e" // Storage File Data SMB Share Elevated Contributor role GUID
 )
 
 // setupWorkloadIdentity configures workload identity for e2e tests:
@@ -397,28 +398,24 @@ func setupWorkloadIdentity(ctx context.Context, cs clientset.Interface, azureCli
 	log.Println("Setting up workload identity for e2e tests...")
 
 	// Step 1: Discover OIDC issuer URL from kube-apiserver
-	oidcIssuerURL, err := discoverOIDCIssuer(cs)
+	oidcIssuerURL, err := discoverOIDCIssuer(ctx, cs)
 	if err != nil {
 		return fmt.Errorf("failed to discover OIDC issuer: %v", err)
 	}
 	log.Printf("Discovered OIDC issuer URL: %s", oidcIssuerURL)
 
-	// Step 2: Get node identity client ID and principal ID
-	principalID, nodeClientID, err := azureClient.GetNodeIdentityPrincipalAndClientID(ctx, creds.ResourceGroup)
+	// Step 2: Get node identity info (single call to avoid nondeterministic map iteration)
+	identityInfo, err := azureClient.GetNodeIdentityInfo(ctx, creds.ResourceGroup)
 	if err != nil {
 		return fmt.Errorf("failed to get node identity: %v", err)
 	}
-	log.Printf("Node identity clientID: %s, principalID: %s", nodeClientID, principalID)
+	log.Printf("Node identity clientID: %s, principalID: %s", identityInfo.ClientID, identityInfo.PrincipalID)
 
-	identityResourceID, err := azureClient.GetNodeIdentityResourceID(ctx, creds.ResourceGroup)
-	if err != nil {
-		return fmt.Errorf("failed to get node identity resource ID: %v", err)
-	}
 	// Parse identity name and resource group from resource ID
 	// Format: /subscriptions/.../resourceGroups/.../providers/Microsoft.ManagedIdentity/userAssignedIdentities/<name>
-	parts := strings.Split(identityResourceID, "/")
+	parts := strings.Split(identityInfo.ResourceID, "/")
 	if len(parts) < 9 {
-		return fmt.Errorf("invalid identity resource ID format: %s", identityResourceID)
+		return fmt.Errorf("invalid identity resource ID format: %s", identityInfo.ResourceID)
 	}
 	identityRG := parts[4]
 	identityName := parts[8]
@@ -432,7 +429,7 @@ func setupWorkloadIdentity(ctx context.Context, cs clientset.Interface, azureCli
 	}
 	log.Printf("Federated identity credential created")
 
-	// Step 4: Create Kubernetes service account with WI annotation
+	// Step 4: Create or update Kubernetes service account with WI annotation
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      wiServiceAccountName,
@@ -441,16 +438,22 @@ func setupWorkloadIdentity(ctx context.Context, cs clientset.Interface, azureCli
 				"azure.workload.identity/use": "true",
 			},
 			Annotations: map[string]string{
-				"azure.workload.identity/client-id": nodeClientID,
+				"azure.workload.identity/client-id": identityInfo.ClientID,
 				"azure.workload.identity/tenant-id": creds.TenantID,
 			},
 		},
 	}
 	_, err = cs.CoreV1().ServiceAccounts(wiServiceAccountNamespace).Create(ctx, sa, metav1.CreateOptions{})
 	if err != nil {
-		if strings.Contains(err.Error(), "already exists") {
+		if apierrors.IsAlreadyExists(err) {
 			log.Printf("Service account %s already exists, updating...", wiServiceAccountName)
-			_, err = cs.CoreV1().ServiceAccounts(wiServiceAccountNamespace).Update(ctx, sa, metav1.UpdateOptions{})
+			existing, getErr := cs.CoreV1().ServiceAccounts(wiServiceAccountNamespace).Get(ctx, wiServiceAccountName, metav1.GetOptions{})
+			if getErr != nil {
+				return fmt.Errorf("failed to get existing service account: %v", getErr)
+			}
+			existing.Labels = sa.Labels
+			existing.Annotations = sa.Annotations
+			_, err = cs.CoreV1().ServiceAccounts(wiServiceAccountNamespace).Update(ctx, existing, metav1.UpdateOptions{})
 			if err != nil {
 				return fmt.Errorf("failed to update service account: %v", err)
 			}
@@ -460,12 +463,12 @@ func setupWorkloadIdentity(ctx context.Context, cs clientset.Interface, azureCli
 	}
 	log.Printf("Service account %s created/updated in namespace %s", wiServiceAccountName, wiServiceAccountNamespace)
 
-	// Step 5: Assign Storage Account Contributor role to identity on resource group
-	err = azureClient.AssignRoleToIdentity(ctx, creds.ResourceGroup, principalID, wiStorageAccountContributor)
+	// Step 5: Assign Storage File Data SMB Share Elevated Contributor role to identity
+	err = azureClient.AssignRoleToIdentity(ctx, creds.ResourceGroup, identityInfo.PrincipalID, wiStorageFileDataSMBMIAdmin)
 	if err != nil {
-		log.Printf("WARNING: failed to assign Storage Account Contributor role: %v (may already exist)", err)
+		log.Printf("WARNING: failed to assign Storage File Data SMB MI Admin role: %v (may already exist)", err)
 	} else {
-		log.Printf("Assigned Storage Account Contributor role to identity")
+		log.Printf("Assigned Storage File Data SMB MI Admin role to identity")
 	}
 
 	return nil
@@ -473,8 +476,8 @@ func setupWorkloadIdentity(ctx context.Context, cs clientset.Interface, azureCli
 
 // discoverOIDCIssuer retrieves the OIDC issuer URL from the kube-apiserver's
 // well-known OpenID configuration endpoint.
-func discoverOIDCIssuer(cs clientset.Interface) (string, error) {
-	result := cs.Discovery().RESTClient().Get().AbsPath("/.well-known/openid-configuration").Do(context.TODO())
+func discoverOIDCIssuer(ctx context.Context, cs clientset.Interface) (string, error) {
+	result := cs.Discovery().RESTClient().Get().AbsPath("/.well-known/openid-configuration").Do(ctx)
 	body, err := result.Raw()
 	if err != nil {
 		return "", fmt.Errorf("failed to get OIDC configuration: %v", err)
