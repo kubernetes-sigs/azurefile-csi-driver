@@ -114,10 +114,20 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 
 		// Set up workload identity for mountWithWorkloadIdentityToken e2e tests (CAPZ only)
 		if isCapzTest {
-			if err := setupWorkloadIdentity(ctx, cs, azureClient, creds); err != nil {
-				log.Printf("WARNING: workload identity setup failed: %v", err)
+			kubeConfig, err := framework.LoadConfig()
+			if err != nil {
+				log.Printf("WARNING: failed to load kubeconfig for WI setup: %v", err)
 			} else {
-				wiSetupSucceeded = true
+				wiCS, err := clientset.NewForConfig(kubeConfig)
+				if err != nil {
+					log.Printf("WARNING: failed to create clientset for WI setup: %v", err)
+				} else {
+					if err := setupWorkloadIdentity(ctx, wiCS, azureClient, creds); err != nil {
+						log.Printf("WARNING: workload identity setup failed: %v", err)
+					} else {
+						wiSetupSucceeded = true
+					}
+				}
 			}
 		}
 
