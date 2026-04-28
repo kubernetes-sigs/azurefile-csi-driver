@@ -393,7 +393,7 @@ const (
 // 2. Gets the node identity client ID and principal ID
 // 3. Creates a federated identity credential
 // 4. Creates a Kubernetes service account with WI annotation
-// 5. Assigns Storage Account Contributor role to the identity
+// 5. Assigns Storage File Data SMB Share Elevated Contributor role to the identity
 func setupWorkloadIdentity(ctx context.Context, cs clientset.Interface, azureClient *azure.Client, creds *credentials.Credentials) error {
 	log.Println("Setting up workload identity for e2e tests...")
 
@@ -412,10 +412,10 @@ func setupWorkloadIdentity(ctx context.Context, cs clientset.Interface, azureCli
 	log.Printf("Node identity clientID: %s, principalID: %s", identityInfo.ClientID, identityInfo.PrincipalID)
 
 	// Parse identity name and resource group from resource ID
-	// Format: /subscriptions/.../resourceGroups/.../providers/Microsoft.ManagedIdentity/userAssignedIdentities/<name>
+	// Format: /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.ManagedIdentity/userAssignedIdentities/<name>
 	parts := strings.Split(identityInfo.ResourceID, "/")
-	if len(parts) < 9 {
-		return fmt.Errorf("invalid identity resource ID format: %s", identityInfo.ResourceID)
+	if len(parts) < 9 || !strings.EqualFold(parts[3], "resourceGroups") || !strings.EqualFold(parts[7], "userAssignedIdentities") {
+		return fmt.Errorf("invalid identity resource ID format (expected ARM managed identity resource ID): %s", identityInfo.ResourceID)
 	}
 	identityRG := parts[4]
 	identityName := parts[8]

@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"log"
 	"net/http"
 	"os"
@@ -342,7 +343,7 @@ type NodeIdentityInfo struct {
 
 // GetNodeIdentityInfo returns the principalID, clientID, and resource ID of the first
 // user-assigned identity found on VMSS or VMs in the given resource group.
-// All values come from the same identity to avoid nondeterministic map iteration issues.
+// All values come from the same identity. Resource IDs are sorted for determinism.
 func (az *Client) GetNodeIdentityInfo(ctx context.Context, resourceGroup string) (*NodeIdentityInfo, error) {
 	// Check VMSS first
 	vmssPager := az.vmssClient.NewListPager(resourceGroup, nil)
@@ -355,15 +356,8 @@ func (az *Client) GetNodeIdentityInfo(ctx context.Context, resourceGroup string)
 			if vmss.Identity == nil {
 				continue
 			}
-			for resourceID, uaIdentity := range vmss.Identity.UserAssignedIdentities {
-				if uaIdentity != nil && uaIdentity.ClientID != nil && *uaIdentity.ClientID != "" &&
-					uaIdentity.PrincipalID != nil && *uaIdentity.PrincipalID != "" {
-					return &NodeIdentityInfo{
-						PrincipalID: *uaIdentity.PrincipalID,
-						ClientID:    *uaIdentity.ClientID,
-						ResourceID:  resourceID,
-					}, nil
-				}
+			if info := pickIdentity(vmss.Identity.UserAssignedIdentities); info != nil {
+				return info, nil
 			}
 		}
 	}
@@ -379,20 +373,34 @@ func (az *Client) GetNodeIdentityInfo(ctx context.Context, resourceGroup string)
 			if vm.Identity == nil {
 				continue
 			}
-			for resourceID, uaIdentity := range vm.Identity.UserAssignedIdentities {
-				if uaIdentity != nil && uaIdentity.ClientID != nil && *uaIdentity.ClientID != "" &&
-					uaIdentity.PrincipalID != nil && *uaIdentity.PrincipalID != "" {
-					return &NodeIdentityInfo{
-						PrincipalID: *uaIdentity.PrincipalID,
-						ClientID:    *uaIdentity.ClientID,
-						ResourceID:  resourceID,
-					}, nil
-				}
+			if info := pickIdentity(vm.Identity.UserAssignedIdentities); info != nil {
+				return info, nil
 			}
 		}
 	}
 
 	return nil, fmt.Errorf("no user-assigned identity with both principalID and clientID found in resource group %s", resourceGroup)
+}
+
+// pickIdentity selects the first valid identity from a map, sorting keys for determinism.
+func pickIdentity(identities map[string]*armcompute.UserAssignedIdentitiesValue) *NodeIdentityInfo {
+	keys := make([]string, 0, len(identities))
+	for k := range identities {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, resourceID := range keys {
+		uaIdentity := identities[resourceID]
+		if uaIdentity != nil && uaIdentity.ClientID != nil && *uaIdentity.ClientID != "" &&
+			uaIdentity.PrincipalID != nil && *uaIdentity.PrincipalID != "" {
+			return &NodeIdentityInfo{
+				PrincipalID: *uaIdentity.PrincipalID,
+				ClientID:    *uaIdentity.ClientID,
+				ResourceID:  resourceID,
+			}
+		}
+	}
+	return nil
 }
 
 // CreateFederatedIdentityCredential creates or updates a federated identity credential
