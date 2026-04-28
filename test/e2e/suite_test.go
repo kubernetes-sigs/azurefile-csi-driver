@@ -205,7 +205,6 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "OAuth token setup failed")
 			oauthTokenSetupSucceeded = true
 			log.Println("OAuth token setup succeeded")
-			}
 		}
 	}
 })
