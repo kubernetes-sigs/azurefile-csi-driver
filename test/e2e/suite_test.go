@@ -32,6 +32,10 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/reporters"
 	"github.com/onsi/gomega"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/framework/config"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
@@ -64,6 +68,7 @@ var (
 	supportZRSwithNFS              bool
 	supportSnapshotwithNFS         bool
 	supportEncryptInTransitwithNFS bool
+	oauthTokenSetupSucceeded       bool
 )
 
 type testCmd struct {
@@ -162,6 +167,16 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 			err := azurefileDriver.Run(context.Background())
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		}()
+
+		// Setup OAuth token for mountWithOAuthToken e2e test (CAPZ only)
+		if isCapzTest {
+			if setupErr := setupOAuthToken(ctx, creds, azureClient); setupErr != nil {
+				log.Printf("WARNING: OAuth token setup failed: %v. OAuth token tests will fail.", setupErr)
+			} else {
+				oauthTokenSetupSucceeded = true
+				log.Println("OAuth token setup succeeded")
+			}
+		}
 	}
 })
 
@@ -345,4 +360,73 @@ func TestMain(m *testing.M) {
 	framework.AfterReadingAllFlags(&framework.TestContext)
 	flag.Parse()
 	os.Exit(m.Run())
+}
+
+const (
+	// Storage File Data SMB MI Admin role GUID
+	oauthStorageFileDataSMBMIAdmin = "a235d3ee-5935-4cfb-8cc5-a3303ad5995e"
+	oauthSecretName                = "azure-oauth-token-secret"
+	oauthSecretNamespace           = "default"
+)
+
+// setupOAuthToken obtains an OAuth token from the node's managed identity and stores it
+// in a Kubernetes Secret for use by mountWithOAuthToken e2e tests.
+func setupOAuthToken(ctx context.Context, creds *credentials.Credentials, azureClient *azure.Client) error {
+	// Step 1: Get node managed identity info
+	identityInfo, err := azureClient.GetNodeIdentityInfo(ctx, creds.ResourceGroup)
+	if err != nil {
+		return fmt.Errorf("failed to get node identity info: %v", err)
+	}
+	log.Printf("Found node identity: clientID=%s, principalID=%s", identityInfo.ClientID, identityInfo.PrincipalID)
+
+	// Step 2: Assign Storage File Data SMB MI Admin role to identity
+	err = azureClient.AssignRoleToIdentity(ctx, creds.ResourceGroup, identityInfo.PrincipalID, oauthStorageFileDataSMBMIAdmin)
+	if err != nil {
+		return fmt.Errorf("failed to assign Storage File Data SMB MI Admin role: %v", err)
+	}
+	log.Println("Storage File Data SMB MI Admin role assigned to node identity")
+
+	// Step 3: Get OAuth token for Azure Storage using managed identity
+	token, err := azure.GetStorageOAuthToken(ctx, identityInfo.ClientID)
+	if err != nil {
+		return fmt.Errorf("failed to get storage OAuth token: %v", err)
+	}
+	log.Println("Obtained storage OAuth token from managed identity")
+
+	// Step 4: Create Kubernetes Secret with the OAuth token
+	kubeconfig := os.Getenv(kubeconfigEnvVar)
+	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	if err != nil {
+		return fmt.Errorf("failed to build kubeconfig: %v", err)
+	}
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create kubernetes client: %v", err)
+	}
+
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      oauthSecretName,
+			Namespace: oauthSecretNamespace,
+		},
+		Type: v1.SecretTypeOpaque,
+		Data: map[string][]byte{
+			"oauthtoken": []byte(token),
+		},
+	}
+	_, err = clientset.CoreV1().Secrets(oauthSecretNamespace).Create(ctx, secret, metav1.CreateOptions{})
+	if err != nil {
+		// If already exists, update it
+		if strings.Contains(err.Error(), "already exists") {
+			_, err = clientset.CoreV1().Secrets(oauthSecretNamespace).Update(ctx, secret, metav1.UpdateOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to update OAuth token secret: %v", err)
+			}
+		} else {
+			return fmt.Errorf("failed to create OAuth token secret: %v", err)
+		}
+	}
+	log.Printf("Created/updated OAuth token secret %s/%s", oauthSecretNamespace, oauthSecretName)
+
+	return nil
 }
