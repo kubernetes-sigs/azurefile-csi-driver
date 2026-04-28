@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -32,6 +33,10 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/reporters"
 	"github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/framework/config"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
@@ -65,6 +70,7 @@ var (
 	supportSnapshotwithNFS         bool
 	supportEncryptInTransitwithNFS bool
 	miRoleSetupSucceeded           bool
+	wiSetupSucceeded               bool
 )
 
 type testCmd struct {
@@ -104,6 +110,25 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 			err := azureClient.EnsureNodeStorageFileDataRole(ctx, creds.ResourceGroup)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to assign Storage File Data SMB MI Admin role to node identity")
 			miRoleSetupSucceeded = true
+		}
+
+		// Set up workload identity for mountWithWorkloadIdentityToken e2e tests (CAPZ only)
+		if isCapzTest {
+			kubeConfig, err := framework.LoadConfig()
+			if err != nil {
+				log.Printf("WARNING: failed to load kubeconfig for WI setup: %v", err)
+			} else {
+				wiCS, err := clientset.NewForConfig(kubeConfig)
+				if err != nil {
+					log.Printf("WARNING: failed to create clientset for WI setup: %v", err)
+				} else {
+					if err := setupWorkloadIdentity(ctx, wiCS, azureClient, creds); err != nil {
+						log.Printf("WARNING: workload identity setup failed: %v", err)
+					} else {
+						wiSetupSucceeded = true
+					}
+				}
+			}
 		}
 
 		// check whether current region supports Premium_ZRS with NFS protocol
@@ -354,4 +379,117 @@ func TestMain(m *testing.M) {
 	framework.AfterReadingAllFlags(&framework.TestContext)
 	flag.Parse()
 	os.Exit(m.Run())
+}
+
+const (
+	wiServiceAccountName        = "azurefile-wi-test-sa"
+	wiServiceAccountNamespace   = "default"
+	wiFederatedCredentialName   = "azurefile-e2e-wi-fic"
+	wiStorageFileDataSMBMIAdmin = "a235d3ee-5935-4cfb-8cc5-a3303ad5995e" // Storage File Data SMB MI Admin role GUID
+)
+
+// setupWorkloadIdentity configures workload identity for e2e tests:
+// 1. Discovers the OIDC issuer URL from kube-apiserver
+// 2. Gets the node identity client ID and principal ID
+// 3. Creates a federated identity credential
+// 4. Creates a Kubernetes service account with WI annotation
+// 5. Assigns Storage File Data SMB MI Admin role to the identity
+func setupWorkloadIdentity(ctx context.Context, cs clientset.Interface, azureClient *azure.Client, creds *credentials.Credentials) error {
+	log.Println("Setting up workload identity for e2e tests...")
+
+	// Step 1: Discover OIDC issuer URL from kube-apiserver
+	oidcIssuerURL, err := discoverOIDCIssuer(ctx, cs)
+	if err != nil {
+		return fmt.Errorf("failed to discover OIDC issuer: %v", err)
+	}
+	log.Printf("Discovered OIDC issuer URL: %s", oidcIssuerURL)
+
+	// Step 2: Get node identity info (single call to avoid nondeterministic map iteration)
+	identityInfo, err := azureClient.GetNodeIdentityInfo(ctx, creds.ResourceGroup)
+	if err != nil {
+		return fmt.Errorf("failed to get node identity: %v", err)
+	}
+	log.Printf("Node identity clientID: %s, principalID: %s", identityInfo.ClientID, identityInfo.PrincipalID)
+
+	// Parse identity name and resource group from resource ID
+	// Format: /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.ManagedIdentity/userAssignedIdentities/<name>
+	parts := strings.Split(identityInfo.ResourceID, "/")
+	if len(parts) < 9 || !strings.EqualFold(parts[3], "resourceGroups") || !strings.EqualFold(parts[7], "userAssignedIdentities") {
+		return fmt.Errorf("invalid identity resource ID format (expected ARM managed identity resource ID): %s", identityInfo.ResourceID)
+	}
+	identityRG := parts[4]
+	identityName := parts[8]
+	log.Printf("Identity resource group: %s, name: %s", identityRG, identityName)
+
+	// Step 3: Create federated identity credential
+	subject := fmt.Sprintf("system:serviceaccount:%s:%s", wiServiceAccountNamespace, wiServiceAccountName)
+	err = azureClient.CreateFederatedIdentityCredential(ctx, identityRG, identityName, wiFederatedCredentialName, oidcIssuerURL, subject)
+	if err != nil {
+		return fmt.Errorf("failed to create federated identity credential: %v", err)
+	}
+	log.Printf("Federated identity credential created")
+
+	// Step 4: Create or update Kubernetes service account with WI annotation
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      wiServiceAccountName,
+			Namespace: wiServiceAccountNamespace,
+			Labels: map[string]string{
+				"azure.workload.identity/use": "true",
+			},
+			Annotations: map[string]string{
+				"azure.workload.identity/client-id": identityInfo.ClientID,
+				"azure.workload.identity/tenant-id": creds.TenantID,
+			},
+		},
+	}
+	_, err = cs.CoreV1().ServiceAccounts(wiServiceAccountNamespace).Create(ctx, sa, metav1.CreateOptions{})
+	if err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			log.Printf("Service account %s already exists, updating...", wiServiceAccountName)
+			existing, getErr := cs.CoreV1().ServiceAccounts(wiServiceAccountNamespace).Get(ctx, wiServiceAccountName, metav1.GetOptions{})
+			if getErr != nil {
+				return fmt.Errorf("failed to get existing service account: %v", getErr)
+			}
+			existing.Labels = sa.Labels
+			existing.Annotations = sa.Annotations
+			_, err = cs.CoreV1().ServiceAccounts(wiServiceAccountNamespace).Update(ctx, existing, metav1.UpdateOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to update service account: %v", err)
+			}
+		} else {
+			return fmt.Errorf("failed to create service account: %v", err)
+		}
+	}
+	log.Printf("Service account %s created/updated in namespace %s", wiServiceAccountName, wiServiceAccountNamespace)
+
+	// Step 5: Assign Storage File Data SMB MI Admin role to identity
+	err = azureClient.AssignRoleToIdentity(ctx, creds.ResourceGroup, identityInfo.PrincipalID, wiStorageFileDataSMBMIAdmin)
+	if err != nil {
+		return fmt.Errorf("failed to assign Storage File Data SMB MI Admin role: %v", err)
+	}
+	log.Printf("Assigned Storage File Data SMB MI Admin role to identity")
+
+	return nil
+}
+
+// discoverOIDCIssuer retrieves the OIDC issuer URL from the kube-apiserver's
+// well-known OpenID configuration endpoint.
+func discoverOIDCIssuer(ctx context.Context, cs clientset.Interface) (string, error) {
+	result := cs.Discovery().RESTClient().Get().AbsPath("/.well-known/openid-configuration").Do(ctx)
+	body, err := result.Raw()
+	if err != nil {
+		return "", fmt.Errorf("failed to get OIDC configuration: %v", err)
+	}
+
+	var oidcConfig struct {
+		Issuer string `json:"issuer"`
+	}
+	if err := json.Unmarshal(body, &oidcConfig); err != nil {
+		return "", fmt.Errorf("failed to parse OIDC configuration: %v", err)
+	}
+	if oidcConfig.Issuer == "" {
+		return "", fmt.Errorf("OIDC issuer URL is empty in cluster configuration")
+	}
+	return oidcConfig.Issuer, nil
 }
