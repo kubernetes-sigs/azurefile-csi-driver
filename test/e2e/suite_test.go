@@ -64,6 +64,7 @@ var (
 	supportZRSwithNFS              bool
 	supportSnapshotwithNFS         bool
 	supportEncryptInTransitwithNFS bool
+	miRoleSetupSucceeded           bool
 )
 
 type testCmd struct {
@@ -96,6 +97,14 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		_, err = azureClient.EnsureResourceGroup(ctx, creds.ResourceGroup, creds.Location, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+		// Assign Storage File Data SMB MI Admin role to node identities
+		// This is required for mountWithManagedIdentity e2e tests (CAPZ only)
+		if isCapzTest {
+			err := azureClient.EnsureNodeStorageFileDataRole(ctx, creds.ResourceGroup)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to assign Storage File Data SMB MI Admin role to node identity")
+			miRoleSetupSucceeded = true
+		}
 
 		// check whether current region supports Premium_ZRS with NFS protocol
 		supportedRegions := []string{"southeastasia", "australiaeast", "europenorth", "europewest", "francecentral", "japaneast", "uksouth", "useast", "useast2", "uswest2"}
