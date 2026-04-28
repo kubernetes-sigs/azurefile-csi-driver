@@ -215,20 +215,25 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		}
 	}
 
+	// mountWithOAuthToken: refresh credential cache BEFORE ensureMountPoint so that
+	// a stale mount (token expired → "required key not available") can recover.
+	// ensureMountPoint does ReadDir to validate the mount, which will fail if the
+	// kernel credential cache has an expired token, leading to an unmount attempt
+	// that fails with "target is busy". Refreshing first gives the kernel a valid
+	// token before the ReadDir check.
+	if isMountWithOAuthToken {
+		if err := d.setCredentialCacheWithOAuthToken(ctx, oauthServer, context); err != nil {
+			return nil, status.Errorf(codes.Internal, "NodePublishVolume: failed to refresh OAuth token for volume(%s): %v", volumeID, err)
+		}
+		klog.V(2).Infof("NodePublishVolume: refreshed OAuth token credential cache for volume(%s) server(%s)", volumeID, oauthServer)
+	}
+
 	mnt, err := d.ensureMountPoint(target, os.FileMode(mountPermissions))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Could not mount target %s: %v", target, err)
 	}
 	if mnt {
 		klog.V(2).Infof("NodePublishVolume: %s is already mounted", target)
-	}
-
-	// mountWithOAuthToken: refresh credential cache after idempotency check
-	if isMountWithOAuthToken {
-		if err := d.setCredentialCacheWithOAuthToken(ctx, oauthServer, context); err != nil {
-			return nil, status.Errorf(codes.Internal, "NodePublishVolume: failed to refresh OAuth token for volume(%s): %v", volumeID, err)
-		}
-		klog.V(2).Infof("NodePublishVolume: refreshed OAuth token credential cache for volume(%s) server(%s)", volumeID, oauthServer)
 	}
 
 	if mnt {
