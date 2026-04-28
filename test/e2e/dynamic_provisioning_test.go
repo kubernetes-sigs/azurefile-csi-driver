@@ -1913,7 +1913,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			ginkgo.Skip("test case is only available for capz test")
 		}
 		gomega.Expect(wiSetupSucceeded).To(gomega.BeTrue(), "Workload identity setup failed, cannot run WI mount test")
-		gomega.Expect(wiClientID).NotTo(gomega.BeEmpty(), "Workload identity client ID is empty")
 
 		pods := []testsuites.PodDetails{
 			{
@@ -1932,7 +1931,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		scParameters := map[string]string{
 			"skuName":                        "Standard_LRS",
 			"mountWithWorkloadIdentityToken": "true",
-			"clientID":                       wiClientID,
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
 			CSIDriver:              testDriver,
