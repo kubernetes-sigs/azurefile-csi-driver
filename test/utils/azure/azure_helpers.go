@@ -107,6 +107,11 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 	if err != nil {
 		return nil, fmt.Errorf("failed to create federated identity credentials client: %v", err)
 	}
+
+	return &Client{
+		subscriptionID:   subscriptionID,
+		groupsClient:     factory.GetResourceGroupClient(),
+		accountsClient:   factory.GetAccountClient(),
 		filesharesClient: factory.GetFileShareClient(),
 		vmssClient:       vmssClient,
 		vmClient:         vmClient,
