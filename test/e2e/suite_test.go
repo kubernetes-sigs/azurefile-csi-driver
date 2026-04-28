@@ -201,11 +201,10 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 
 		// Setup OAuth token for mountWithOAuthToken e2e test (CAPZ only)
 		if isCapzTest {
-			if setupErr := setupOAuthToken(ctx, creds, azureClient); setupErr != nil {
-				log.Printf("WARNING: OAuth token setup failed: %v. OAuth token tests will fail.", setupErr)
-			} else {
-				oauthTokenSetupSucceeded = true
-				log.Println("OAuth token setup succeeded")
+			err = setupOAuthToken(ctx, creds, azureClient)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "OAuth token setup failed")
+			oauthTokenSetupSucceeded = true
+			log.Println("OAuth token setup succeeded")
 			}
 		}
 	}
