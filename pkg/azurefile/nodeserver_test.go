@@ -841,7 +841,7 @@ func TestNodeStageVolume(t *testing.T) {
 				},
 				Secrets: secrets},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.InvalidArgument, "only one of mountWithManagedIdentity, mountWithOAuthToken, and mountWithWorkloadIdentityToken can be true"),
+				DefaultError: status.Error(codes.InvalidArgument, fmt.Sprintf("only one of %q, %q, and %q can be true", mountWithManagedIdentityField, mountWithOAuthTokenField, mountWithWITokenField)),
 			},
 		},
 		{
