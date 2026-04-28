@@ -108,7 +108,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if acquired := d.volumeLocks.TryAcquire(volName); !acquired {
 		// logging the job status if it's volume cloning
 		if req.GetVolumeContentSource() != nil {
-			jobState, percent, err := d.azcopy.GetAzcopyJob(volName, []string{})
+			jobState, percent, _, err := d.azcopy.GetAzcopyJob(volName, []string{})
 			return nil, status.Errorf(codes.Aborted, volumeOperationAlreadyExistsWithAzcopyFmt, volName, jobState, percent, err)
 		}
 		return nil, status.Errorf(codes.Aborted, volumeOperationAlreadyExistsFmt, volName)
@@ -1268,35 +1268,61 @@ func (d *Driver) copyFileShareByAzcopy(ctx context.Context, srcFileShareName, ds
 		azcopyCopyOptions = append(azcopyCopyOptions, "--from-to=FileNFSFileNFS")
 	}
 
-	jobState, percent, err := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
-	klog.V(2).Infof("azcopy job status: %s, copy percent: %s%%, error: %v", jobState, percent, err)
+	jobState, percent, jobid, err := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
+	klog.V(2).Infof("azcopy job status: %s, copy percent: %s%%, jobid: %s, error: %v", jobState, percent, jobid, err)
 
 	switch jobState {
-	case util.AzcopyJobError, util.AzcopyJobCompleted, util.AzcopyJobCompletedWithErrors, util.AzcopyJobCompletedWithSkipped, util.AzcopyJobCompletedWithErrorsAndSkipped:
+	case util.AzcopyMultipleJobsFound:
+		klog.Warningf("Multiple copy job exist for copy of fileshare %s to %s", srcFileShareName, dstFileShareName)
 		return err
+	case util.AzcopyJobCompleted:
+		klog.V(2).Infof("Already copied fileshare %s to %s successfully", srcFileShareName, dstFileShareName)
+		return err
+	case util.AzcopyJobError, util.AzcopyJobCompletedWithErrors, util.AzcopyJobCompletedWithSkipped, util.AzcopyJobCompletedWithErrorsAndSkipped:
+		// Resume job that are failed with errors
+		klog.Errorf("Copy of fileshare %s to %s completed with status: %s, copy percent: %s%%, jobid: %s, error: %v. Will try to resume...", srcFileShareName, dstFileShareName, jobState, percent, jobid, err)
+		resumeAzcopyJob := func() error {
+			klog.V(2).Infof("Resuming azcopy job with id: %s for copying fileshare %s to %s", jobid, srcFileShareName, dstFileShareName)
+			if resumeOut, resumeErr := d.execAzcopyResume(jobid, authAzcopyEnv); resumeErr != nil {
+				klog.Errorf("Failed to resume azcopy job with id: %s for copying fileshare %s to %s, error: %v, output: %s", jobid, srcFileShareName, dstFileShareName, resumeErr, string(resumeOut))
+				return fmt.Errorf("failed to resume azcopy job: %v, output: %v", resumeErr, string(resumeOut))
+			}
+			return nil
+		}
+		timeoutFunc := func() error {
+			jobState, percent, jobid, _ := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
+			return fmt.Errorf("azcopy job resume status: %s, timeout waiting for resume fileshare %s:%s to %s:%s complete, current copy percent: %s%%, jobid: %s",
+				jobState, srcAccountName, srcFileShareName, dstAccountName, dstFileShareName, percent, jobid,
+			)
+		}
+		err = util.WaitUntilTimeout(time.Duration(d.waitForAzCopyTimeoutMinutes)*time.Minute, resumeAzcopyJob, timeoutFunc)
 	case util.AzcopyJobRunning:
 		err = wait.PollUntilContextTimeout(ctx, 20*time.Second, time.Duration(d.waitForAzCopyTimeoutMinutes)*time.Minute, true, func(context.Context) (bool, error) {
-			jobState, percent, err := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
-			klog.V(2).Infof("azcopy job status: %s, copy percent: %s%%, error: %v", jobState, percent, err)
+			jobState, percent, jobid, err := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
+			klog.V(2).Infof("azcopy job status: %s, copy percent: %s%%, jobid: %s, error: %v", jobState, percent, jobid, err)
 			if err != nil {
 				return false, err
 			}
 			if jobState == util.AzcopyJobRunning {
 				return false, nil
+			} else if jobState == util.AzcopyJobCompleted {
+				return true, nil
 			}
-			return true, nil
+			return true, fmt.Errorf("copy job in unexpected status: %s", jobState)
 		})
 	case util.AzcopyJobNotFound:
 		klog.V(2).Infof("copy fileshare %s:%s to %s:%s", srcAccountName, srcFileShareName, dstAccountName, dstFileShareName)
 		execAzcopyJob := func() error {
 			if out, err := d.execAzcopyCopy(srcPathAuth, dstPath, azcopyCopyOptions, authAzcopyEnv); err != nil {
+				// Just log the error here since azcopy allows to resume the failed jobs and the job will be resumed in the next re-concile loop
+				klog.Errorf("copy fileshare %s:%s to %s:%s failed with error: %v, output: %s", srcAccountName, srcFileShareName, dstAccountName, dstFileShareName, err, string(out))
 				return fmt.Errorf("exec error: %v, output: %v", err, string(out))
 			}
 			return nil
 		}
 		timeoutFunc := func() error {
-			jobState, percent, _ := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
-			return fmt.Errorf("azcopy job status: %s, timeout waiting for copy fileshare %s:%s to %s:%s complete, current copy percent: %s%%", jobState, srcAccountName, srcFileShareName, dstAccountName, dstFileShareName, percent)
+			jobState, percent, jobid, _ := d.azcopy.GetAzcopyJob(dstFileShareName, authAzcopyEnv)
+			return fmt.Errorf("azcopy job status: %s, timeout waiting for copy fileshare %s:%s to %s:%s complete, current copy percent: %s%%, jobid: %s", jobState, srcAccountName, srcFileShareName, dstAccountName, dstFileShareName, percent, jobid)
 		}
 		err = util.WaitUntilTimeout(time.Duration(d.waitForAzCopyTimeoutMinutes)*time.Minute, execAzcopyJob, timeoutFunc)
 	}
@@ -1322,6 +1348,22 @@ func (d *Driver) execAzcopyCopy(srcPath, dstPath string, azcopyCopyOptions, auth
 
 	cmd := exec.Command("azcopy", "copy", srcPath, dstPath)
 	cmd.Args = append(cmd.Args, azcopyCopyOptions...)
+	if len(authAzcopyEnv) > 0 {
+		cmd.Env = append(os.Environ(), authAzcopyEnv...)
+	}
+	return cmd.CombinedOutput()
+}
+
+// Only resume the job was completed with failed with errors or skipped
+// Note: resume is blocking operation like copy
+func (d *Driver) execAzcopyResume(jobID string, authAzcopyEnv []string) ([]byte, error) {
+	var azcopyResumeOptions []string
+	// Use --trusted-microsoft-suffixes option to avoid failure caused by
+	if d.requiredAzCopyToTrust {
+		azcopyResumeOptions = append(azcopyResumeOptions, fmt.Sprintf("--trusted-microsoft-suffixes=%s", d.getStorageEndPointSuffix()))
+	}
+	cmd := exec.Command("azcopy", "jobs", "resume", jobID)
+	cmd.Args = append(cmd.Args, azcopyResumeOptions...)
 	if len(authAzcopyEnv) > 0 {
 		cmd.Env = append(os.Environ(), authAzcopyEnv...)
 	}
