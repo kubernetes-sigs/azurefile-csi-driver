@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -32,6 +33,9 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/reporters"
 	"github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/framework/config"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
@@ -65,6 +69,8 @@ var (
 	supportSnapshotwithNFS         bool
 	supportEncryptInTransitwithNFS bool
 	miRoleSetupSucceeded           bool
+	wiSetupSucceeded               bool
+	wiClientID                     string
 )
 
 type testCmd struct {
@@ -104,6 +110,15 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 			err := azureClient.EnsureNodeStorageFileDataRole(ctx, creds.ResourceGroup)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to assign Storage File Data SMB MI Admin role to node identity")
 			miRoleSetupSucceeded = true
+		}
+
+		// Set up workload identity for mountWithWorkloadIdentityToken e2e tests (CAPZ only)
+		if isCapzTest {
+			if err := setupWorkloadIdentity(ctx, cs, azureClient, creds); err != nil {
+				log.Printf("WARNING: workload identity setup failed: %v", err)
+			} else {
+				wiSetupSucceeded = true
+			}
 		}
 
 		// check whether current region supports Premium_ZRS with NFS protocol
@@ -354,4 +369,117 @@ func TestMain(m *testing.M) {
 	framework.AfterReadingAllFlags(&framework.TestContext)
 	flag.Parse()
 	os.Exit(m.Run())
+}
+
+const (
+	wiServiceAccountName        = "azurefile-wi-test-sa"
+	wiServiceAccountNamespace   = "default"
+	wiFederatedCredentialName   = "azurefile-e2e-wi-fic"
+	wiStorageAccountContributor = "17d1049b-9a84-46fb-8f53-869881c3d3ab" // Storage Account Contributor role GUID
+)
+
+// setupWorkloadIdentity configures workload identity for e2e tests:
+// 1. Discovers the OIDC issuer URL from kube-apiserver
+// 2. Gets the node identity client ID and principal ID
+// 3. Creates a federated identity credential
+// 4. Creates a Kubernetes service account with WI annotation
+// 5. Assigns Storage Account Contributor role to the identity
+func setupWorkloadIdentity(ctx context.Context, cs clientset.Interface, azureClient *azure.Client, creds *credentials.Credentials) error {
+	log.Println("Setting up workload identity for e2e tests...")
+
+	// Step 1: Discover OIDC issuer URL from kube-apiserver
+	oidcIssuerURL, err := discoverOIDCIssuer(cs)
+	if err != nil {
+		return fmt.Errorf("failed to discover OIDC issuer: %v", err)
+	}
+	log.Printf("Discovered OIDC issuer URL: %s", oidcIssuerURL)
+
+	// Step 2: Get node identity client ID and principal ID
+	principalID, nodeClientID, err := azureClient.GetNodeIdentityPrincipalAndClientID(ctx, creds.ResourceGroup)
+	if err != nil {
+		return fmt.Errorf("failed to get node identity: %v", err)
+	}
+	log.Printf("Node identity clientID: %s, principalID: %s", nodeClientID, principalID)
+	wiClientID = nodeClientID
+
+	identityResourceID, err := azureClient.GetNodeIdentityResourceID(ctx, creds.ResourceGroup)
+	if err != nil {
+		return fmt.Errorf("failed to get node identity resource ID: %v", err)
+	}
+	// Parse identity name and resource group from resource ID
+	// Format: /subscriptions/.../resourceGroups/.../providers/Microsoft.ManagedIdentity/userAssignedIdentities/<name>
+	parts := strings.Split(identityResourceID, "/")
+	if len(parts) < 9 {
+		return fmt.Errorf("invalid identity resource ID format: %s", identityResourceID)
+	}
+	identityRG := parts[4]
+	identityName := parts[8]
+	log.Printf("Identity resource group: %s, name: %s", identityRG, identityName)
+
+	// Step 3: Create federated identity credential
+	subject := fmt.Sprintf("system:serviceaccount:%s:%s", wiServiceAccountNamespace, wiServiceAccountName)
+	err = azureClient.CreateFederatedIdentityCredential(ctx, identityRG, identityName, wiFederatedCredentialName, oidcIssuerURL, subject)
+	if err != nil {
+		return fmt.Errorf("failed to create federated identity credential: %v", err)
+	}
+	log.Printf("Federated identity credential created")
+
+	// Step 4: Create Kubernetes service account with WI annotation
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      wiServiceAccountName,
+			Namespace: wiServiceAccountNamespace,
+			Labels: map[string]string{
+				"azure.workload.identity/use": "true",
+			},
+			Annotations: map[string]string{
+				"azure.workload.identity/client-id": nodeClientID,
+				"azure.workload.identity/tenant-id": creds.TenantID,
+			},
+		},
+	}
+	_, err = cs.CoreV1().ServiceAccounts(wiServiceAccountNamespace).Create(ctx, sa, metav1.CreateOptions{})
+	if err != nil {
+		if strings.Contains(err.Error(), "already exists") {
+			log.Printf("Service account %s already exists, updating...", wiServiceAccountName)
+			_, err = cs.CoreV1().ServiceAccounts(wiServiceAccountNamespace).Update(ctx, sa, metav1.UpdateOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to update service account: %v", err)
+			}
+		} else {
+			return fmt.Errorf("failed to create service account: %v", err)
+		}
+	}
+	log.Printf("Service account %s created/updated in namespace %s", wiServiceAccountName, wiServiceAccountNamespace)
+
+	// Step 5: Assign Storage Account Contributor role to identity on resource group
+	err = azureClient.AssignRoleToIdentity(ctx, creds.ResourceGroup, principalID, wiStorageAccountContributor)
+	if err != nil {
+		log.Printf("WARNING: failed to assign Storage Account Contributor role: %v (may already exist)", err)
+	} else {
+		log.Printf("Assigned Storage Account Contributor role to identity")
+	}
+
+	return nil
+}
+
+// discoverOIDCIssuer retrieves the OIDC issuer URL from the kube-apiserver's
+// well-known OpenID configuration endpoint.
+func discoverOIDCIssuer(cs clientset.Interface) (string, error) {
+	result := cs.Discovery().RESTClient().Get().AbsPath("/.well-known/openid-configuration").Do(context.TODO())
+	body, err := result.Raw()
+	if err != nil {
+		return "", fmt.Errorf("failed to get OIDC configuration: %v", err)
+	}
+
+	var oidcConfig struct {
+		Issuer string `json:"issuer"`
+	}
+	if err := json.Unmarshal(body, &oidcConfig); err != nil {
+		return "", fmt.Errorf("failed to parse OIDC configuration: %v", err)
+	}
+	if oidcConfig.Issuer == "" {
+		return "", fmt.Errorf("OIDC issuer URL is empty in cluster configuration")
+	}
+	return oidcConfig.Issuer, nil
 }
