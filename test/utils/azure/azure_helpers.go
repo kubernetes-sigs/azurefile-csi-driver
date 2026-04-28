@@ -21,9 +21,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"sort"
 	"net/http"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
