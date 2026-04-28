@@ -333,27 +333,36 @@ func (az *Client) EnsureNodeStorageFileDataRole(ctx context.Context, resourceGro
 	return nil
 }
 
-// GetNodeIdentityPrincipalAndClientID returns the principalID and clientID of the first
+// NodeIdentityInfo holds identity information for a node's user-assigned identity.
+type NodeIdentityInfo struct {
+	PrincipalID string
+	ClientID    string
+	ResourceID  string
+}
+
+// GetNodeIdentityInfo returns the principalID, clientID, and resource ID of the first
 // user-assigned identity found on VMSS or VMs in the given resource group.
-func (az *Client) GetNodeIdentityPrincipalAndClientID(ctx context.Context, resourceGroup string) (principalID, clientID string, err error) {
+// All values come from the same identity to avoid nondeterministic map iteration issues.
+func (az *Client) GetNodeIdentityInfo(ctx context.Context, resourceGroup string) (*NodeIdentityInfo, error) {
 	// Check VMSS first
 	vmssPager := az.vmssClient.NewListPager(resourceGroup, nil)
 	for vmssPager.More() {
 		page, pageErr := vmssPager.NextPage(ctx)
 		if pageErr != nil {
-			return "", "", fmt.Errorf("failed to list VMSS: %v", pageErr)
+			return nil, fmt.Errorf("failed to list VMSS: %v", pageErr)
 		}
 		for _, vmss := range page.Value {
 			if vmss.Identity == nil {
 				continue
 			}
-			for _, uaIdentity := range vmss.Identity.UserAssignedIdentities {
-				if uaIdentity != nil && uaIdentity.ClientID != nil && *uaIdentity.ClientID != "" {
-					pid := ""
-					if uaIdentity.PrincipalID != nil {
-						pid = *uaIdentity.PrincipalID
-					}
-					return pid, *uaIdentity.ClientID, nil
+			for resourceID, uaIdentity := range vmss.Identity.UserAssignedIdentities {
+				if uaIdentity != nil && uaIdentity.ClientID != nil && *uaIdentity.ClientID != "" &&
+					uaIdentity.PrincipalID != nil && *uaIdentity.PrincipalID != "" {
+					return &NodeIdentityInfo{
+						PrincipalID: *uaIdentity.PrincipalID,
+						ClientID:    *uaIdentity.ClientID,
+						ResourceID:  resourceID,
+					}, nil
 				}
 			}
 		}
@@ -364,67 +373,26 @@ func (az *Client) GetNodeIdentityPrincipalAndClientID(ctx context.Context, resou
 	for vmPager.More() {
 		page, pageErr := vmPager.NextPage(ctx)
 		if pageErr != nil {
-			return "", "", fmt.Errorf("failed to list VMs: %v", pageErr)
+			return nil, fmt.Errorf("failed to list VMs: %v", pageErr)
 		}
 		for _, vm := range page.Value {
 			if vm.Identity == nil {
 				continue
 			}
-			for _, uaIdentity := range vm.Identity.UserAssignedIdentities {
-				if uaIdentity != nil && uaIdentity.ClientID != nil && *uaIdentity.ClientID != "" {
-					pid := ""
-					if uaIdentity.PrincipalID != nil {
-						pid = *uaIdentity.PrincipalID
-					}
-					return pid, *uaIdentity.ClientID, nil
+			for resourceID, uaIdentity := range vm.Identity.UserAssignedIdentities {
+				if uaIdentity != nil && uaIdentity.ClientID != nil && *uaIdentity.ClientID != "" &&
+					uaIdentity.PrincipalID != nil && *uaIdentity.PrincipalID != "" {
+					return &NodeIdentityInfo{
+						PrincipalID: *uaIdentity.PrincipalID,
+						ClientID:    *uaIdentity.ClientID,
+						ResourceID:  resourceID,
+					}, nil
 				}
 			}
 		}
 	}
 
-	return "", "", fmt.Errorf("no user-assigned identity found in resource group %s", resourceGroup)
-}
-
-// GetNodeIdentityResourceID returns the full resource ID of the first user-assigned identity
-// found on VMSS or VMs in the given resource group.
-func (az *Client) GetNodeIdentityResourceID(ctx context.Context, resourceGroup string) (string, error) {
-	vmssPager := az.vmssClient.NewListPager(resourceGroup, nil)
-	for vmssPager.More() {
-		page, err := vmssPager.NextPage(ctx)
-		if err != nil {
-			return "", fmt.Errorf("failed to list VMSS: %v", err)
-		}
-		for _, vmss := range page.Value {
-			if vmss.Identity == nil {
-				continue
-			}
-			for uaID := range vmss.Identity.UserAssignedIdentities {
-				if uaID != "" {
-					return uaID, nil
-				}
-			}
-		}
-	}
-
-	vmPager := az.vmClient.NewListPager(resourceGroup, nil)
-	for vmPager.More() {
-		page, err := vmPager.NextPage(ctx)
-		if err != nil {
-			return "", fmt.Errorf("failed to list VMs: %v", err)
-		}
-		for _, vm := range page.Value {
-			if vm.Identity == nil {
-				continue
-			}
-			for uaID := range vm.Identity.UserAssignedIdentities {
-				if uaID != "" {
-					return uaID, nil
-				}
-			}
-		}
-	}
-
-	return "", fmt.Errorf("no user-assigned identity found in resource group %s", resourceGroup)
+	return nil, fmt.Errorf("no user-assigned identity with both principalID and clientID found in resource group %s", resourceGroup)
 }
 
 // CreateFederatedIdentityCredential creates or updates a federated identity credential
