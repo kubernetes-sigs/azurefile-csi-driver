@@ -234,9 +234,6 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	}
 	if mnt {
 		klog.V(2).Infof("NodePublishVolume: %s is already mounted", target)
-	}
-
-	if mnt {
 		return &csi.NodePublishVolumeResponse{}, nil
 	}
 
@@ -433,7 +430,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 
 	if (mountWithManagedIdentity && mountWithWIToken) || (mountWithManagedIdentity && mountWithOAuthToken) || (mountWithWIToken && mountWithOAuthToken) {
-		return nil, status.Error(codes.InvalidArgument, "only one of mountWithManagedIdentity, mountWithOAuthToken, and mountWithWorkloadIdentityToken can be true")
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("only one of %q, %q, and %q can be true", mountWithManagedIdentityField, mountWithOAuthTokenField, mountWithWITokenField))
 	}
 
 	if mountWithOAuthToken {
