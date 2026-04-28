@@ -216,6 +216,21 @@ func TestNodePublishVolume(t *testing.T) {
 			},
 		},
 		{
+			desc: "[Success] Ephemeral volume with mountWithManagedIdentity should preserve storageAccount",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed83",
+				TargetPath: targetTest,
+				Readonly:   true,
+				VolumeContext: map[string]string{
+					ephemeralField:                 "true",
+					storageAccountField:            "teststorageaccount",
+					shareNameField:                 "testshare",
+					mountWithManagedIdentityField:  "true",
+				},
+			},
+			expectedErr: testutil.TestError{},
+		},
+		{
 			desc: "[Success] Valid request read only",
 			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
 				VolumeId:          "vol_1",
