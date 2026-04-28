@@ -338,7 +338,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	if (mountWithManagedIdentity && mountWithWIToken) || (mountWithManagedIdentity && mountWithOAuthToken) || (mountWithWIToken && mountWithOAuthToken) {
-		return nil, status.Error(codes.InvalidArgument, "only one of mountWithManagedIdentity, mountWithOAuthToken, and mountWithWorkloadIdentityToken can be true in storage class")
+		return nil, status.Errorf(codes.InvalidArgument, "only one of %s, %s, and %s can be true in storage class", mountWithManagedIdentityField, mountWithOAuthTokenField, mountWithWITokenField)
 	}
 
 	// When using managed identity or workload identity token for mount,
