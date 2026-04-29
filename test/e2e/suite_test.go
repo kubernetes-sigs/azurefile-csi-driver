@@ -602,15 +602,24 @@ func getOAuthTokenFromNode(ctx context.Context, cs clientset.Interface, clientID
 					Command: []string{"/bin/sh", "-c", curlCmd},
 				},
 			},
-			// Schedule on agent nodes (not control plane)
+			// Schedule on agent nodes only (not control plane — no managed identity there)
 			NodeSelector: map[string]string{
 				"kubernetes.io/os": "linux",
 			},
-			Tolerations: []corev1.Toleration{
-				{
-					Key:      "node-role.kubernetes.io/control-plane",
-					Operator: corev1.TolerationOpExists,
-					Effect:   corev1.TaintEffectNoSchedule,
+			Affinity: &corev1.Affinity{
+				NodeAffinity: &corev1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+						NodeSelectorTerms: []corev1.NodeSelectorTerm{
+							{
+								MatchExpressions: []corev1.NodeSelectorRequirement{
+									{
+										Key:      "node-role.kubernetes.io/control-plane",
+										Operator: corev1.NodeSelectorOpDoesNotExist,
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
