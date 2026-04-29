@@ -561,6 +561,11 @@ func setupOAuthToken(ctx context.Context, creds *credentials.Credentials, azureC
 	_, err = cs.CoreV1().Secrets(oauthSecretNamespace).Create(ctx, secret, metav1.CreateOptions{})
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
+			existing, getErr := cs.CoreV1().Secrets(oauthSecretNamespace).Get(ctx, oauthSecretName, metav1.GetOptions{})
+			if getErr != nil {
+				return fmt.Errorf("failed to get existing OAuth token secret: %v", getErr)
+			}
+			secret.ResourceVersion = existing.ResourceVersion
 			_, err = cs.CoreV1().Secrets(oauthSecretNamespace).Update(ctx, secret, metav1.UpdateOptions{})
 			if err != nil {
 				return fmt.Errorf("failed to update OAuth token secret: %v", err)
@@ -581,7 +586,7 @@ func getOAuthTokenFromNode(ctx context.Context, cs clientset.Interface, clientID
 
 	// IMDS curl command that outputs only the access_token value
 	curlCmd := fmt.Sprintf(
-		`curl -s -H "Metadata: true" "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&client_id=%s&resource=https://storage.azure.com" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4`,
+		`curl -s -H "Metadata: true" "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&client_id=%s&resource=https://storage.azure.com/" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4`,
 		clientID,
 	)
 
