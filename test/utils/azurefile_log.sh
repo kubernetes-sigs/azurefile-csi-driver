@@ -31,7 +31,7 @@ cleanup() {
 trap cleanup ERR
 
 echo "print out all nodes status ..."
-kubectl get nodes -o wide
+kubectl get nodes -o wide --show-labels
 echo "======================================================================================"
 
 echo "print out all default namespace pods status ..."
