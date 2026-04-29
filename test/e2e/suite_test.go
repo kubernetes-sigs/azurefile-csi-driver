@@ -28,6 +28,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2"
@@ -512,28 +513,24 @@ const (
 // setupOAuthToken obtains an OAuth token from the node's managed identity and stores it
 // in a Kubernetes Secret for use by mountWithOAuthToken e2e tests.
 func setupOAuthToken(ctx context.Context, creds *credentials.Credentials, azureClient *azure.Client) error {
-	// Step 1: Get node managed identity info
+	// Step 1: Get node managed identity info (uses Azure SDK with SP creds, works from Prow)
 	identityInfo, err := azureClient.GetNodeIdentityInfo(ctx, creds.ResourceGroup)
 	if err != nil {
 		return fmt.Errorf("failed to get node identity info: %v", err)
 	}
 	log.Printf("Found node identity: clientID=%s, principalID=%s", identityInfo.ClientID, identityInfo.PrincipalID)
 
-	// Step 2: Assign Storage File Data SMB MI Admin role to identity (reuse WI constant)
+	// Step 2: Assign Storage File Data SMB MI Admin role to identity
 	err = azureClient.AssignRoleToIdentity(ctx, creds.ResourceGroup, identityInfo.PrincipalID, wiStorageFileDataSMBMIAdmin)
 	if err != nil {
 		return fmt.Errorf("failed to assign Storage File Data SMB MI Admin role: %v", err)
 	}
 	log.Println("Storage File Data SMB MI Admin role assigned to node identity")
 
-	// Step 3: Get OAuth token for Azure Storage using managed identity
-	token, err := azure.GetStorageOAuthToken(ctx, identityInfo.ClientID)
-	if err != nil {
-		return fmt.Errorf("failed to get storage OAuth token: %v", err)
-	}
-	log.Println("Obtained storage OAuth token from managed identity")
-
-	// Step 4: Create Kubernetes Secret with the OAuth token
+	// Step 3: Get OAuth token by running a pod on the workload cluster node.
+	// The test runner (Prow pod) cannot access IMDS (169.254.169.254) because it runs
+	// outside Azure VMs. Instead, we schedule a pod on an agent node that curls IMDS
+	// to obtain the token, then read it from the pod logs.
 	kubeconfig := os.Getenv(kubeconfigEnvVar)
 	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
@@ -544,6 +541,13 @@ func setupOAuthToken(ctx context.Context, creds *credentials.Credentials, azureC
 		return fmt.Errorf("failed to create kubernetes client: %v", err)
 	}
 
+	token, err := getOAuthTokenFromNode(ctx, cs, identityInfo.ClientID)
+	if err != nil {
+		return fmt.Errorf("failed to get storage OAuth token from node: %v", err)
+	}
+	log.Println("Obtained storage OAuth token from agent node via IMDS")
+
+	// Step 4: Create Kubernetes Secret with the OAuth token
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      oauthSecretName,
@@ -568,4 +572,108 @@ func setupOAuthToken(ctx context.Context, creds *credentials.Credentials, azureC
 	log.Printf("Created/updated OAuth token secret %s/%s", oauthSecretNamespace, oauthSecretName)
 
 	return nil
+}
+
+// getOAuthTokenFromNode deploys a pod on a workload cluster agent node that uses IMDS
+// to obtain an Azure Storage OAuth token, then reads the token from the pod logs.
+func getOAuthTokenFromNode(ctx context.Context, cs clientset.Interface, clientID string) (string, error) {
+	podName := "oauth-token-fetcher"
+	namespace := "default"
+
+	// IMDS curl command that outputs only the access_token value
+	curlCmd := fmt.Sprintf(
+		`curl -s -H "Metadata: true" "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&client_id=%s&resource=https://storage.azure.com" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4`,
+		clientID,
+	)
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: namespace,
+		},
+		Spec: corev1.PodSpec{
+			RestartPolicy: corev1.RestartPolicyNever,
+			// Use hostNetwork to ensure IMDS is accessible
+			HostNetwork: true,
+			Containers: []corev1.Container{
+				{
+					Name:    "token-fetcher",
+					Image:   "mcr.microsoft.com/cbl-mariner/base/core:2.0",
+					Command: []string{"/bin/sh", "-c", curlCmd},
+				},
+			},
+			// Schedule on agent nodes (not control plane)
+			NodeSelector: map[string]string{
+				"kubernetes.io/os": "linux",
+			},
+			Tolerations: []corev1.Toleration{
+				{
+					Key:      "node-role.kubernetes.io/control-plane",
+					Operator: corev1.TolerationOpExists,
+					Effect:   corev1.TaintEffectNoSchedule,
+				},
+			},
+		},
+	}
+
+	// Clean up any leftover pod from a previous run
+	_ = cs.CoreV1().Pods(namespace).Delete(ctx, podName, metav1.DeleteOptions{})
+	// Wait briefly for deletion
+	time.Sleep(5 * time.Second)
+
+	_, err := cs.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to create token fetcher pod: %v", err)
+	}
+	defer func() {
+		_ = cs.CoreV1().Pods(namespace).Delete(context.Background(), podName, metav1.DeleteOptions{})
+	}()
+
+	// Wait for pod to complete (up to 5 minutes)
+	log.Printf("Waiting for token fetcher pod %s/%s to complete...", namespace, podName)
+	waitCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	err = waitForPodComplete(waitCtx, cs, namespace, podName)
+	if err != nil {
+		return "", fmt.Errorf("token fetcher pod did not complete: %v", err)
+	}
+
+	// Read token from pod logs
+	logBytes, err := cs.CoreV1().Pods(namespace).GetLogs(podName, &corev1.PodLogOptions{}).Do(ctx).Raw()
+	if err != nil {
+		return "", fmt.Errorf("failed to get token fetcher pod logs: %v", err)
+	}
+
+	token := strings.TrimSpace(string(logBytes))
+	if token == "" {
+		return "", fmt.Errorf("token fetcher pod returned empty token")
+	}
+
+	return token, nil
+}
+
+// waitForPodComplete polls until the pod reaches Succeeded or Failed phase.
+func waitForPodComplete(ctx context.Context, cs clientset.Interface, namespace, name string) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		pod, err := cs.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		switch pod.Status.Phase {
+		case corev1.PodSucceeded:
+			return nil
+		case corev1.PodFailed:
+			return fmt.Errorf("pod failed with reason: %s", pod.Status.Reason)
+		}
+
+		time.Sleep(3 * time.Second)
+	}
 }

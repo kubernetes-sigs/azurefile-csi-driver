@@ -27,9 +27,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	armauthorization "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	armcompute "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	armmsi "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
@@ -182,24 +180,6 @@ func (az *Client) GetAccountNumByResourceGroup(ctx context.Context, groupName st
 		return -1, err
 	}
 	return len(result), nil
-}
-
-// GetStorageOAuthToken obtains an Azure Storage OAuth token using a managed identity.
-// The token can be used for mounting Azure File shares with mountWithOAuthToken.
-func GetStorageOAuthToken(ctx context.Context, clientID string) (string, error) {
-	cred, err := azidentity.NewManagedIdentityCredential(&azidentity.ManagedIdentityCredentialOptions{
-		ID: azidentity.ClientID(clientID),
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed to create managed identity credential: %v", err)
-	}
-	token, err := cred.GetToken(ctx, policy.TokenRequestOptions{
-		Scopes: []string{"https://storage.azure.com/.default"},
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed to get storage OAuth token: %v", err)
-	}
-	return token.Token, nil
 }
 
 func stringPointer(s string) *string {
