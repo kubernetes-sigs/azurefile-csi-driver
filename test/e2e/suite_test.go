@@ -577,7 +577,6 @@ func setupOAuthToken(ctx context.Context, creds *credentials.Credentials, azureC
 // getOAuthTokenFromNode deploys a pod on a workload cluster agent node that uses IMDS
 // to obtain an Azure Storage OAuth token, then reads the token from the pod logs.
 func getOAuthTokenFromNode(ctx context.Context, cs clientset.Interface, clientID string) (string, error) {
-	podName := "oauth-token-fetcher"
 	namespace := "default"
 
 	// IMDS curl command that outputs only the access_token value
@@ -588,8 +587,8 @@ func getOAuthTokenFromNode(ctx context.Context, cs clientset.Interface, clientID
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      podName,
-			Namespace: namespace,
+			GenerateName: "oauth-token-fetcher-",
+			Namespace:    namespace,
 		},
 		Spec: corev1.PodSpec{
 			RestartPolicy: corev1.RestartPolicyNever,
@@ -625,15 +624,11 @@ func getOAuthTokenFromNode(ctx context.Context, cs clientset.Interface, clientID
 		},
 	}
 
-	// Clean up any leftover pod from a previous run
-	_ = cs.CoreV1().Pods(namespace).Delete(ctx, podName, metav1.DeleteOptions{})
-	// Wait briefly for deletion
-	time.Sleep(5 * time.Second)
-
-	_, err := cs.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
+	created, err := cs.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to create token fetcher pod: %v", err)
 	}
+	podName := created.Name
 	defer func() {
 		_ = cs.CoreV1().Pods(namespace).Delete(context.Background(), podName, metav1.DeleteOptions{})
 	}()
