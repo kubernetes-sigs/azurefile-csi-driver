@@ -1285,6 +1285,22 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		}
 		accountName := segments[3]
 
+		// Copy the storage account secret from default namespace to the test namespace
+		// so that the CSI inline volume's NodePublishVolume can find it.
+		secret, err := cs.CoreV1().Secrets("default").Get(ctx, secretName, metav1.GetOptions{})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		secretCopy := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secretName,
+				Namespace: ns.Name,
+			},
+			Data: secret.Data,
+			Type: secret.Type,
+		}
+		_, err = cs.CoreV1().Secrets(ns.Name).Create(ctx, secretCopy, metav1.CreateOptions{})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		log.Printf("copied secret %s from default to %s namespace\n", secretName, ns.Name)
+
 		shareName := "csi-inline-smb-volume"
 		req := makeCreateVolumeReq(shareName, ns.Name)
 		req.Parameters["storageAccount"] = accountName
@@ -1357,6 +1373,22 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			ginkgo.Fail(fmt.Sprintf("%s have %d elements, expected: %d ", secretName, len(segments), 5))
 		}
 		accountName := segments[3]
+
+		// Copy the storage account secret from default namespace to the test namespace
+		// so that the in-tree azureFile volume plugin can find it.
+		secret, err := cs.CoreV1().Secrets("default").Get(ctx, secretName, metav1.GetOptions{})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		secretCopy := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secretName,
+				Namespace: ns.Name,
+			},
+			Data: secret.Data,
+			Type: secret.Type,
+		}
+		_, err = cs.CoreV1().Secrets(ns.Name).Create(ctx, secretCopy, metav1.CreateOptions{})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		log.Printf("copied secret %s from default to %s namespace\n", secretName, ns.Name)
 
 		shareName := "intree-inline-smb-volume"
 		req := makeCreateVolumeReq("intree-inline-smb-volume", ns.Name)
