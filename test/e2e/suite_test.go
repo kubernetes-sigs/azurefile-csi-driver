@@ -204,7 +204,7 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		}()
 
 		// Setup OAuth token for mountWithOAuthToken e2e test (CAPZ only)
-				// Moved to test case itself to ensure fresh token at mount time
+		// Moved to test case itself to ensure fresh token at mount time
 	}
 })
 
