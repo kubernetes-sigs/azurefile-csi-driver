@@ -37,6 +37,7 @@ import (
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	cloudprovider "k8s.io/cloud-provider"
@@ -1117,6 +1118,100 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				mockFileClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
 				_, err := d.CreateVolume(ctx, req)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			})
+		})
+
+		ginkgo.When("mountWithManagedIdentity is true", func() {
+			ginkgo.It("should not store account key to secret", func(ctx context.Context) {
+				name := "baz"
+				SKU := "SKU"
+				kind := "StorageV2"
+				location := "centralus"
+				value := "foo bar"
+				accounts := []*armstorage.Account{
+					{Name: &name, SKU: &armstorage.SKU{Name: to.Ptr(armstorage.SKUName(SKU))}, Kind: to.Ptr(armstorage.Kind(kind)), Location: &location},
+				}
+				keys := []*armstorage.AccountKey{
+					{Value: &value},
+				}
+
+				params := map[string]string{
+					skuNameField:                  "premium",
+					locationField:                 "loc",
+					storageAccountField:           "stoacc",
+					resourceGroupField:            "rg",
+					secretNamespaceField:          "default",
+					mountWithManagedIdentityField: "true",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "vol-mi-no-secret",
+					VolumeCapabilities: stdVolCap,
+					CapacityRange:      lessThanPremCapRange,
+					Parameters:         params,
+				}
+
+				mockStorageAccountsClient := d.cloud.ComputeClientFactory.GetAccountClient().(*mock_accountclient.MockInterface)
+				mockFileClient.EXPECT().Create(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().List(gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+				mockFileClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
+
+				_, err := d.CreateVolume(ctx, req)
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+				// Verify no secret was created
+				secrets, listErr := d.kubeClient.CoreV1().Secrets("default").List(ctx, metav1.ListOptions{})
+				gomega.Expect(listErr).NotTo(gomega.HaveOccurred())
+				gomega.Expect(secrets.Items).To(gomega.BeEmpty(), "expected no secret to be created when mountWithManagedIdentity is true")
+			})
+		})
+
+		ginkgo.When("mountWithWorkloadIdentityToken is true", func() {
+			ginkgo.It("should not store account key to secret", func(ctx context.Context) {
+				name := "baz"
+				SKU := "SKU"
+				kind := "StorageV2"
+				location := "centralus"
+				value := "foo bar"
+				accounts := []*armstorage.Account{
+					{Name: &name, SKU: &armstorage.SKU{Name: to.Ptr(armstorage.SKUName(SKU))}, Kind: to.Ptr(armstorage.Kind(kind)), Location: &location},
+				}
+				keys := []*armstorage.AccountKey{
+					{Value: &value},
+				}
+
+				params := map[string]string{
+					skuNameField:          "premium",
+					locationField:         "loc",
+					storageAccountField:   "stoacc",
+					resourceGroupField:    "rg",
+					secretNamespaceField:  "default",
+					mountWithWITokenField: "true",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "vol-wi-no-secret",
+					VolumeCapabilities: stdVolCap,
+					CapacityRange:      lessThanPremCapRange,
+					Parameters:         params,
+				}
+
+				mockStorageAccountsClient := d.cloud.ComputeClientFactory.GetAccountClient().(*mock_accountclient.MockInterface)
+				mockFileClient.EXPECT().Create(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().List(gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+				mockFileClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
+
+				_, err := d.CreateVolume(ctx, req)
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+				// Verify no secret was created
+				secrets, listErr := d.kubeClient.CoreV1().Secrets("default").List(ctx, metav1.ListOptions{})
+				gomega.Expect(listErr).NotTo(gomega.HaveOccurred())
+				gomega.Expect(secrets.Items).To(gomega.BeEmpty(), "expected no secret to be created when mountWithWorkloadIdentityToken is true")
 			})
 		})
 

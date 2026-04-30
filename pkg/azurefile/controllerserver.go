@@ -336,6 +336,13 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Error(codes.InvalidArgument, "mountwithmanagedidentity and mountwithworkloadidentitytoken cannot be both true in storage class")
 	}
 
+	// When using managed identity or workload identity token for mount,
+	// the account key should not be stored in the secret since mount
+	// authentication uses identity-based tokens, not account keys.
+	if mountWithManagedIdentity || mountWithWIToken {
+		storeAccountKey = false
+	}
+
 	if matchTags && account != "" {
 		return nil, status.Errorf(codes.InvalidArgument, "matchTags must set as false when storageAccount(%s) is provided", account)
 	}
