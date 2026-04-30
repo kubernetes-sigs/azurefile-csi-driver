@@ -648,6 +648,12 @@ func getOAuthTokenFromNode(ctx context.Context, cs clientset.Interface, clientID
 		return "", fmt.Errorf("token fetcher pod did not complete: %v", err)
 	}
 
+	// Print which node the token fetcher pod ran on
+	completedPod, getErr := cs.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
+	if getErr == nil {
+		log.Printf("Token fetcher pod %s ran on node: %s", podName, completedPod.Spec.NodeName)
+	}
+
 	// Read token from pod logs
 	logBytes, err := cs.CoreV1().Pods(namespace).GetLogs(podName, &corev1.PodLogOptions{}).Do(ctx).Raw()
 	if err != nil {
