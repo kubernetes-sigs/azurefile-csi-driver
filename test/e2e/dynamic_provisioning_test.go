@@ -1946,7 +1946,9 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		if !isCapzTest {
 			ginkgo.Skip("mountWithOAuthToken test requires CAPZ environment")
 		}
-		gomega.Expect(oauthTokenSetupSucceeded).To(gomega.BeTrue(), "OAuth token setup did not succeed")
+		// Setup OAuth token inline to ensure fresh token at mount time
+		err := setupOAuthToken(ctx, suiteCreds, suiteAzureClient)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "OAuth token setup failed")
 
 		pods := []testsuites.PodDetails{
 			{

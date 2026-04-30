@@ -73,7 +73,8 @@ var (
 	supportEncryptInTransitwithNFS bool
 	miRoleSetupSucceeded           bool
 	wiSetupSucceeded               bool
-	oauthTokenSetupSucceeded       bool
+	suiteCreds                     *credentials.Credentials
+	suiteAzureClient               *azure.Client
 )
 
 type testCmd struct {
@@ -104,6 +105,8 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret, creds.AADFederatedTokenFile)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		suiteCreds = creds
+		suiteAzureClient = azureClient
 		_, err = azureClient.EnsureResourceGroup(ctx, creds.ResourceGroup, creds.Location, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -201,12 +204,7 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		}()
 
 		// Setup OAuth token for mountWithOAuthToken e2e test (CAPZ only)
-		if isCapzTest {
-			err = setupOAuthToken(ctx, creds, azureClient)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "OAuth token setup failed")
-			oauthTokenSetupSucceeded = true
-			log.Println("OAuth token setup succeeded")
-		}
+				// Moved to test case itself to ensure fresh token at mount time
 	}
 })
 
