@@ -584,7 +584,7 @@ func getOAuthTokenFromNode(ctx context.Context, cs clientset.Interface, clientID
 
 	// IMDS curl command that outputs only the access_token value
 	curlCmd := fmt.Sprintf(
-		`curl -s -H "Metadata: true" "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&client_id=%s&resource=https://storage.azure.com/" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4`,
+		`curl -s -H "Metadata: true" "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&client_id=%s&resource=https://storage.azure.com" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4`,
 		clientID,
 	)
 
@@ -661,6 +661,13 @@ func getOAuthTokenFromNode(ctx context.Context, cs clientset.Interface, clientID
 	token := strings.TrimSpace(string(logBytes))
 	if token == "" {
 		return "", fmt.Errorf("token fetcher pod returned empty token")
+	}
+
+	// Log token info for debugging (show length and first/last 10 chars)
+	if len(token) > 20 {
+		log.Printf("OAuth token obtained: length=%d, prefix=%s...suffix=%s", len(token), token[:10], token[len(token)-10:])
+	} else {
+		log.Printf("OAuth token obtained: length=%d (token too short, possibly invalid)", len(token))
 	}
 
 	return token, nil
