@@ -1947,7 +1947,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			ginkgo.Skip("mountWithOAuthToken test requires CAPZ environment")
 		}
 		// Setup OAuth token inline to ensure fresh token at mount time
-		err := setupOAuthToken(ctx, suiteCreds, suiteAzureClient)
+		tokenNodeName, err := setupOAuthToken(ctx, suiteCreds, suiteAzureClient)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "OAuth token setup failed")
 
 		pods := []testsuites.PodDetails{
@@ -1969,9 +1969,17 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				},
 			},
 		}
+		// Pin test pod to the same node where the OAuth token was fetched,
+		// so that the CSI node plugin's setCredentialCache runs on the same node.
+		nodeSelector := map[string]string{"kubernetes.io/os": "linux"}
+		if tokenNodeName != "" {
+			nodeSelector["kubernetes.io/hostname"] = tokenNodeName
+			log.Printf("Pinning OAuth test pod to node: %s", tokenNodeName)
+		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
-			CSIDriver: testDriver,
-			Pods:      pods,
+			CSIDriver:    testDriver,
+			Pods:         pods,
+			NodeSelector: nodeSelector,
 			StorageClassParameters: map[string]string{
 				"skuName":             "Premium_LRS",
 				"mountWithOAuthToken": "true",
