@@ -37,6 +37,8 @@ type DynamicallyProvisionedCmdVolumeTest struct {
 	Pods                   []PodDetails
 	StorageClassParameters map[string]string
 	ServiceAccountName     string
+	// NodeSelector constrains which node the test pod runs on
+	NodeSelector map[string]string
 }
 
 func (t *DynamicallyProvisionedCmdVolumeTest) Run(ctx context.Context, client clientset.Interface, namespace *v1.Namespace) {
@@ -50,6 +52,10 @@ func (t *DynamicallyProvisionedCmdVolumeTest) Run(ctx context.Context, client cl
 		if t.ServiceAccountName != "" {
 			tpod.SetServiceAccountName(t.ServiceAccountName)
 			tpod.SetAutomountServiceAccountToken(true)
+		}
+
+		if len(t.NodeSelector) > 0 {
+			tpod.SetNodeSelector(t.NodeSelector)
 		}
 
 		ginkgo.By("deploying the pod")

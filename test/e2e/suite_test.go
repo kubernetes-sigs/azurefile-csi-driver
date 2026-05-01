@@ -510,18 +510,19 @@ const (
 
 // setupOAuthToken obtains an OAuth token from the node's managed identity and stores it
 // in a Kubernetes Secret for use by mountWithOAuthToken e2e tests.
-func setupOAuthToken(ctx context.Context, creds *credentials.Credentials, azureClient *azure.Client) error {
+// Returns the node name where the token was fetched from.
+func setupOAuthToken(ctx context.Context, creds *credentials.Credentials, azureClient *azure.Client) (string, error) {
 	// Step 1: Get node managed identity info (uses Azure SDK with SP creds, works from Prow)
 	identityInfo, err := azureClient.GetNodeIdentityInfo(ctx, creds.ResourceGroup)
 	if err != nil {
-		return fmt.Errorf("failed to get node identity info: %v", err)
+		return "", fmt.Errorf("failed to get node identity info: %v", err)
 	}
 	log.Printf("Found node identity: clientID=%s, principalID=%s", identityInfo.ClientID, identityInfo.PrincipalID)
 
 	// Step 2: Assign Storage File Data SMB MI Admin role to identity
 	err = azureClient.AssignRoleToIdentity(ctx, creds.ResourceGroup, identityInfo.PrincipalID, wiStorageFileDataSMBMIAdmin)
 	if err != nil {
-		return fmt.Errorf("failed to assign Storage File Data SMB MI Admin role: %v", err)
+		return "", fmt.Errorf("failed to assign Storage File Data SMB MI Admin role: %v", err)
 	}
 	log.Println("Storage File Data SMB MI Admin role assigned to node identity")
 
@@ -532,18 +533,18 @@ func setupOAuthToken(ctx context.Context, creds *credentials.Credentials, azureC
 	kubeconfig := os.Getenv(kubeconfigEnvVar)
 	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
-		return fmt.Errorf("failed to build kubeconfig: %v", err)
+		return "", fmt.Errorf("failed to build kubeconfig: %v", err)
 	}
 	cs, err := clientset.NewForConfig(restConfig)
 	if err != nil {
-		return fmt.Errorf("failed to create kubernetes client: %v", err)
+		return "", fmt.Errorf("failed to create kubernetes client: %v", err)
 	}
 
-	token, err := getOAuthTokenFromNode(ctx, cs, identityInfo.ClientID)
+	token, nodeName, err := getOAuthTokenFromNode(ctx, cs, identityInfo.ClientID)
 	if err != nil {
-		return fmt.Errorf("failed to get storage OAuth token from node: %v", err)
+		return "", fmt.Errorf("failed to get storage OAuth token from node: %v", err)
 	}
-	log.Println("Obtained storage OAuth token from agent node via IMDS")
+	log.Printf("Obtained storage OAuth token from agent node %s via IMDS", nodeName)
 
 	// Step 4: Create Kubernetes Secret with the OAuth token
 	secret := &corev1.Secret{
@@ -561,25 +562,26 @@ func setupOAuthToken(ctx context.Context, creds *credentials.Credentials, azureC
 		if apierrors.IsAlreadyExists(err) {
 			existing, getErr := cs.CoreV1().Secrets(oauthSecretNamespace).Get(ctx, oauthSecretName, metav1.GetOptions{})
 			if getErr != nil {
-				return fmt.Errorf("failed to get existing OAuth token secret: %v", getErr)
+				return "", fmt.Errorf("failed to get existing OAuth token secret: %v", getErr)
 			}
 			secret.ResourceVersion = existing.ResourceVersion
 			_, err = cs.CoreV1().Secrets(oauthSecretNamespace).Update(ctx, secret, metav1.UpdateOptions{})
 			if err != nil {
-				return fmt.Errorf("failed to update OAuth token secret: %v", err)
+				return "", fmt.Errorf("failed to update OAuth token secret: %v", err)
 			}
 		} else {
-			return fmt.Errorf("failed to create OAuth token secret: %v", err)
+			return "", fmt.Errorf("failed to create OAuth token secret: %v", err)
 		}
 	}
 	log.Printf("Created/updated OAuth token secret %s/%s", oauthSecretNamespace, oauthSecretName)
 
-	return nil
+	return nodeName, nil
 }
 
 // getOAuthTokenFromNode deploys a pod on a workload cluster agent node that uses IMDS
 // to obtain an Azure Storage OAuth token, then reads the token from the pod logs.
-func getOAuthTokenFromNode(ctx context.Context, cs clientset.Interface, clientID string) (string, error) {
+// Returns (token, nodeName, error).
+func getOAuthTokenFromNode(ctx context.Context, cs clientset.Interface, clientID string) (string, string, error) {
 	namespace := "default"
 
 	// IMDS curl command that outputs only the access_token value
@@ -629,7 +631,7 @@ func getOAuthTokenFromNode(ctx context.Context, cs clientset.Interface, clientID
 
 	created, err := cs.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
 	if err != nil {
-		return "", fmt.Errorf("failed to create token fetcher pod: %v", err)
+		return "", "", fmt.Errorf("failed to create token fetcher pod: %v", err)
 	}
 	podName := created.Name
 	defer func() {
@@ -643,24 +645,26 @@ func getOAuthTokenFromNode(ctx context.Context, cs clientset.Interface, clientID
 
 	err = waitForPodComplete(waitCtx, cs, namespace, podName)
 	if err != nil {
-		return "", fmt.Errorf("token fetcher pod did not complete: %v", err)
+		return "", "", fmt.Errorf("token fetcher pod did not complete: %v", err)
 	}
 
 	// Print which node the token fetcher pod ran on
 	completedPod, getErr := cs.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
+	nodeName := ""
 	if getErr == nil {
-		log.Printf("Token fetcher pod %s ran on node: %s", podName, completedPod.Spec.NodeName)
+		nodeName = completedPod.Spec.NodeName
+		log.Printf("Token fetcher pod %s ran on node: %s", podName, nodeName)
 	}
 
 	// Read token from pod logs
 	logBytes, err := cs.CoreV1().Pods(namespace).GetLogs(podName, &corev1.PodLogOptions{}).Do(ctx).Raw()
 	if err != nil {
-		return "", fmt.Errorf("failed to get token fetcher pod logs: %v", err)
+		return "", "", fmt.Errorf("failed to get token fetcher pod logs: %v", err)
 	}
 
 	token := strings.TrimSpace(string(logBytes))
 	if token == "" {
-		return "", fmt.Errorf("token fetcher pod returned empty token")
+		return "", "", fmt.Errorf("token fetcher pod returned empty token")
 	}
 
 	// Log token info for debugging (show length and first/last 10 chars)
@@ -670,7 +674,7 @@ func getOAuthTokenFromNode(ctx context.Context, cs clientset.Interface, clientID
 		log.Printf("OAuth token obtained: length=%d (token too short, possibly invalid)", len(token))
 	}
 
-	return token, nil
+	return token, nodeName, nil
 }
 
 // waitForPodComplete polls until the pod reaches Succeeded or Failed phase.
