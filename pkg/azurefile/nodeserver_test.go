@@ -216,6 +216,37 @@ func TestNodePublishVolume(t *testing.T) {
 			},
 		},
 		{
+			desc: "[Error] Ephemeral volume with mountWithManagedIdentity should return error",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed83",
+				TargetPath: targetTest,
+				Readonly:   true,
+				VolumeContext: map[string]string{
+					ephemeralField:                "true",
+					storageAccountField:           "teststorageaccount",
+					shareNameField:                "testshare",
+					mountWithManagedIdentityField: "true",
+					clientIDField:                 "test-client-id-1234",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "mountWithManagedIdentity cannot be used for ephemeral volumes, please use secret based authentication"),
+				WindowsError: status.Error(codes.InvalidArgument, "mountWithManagedIdentity cannot be used for ephemeral volumes, please use secret based authentication"),
+			},
+		},
+		{
+			desc: "[Success] Regular volume mounting with mountWithManagedIdentity should succeed",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "vol_1",
+				TargetPath:        targetTest,
+				StagingTargetPath: sourceTest,
+				VolumeContext: map[string]string{
+					mountWithManagedIdentityField: "true",
+				},
+			},
+			expectedErr: testutil.TestError{},
+		},
+		{
 			desc: "[Success] Valid request read only",
 			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
 				VolumeId:          "vol_1",

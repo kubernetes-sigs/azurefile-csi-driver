@@ -96,6 +96,11 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		// ephemeral volume
 		if strings.EqualFold(context[ephemeralField], trueValue) {
 			setKeyValueInMap(context, secretNamespaceField, context[podNamespaceField])
+			// When Managed Identity is used for ephemeral volumes then reject the request.
+			// Allowing access for inline volume with identity will open up risk of arbitrary pods accessing fileshares with node identity permissions.
+			if strings.EqualFold(getValueInMap(context, mountWithManagedIdentityField), trueValue) {
+				return nil, status.Error(codes.InvalidArgument, "mountWithManagedIdentity cannot be used for ephemeral volumes, please use secret based authentication")
+			}
 			if !d.allowInlineVolumeKeyAccessWithIdentity {
 				// only get storage account from secret
 				setKeyValueInMap(context, getAccountKeyFromSecretField, trueValue)
