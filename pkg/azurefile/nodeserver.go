@@ -192,6 +192,13 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		if oauthServer == "" {
 			accountName := getValueInMap(context, storageAccountField)
 			if accountName == "" {
+				// Try to parse account name from volume ID
+				_, parsedAccountName, _, _, _, _, parseErr := GetFileShareInfo(volumeID)
+				if parseErr == nil && parsedAccountName != "" {
+					accountName = parsedAccountName
+				}
+			}
+			if accountName == "" {
 				secretName := getValueInMap(context, secretNameField)
 				secretNamespace := getSecretNamespace(context)
 				if secretName != "" {
