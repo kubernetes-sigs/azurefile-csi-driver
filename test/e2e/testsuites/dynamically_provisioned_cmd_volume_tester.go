@@ -37,8 +37,6 @@ type DynamicallyProvisionedCmdVolumeTest struct {
 	Pods                   []PodDetails
 	StorageClassParameters map[string]string
 	ServiceAccountName     string
-	// NodeSelector constrains which node the test pod runs on
-	NodeSelector map[string]string
 }
 
 func (t *DynamicallyProvisionedCmdVolumeTest) Run(ctx context.Context, client clientset.Interface, namespace *v1.Namespace) {
@@ -54,10 +52,6 @@ func (t *DynamicallyProvisionedCmdVolumeTest) Run(ctx context.Context, client cl
 			// Note: AutomountServiceAccountToken is intentionally left false (default).
 			// CSI tokenRequests for workload identity are handled by kubelet based on the
 			// pod's service account; no in-container token mount is needed.
-		}
-
-		if len(t.NodeSelector) > 0 {
-			tpod.SetNodeSelector(t.NodeSelector)
 		}
 
 		ginkgo.By("deploying the pod")
