@@ -97,8 +97,14 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		// ephemeral volume
 		if strings.EqualFold(context[ephemeralField], trueValue) {
 			setKeyValueInMap(context, secretNamespaceField, context[podNamespaceField])
+			// When Managed Identity is used for ephemral volumes then clientID must be specified,
+			// to avoid some arbitary pods accessing fileshares with node identity permissions.
+			isClientIDExist := getValueInMap(context, clientIDField) != ""
 			useManagedIdentity := strings.EqualFold(getValueInMap(context, mountWithManagedIdentityField), trueValue)
 			useWIToken := strings.EqualFold(getValueInMap(context, mountWithWITokenField), trueValue)
+			if useManagedIdentity && !isClientIDExist {
+				return nil, status.Error(codes.InvalidArgument, "clientID must be specified when mountWithManagedIdentity is true for ephemeral volume")
+			}
 			if !d.allowInlineVolumeKeyAccessWithIdentity && !useManagedIdentity && !useWIToken {
 				// only get storage account from secret when not using managed identity or workload identity
 				setKeyValueInMap(context, getAccountKeyFromSecretField, trueValue)

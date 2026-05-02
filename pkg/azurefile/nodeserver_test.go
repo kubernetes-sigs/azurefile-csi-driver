@@ -226,6 +226,7 @@ func TestNodePublishVolume(t *testing.T) {
 					storageAccountField:           "teststorageaccount",
 					shareNameField:                "testshare",
 					mountWithManagedIdentityField: "true",
+					clientIDField:                 "test-client-id-1234",
 				},
 			},
 			expectedErr: testutil.TestError{
@@ -250,6 +251,24 @@ func TestNodePublishVolume(t *testing.T) {
 			expectedErr: testutil.TestError{
 				DefaultError: status.Errorf(codes.InvalidArgument, "GetAccountInfo(csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed84) failed with error: clientID is empty for workload identity auth"),
 				WindowsError: status.Errorf(codes.InvalidArgument, "GetAccountInfo(csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed84) failed with error: clientID is empty for workload identity auth"),
+			},
+		},
+		{
+			desc: "[Error] Ephemeral volume with mountWithManagedIdentity but not having clientID should return error",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed84",
+				TargetPath: targetTest,
+				Readonly:   true,
+				VolumeContext: map[string]string{
+					ephemeralField:                "true",
+					storageAccountField:           "teststorageaccount",
+					shareNameField:                "testshare",
+					mountWithManagedIdentityField: "true",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Errorf(codes.InvalidArgument, "GetAccountInfo(csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed84) failed with error: clientID must be specified when mountWithManagedIdentity is true for ephemeral volume"),
+				WindowsError: status.Errorf(codes.InvalidArgument, "GetAccountInfo(csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed84) failed with error: clientID must be specified when mountWithManagedIdentity is true for ephemeral volume"),
 			},
 		},
 		{
