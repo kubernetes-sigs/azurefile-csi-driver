@@ -344,7 +344,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	var requiresSmbOAuth *bool
 	if mountWithManagedIdentity || mountWithWIToken || mountWithOAuthToken {
 		storeAccountKey = false
-		klog.V(2).Info("enabling smb oauth for managed identity or workload identity token based mount")
+		klog.V(2).Info("enabling smb oauth for identity-based mount")
 		requiresSmbOAuth = to.Ptr(true)
 	}
 
