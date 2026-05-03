@@ -1000,9 +1000,6 @@ func shouldUseServiceAccountToken(attrib map[string]string) bool {
 	if getValueInMap(attrib, mountWithWITokenField) == trueValue {
 		return true
 	}
-	if getValueInMap(attrib, mountWithOAuthTokenField) == trueValue {
-		return true
-	}
 	if getValueInMap(attrib, clientIDField) != "" && !strings.EqualFold(getValueInMap(attrib, mountWithManagedIdentityField), trueValue) {
 		return true
 	}
