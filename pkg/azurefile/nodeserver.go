@@ -181,53 +181,19 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		mountOptions = append(mountOptions, "ro")
 	}
 
-	// mountWithOAuthToken: validate inputs and resolve server before ensureMountPoint
-	var oauthServer string
-	isMountWithOAuthToken := context != nil && strings.EqualFold(getValueInMap(context, mountWithOAuthTokenField), trueValue)
-	if isMountWithOAuthToken {
-		oauthServer = getValueInMap(context, serverNameField)
-		if oauthServer == "" {
-			accountName := getValueInMap(context, storageAccountField)
-			if accountName == "" {
-				// Try to parse account name from volume ID
-				_, parsedAccountName, _, _, _, _, parseErr := GetFileShareInfo(volumeID)
-				if parseErr == nil && parsedAccountName != "" {
-					accountName = parsedAccountName
-				}
-			}
-			if accountName == "" {
-				secretName := getValueInMap(context, secretNameField)
-				secretNamespace := getSecretNamespace(context)
-				if secretName != "" {
-					name, _, _, secretErr := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
-					if secretErr != nil {
-						return nil, status.Errorf(codes.Internal, "NodePublishVolume: failed to get account from secret %s/%s: %v", secretNamespace, secretName, secretErr)
-					}
-					accountName = name
-				}
-			}
-			storageEndpointSuffix := getValueInMap(context, storageEndpointSuffixField)
-			if storageEndpointSuffix == "" {
-				storageEndpointSuffix = d.getStorageEndPointSuffix()
-			}
-			if accountName != "" {
-				oauthServer = fmt.Sprintf("%s.file.%s", accountName, storageEndpointSuffix)
-			}
-		}
-		if oauthServer == "" {
-			return nil, status.Errorf(codes.InvalidArgument, "NodePublishVolume: server is empty for volume(%s) with mountWithOAuthToken", volumeID)
-		}
-	}
-
-	// mountWithOAuthToken: refresh credential cache BEFORE ensureMountPoint so that
+	// mountWithOAuthToken: validate and refresh credential cache BEFORE ensureMountPoint so that
 	// a stale mount (token expired → "required key not available") can recover.
 	// ensureMountPoint does ReadDir to validate the mount, which will fail if the
 	// kernel credential cache has an expired token, leading to an unmount attempt
 	// that fails with "target is busy". Refreshing first gives the kernel a valid
 	// token before the ReadDir check.
+	var oauthServer string
+	isMountWithOAuthToken := context != nil && strings.EqualFold(getValueInMap(context, mountWithOAuthTokenField), trueValue)
 	if isMountWithOAuthToken {
-		if err := d.setCredentialCacheWithOAuthToken(ctx, oauthServer, context); err != nil {
-			return nil, status.Errorf(codes.Internal, "NodePublishVolume: failed to refresh OAuth token for volume(%s): %v", volumeID, err)
+		var err error
+		oauthServer, err = d.setCredentialCacheWithOAuthToken(ctx, volumeID, context)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "NodePublishVolume: %v", err)
 		}
 		klog.V(2).Infof("NodePublishVolume: refreshed OAuth token credential cache for volume(%s) server(%s)", volumeID, oauthServer)
 	}
@@ -444,9 +410,6 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		if protocol == nfs {
 			return nil, status.Error(codes.InvalidArgument, "mountWithOAuthToken is not supported with NFS protocol")
 		}
-		if strings.TrimSpace(getValueInMap(context, secretNameField)) == "" {
-			return nil, status.Error(codes.InvalidArgument, "secretName is required when mountWithOAuthToken is true")
-		}
 		if strings.EqualFold(getValueInMap(context, createFolderIfNotExistField), trueValue) {
 			return nil, status.Error(codes.InvalidArgument, "createFolderIfNotExist is not supported with mountWithOAuthToken")
 		}
@@ -524,7 +487,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			sensitiveMountOptions = []string{"sec=krb5,cruid=0,upcall_target=mount"}
 			klog.V(2).Infof("using OAuth token from secret for volume %s", volumeID)
 			// always refresh credential cache when mountWithOAuthToken is set, even if mount does not happen
-			if err := d.setCredentialCacheWithOAuthToken(ctx, server, context); err != nil {
+			if _, err := d.setCredentialCacheWithOAuthToken(ctx, volumeID, context); err != nil {
 				return nil, status.Errorf(codes.Internal, "setCredentialCacheWithOAuthToken failed for %s with error: %v", server, err)
 			}
 		} else {
@@ -909,37 +872,67 @@ func (d *Driver) ensureMountPoint(target string, perm os.FileMode) (bool, error)
 // setCredentialCacheWithOAuthToken reads the OAuth token from the referenced
 // Kubernetes Secret via GetStorageAccountFromSecret and calls setCredentialCache
 // to update the credential cache.
-func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, server string, volumeContext map[string]string) error {
+func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, volumeID string, volumeContext map[string]string) (string, error) {
 	secretName := getValueInMap(volumeContext, secretNameField)
-	secretNamespace := getSecretNamespace(volumeContext)
 	if secretName == "" {
-		return fmt.Errorf("secretName is required when %s is true", mountWithOAuthTokenField)
+		return "", fmt.Errorf("secretName is required when %s is true", mountWithOAuthTokenField)
 	}
 
+	// Resolve server name
+	server := getValueInMap(volumeContext, serverNameField)
+	if server == "" {
+		accountName := getValueInMap(volumeContext, storageAccountField)
+		if accountName == "" {
+			_, parsedAccountName, _, _, _, _, parseErr := GetFileShareInfo(volumeID)
+			if parseErr == nil && parsedAccountName != "" {
+				accountName = parsedAccountName
+			}
+		}
+		if accountName == "" {
+			secretNamespace := getSecretNamespace(volumeContext)
+			name, _, _, secretErr := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
+			if secretErr != nil {
+				return "", fmt.Errorf("failed to get account from secret %s/%s: %v", secretNamespace, secretName, secretErr)
+			}
+			accountName = name
+		}
+		storageEndpointSuffix := getValueInMap(volumeContext, storageEndpointSuffixField)
+		if storageEndpointSuffix == "" {
+			storageEndpointSuffix = d.getStorageEndPointSuffix()
+		}
+		if accountName != "" {
+			server = fmt.Sprintf("%s.file.%s", accountName, storageEndpointSuffix)
+		}
+	}
+	if server == "" {
+		return "", fmt.Errorf("server is empty for volume(%s) with %s", volumeID, mountWithOAuthTokenField)
+	}
+
+	secretNamespace := getSecretNamespace(volumeContext)
 	_, _, oauthToken, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
 	if err != nil {
-		return fmt.Errorf("failed to get secret %s/%s: %v", secretNamespace, secretName, err)
+		return "", fmt.Errorf("failed to get secret %s/%s: %v", secretNamespace, secretName, err)
 	}
 
 	if oauthToken == "" {
-		return fmt.Errorf("%s not found in secret %s/%s", defaultSecretOAuthToken, secretNamespace, secretName)
+		return "", fmt.Errorf("%s not found in secret %s/%s", defaultSecretOAuthToken, secretNamespace, secretName)
 	}
 
 	// check if token has changed by comparing SHA256 hash
 	tokenSHA := fmt.Sprintf("%x", sha256.Sum256([]byte(oauthToken)))
 	if cachedSHA, ok := d.oauthTokenSHAMap.Load(server); ok && cachedSHA.(string) == tokenSHA {
 		klog.V(4).Infof("setCredentialCacheWithOAuthToken: OAuth token unchanged for server %s, skipping refresh", server)
-		return nil
+		return server, nil
 	}
 
 	if output, err := setCredentialCache(server, "", "", "", oauthToken); err != nil {
 		klog.Errorf("setCredentialCache failed for %s with output: %s, error: %v", server, strings.ReplaceAll(string(output), oauthToken, "<redacted>"), err)
-		return fmt.Errorf("setCredentialCache failed for %s: %v", server, err)
+		return "", fmt.Errorf("setCredentialCache failed for %s: %v", server, err)
 	}
 
 	d.oauthTokenSHAMap.Store(server, tokenSHA)
 	klog.V(2).Infof("setCredentialCacheWithOAuthToken: refreshed credential cache for server %s using secret %s/%s", server, secretNamespace, secretName)
-	return nil
+	return server, nil
 }
 
 func (d *Driver) mountWithProxy(ctx context.Context, source, target, fsType string, options, sensitiveMountOptions []string) error {
