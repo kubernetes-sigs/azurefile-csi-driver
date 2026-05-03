@@ -908,7 +908,7 @@ func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, volumeID 
 		}
 	}
 	if server == "" {
-		return "", fmt.Errorf("server is empty for volume(%s) with %s", volumeID, mountWithOAuthTokenField)
+		return "", fmt.Errorf("server is empty for volume(%s) with %s: set %q or %q in volume context, or provide account name in secret %q", volumeID, mountWithOAuthTokenField, serverNameField, storageAccountField, secretNameField)
 	}
 
 	secretNamespace := getSecretNamespace(volumeContext)
