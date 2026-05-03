@@ -341,8 +341,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Errorf(codes.InvalidArgument, "only one of %s, %s, and %s can be true in storage class", mountWithManagedIdentityField, mountWithOAuthTokenField, mountWithWITokenField)
 	}
 
+	var requiresSmbOAuth *bool
 	if mountWithManagedIdentity || mountWithWIToken || mountWithOAuthToken {
 		storeAccountKey = false
+		klog.V(2).Info("enabling smb oauth for managed identity or workload identity token based mount")
+		requiresSmbOAuth = to.Ptr(true)
 	}
 
 	if matchTags && account != "" {
@@ -572,12 +575,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		} else {
 			klog.V(2).Infof("source volume account name: %s, sourceID: %s", srcAccountName, sourceID)
 		}
-	}
-
-	var requiresSmbOAuth *bool
-	if mountWithManagedIdentity || mountWithWIToken || mountWithOAuthToken {
-		klog.V(2).Info("enabling smb oauth for managed identity, workload identity token, or oauth token based mount")
-		requiresSmbOAuth = to.Ptr(true)
 	}
 
 	accountOptions := &storage.AccountOptions{

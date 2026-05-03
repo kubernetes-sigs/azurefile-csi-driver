@@ -185,9 +185,6 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	var oauthServer string
 	isMountWithOAuthToken := context != nil && strings.EqualFold(getValueInMap(context, mountWithOAuthTokenField), trueValue)
 	if isMountWithOAuthToken {
-		if strings.TrimSpace(getValueInMap(context, secretNameField)) == "" {
-			return nil, status.Errorf(codes.InvalidArgument, "NodePublishVolume: secretName is required for volume(%s) with mountWithOAuthToken", volumeID)
-		}
 		oauthServer = getValueInMap(context, serverNameField)
 		if oauthServer == "" {
 			accountName := getValueInMap(context, storageAccountField)
@@ -1005,6 +1002,9 @@ func checkGidPresentInMountFlags(mountFlags []string) bool {
 // shouldUseServiceAccountToken determines whether a service account token should be used for authentication based on the volume context attributes.
 func shouldUseServiceAccountToken(attrib map[string]string) bool {
 	if getValueInMap(attrib, mountWithWITokenField) == trueValue {
+		return true
+	}
+	if getValueInMap(attrib, mountWithOAuthTokenField) == trueValue {
 		return true
 	}
 	if getValueInMap(attrib, clientIDField) != "" && !strings.EqualFold(getValueInMap(attrib, mountWithManagedIdentityField), trueValue) {
