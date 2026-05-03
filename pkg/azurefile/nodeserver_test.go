@@ -1407,25 +1407,23 @@ func makeFakeOutput(output string, err error) testingexec.FakeAction {
 func TestSetCredentialCacheWithOAuthToken(t *testing.T) {
 	tests := []struct {
 		desc          string
-		server        string
 		volumeContext map[string]string
 		setupDriver   func(d *Driver)
 		expectedErr   string
 		expectSkip    bool
 	}{
 		{
-			desc:   "missing secretName",
-			server: "testaccount.file.core.windows.net",
+			desc: "missing secretName",
 			volumeContext: map[string]string{
 				mountWithOAuthTokenField: "true",
 			},
 			expectedErr: "secretName is required",
 		},
 		{
-			desc:   "kubeClient is nil",
-			server: "testaccount.file.core.windows.net",
+			desc: "kubeClient is nil",
 			volumeContext: map[string]string{
 				secretNameField: "test-secret",
+				serverNameField: "testaccount.file.core.windows.net",
 			},
 			setupDriver: func(d *Driver) {
 				d.kubeClient = nil
@@ -1433,10 +1431,10 @@ func TestSetCredentialCacheWithOAuthToken(t *testing.T) {
 			expectedErr: "KubeClient is nil",
 		},
 		{
-			desc:   "oauthtoken missing in secret",
-			server: "testaccount.file.core.windows.net",
+			desc: "oauthtoken missing in secret",
 			volumeContext: map[string]string{
 				secretNameField: "test-secret",
+				serverNameField: "testaccount.file.core.windows.net",
 			},
 			setupDriver: func(d *Driver) {
 				secret := &corev1.Secret{
@@ -1448,10 +1446,10 @@ func TestSetCredentialCacheWithOAuthToken(t *testing.T) {
 			expectedErr: fmt.Sprintf("%s not found in secret", defaultSecretOAuthToken),
 		},
 		{
-			desc:   "skip refresh when token SHA unchanged",
-			server: "testaccount.file.core.windows.net",
+			desc: "skip refresh when token SHA unchanged",
 			volumeContext: map[string]string{
 				secretNameField: "test-secret",
+				serverNameField: "testaccount.file.core.windows.net",
 			},
 			setupDriver: func(d *Driver) {
 				token := "test-oauth-token-value"
@@ -1477,7 +1475,7 @@ func TestSetCredentialCacheWithOAuthToken(t *testing.T) {
 			if test.setupDriver != nil {
 				test.setupDriver(d)
 			}
-			err := d.setCredentialCacheWithOAuthToken(context.Background(), test.server, test.volumeContext)
+			_, err := d.setCredentialCacheWithOAuthToken(context.Background(), "vol_1", test.volumeContext)
 			if test.expectSkip {
 				assert.NoError(t, err)
 			} else if test.expectedErr != "" {
