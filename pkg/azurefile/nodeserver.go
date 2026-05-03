@@ -410,6 +410,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		if protocol == nfs {
 			return nil, status.Error(codes.InvalidArgument, "mountWithOAuthToken is not supported with NFS protocol")
 		}
+		if strings.TrimSpace(getValueInMap(context, secretNameField)) == "" {
+			return nil, status.Error(codes.InvalidArgument, "secretName is required when mountWithOAuthToken is true")
+		}
 		if strings.EqualFold(getValueInMap(context, createFolderIfNotExistField), trueValue) {
 			return nil, status.Error(codes.InvalidArgument, "createFolderIfNotExist is not supported with mountWithOAuthToken")
 		}
@@ -488,7 +491,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			klog.V(2).Infof("using OAuth token from secret for volume %s", volumeID)
 			// always refresh credential cache when mountWithOAuthToken is set, even if mount does not happen
 			if _, err := d.setCredentialCacheWithOAuthToken(ctx, volumeID, context); err != nil {
-				return nil, status.Errorf(codes.Internal, "setCredentialCacheWithOAuthToken failed for %s with error: %v", server, err)
+				return nil, status.Errorf(codes.Internal, "setCredentialCacheWithOAuthToken failed for volume(%s) with error: %v", volumeID, err)
 			}
 		} else {
 			if accountName == "" || accountKey == "" {
