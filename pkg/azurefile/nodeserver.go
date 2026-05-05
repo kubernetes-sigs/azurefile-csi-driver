@@ -79,17 +79,20 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	}
 
 	volumeID := req.GetVolumeId()
+	secrets := req.GetSecrets()
 
 	mountPermissions := d.mountPermissions
 	context := req.GetVolumeContext()
+	serviceAccountTokens := getServiceAccountTokens(secrets, context)
 	if context != nil {
-		if getValueInMap(context, serviceAccountTokenField) != "" && shouldUseServiceAccountToken(context) {
+		if serviceAccountTokens != "" && shouldUseServiceAccountToken(context) {
 			klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with service account token, clientID: %s, mountWithWIToken: %s", volumeID, target, getValueInMap(context, clientIDField), getValueInMap(context, mountWithWITokenField))
 			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
 				StagingTargetPath: target,
 				VolumeContext:     context,
 				VolumeCapability:  volCap,
 				VolumeId:          volumeID,
+				Secrets:           secrets,
 			})
 			return &csi.NodePublishVolumeResponse{}, err
 		}
@@ -110,6 +113,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 				VolumeContext:     context,
 				VolumeCapability:  volCap,
 				VolumeId:          volumeID,
+				Secrets:           secrets,
 			})
 			return &csi.NodePublishVolumeResponse{}, err
 		}
@@ -259,8 +263,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	volumeID := req.GetVolumeId()
 	context := req.GetVolumeContext()
+	serviceAccountTokens := getServiceAccountTokens(req.GetSecrets(), context)
 
-	if getValueInMap(context, serviceAccountTokenField) == "" && shouldUseServiceAccountToken(context) {
+	if serviceAccountTokens == "" && shouldUseServiceAccountToken(context) {
 		klog.V(2).Infof("Skip NodeStageVolume for volume(%s) since clientID(%s) or mountWithWIToken(%s) is provided but service account token is empty", volumeID, getValueInMap(context, clientIDField), getValueInMap(context, mountWithWITokenField))
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
