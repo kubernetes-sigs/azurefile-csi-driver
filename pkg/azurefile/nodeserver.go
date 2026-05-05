@@ -193,12 +193,13 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		var err error
 		oauthServer, err = d.setCredentialCacheWithOAuthToken(ctx, volumeID, context)
 		if err != nil {
-			// Return InvalidArgument for input/volume-context problems
-			secretName := getValueInMap(context, secretNameField)
-			if secretName == "" {
-				return nil, status.Errorf(codes.InvalidArgument, "NodePublishVolume: %v", err)
+			// Propagate gRPC status code from helper (InvalidArgument for
+			// validation errors, Internal for system failures)
+			code := status.Code(err)
+			if code == codes.OK {
+				code = codes.Internal
 			}
-			return nil, status.Errorf(codes.Internal, "NodePublishVolume: %v", err)
+			return nil, status.Errorf(code, "NodePublishVolume: %v", err)
 		}
 		klog.V(2).Infof("NodePublishVolume: refreshed OAuth token credential cache for volume(%s) server(%s)", volumeID, oauthServer)
 	}
@@ -883,7 +884,7 @@ func (d *Driver) ensureMountPoint(target string, perm os.FileMode) (bool, error)
 func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, volumeID string, volumeContext map[string]string) (string, error) {
 	secretName := getValueInMap(volumeContext, secretNameField)
 	if secretName == "" {
-		return "", fmt.Errorf("secretName is required when %s is true", mountWithOAuthTokenField)
+		return "", status.Errorf(codes.InvalidArgument, "secretName is required when %s is true", mountWithOAuthTokenField)
 	}
 
 	// Fetch the secret once upfront to avoid duplicate API calls
@@ -915,11 +916,11 @@ func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, volumeID 
 		}
 	}
 	if server == "" {
-		return "", fmt.Errorf("server is empty for volume(%s) with %s: set %q or %q in volume context, or provide account name in secret %q", volumeID, mountWithOAuthTokenField, serverNameField, storageAccountField, secretNameField)
+		return "", status.Errorf(codes.InvalidArgument, "server is empty for volume(%s) with %s: set %q or %q in volume context, or provide account name in secret %q", volumeID, mountWithOAuthTokenField, serverNameField, storageAccountField, secretNameField)
 	}
 
 	if oauthToken == "" {
-		return "", fmt.Errorf("%s not found in secret %s/%s", defaultSecretOAuthToken, secretNamespace, secretName)
+		return "", status.Errorf(codes.InvalidArgument, "%s not found in secret %s/%s", defaultSecretOAuthToken, secretNamespace, secretName)
 	}
 
 	// check if token has changed by comparing SHA256 hash
