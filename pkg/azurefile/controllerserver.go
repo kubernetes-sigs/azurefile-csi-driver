@@ -126,7 +126,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 	var sku, subsID, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
 	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, shareAccessTier, accountAccessTier, rootSquashType, tagValueDelimiter string
-	var createAccount, useSeretCache, matchTags, selectRandomMatchingAccount, getLatestAccountKey, encryptInTransit, mountWithManagedIdentity, mountWithWIToken bool
+	var createAccount, useSeretCache, matchTags, selectRandomMatchingAccount, getLatestAccountKey, encryptInTransit, mountWithManagedIdentity, mountWithWIToken, mountWithOAuthToken bool
 	var vnetResourceGroup, vnetName, vnetLinkName, publicNetworkAccess, subnetName, shareNamePrefix, fsGroupChangePolicy, useDataPlaneAPI, privateDNSZoneResourceGroup string
 	var requireInfraEncryption, disableDeleteRetentionPolicy, enableLFS, isMultichannelEnabled, allowSharedKeyAccess, allowCrossTenantReplication *bool
 	var provisionedBandwidthMibps, provisionedIops *int32
@@ -327,20 +327,25 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			if err != nil {
 				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", mountWithWITokenField, v)
 			}
+		case mountWithOAuthTokenField:
+			mountWithOAuthToken, err = strconv.ParseBool(v)
+			if err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in storage class", mountWithOAuthTokenField, v)
+			}
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, "invalid parameter %q in storage class", k)
 		}
 	}
 
-	if mountWithManagedIdentity && mountWithWIToken {
-		return nil, status.Error(codes.InvalidArgument, "mountwithmanagedidentity and mountwithworkloadidentitytoken cannot be both true in storage class")
+	if (mountWithManagedIdentity && mountWithWIToken) || (mountWithManagedIdentity && mountWithOAuthToken) || (mountWithWIToken && mountWithOAuthToken) {
+		return nil, status.Errorf(codes.InvalidArgument, "only one of %s, %s, and %s can be true in storage class", mountWithManagedIdentityField, mountWithOAuthTokenField, mountWithWITokenField)
 	}
 
-	// When using managed identity or workload identity token for mount,
-	// the account key should not be stored in the secret since mount
-	// authentication uses identity-based tokens, not account keys.
-	if mountWithManagedIdentity || mountWithWIToken {
+	var requiresSmbOAuth *bool
+	if mountWithManagedIdentity || mountWithWIToken || mountWithOAuthToken {
 		storeAccountKey = false
+		klog.V(2).Info("enabling smb oauth for identity-based mount")
+		requiresSmbOAuth = to.Ptr(true)
 	}
 
 	if matchTags && account != "" {
@@ -570,12 +575,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		} else {
 			klog.V(2).Infof("source volume account name: %s, sourceID: %s", srcAccountName, sourceID)
 		}
-	}
-
-	var requiresSmbOAuth *bool
-	if mountWithManagedIdentity || mountWithWIToken {
-		klog.V(2).Info("enabling smb oauth for managed identity or work identity token based mount")
-		requiresSmbOAuth = to.Ptr(true)
 	}
 
 	accountOptions := &storage.AccountOptions{

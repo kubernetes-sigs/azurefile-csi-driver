@@ -1913,6 +1913,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			ginkgo.Skip("test case is only available for capz test")
 		}
 		gomega.Expect(miRoleSetupSucceeded).To(gomega.BeTrue(), "MI role assignment failed, cannot run managed identity mount test")
+
 		pods := []testsuites.PodDetails{
 			{
 				Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data",
@@ -1935,6 +1936,48 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			CSIDriver:              testDriver,
 			Pods:                   pods,
 			StorageClassParameters: scParameters,
+		}
+		test.Run(ctx, cs, ns)
+	})
+
+	ginkgo.It("should create a volume on demand with mountWithOAuthToken [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+		skipIfUsingInTreeVolumePlugin()
+		skipIfTestingInWindowsCluster()
+		if !isCapzTest {
+			ginkgo.Skip("mountWithOAuthToken test requires CAPZ environment")
+		}
+		// Setup OAuth token inline to ensure fresh token at mount time
+		err := setupOAuthToken(ctx, suiteCreds, suiteAzureClient)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "OAuth token setup failed")
+
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data",
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize: "100Gi",
+						MountOptions: []string{
+							"sec=krb5",
+							"dir_mode=0777",
+							"file_mode=0777",
+						},
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+					},
+				},
+			},
+		}
+		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
+			CSIDriver: testDriver,
+			Pods:      pods,
+			StorageClassParameters: map[string]string{
+				"skuName":             "Premium_LRS",
+				"mountWithOAuthToken": "true",
+				"secretName":          "azure-oauth-token-secret",
+				"secretNamespace":     "default",
+			},
 		}
 		test.Run(ctx, cs, ns)
 	})
