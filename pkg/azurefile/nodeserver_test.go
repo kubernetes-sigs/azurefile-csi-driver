@@ -339,7 +339,7 @@ func TestNodePublishVolume(t *testing.T) {
 				},
 			},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Errorf(codes.Internal, "NodePublishVolume: secretName is required when %s is true", mountWithOAuthTokenField),
+				DefaultError: status.Errorf(codes.InvalidArgument, "NodePublishVolume: secretName is required when %s is true", mountWithOAuthTokenField),
 			},
 		},
 		{
