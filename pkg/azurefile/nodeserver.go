@@ -193,6 +193,11 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		var err error
 		oauthServer, err = d.setCredentialCacheWithOAuthToken(ctx, volumeID, context)
 		if err != nil {
+			// Return InvalidArgument for input/volume-context problems
+			secretName := getValueInMap(context, secretNameField)
+			if secretName == "" {
+				return nil, status.Errorf(codes.InvalidArgument, "NodePublishVolume: %v", err)
+			}
 			return nil, status.Errorf(codes.Internal, "NodePublishVolume: %v", err)
 		}
 		klog.V(2).Infof("NodePublishVolume: refreshed OAuth token credential cache for volume(%s) server(%s)", volumeID, oauthServer)
@@ -881,6 +886,13 @@ func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, volumeID 
 		return "", fmt.Errorf("secretName is required when %s is true", mountWithOAuthTokenField)
 	}
 
+	// Fetch the secret once upfront to avoid duplicate API calls
+	secretNamespace := getSecretNamespace(volumeContext)
+	secretAccountName, _, oauthToken, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
+	if err != nil {
+		return "", fmt.Errorf("failed to get secret %s/%s: %v", secretNamespace, secretName, err)
+	}
+
 	// Resolve server name
 	server := getValueInMap(volumeContext, serverNameField)
 	if server == "" {
@@ -892,12 +904,7 @@ func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, volumeID 
 			}
 		}
 		if accountName == "" {
-			secretNamespace := getSecretNamespace(volumeContext)
-			name, _, _, secretErr := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
-			if secretErr != nil {
-				return "", fmt.Errorf("failed to get account from secret %s/%s: %v", secretNamespace, secretName, secretErr)
-			}
-			accountName = name
+			accountName = secretAccountName
 		}
 		storageEndpointSuffix := getValueInMap(volumeContext, storageEndpointSuffixField)
 		if storageEndpointSuffix == "" {
@@ -909,12 +916,6 @@ func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, volumeID 
 	}
 	if server == "" {
 		return "", fmt.Errorf("server is empty for volume(%s) with %s: set %q or %q in volume context, or provide account name in secret %q", volumeID, mountWithOAuthTokenField, serverNameField, storageAccountField, secretNameField)
-	}
-
-	secretNamespace := getSecretNamespace(volumeContext)
-	_, _, oauthToken, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
-	if err != nil {
-		return "", fmt.Errorf("failed to get secret %s/%s: %v", secretNamespace, secretName, err)
 	}
 
 	if oauthToken == "" {
