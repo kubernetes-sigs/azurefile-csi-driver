@@ -338,6 +338,9 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.userAgentSuffix = options.UserAgentSuffix
 	driver.allowEmptyCloudConfig = options.AllowEmptyCloudConfig
 	driver.allowInlineVolumeKeyAccessWithIdentity = options.AllowInlineVolumeKeyAccessWithIdentity
+	if options.AllowInlineVolumeKeyAccessWithIdentity {
+		klog.Warning("allow-inline-volume-key-access-with-identity is deprecated and has no effect; inline volumes no longer support identity-based key access")
+	}
 	driver.enableVHDDiskFeature = options.EnableVHDDiskFeature
 	driver.enableVolumeMountGroup = options.EnableVolumeMountGroup
 	driver.enableGetVolumeStats = options.EnableGetVolumeStats
