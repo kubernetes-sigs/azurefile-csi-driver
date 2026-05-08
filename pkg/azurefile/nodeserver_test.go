@@ -216,7 +216,7 @@ func TestNodePublishVolume(t *testing.T) {
 			},
 		},
 		{
-			desc: "[Error] Ephemeral volume with mountWithManagedIdentity should preserve storageAccount",
+			desc: "[Error] Ephemeral volume with mountWithManagedIdentity should return error",
 			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
 				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed83",
 				TargetPath: targetTest,
@@ -226,11 +226,12 @@ func TestNodePublishVolume(t *testing.T) {
 					storageAccountField:           "teststorageaccount",
 					shareNameField:                "testshare",
 					mountWithManagedIdentityField: "true",
+					clientIDField:                 "test-client-id-1234",
 				},
 			},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.Internal, fmt.Sprintf("volume(csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed83) mount //teststorageaccount.file.core.windows.net/testshare on %s failed with setCredentialCache failed for teststorageaccount.file.core.windows.net with error: clientID must be provided, output: ", targetTest)),
-				WindowsError: status.Error(codes.Internal, "accountName(teststorageaccount) or accountKey is empty"),
+				DefaultError: status.Error(codes.InvalidArgument, fmt.Sprintf("mountWithManagedIdentity cannot be used for ephemeral volumes, please use either %s or secret based authentication", mountWithWITokenField)),
+				WindowsError: status.Error(codes.InvalidArgument, fmt.Sprintf("mountWithManagedIdentity cannot be used for ephemeral volumes, please use either %s or secret based authentication", mountWithWITokenField)),
 			},
 		},
 		{
@@ -251,6 +252,18 @@ func TestNodePublishVolume(t *testing.T) {
 				DefaultError: status.Errorf(codes.InvalidArgument, "GetAccountInfo(csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed84) failed with error: clientID is empty for workload identity auth"),
 				WindowsError: status.Errorf(codes.InvalidArgument, "GetAccountInfo(csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed84) failed with error: clientID is empty for workload identity auth"),
 			},
+		},
+		{
+			desc: "[Success] Regular volume mounting with mountWithManagedIdentity should succeed",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "vol_1",
+				TargetPath:        targetTest,
+				StagingTargetPath: sourceTest,
+				VolumeContext: map[string]string{
+					mountWithManagedIdentityField: "true",
+				},
+			},
+			expectedErr: testutil.TestError{},
 		},
 		{
 			desc: "[Success] Valid request read only",
