@@ -662,6 +662,20 @@ func TestNodeStageVolume(t *testing.T) {
 			},
 		},
 		{
+			desc: "folderName with leading slash is normalized",
+			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					shareNameField:             "test_sharename",
+					serverNameField:            "test_servername",
+					storageEndpointSuffixField: ".core",
+					folderNameField:            "/aa/bb",
+				}},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Errorf(codes.Internal, "accountName() or accountKey is empty"),
+			},
+		},
+		{
 			desc: "[Error] Volume operation in progress",
 			setup: func() {
 				d.volumeLocks.TryAcquire(fmt.Sprintf("%s-%s", "vol_1##", sourceTest))

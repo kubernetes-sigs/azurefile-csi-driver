@@ -397,6 +397,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	// replace pv/pvc name namespace metadata in fileShareName and folderName
 	fileShareName = replaceWithMap(fileShareName, volumeMetadataReplaceMap)
 	folderName = replaceWithMap(folderName, volumeMetadataReplaceMap)
+	// Normalize folderName: trim leading/trailing slashes to prevent double-slash
+	// in the mount source path (e.g., //<server>/<share>//aa/bb).
+	folderName = strings.Trim(folderName, "/")
 
 	osSeparator := string(os.PathSeparator)
 	if strings.TrimSpace(server) == "" {
