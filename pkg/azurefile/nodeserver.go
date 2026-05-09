@@ -934,7 +934,7 @@ func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, volumeID 
 
 	if output, err := setCredentialCache(server, "", "", "", oauthToken); err != nil {
 		klog.Errorf("setCredentialCache failed for %s with output: %s, error: %v", server, strings.ReplaceAll(string(output), oauthToken, "<redacted>"), err)
-		return "", fmt.Errorf("setCredentialCache failed for %s: %v", server, err)
+		return "", status.Errorf(codes.Internal, "setCredentialCache failed for %s: %v", server, err)
 	}
 
 	d.oauthTokenSHAMap.Store(server, tokenSHA)
