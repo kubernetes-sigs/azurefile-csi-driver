@@ -893,7 +893,7 @@ func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, volumeID 
 	secretNamespace := getSecretNamespace(volumeContext)
 	secretAccountName, _, oauthToken, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
 	if err != nil {
-		return "", fmt.Errorf("failed to get secret %s/%s: %v", secretNamespace, secretName, err)
+		return "", status.Errorf(codes.Internal, "failed to get secret %s/%s: %v", secretNamespace, secretName, err)
 	}
 
 	// Resolve server name
