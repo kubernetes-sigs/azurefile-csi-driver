@@ -1975,8 +1975,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			StorageClassParameters: map[string]string{
 				"skuName":             "Premium_LRS",
 				"mountWithOAuthToken": "true",
-				"secretName":          "azure-oauth-token-secret",
-				"secretNamespace":     "default",
+				"secretName":          oauthSecretName,
+				"secretNamespace":     oauthSecretNamespace,
 			},
 		}
 		test.Run(ctx, cs, ns)

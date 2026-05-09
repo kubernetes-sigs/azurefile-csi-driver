@@ -1497,6 +1497,7 @@ func TestSetCredentialCache(t *testing.T) {
 		desc          string
 		server        string
 		token         string
+		tokenFile     string
 		expectedError string
 	}{
 		{
@@ -1511,10 +1512,17 @@ func TestSetCredentialCache(t *testing.T) {
 			token:         "test-oauth-token",
 			expectedError: "", // Will fail due to missing azfilesauthmanager, but must NOT fail with clientID/tenantID error
 		},
+		{
+			desc:          "both token and tokenFile should fail",
+			server:        "test.file.core.windows.net",
+			token:         "test-oauth-token",
+			tokenFile:     "/tmp/token",
+			expectedError: "token and tokenFile are mutually exclusive",
+		},
 	}
 
 	for _, test := range tokenTests {
-		_, err := setCredentialCache(test.server, "", "", "", test.token)
+		_, err := setCredentialCache(test.server, "", "", test.tokenFile, test.token)
 		if test.expectedError != "" {
 			if err == nil {
 				t.Errorf("test[%s]: expected error containing %q, got nil", test.desc, test.expectedError)
