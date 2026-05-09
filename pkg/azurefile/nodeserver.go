@@ -197,14 +197,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		var err error
 		oauthServer, err = d.setCredentialCacheWithOAuthToken(ctx, volumeID, context)
 		if err != nil {
-			// Propagate gRPC status code from helper (InvalidArgument for
-			// validation errors, Internal for system failures)
-			code := status.Code(err)
-			if code == codes.OK || code == codes.Unknown {
-				code = codes.Internal
-			}
-			msg := status.Convert(err).Message()
-			return nil, status.Errorf(code, "NodePublishVolume: %s", msg)
+			return nil, status.Errorf(codes.Internal, "NodePublishVolume: %v", err)
 		}
 		klog.V(2).Infof("NodePublishVolume: refreshed OAuth token credential cache for volume(%s) server(%s)", volumeID, oauthServer)
 	}
