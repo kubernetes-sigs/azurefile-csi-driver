@@ -197,7 +197,8 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		var err error
 		oauthServer, err = d.setCredentialCacheWithOAuthToken(ctx, volumeID, context)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "NodePublishVolume: %v", err)
+			st := status.Convert(err)
+			return nil, status.Errorf(st.Code(), "NodePublishVolume: %s", st.Message())
 		}
 		klog.V(2).Infof("NodePublishVolume: refreshed OAuth token credential cache for volume(%s) server(%s)", volumeID, oauthServer)
 	}
