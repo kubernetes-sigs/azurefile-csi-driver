@@ -341,6 +341,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Errorf(codes.InvalidArgument, "only one of %s, %s, and %s can be true in storage class", mountWithManagedIdentityField, mountWithOAuthTokenField, mountWithWITokenField)
 	}
 
+	if mountWithOAuthToken && secretName == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "%s is required when %s is true", secretNameField, mountWithOAuthTokenField)
+	}
+
 	var requiresSmbOAuth *bool
 	if mountWithManagedIdentity || mountWithWIToken || mountWithOAuthToken {
 		storeAccountKey = false
