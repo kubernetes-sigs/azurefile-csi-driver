@@ -345,6 +345,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Errorf(codes.InvalidArgument, "%s is required when %s is true", secretNameField, mountWithOAuthTokenField)
 	}
 
+	if mountWithOAuthToken && (protocol == nfs || fsType == nfs) {
+		return nil, status.Errorf(codes.InvalidArgument, "%s is not supported with NFS protocol", mountWithOAuthTokenField)
+	}
+
 	var requiresSmbOAuth *bool
 	if mountWithManagedIdentity || mountWithWIToken || mountWithOAuthToken {
 		storeAccountKey = false
