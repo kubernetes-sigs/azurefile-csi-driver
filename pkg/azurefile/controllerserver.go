@@ -710,6 +710,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	klog.V(2).Infof("begin to create file share(%s) on account(%s) type(%s) subID(%s) rg(%s) location(%s) size(%d) protocol(%s)", validFileShareName, accountName, sku, subsID, resourceGroup, location, fileShareSize, shareProtocol)
+	shareCreatedByCSI := true
 	if err := d.CreateFileShare(ctx, accountOptions, shareOptions, secret, useDataPlaneAPI); err != nil {
 		if strings.Contains(err.Error(), accountLimitExceedManagementAPI) || strings.Contains(err.Error(), accountLimitExceedDataPlaneAPI) {
 			klog.Warningf("create file share(%s) on account(%s) type(%s) subID(%s) rg(%s) location(%s) size(%d), error: %v, skip matching current account", validFileShareName, accountName, sku, subsID, resourceGroup, location, fileShareSize, err)
@@ -731,6 +732,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		if req.GetVolumeContentSource() != nil && strings.Contains(err.Error(), "ShareAlreadyExists") {
 			// for snapshot restore and volume cloning, ignore ShareAlreadyExists error since the file share should be created first
 			klog.Warningf("create file share(%s) on account(%s) type(%s) subID(%s) rg(%s) location(%s) size(%d), ignore ShareAlreadyExists error for snapshot restore and volume cloning", validFileShareName, accountName, sku, subsID, resourceGroup, location, fileShareSize)
+			shareCreatedByCSI = false
 			err = nil
 		} else {
 			return nil, status.Errorf(codes.Internal, "failed to create file share(%s) on account(%s) type(%s) subsID(%s) rg(%s) location(%s) size(%d), error: %v", validFileShareName, account, sku, subsID, resourceGroup, location, fileShareSize, err)
@@ -739,6 +741,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if req.GetVolumeContentSource() != nil {
 		accountSASToken, authAzcopyEnv, err := d.getAzcopyAuth(ctx, accountName, accountKey, storageEndpointSuffix, accountOptions, secret, secretName, secretNamespace, false)
 		if err != nil {
+			if shareCreatedByCSI {
+				klog.V(2).Infof("getAzcopyAuth on account(%s) failed, cleaning up file share(%s)", accountName, validFileShareName)
+				if cleanupErr := d.DeleteFileShare(ctx, subsID, resourceGroup, accountName, validFileShareName, secret, useDataPlaneAPI); cleanupErr != nil {
+					klog.Warningf("failed to clean up file share(%s) on account(%s) rg(%s) after getAzcopyAuth failure: %v", validFileShareName, accountName, resourceGroup, cleanupErr)
+				}
+			}
 			return nil, status.Errorf(codes.Internal, "failed to getAzcopyAuth on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
 		}
 		copyErr := d.copyVolume(ctx, req, accountName, accountSASToken, authAzcopyEnv, secretNamespace, shareOptions, accountOptions, storageEndpointSuffix)
@@ -746,11 +754,23 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			klog.Warningf("azcopy copy failed with AuthorizationPermissionMismatch error, should assign \"Storage File Data Privileged Contributor\" role to controller identity, fall back to use sas token, original error: %v", copyErr)
 			accountSASToken, authAzcopyEnv, err := d.getAzcopyAuth(ctx, accountName, accountKey, storageEndpointSuffix, accountOptions, secret, secretName, secretNamespace, true)
 			if err != nil {
+				if shareCreatedByCSI {
+					klog.V(2).Infof("fallback getAzcopyAuth on account(%s) failed, cleaning up file share(%s)", accountName, validFileShareName)
+					if cleanupErr := d.DeleteFileShare(ctx, subsID, resourceGroup, accountName, validFileShareName, secret, useDataPlaneAPI); cleanupErr != nil {
+						klog.Warningf("failed to clean up file share(%s) on account(%s) rg(%s) after getAzcopyAuth failure: %v", validFileShareName, accountName, resourceGroup, cleanupErr)
+					}
+				}
 				return nil, status.Errorf(codes.Internal, "failed to getAzcopyAuth on account(%s) rg(%s), error: %v", accountOptions.Name, accountOptions.ResourceGroup, err)
 			}
 			copyErr = d.copyVolume(ctx, req, accountName, accountSASToken, authAzcopyEnv, secretNamespace, shareOptions, accountOptions, storageEndpointSuffix)
 		}
 		if copyErr != nil {
+			if shareCreatedByCSI {
+				klog.V(2).Infof("copyVolume(%s) on account(%s) failed with error: %v, cleaning up file share", validFileShareName, accountName, copyErr)
+				if cleanupErr := d.DeleteFileShare(ctx, subsID, resourceGroup, accountName, validFileShareName, secret, useDataPlaneAPI); cleanupErr != nil {
+					klog.Warningf("failed to clean up file share(%s) on account(%s) rg(%s) after copy failure: %v", validFileShareName, accountName, resourceGroup, cleanupErr)
+				}
+			}
 			return nil, copyErr
 		}
 		// storeAccountKey is not needed here since copy volume is only using SAS token
