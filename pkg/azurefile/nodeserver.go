@@ -412,7 +412,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		if runtime.GOOS == "windows" {
 			return nil, status.Error(codes.InvalidArgument, "mountWithOAuthToken is not supported on Windows")
 		}
-		if protocol == nfs {
+		if protocol == nfs || fsType == nfs {
 			return nil, status.Error(codes.InvalidArgument, "mountWithOAuthToken is not supported with NFS protocol")
 		}
 		if strings.TrimSpace(getValueInMap(context, secretNameField)) == "" {
