@@ -499,7 +499,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			klog.V(2).Infof("using OAuth token from secret for volume %s", volumeID)
 			// always refresh credential cache when mountWithOAuthToken is set, even if mount does not happen
 			if _, err := d.setCredentialCacheWithOAuthToken(ctx, volumeID, context); err != nil {
-				return nil, status.Errorf(codes.Internal, "setCredentialCacheWithOAuthToken failed for volume(%s) with error: %v", volumeID, err)
+				return nil, err
 			}
 		} else {
 			if accountName == "" || accountKey == "" {
