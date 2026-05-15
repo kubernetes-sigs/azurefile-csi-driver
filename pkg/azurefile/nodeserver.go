@@ -873,9 +873,6 @@ func (d *Driver) ensureMountPoint(target string, perm os.FileMode) (bool, error)
 	return !notMnt, nil
 }
 
-// setCredentialCacheWithOAuthToken reads the OAuth token from the referenced
-// Kubernetes Secret via GetStorageAccountFromSecret and calls setCredentialCache
-// to update the credential cache.
 // validateMountWithOAuthToken validates that the volume context is compatible
 // with mountWithOAuthToken. Shared by NodeStageVolume and NodePublishVolume.
 func validateMountWithOAuthToken(protocol, fsType string, volumeContext map[string]string) error {
