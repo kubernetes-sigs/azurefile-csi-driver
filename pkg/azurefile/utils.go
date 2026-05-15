@@ -447,7 +447,7 @@ func setCredentialCache(server, clientID, tenantID, tokenFile, token string) ([]
 		args = []string{"set", serverURL, token}
 	case tokenFile != "":
 		if clientID == "" {
-			return nil, fmt.Errorf("clientID must be provided")
+			return nil, fmt.Errorf("clientID must be provided when tokenFile is set")
 		}
 		if tenantID == "" {
 			return nil, fmt.Errorf("tenantID must be provided when tokenFile is provided")

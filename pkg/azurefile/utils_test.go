@@ -1443,7 +1443,7 @@ func TestSetCredentialCache(t *testing.T) {
 			clientID:      "",
 			tenantID:      "test-tenant-id",
 			tokenFile:     "test-token-file",
-			expectedError: "clientID must be provided",
+			expectedError: "clientID must be provided when tokenFile is set",
 		},
 		{
 			desc:          "empty tenantID with tokenFile",
@@ -1532,7 +1532,7 @@ func TestSetCredentialCache(t *testing.T) {
 		} else if err != nil {
 			// Token mode should not return clientID/tenantID validation errors
 			errMsg := err.Error()
-			if strings.Contains(errMsg, "clientID must be provided") || strings.Contains(errMsg, "tenantID must be provided") {
+			if strings.Contains(errMsg, "clientID must be provided when tokenFile is set") || strings.Contains(errMsg, "tenantID must be provided") {
 				t.Errorf("test[%s]: token mode should bypass clientID/tenantID validation, got: %v", test.desc, err)
 			}
 			// Other errors (e.g., azfilesauthmanager not found) are expected in test environment

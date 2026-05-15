@@ -409,17 +409,8 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 
 	if mountWithOAuthToken {
-		if runtime.GOOS == "windows" {
-			return nil, status.Error(codes.InvalidArgument, "mountWithOAuthToken is not supported on Windows")
-		}
-		if protocol == nfs || fsType == nfs {
-			return nil, status.Error(codes.InvalidArgument, "mountWithOAuthToken is not supported with NFS protocol")
-		}
-		if strings.TrimSpace(getValueInMap(context, secretNameField)) == "" {
-			return nil, status.Error(codes.InvalidArgument, "secretName is required when mountWithOAuthToken is true")
-		}
-		if strings.EqualFold(getValueInMap(context, createFolderIfNotExistField), trueValue) {
-			return nil, status.Error(codes.InvalidArgument, "createFolderIfNotExist is not supported with mountWithOAuthToken")
+		if err := validateMountWithOAuthToken(protocol, fsType, context); err != nil {
+			return nil, err
 		}
 	}
 
@@ -496,7 +487,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			}
 		} else if mountWithOAuthToken && runtime.GOOS != "windows" {
 			sensitiveMountOptions = []string{"sec=krb5,cruid=0,upcall_target=mount"}
-			klog.V(2).Infof("using OAuth token from secret for volume %s", volumeID)
+			secretName := getValueInMap(context, secretNameField)
+			secretNamespace := getSecretNamespace(context)
+			klog.V(2).Infof("using OAuth token from secret(%s/%s) for volume %s", secretNamespace, secretName, volumeID)
 			// always refresh credential cache when mountWithOAuthToken is set, even if mount does not happen
 			if _, err := d.setCredentialCacheWithOAuthToken(ctx, volumeID, context); err != nil {
 				return nil, err
@@ -883,6 +876,24 @@ func (d *Driver) ensureMountPoint(target string, perm os.FileMode) (bool, error)
 // setCredentialCacheWithOAuthToken reads the OAuth token from the referenced
 // Kubernetes Secret via GetStorageAccountFromSecret and calls setCredentialCache
 // to update the credential cache.
+// validateMountWithOAuthToken validates that the volume context is compatible
+// with mountWithOAuthToken. Shared by NodeStageVolume and NodePublishVolume.
+func validateMountWithOAuthToken(protocol, fsType string, volumeContext map[string]string) error {
+	if runtime.GOOS == "windows" {
+		return status.Error(codes.InvalidArgument, "mountWithOAuthToken is not supported on Windows")
+	}
+	if protocol == nfs || fsType == nfs {
+		return status.Error(codes.InvalidArgument, "mountWithOAuthToken is not supported with NFS protocol")
+	}
+	if strings.TrimSpace(getValueInMap(volumeContext, secretNameField)) == "" {
+		return status.Error(codes.InvalidArgument, "secretName is required when mountWithOAuthToken is true")
+	}
+	if strings.EqualFold(getValueInMap(volumeContext, createFolderIfNotExistField), trueValue) {
+		return status.Error(codes.InvalidArgument, "createFolderIfNotExist is not supported with mountWithOAuthToken")
+	}
+	return nil
+}
+
 func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, volumeID string, volumeContext map[string]string) (string, error) {
 	secretName := getValueInMap(volumeContext, secretNameField)
 	if secretName == "" {
