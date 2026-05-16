@@ -49,7 +49,9 @@ func (t *DynamicallyProvisionedCmdVolumeTest) Run(ctx context.Context, client cl
 
 		if t.ServiceAccountName != "" {
 			tpod.SetServiceAccountName(t.ServiceAccountName)
-			tpod.SetAutomountServiceAccountToken(true)
+			// Note: AutomountServiceAccountToken is intentionally left false (default).
+			// CSI tokenRequests for workload identity are handled by kubelet based on the
+			// pod's service account; no in-container token mount is needed.
 		}
 
 		ginkgo.By("deploying the pod")
