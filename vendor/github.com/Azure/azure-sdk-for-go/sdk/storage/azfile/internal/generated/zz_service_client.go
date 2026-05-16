@@ -22,7 +22,6 @@ import (
 type ServiceClient struct {
 	internal          *azcore.Client
 	endpoint          string
-	version           string
 	fileRequestIntent *ShareTokenIntent
 }
 
@@ -30,7 +29,7 @@ type ServiceClient struct {
 // and CORS (Cross-Origin Resource Sharing) rules.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2026-04-06
+// Generated from API version 2026-02-06
 //   - options - ServiceClientGetPropertiesOptions contains the optional parameters for the ServiceClient.GetProperties method.
 func (client *ServiceClient) GetProperties(ctx context.Context, options *ServiceClientGetPropertiesOptions) (ServiceClientGetPropertiesResponse, error) {
 	var err error
@@ -63,7 +62,7 @@ func (client *ServiceClient) getPropertiesCreateRequest(ctx context.Context, opt
 		reqQP.Set("timeout", strconv.FormatInt(int64(*options.Timeout), 10))
 	}
 	req.Raw().URL.RawQuery = reqQP.Encode()
-	req.Raw().Header["x-ms-version"] = []string{client.version}
+	req.Raw().Header["x-ms-version"] = []string{"2026-02-06"}
 	if client.fileRequestIntent != nil {
 		req.Raw().Header["x-ms-file-request-intent"] = []string{string(*client.fileRequestIntent)}
 	}
@@ -90,7 +89,7 @@ func (client *ServiceClient) getPropertiesHandleResponse(resp *http.Response) (S
 // bearer token authentication.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2026-04-06
+// Generated from API version 2026-02-06
 //   - keyInfo - Key information
 //   - options - ServiceClientGetUserDelegationKeyOptions contains the optional parameters for the ServiceClient.GetUserDelegationKey
 //     method.
@@ -125,7 +124,7 @@ func (client *ServiceClient) getUserDelegationKeyCreateRequest(ctx context.Conte
 		reqQP.Set("timeout", strconv.FormatInt(int64(*options.Timeout), 10))
 	}
 	req.Raw().URL.RawQuery = reqQP.Encode()
-	req.Raw().Header["x-ms-version"] = []string{client.version}
+	req.Raw().Header["x-ms-version"] = []string{"2026-02-06"}
 	if options != nil && options.RequestID != nil {
 		req.Raw().Header["x-ms-client-request-id"] = []string{*options.RequestID}
 	}
@@ -164,7 +163,7 @@ func (client *ServiceClient) getUserDelegationKeyHandleResponse(resp *http.Respo
 // NewListSharesSegmentPager - The List Shares Segment operation returns a list of the shares and share snapshots under the
 // specified account.
 //
-// Generated from API version 2026-04-06
+// Generated from API version 2026-02-06
 //   - options - ServiceClientListSharesSegmentOptions contains the optional parameters for the ServiceClient.NewListSharesSegmentPager
 //     method.
 //
@@ -192,7 +191,7 @@ func (client *ServiceClient) ListSharesSegmentCreateRequest(ctx context.Context,
 		reqQP.Set("timeout", strconv.FormatInt(int64(*options.Timeout), 10))
 	}
 	req.Raw().URL.RawQuery = reqQP.Encode()
-	req.Raw().Header["x-ms-version"] = []string{client.version}
+	req.Raw().Header["x-ms-version"] = []string{"2026-02-06"}
 	if client.fileRequestIntent != nil {
 		req.Raw().Header["x-ms-file-request-intent"] = []string{string(*client.fileRequestIntent)}
 	}
@@ -219,7 +218,7 @@ func (client *ServiceClient) ListSharesSegmentHandleResponse(resp *http.Response
 // metrics and CORS (Cross-Origin Resource Sharing) rules.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2026-04-06
+// Generated from API version 2026-02-06
 //   - storageServiceProperties - The StorageService properties.
 //   - options - ServiceClientSetPropertiesOptions contains the optional parameters for the ServiceClient.SetProperties method.
 func (client *ServiceClient) SetProperties(ctx context.Context, storageServiceProperties StorageServiceProperties, options *ServiceClientSetPropertiesOptions) (ServiceClientSetPropertiesResponse, error) {
@@ -253,7 +252,7 @@ func (client *ServiceClient) setPropertiesCreateRequest(ctx context.Context, sto
 		reqQP.Set("timeout", strconv.FormatInt(int64(*options.Timeout), 10))
 	}
 	req.Raw().URL.RawQuery = reqQP.Encode()
-	req.Raw().Header["x-ms-version"] = []string{client.version}
+	req.Raw().Header["x-ms-version"] = []string{"2026-02-06"}
 	if client.fileRequestIntent != nil {
 		req.Raw().Header["x-ms-file-request-intent"] = []string{string(*client.fileRequestIntent)}
 	}

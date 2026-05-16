@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"sync"
@@ -35,13 +36,6 @@ type readDirChangesW struct {
 }
 
 var defaultBufferSize = 50
-
-func isSameOrDescendantPath(path, root string) bool {
-	if path == root {
-		return true
-	}
-	return strings.HasPrefix(path, root+string(os.PathSeparator))
-}
 
 func newBackend(ev chan Event, errs chan error) (backend, error) {
 	port, err := windows.CreateIoCompletionPort(windows.InvalidHandle, 0, 0, 0)
@@ -365,26 +359,22 @@ func (w *readDirChangesW) addWatch(pathname string, flags uint64, bufsize int) e
 	} else {
 		windows.CloseHandle(ino.handle)
 	}
-	w.mu.Lock()
 	if pathname == dir {
 		watchEntry.mask |= flags
 	} else {
 		watchEntry.names[filepath.Base(pathname)] |= flags
 	}
-	w.mu.Unlock()
 
 	err = w.startRead(watchEntry)
 	if err != nil {
 		return err
 	}
 
-	w.mu.Lock()
 	if pathname == dir {
 		watchEntry.mask &= ^provisional
 	} else {
 		watchEntry.names[filepath.Base(pathname)] &= ^provisional
 	}
-	w.mu.Unlock()
 	return nil
 }
 
@@ -404,13 +394,8 @@ func (w *readDirChangesW) remWatch(pathname string) error {
 	w.mu.Lock()
 	watch := w.watches.get(ino)
 	w.mu.Unlock()
-	if watch == nil {
-		windows.CloseHandle(ino.handle)
-		return fmt.Errorf("%w: %s", ErrNonExistentWatch, pathname)
-	}
 
 	if recurse && !watch.recurse {
-		windows.CloseHandle(ino.handle)
 		return fmt.Errorf("can't use \\... with non-recursive watch %q", pathname)
 	}
 
@@ -418,19 +403,16 @@ func (w *readDirChangesW) remWatch(pathname string) error {
 	if err != nil {
 		w.sendError(os.NewSyscallError("CloseHandle", err))
 	}
+	if watch == nil {
+		return fmt.Errorf("%w: %s", ErrNonExistentWatch, pathname)
+	}
 	if pathname == dir {
-		w.mu.Lock()
-		mask := watch.mask
+		w.sendEvent(watch.path, "", watch.mask&sysFSIGNORED)
 		watch.mask = 0
-		w.mu.Unlock()
-		w.sendEvent(watch.path, "", mask&sysFSIGNORED)
 	} else {
 		name := filepath.Base(pathname)
-		w.mu.Lock()
-		mask := watch.names[name]
+		w.sendEvent(filepath.Join(watch.path, name), "", watch.names[name]&sysFSIGNORED)
 		delete(watch.names, name)
-		w.mu.Unlock()
-		w.sendEvent(filepath.Join(watch.path, name), "", mask&sysFSIGNORED)
 	}
 
 	return w.startRead(watch)
@@ -438,23 +420,17 @@ func (w *readDirChangesW) remWatch(pathname string) error {
 
 // Must run within the I/O thread.
 func (w *readDirChangesW) deleteWatch(watch *watch) {
-	// Snapshot+clear under the lock so concurrent WatchList() readers see a
-	// consistent state. sendEvent must run outside the lock since it can
-	// block on the user-facing Events channel.
-	w.mu.Lock()
-	names := watch.names
-	watch.names = make(map[string]uint64)
-	mask := watch.mask
-	watch.mask = 0
-	w.mu.Unlock()
-
-	for name, m := range names {
-		if m&provisional == 0 {
-			w.sendEvent(filepath.Join(watch.path, name), "", m&sysFSIGNORED)
+	for name, mask := range watch.names {
+		if mask&provisional == 0 {
+			w.sendEvent(filepath.Join(watch.path, name), "", mask&sysFSIGNORED)
 		}
+		delete(watch.names, name)
 	}
-	if mask != 0 && mask&provisional == 0 {
-		w.sendEvent(watch.path, "", mask&sysFSIGNORED)
+	if watch.mask != 0 {
+		if watch.mask&provisional == 0 {
+			w.sendEvent(watch.path, "", watch.mask&sysFSIGNORED)
+		}
+		watch.mask = 0
 	}
 }
 
@@ -481,8 +457,9 @@ func (w *readDirChangesW) startRead(watch *watch) error {
 	}
 
 	// We need to pass the array, rather than the slice.
+	hdr := (*reflect.SliceHeader)(unsafe.Pointer(&watch.buf))
 	rdErr := windows.ReadDirectoryChanges(watch.ino.handle,
-		unsafe.SliceData(watch.buf), uint32(len(watch.buf)),
+		(*byte)(unsafe.Pointer(hdr.Data)), uint32(hdr.Len),
 		watch.recurse, mask, nil, &watch.ov, 0)
 	if rdErr != nil {
 		err := os.NewSyscallError("ReadDirectoryChanges", rdErr)
@@ -588,7 +565,12 @@ func (w *readDirChangesW) readEvents() {
 
 			// Create a buf that is the size of the path name
 			size := int(raw.FileNameLength / 2)
-			buf := unsafe.Slice(&raw.FileName, size)
+			var buf []uint16
+			// TODO: Use unsafe.Slice in Go 1.17; https://stackoverflow.com/questions/51187973
+			sh := (*reflect.SliceHeader)(unsafe.Pointer(&buf))
+			sh.Data = uintptr(unsafe.Pointer(&raw.FileName))
+			sh.Len = size
+			sh.Cap = size
 			name := windows.UTF16ToString(buf)
 			fullname := filepath.Join(watch.path, name)
 
@@ -605,35 +587,31 @@ func (w *readDirChangesW) readEvents() {
 			case windows.FILE_ACTION_RENAMED_OLD_NAME:
 				watch.rename = name
 			case windows.FILE_ACTION_RENAMED_NEW_NAME:
-				// Update saved path of all sub-watches and rename the
-				// names entry under the lock so WatchList() can't observe
-				// a torn state.
+				// Update saved path of all sub-watches.
 				old := filepath.Join(watch.path, watch.rename)
 				w.mu.Lock()
 				for _, watchMap := range w.watches {
 					for _, ww := range watchMap {
-						if isSameOrDescendantPath(ww.path, old) {
+						if strings.HasPrefix(ww.path, old) {
 							ww.path = filepath.Join(fullname, strings.TrimPrefix(ww.path, old))
 						}
 					}
 				}
+				w.mu.Unlock()
+
 				if watch.names[watch.rename] != 0 {
 					watch.names[name] |= watch.names[watch.rename]
 					delete(watch.names, watch.rename)
 					mask = sysFSMOVESELF
 				}
-				w.mu.Unlock()
 			}
 
 			if raw.Action != windows.FILE_ACTION_RENAMED_NEW_NAME {
 				w.sendEvent(fullname, "", watch.names[name]&mask)
 			}
 			if raw.Action == windows.FILE_ACTION_REMOVED {
-				w.mu.Lock()
-				ignored := watch.names[name] & sysFSIGNORED
+				w.sendEvent(fullname, "", watch.names[name]&sysFSIGNORED)
 				delete(watch.names, name)
-				w.mu.Unlock()
-				w.sendEvent(fullname, "", ignored)
 			}
 
 			if watch.rename != "" && raw.Action == windows.FILE_ACTION_RENAMED_NEW_NAME {

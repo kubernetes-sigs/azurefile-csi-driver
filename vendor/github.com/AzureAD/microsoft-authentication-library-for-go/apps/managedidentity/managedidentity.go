@@ -30,8 +30,6 @@ import (
 	"github.com/AzureAD/microsoft-authentication-library-for-go/apps/internal/oauth/ops/accesstokens"
 	"github.com/AzureAD/microsoft-authentication-library-for-go/apps/internal/oauth/ops/authority"
 	"github.com/AzureAD/microsoft-authentication-library-for-go/apps/internal/shared"
-	"github.com/AzureAD/microsoft-authentication-library-for-go/apps/internal/version"
-	"github.com/google/uuid"
 )
 
 // AuthResult contains the results of one token acquisition operation.
@@ -623,9 +621,6 @@ func createIMDSAuthRequest(ctx context.Context, id ID, resource string) (*http.R
 		return nil, fmt.Errorf("error creating http request %s", err)
 	}
 	req.Header.Set(metaHTTPHeaderName, "true")
-	req.Header.Set("x-client-SKU", version.SKU)
-	req.Header.Set("x-client-Ver", version.Version)
-	req.Header.Set("x-ms-client-request-id", uuid.New().String())
 	return req, nil
 }
 

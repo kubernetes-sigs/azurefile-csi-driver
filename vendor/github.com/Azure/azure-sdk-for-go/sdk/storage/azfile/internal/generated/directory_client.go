@@ -31,7 +31,6 @@ func NewDirectoryClient(endpoint string, allowTrailingDot *bool, fileRequestInte
 		internal:               azClient,
 		endpoint:               endpoint,
 		allowTrailingDot:       allowTrailingDot,
-		version:                ServiceVersion,
 		fileRequestIntent:      fileRequestIntent,
 		allowSourceTrailingDot: allowSourceTrailingDot,
 	}
