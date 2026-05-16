@@ -530,20 +530,6 @@ func setupWorkloadIdentity(ctx context.Context, cs clientset.Interface, azureCli
 	}
 
 	return identityInfo.ClientID, nil
-	// Wait for ARM eventual consistency (FIC + RBAC propagation)
-	log.Printf("Waiting 120s for FIC and RBAC propagation...")
-	time.Sleep(120 * time.Second)
-
-	// Verify OIDC JWKS endpoint is accessible and contains signing keys.
-	// AAD validates SA tokens by fetching the JWKS from the OIDC issuer.
-	// In CAPZ clusters the JWKS is served from Azure Blob Storage and may
-	// not be immediately available after cluster creation, leading to
-	// AADSTS7000272 / 400 Bad Request errors during token exchange.
-	if err := waitForOIDCJWKS(oidcIssuerURL, 5*time.Minute); err != nil {
-		return fmt.Errorf("OIDC JWKS not ready: %v", err)
-	}
-
-	return nil
 }
 
 // discoverOIDCIssuer retrieves the OIDC issuer URL from the kube-apiserver's
@@ -586,7 +572,6 @@ func waitForOIDCJWKS(issuerURL string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	var lastErr error
 	for time.Now().Before(deadline) {
-		resp, err := httpClient.Get(jwksURL) //nolint:gosec
 		resp, err := httpClient.Get(jwksURL) //nolint:gosec // URL is constructed from cluster OIDC issuer, not user input
 		if err != nil {
 			lastErr = fmt.Errorf("GET %s: %v", jwksURL, err)
