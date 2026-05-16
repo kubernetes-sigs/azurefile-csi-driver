@@ -1962,7 +1962,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			},
 		}
 		scParameters := map[string]string{
-			"skuName":                        "Standard_LRS",
+			"skuName":                        "Premium_LRS",
 			"mountWithWorkloadIdentityToken": "true",
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
