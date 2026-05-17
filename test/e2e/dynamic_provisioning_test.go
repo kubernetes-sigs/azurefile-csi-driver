@@ -1939,20 +1939,28 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(ctx, cs, ns)
 	})
 
-	ginkgo.It("should create a volume on demand with workload identity token mount [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+	ginkgo.It("should create a volume on demand with workload identity token mount [file.csi.azure.com]", ginkgo.Serial, func(ctx ginkgo.SpecContext) {
 		skipIfUsingInTreeVolumePlugin()
 		skipIfTestingInWindowsCluster()
 		if !isCapzTest {
 			ginkgo.Skip("test case is only available for capz test")
 		}
+
+		// Wait for background AAD OIDC cache warm-up to complete.
+		ginkgo.By("Waiting for AAD OIDC cache warm-up to complete")
+		<-wiReady
+
 		gomega.Expect(wiSetupSucceeded).To(gomega.BeTrue(), "Workload identity setup failed, cannot run WI mount test")
+		gomega.Expect(wiClientID).NotTo(gomega.BeEmpty(), "WI client ID not set after background warm-up")
+		gomega.Expect(errWISetup).NotTo(gomega.HaveOccurred(),
+			"background AAD OIDC warm-up failed; WI mount will not work")
 
 		pods := []testsuites.PodDetails{
 			{
 				Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data",
 				Volumes: []testsuites.VolumeDetails{
 					{
-						ClaimSize: "10Gi",
+						ClaimSize: "100Gi",
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
 							MountPathGenerate: "/mnt/test-",
@@ -1962,7 +1970,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			},
 		}
 		scParameters := map[string]string{
-			"skuName":                        "Standard_LRS",
+			"skuName":                        "Premium_LRS",
 			"mountWithWorkloadIdentityToken": "true",
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{

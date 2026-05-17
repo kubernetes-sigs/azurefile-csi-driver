@@ -876,10 +876,6 @@ func (t *TestPod) SetServiceAccountName(name string) {
 	t.pod.Spec.ServiceAccountName = name
 }
 
-func (t *TestPod) SetAutomountServiceAccountToken(enabled bool) {
-	t.pod.Spec.AutomountServiceAccountToken = ptr.To(enabled)
-}
-
 type TestSecret struct {
 	client    clientset.Interface
 	secret    *v1.Secret
