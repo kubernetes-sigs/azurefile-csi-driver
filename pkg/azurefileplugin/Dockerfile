@@ -13,14 +13,14 @@
 # limitations under the License.
 
 ARG ARCH=amd64
-ARG BUILDPLATFORM
+ARG BUILDPLATFORM=linux/amd64
 ARG BASE_IMAGE=registry.k8s.io/build-image/debian-base:bookworm-v1.0.7
 
 FROM ${BASE_IMAGE} AS base
 
 FROM --platform=$BUILDPLATFORM ${BASE_IMAGE} AS builder
 
-ARG TARGETARCH
+ARG TARGETARCH=amd64
 
 RUN apt update \
     && apt install -y curl \
