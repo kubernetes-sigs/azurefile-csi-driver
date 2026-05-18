@@ -304,6 +304,19 @@ func getValueInMap(m map[string]string, key string) string {
 	return ""
 }
 
+// getServiceAccountTokens retrieves service account tokens from the CSI request.
+// It first checks the secrets map (new behavior when driver opts in to
+// serviceAccountTokenInSecrets in Kubernetes 1.35+), then falls back to checking
+// volumeContext for backward compatibility.
+func getServiceAccountTokens(secrets, volumeContext map[string]string) string {
+	// Check secrets field first (new behavior when driver opts in)
+	if tokens := getValueInMap(secrets, serviceAccountTokenField); tokens != "" {
+		return tokens
+	}
+	// Fallback to volume context for backward compatibility
+	return getValueInMap(volumeContext, serviceAccountTokenField)
+}
+
 // replaceWithMap replace key with value for str
 func replaceWithMap(str string, m map[string]string) string {
 	for k, v := range m {

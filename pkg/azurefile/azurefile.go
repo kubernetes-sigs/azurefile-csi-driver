@@ -825,7 +825,8 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 	var protocol, accountKey, secretName, pvcNamespace string
 	// getAccountKeyFromSecret indicates whether get account key only from k8s secret
 	var getAccountKeyFromSecret, getLatestAccountKey, mountWithManagedIdentity, mountWithWIToken bool
-	var clientID, tenantID, tokenFilePath, serviceAccountToken string
+	var clientID, tenantID, tokenFilePath string
+	serviceAccountToken := getServiceAccountTokens(secrets, reqContext)
 
 	for k, v := range reqContext {
 		switch strings.ToLower(k) {
@@ -867,8 +868,6 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 			}
 		case tenantIDField:
 			tenantID = v
-		case strings.ToLower(serviceAccountTokenField):
-			serviceAccountToken = v
 		}
 	}
 
