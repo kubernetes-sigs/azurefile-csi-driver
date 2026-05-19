@@ -70,7 +70,7 @@ func (o *DriverOptions) AddFlags() *flag.FlagSet {
 	fs.StringVar(&o.CustomUserAgent, "custom-user-agent", "", "custom userAgent")
 	fs.StringVar(&o.UserAgentSuffix, "user-agent-suffix", "", "userAgent suffix")
 	fs.BoolVar(&o.AllowEmptyCloudConfig, "allow-empty-cloud-config", true, "allow running driver without cloud config")
-	fs.BoolVar(&o.AllowInlineVolumeKeyAccessWithIdentity, "allow-inline-volume-key-access-with-identity", false, "allow accessing storage account key using cluster identity for inline volume")
+	fs.BoolVar(&o.AllowInlineVolumeKeyAccessWithIdentity, "allow-inline-volume-key-access-with-identity", false, "allow accessing storage account key using cluster identity for inline volume. It will be DEPRECATED in future release as inline volume will no longer support identity-based key access")
 	fs.BoolVar(&o.EnableVHDDiskFeature, "enable-vhd", true, "enable VHD disk feature (experimental)")
 	fs.BoolVar(&o.EnableVolumeMountGroup, "enable-volume-mount-group", true, "indicates whether enabling VOLUME_MOUNT_GROUP")
 	fs.BoolVar(&o.EnableGetVolumeStats, "enable-get-volume-stats", true, "allow GET_VOLUME_STATS on agent node")
