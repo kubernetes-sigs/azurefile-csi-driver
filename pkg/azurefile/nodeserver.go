@@ -510,6 +510,10 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		if mountFsType == aznfs {
 			klog.V(2).Infof("encryptInTransit is enabled, mount by azurefile-proxy")
 			if err := d.mountWithProxy(ctx, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions); err != nil {
+				if strings.Contains(err.Error(), "no such file or directory") {
+					return nil, status.Errorf(codes.Internal, "mount with proxy failed for %s with error: %v. "+
+						"Encryption in Transit (EiT) does not support Ubuntu 20.04, please upgrade your node OS version.", cifsMountPath, err)
+				}
 				return nil, status.Errorf(codes.Internal, "mount with proxy failed for %s with error: %v", cifsMountPath, err)
 			}
 			klog.V(2).Infof("mount with proxy succeeded for %s", cifsMountPath)
