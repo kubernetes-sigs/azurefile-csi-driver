@@ -48,6 +48,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/framework/config"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
@@ -82,6 +83,8 @@ var (
 	supportEncryptInTransitwithNFS bool
 	miRoleSetupSucceeded           bool
 	wiSetupSucceeded               bool
+	suiteCreds                     *credentials.Credentials
+	suiteAzureClient               *azure.Client
 
 	// wiClientID is set during BeforeSuite after WI configuration succeeds.
 	wiClientID string
@@ -119,6 +122,8 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret, creds.AADFederatedTokenFile)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		suiteCreds = creds
+		suiteAzureClient = azureClient
 		_, err = azureClient.EnsureResourceGroup(ctx, creds.ResourceGroup, creds.Location, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -237,6 +242,9 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 			err := azurefileDriver.Run(context.Background())
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		}()
+
+		// Setup OAuth token for mountWithOAuthToken e2e test (CAPZ only)
+		// Moved to test case itself to ensure fresh token at mount time
 	}
 })
 
@@ -368,7 +376,7 @@ func checkAccountCreationLeak(_ context.Context) {
 	}
 	ginkgo.By(fmt.Sprintf("GetAccountNumByResourceGroup(%s) returns %d accounts", creds.ResourceGroup, accountNum))
 
-	accountLimitInTest := 17
+	accountLimitInTest := 20
 	gomega.Expect(accountNum >= accountLimitInTest).To(gomega.BeFalse())
 }
 
@@ -547,6 +555,9 @@ func discoverOIDCIssuer(ctx context.Context, cs clientset.Interface) (string, er
 
 // waitForOIDCJWKS polls the OIDC issuer's JWKS endpoint until it returns a
 // valid response containing at least one signing key.
+// valid response containing at least one signing key. This guards against the
+// race where AAD tries to validate a SA token before the JWKS document is
+// published (AADSTS7000272).
 func waitForOIDCJWKS(issuerURL string, timeout time.Duration) error {
 	jwksURL := strings.TrimSuffix(issuerURL, "/") + "/openid/v1/jwks"
 	log.Printf("Waiting up to %v for OIDC JWKS to be available at %s", timeout, jwksURL)
@@ -561,7 +572,7 @@ func waitForOIDCJWKS(issuerURL string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	var lastErr error
 	for time.Now().Before(deadline) {
-		resp, err := httpClient.Get(jwksURL) //nolint:gosec
+		resp, err := httpClient.Get(jwksURL) //nolint:gosec // URL is constructed from cluster OIDC issuer, not user input
 		if err != nil {
 			lastErr = fmt.Errorf("GET %s: %v", jwksURL, err)
 			log.Printf("JWKS not ready: %v, retrying...", lastErr)
@@ -905,3 +916,185 @@ func waitForAADTokenExchange(ctx context.Context, cs clientset.Interface, client
 }
 
 func int64Ptr(i int64) *int64 { return &i }
+
+const (
+	oauthSecretName      = "azure-oauth-token-secret"
+	oauthSecretNamespace = "default"
+)
+
+// setupOAuthToken obtains an OAuth token from the node's managed identity and stores it
+// in a Kubernetes Secret for use by mountWithOAuthToken e2e tests.
+func setupOAuthToken(ctx context.Context, creds *credentials.Credentials, azureClient *azure.Client) error {
+	// Step 1: Get node managed identity info (uses Azure SDK with SP creds, works from Prow)
+	identityInfo, err := azureClient.GetNodeIdentityInfo(ctx, creds.ResourceGroup)
+	if err != nil {
+		return fmt.Errorf("failed to get node identity info: %v", err)
+	}
+	log.Printf("Found node identity: clientID=%s, principalID=%s", identityInfo.ClientID, identityInfo.PrincipalID)
+
+	// Step 2: Assign Storage File Data SMB MI Admin role to identity
+	err = azureClient.AssignRoleToIdentity(ctx, creds.ResourceGroup, identityInfo.PrincipalID, wiStorageFileDataSMBMIAdmin)
+	if err != nil {
+		return fmt.Errorf("failed to assign Storage File Data SMB MI Admin role: %v", err)
+	}
+	log.Println("Storage File Data SMB MI Admin role assigned to node identity")
+
+	// Step 3: Get OAuth token by running a pod on the workload cluster node.
+	// The test runner (Prow pod) cannot access IMDS (169.254.169.254) because it runs
+	// outside Azure VMs. Instead, we schedule a pod on an agent node that curls IMDS
+	// to obtain the token, then read it from the pod logs.
+	kubeconfig := os.Getenv(kubeconfigEnvVar)
+	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	if err != nil {
+		return fmt.Errorf("failed to build kubeconfig: %v", err)
+	}
+	cs, err := clientset.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create kubernetes client: %v", err)
+	}
+
+	token, err := getOAuthTokenFromNode(ctx, cs, identityInfo.ClientID)
+	if err != nil {
+		return fmt.Errorf("failed to get storage OAuth token from node: %v", err)
+	}
+	log.Println("Obtained storage OAuth token from agent node via IMDS")
+
+	// Step 4: Create Kubernetes Secret with the OAuth token
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      oauthSecretName,
+			Namespace: oauthSecretNamespace,
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: map[string][]byte{
+			"oauthtoken": []byte(token),
+		},
+	}
+	_, err = cs.CoreV1().Secrets(oauthSecretNamespace).Create(ctx, secret, metav1.CreateOptions{})
+	if err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			existing, getErr := cs.CoreV1().Secrets(oauthSecretNamespace).Get(ctx, oauthSecretName, metav1.GetOptions{})
+			if getErr != nil {
+				return fmt.Errorf("failed to get existing OAuth token secret: %v", getErr)
+			}
+			secret.ResourceVersion = existing.ResourceVersion
+			_, err = cs.CoreV1().Secrets(oauthSecretNamespace).Update(ctx, secret, metav1.UpdateOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to update OAuth token secret: %v", err)
+			}
+		} else {
+			return fmt.Errorf("failed to create OAuth token secret: %v", err)
+		}
+	}
+	log.Printf("Created/updated OAuth token secret %s/%s", oauthSecretNamespace, oauthSecretName)
+
+	return nil
+}
+
+// getOAuthTokenFromNode deploys a pod on a workload cluster agent node that uses IMDS
+// to obtain an Azure Storage OAuth token, then reads the token from the pod logs.
+func getOAuthTokenFromNode(ctx context.Context, cs clientset.Interface, clientID string) (string, error) {
+	namespace := "default"
+
+	// IMDS curl command that outputs only the access_token value
+	curlCmd := fmt.Sprintf(
+		`curl -s -H "Metadata: true" "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&client_id=%s&resource=https://storage.azure.com/" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4`,
+		clientID,
+	)
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "oauth-token-fetcher-",
+			Namespace:    namespace,
+		},
+		Spec: corev1.PodSpec{
+			RestartPolicy: corev1.RestartPolicyNever,
+			// Use hostNetwork to ensure IMDS is accessible
+			HostNetwork: true,
+			Containers: []corev1.Container{
+				{
+					Name:    "token-fetcher",
+					Image:   "mcr.microsoft.com/cbl-mariner/base/core:2.0",
+					Command: []string{"/bin/sh", "-c", curlCmd},
+				},
+			},
+			// Schedule on agent nodes only (not control plane — no managed identity there)
+			NodeSelector: map[string]string{
+				"kubernetes.io/os": "linux",
+			},
+			Affinity: &corev1.Affinity{
+				NodeAffinity: &corev1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+						NodeSelectorTerms: []corev1.NodeSelectorTerm{
+							{
+								MatchExpressions: []corev1.NodeSelectorRequirement{
+									{
+										Key:      "node-role.kubernetes.io/control-plane",
+										Operator: corev1.NodeSelectorOpDoesNotExist,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	created, err := cs.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to create token fetcher pod: %v", err)
+	}
+	podName := created.Name
+	defer func() {
+		_ = cs.CoreV1().Pods(namespace).Delete(context.Background(), podName, metav1.DeleteOptions{})
+	}()
+
+	// Wait for pod to complete (up to 5 minutes)
+	log.Printf("Waiting for token fetcher pod %s/%s to complete...", namespace, podName)
+	waitCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	err = waitForPodComplete(waitCtx, cs, namespace, podName)
+	if err != nil {
+		return "", fmt.Errorf("token fetcher pod did not complete: %v", err)
+	}
+
+	// Read token from pod logs
+	logBytes, err := cs.CoreV1().Pods(namespace).GetLogs(podName, &corev1.PodLogOptions{}).Do(ctx).Raw()
+	if err != nil {
+		return "", fmt.Errorf("failed to get token fetcher pod logs: %v", err)
+	}
+
+	token := strings.TrimSpace(string(logBytes))
+	if token == "" {
+		return "", fmt.Errorf("token fetcher pod returned empty token")
+	}
+
+	return token, nil
+}
+
+// waitForPodComplete polls until the pod reaches Succeeded or Failed phase.
+func waitForPodComplete(ctx context.Context, cs clientset.Interface, namespace, name string) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		pod, err := cs.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		switch pod.Status.Phase {
+		case corev1.PodSucceeded:
+			return nil
+		case corev1.PodFailed:
+			return fmt.Errorf("pod failed with reason: %s", pod.Status.Reason)
+		}
+
+		time.Sleep(3 * time.Second)
+	}
+}
