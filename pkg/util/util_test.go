@@ -197,9 +197,9 @@ func TestGetAzcopyJob(t *testing.T) {
 		}
 
 		azcopyFunc := &Azcopy{ExecCmd: m}
-		jobState, percent, err := azcopyFunc.GetAzcopyJob(dstFileshare, []string{})
+		jobState, percent, jobid, err := azcopyFunc.GetAzcopyJob(dstFileshare, []string{})
 		if jobState != test.expectedJobState || percent != test.expectedPercent || !reflect.DeepEqual(err, test.expectedErr) {
-			t.Errorf("test[%s]: unexpected jobState: %v, percent: %v, err: %v, expected jobState: %v, percent: %v, err: %v", test.desc, jobState, percent, err, test.expectedJobState, test.expectedPercent, test.expectedErr)
+			t.Errorf("test[%s]: unexpected jobState: %v, percent: %v, jobid: %v, err: %v, expected jobState: %v, percent: %v, jobid: %v, err: %v", test.desc, jobState, percent, jobid, err, test.expectedJobState, test.expectedPercent, jobid, test.expectedErr)
 		}
 	}
 }
