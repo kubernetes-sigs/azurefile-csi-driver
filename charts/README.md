@@ -121,7 +121,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `node.cloudConfigSecretName`                      | cloud config secret name of node driver               | `azure-cloud-provider`
 | `node.cloudConfigSecretNamespace`                 | cloud config secret namespace of node driver          | `kube-system`
 | `node.allowEmptyCloudConfig`                      | Whether allow running node driver without cloud config          | `true`
-| `node.allowInlineVolumeKeyAccessWithIdentity`     | **DEPRECATED**: no-op, will be removed in a future release. Inline volumes no longer support identity-based key access.          | `false`
+| `node.allowInlineVolumeKeyAccessWithIdentity`     | Whether allow accessing storage account key using cluster identity for inline volume. It will be removed in future release as inline volumes no longer support identity-based key access         | `false`
 | `node.maxUnavailable`                             | `maxUnavailable` value of driver node daemonset                            | `1`
 | `node.livenessProbe.healthPort `                  | health check port for liveness probe                   | `29613` |
 | `node.nodeDriverRegistrar.healthPort`                        | health check port for node-driver-registrar liveness probe                                                 | `29617`                                                 |
