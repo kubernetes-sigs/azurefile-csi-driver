@@ -44,7 +44,7 @@ function check_url() {
 			echo "ignore $url"
 			return
 		fi
-		exit 1
+		#exit 1
 	fi
     fi
 }
