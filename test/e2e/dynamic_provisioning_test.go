@@ -1986,6 +1986,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 	ginkgo.It("should create a volume on demand with workload identity token mount [file.csi.azure.com]", ginkgo.Serial, func(ctx ginkgo.SpecContext) {
 		skipIfUsingInTreeVolumePlugin()
 		skipIfTestingInWindowsCluster()
+		skipIfTestingInMigrationCluster()
 		if !isCapzTest {
 			ginkgo.Skip("test case is only available for capz test")
 		}
