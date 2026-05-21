@@ -56,6 +56,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `feature.enableGetVolumeStats`                    | allow GET_VOLUME_STATS on agent node                       | `true`                      |
 | `feature.enableVolumeMountGroup`                  | indicates whether enabling VOLUME_MOUNT_GROUP                       | `true`                      |
 | `feature.fsGroupPolicy`                           | CSIDriver FSGroupPolicy value                  | `ReadWriteOnceWithFSType`(available values: `ReadWriteOnceWithFSType`, `File`, `None`) |
+| `feature.serviceAccountTokenInSecrets`            | deliver service account tokens via CSI secrets field (Kubernetes 1.35+) | `false`                     |
 | `image.baseRepo`                                  | base repository of driver images                           | `mcr.microsoft.com`                      |
 | `image.azurefile.repository`                      | azurefile-csi-driver container image                          | `/oss/kubernetes-csi/azurefile-csi`                            |
 | `image.azurefile.tag`                             | azurefile-csi-driver container image tag                      | ``                                                            |
