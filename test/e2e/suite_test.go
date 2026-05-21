@@ -135,8 +135,8 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 			miRoleSetupSucceeded = true
 		}
 
-		// Set up workload identity for mountWithWorkloadIdentityToken e2e tests (CAPZ only)
-		if isCapzTest {
+		// Set up workload identity for mountWithWorkloadIdentityToken e2e tests (CAPZ Linux only, not for in-tree/migration tests)
+		if isCapzTest && !isWindowsCluster && !isUsingInTreeVolumePlugin && !isTestingMigration {
 			kubeConfig, err := framework.LoadConfig()
 			if err != nil {
 				log.Printf("WARNING: failed to load kubeconfig for WI setup: %v", err)
