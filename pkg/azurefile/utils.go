@@ -314,6 +314,7 @@ func getSecretNamespace(volumeContext map[string]string) string {
 		return ns
 	}
 	return defaultNamespace
+}
 
 // getServiceAccountTokens retrieves service account tokens from the CSI request.
 // It first checks the secrets map (new behavior when driver opts in to
