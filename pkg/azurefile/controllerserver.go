@@ -308,6 +308,13 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
+	var requiresSmbOAuth *bool
+	if ptr.Deref(mountWithManagedIdentity, false) {
+		storeAccountKey = false
+		klog.V(2).Info("enabling smb oauth for identity-based mount")
+		requiresSmbOAuth = to.Ptr(true)
+	}
+
 	if matchTags && account != "" {
 		return nil, status.Errorf(codes.InvalidArgument, "matchTags must set as false when storageAccount(%s) is provided", account)
 	}
@@ -560,7 +567,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		StorageType:                             storage.StorageTypeFile,
 		StorageEndpointSuffix:                   storageEndpointSuffix,
 		IsMultichannelEnabled:                   isMultichannelEnabled,
-		IsSmbOAuthEnabled:                       mountWithManagedIdentity,
+		IsSmbOAuthEnabled:                       requiresSmbOAuth,
 		PickRandomMatchingAccount:               selectRandomMatchingAccount,
 		GetLatestAccountKey:                     getLatestAccountKey,
 		SourceAccountName:                       srcAccountName,
