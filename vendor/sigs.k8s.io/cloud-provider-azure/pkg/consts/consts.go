@@ -43,6 +43,11 @@ const (
 	LabelFailureDomainBetaRegion = "failure-domain.beta.kubernetes.io/region"
 	// LabelPlatformSubFaultDomain is the label key of platformSubFaultDomain
 	LabelPlatformSubFaultDomain = "topology.kubernetes.azure.com/sub-fault-domain"
+	// LabelPlatformInterconnectGroup is the label key of Platform Interconnect Group
+	LabelPlatformInterconnectGroup = "topology.kubernetes.azure.com/interconnect-group"
+
+	// TagNameInterconnectGroup is the tag name in IMDS tagsList for Platform Interconnect Group
+	TagNameInterconnectGroup = "Platform_Interconnect_Group"
 
 	// ADFSIdentitySystem is the override value for tenantID on Azure Stack clouds.
 	ADFSIdentitySystem = "adfs"
@@ -262,13 +267,6 @@ const (
 	// ServiceAnnotationDNSLabelName is the annotation used on the service
 	// to specify the DNS label name for the service.
 	ServiceAnnotationDNSLabelName = "service.beta.kubernetes.io/azure-dns-label-name"
-
-	// ServiceAnnotationSharedSecurityRule is the annotation used on the service
-	// to specify that the service should be exposed using an Azure security rule
-	// that may be shared with other service, trading specificity of rules for an
-	// increase in the number of services that can be exposed. This relies on the
-	// Azure "augmented security rules" feature.
-	ServiceAnnotationSharedSecurityRule = "service.beta.kubernetes.io/azure-shared-securityrule"
 
 	// ServiceAnnotationLoadBalancerResourceGroup is the annotation used on the service
 	// to specify the resource group of load balancer objects that are not in the same resource group as the cluster.
