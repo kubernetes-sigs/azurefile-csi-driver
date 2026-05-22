@@ -790,8 +790,16 @@ func TestHasStorageAccountCredentials(t *testing.T) {
 			secrets: map[string]string{
 				serviceAccountTokenField: "some-token",
 				"accountname":            "myaccount",
+				"accountkey":             "mykey",
 			},
 			expected: true,
+		},
+		{
+			name: "unknown non-credential keys only",
+			secrets: map[string]string{
+				"some-future-kubelet-key": "value",
+			},
+			expected: false,
 		},
 	}
 
