@@ -6,7 +6,6 @@ godebug winsymlink=0
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.1
-	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6 v6.2.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v2 v2.0.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azfile v1.5.2
