@@ -801,6 +801,14 @@ func TestHasStorageAccountCredentials(t *testing.T) {
 			},
 			expected: false,
 		},
+		{
+			name: "azurestorageaccountname/azurestorageaccountkey (built-in plugin compatible)",
+			secrets: map[string]string{
+				"azurestorageaccountname": "myaccount",
+				"azurestorageaccountkey":  "mykey",
+			},
+			expected: true,
+		},
 	}
 
 	for _, test := range tests {
