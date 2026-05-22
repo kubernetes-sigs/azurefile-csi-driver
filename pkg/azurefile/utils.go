@@ -329,6 +329,21 @@ func getServiceAccountTokens(secrets, volumeContext map[string]string) string {
 	return getValueInMap(volumeContext, serviceAccountTokenField)
 }
 
+// hasStorageAccountCredentials checks whether the secrets map contains storage account
+// credentials (accountname/azurestorageaccountname) as opposed to only containing
+// service account tokens injected by kubelet.
+func hasStorageAccountCredentials(secrets map[string]string) bool {
+	if len(secrets) == 0 {
+		return false
+	}
+	for k := range secrets {
+		if !strings.EqualFold(k, serviceAccountTokenField) {
+			return true
+		}
+	}
+	return false
+}
+
 // replaceWithMap replace key with value for str
 func replaceWithMap(str string, m map[string]string) string {
 	for k, v := range m {

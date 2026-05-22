@@ -754,6 +754,55 @@ func TestGetServiceAccountTokens(t *testing.T) {
 	}
 }
 
+func TestHasStorageAccountCredentials(t *testing.T) {
+	tests := []struct {
+		name     string
+		secrets  map[string]string
+		expected bool
+	}{
+		{
+			name:     "nil secrets",
+			secrets:  nil,
+			expected: false,
+		},
+		{
+			name:     "empty secrets",
+			secrets:  map[string]string{},
+			expected: false,
+		},
+		{
+			name: "only SA token in secrets",
+			secrets: map[string]string{
+				serviceAccountTokenField: "some-token",
+			},
+			expected: false,
+		},
+		{
+			name: "storage account credentials in secrets",
+			secrets: map[string]string{
+				"accountname": "myaccount",
+				"accountkey":  "mykey",
+			},
+			expected: true,
+		},
+		{
+			name: "SA token plus storage credentials",
+			secrets: map[string]string{
+				serviceAccountTokenField: "some-token",
+				"accountname":            "myaccount",
+			},
+			expected: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := hasStorageAccountCredentials(test.secrets)
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
 func TestReplaceWithMap(t *testing.T) {
 	tests := []struct {
 		desc     string

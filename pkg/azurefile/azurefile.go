@@ -964,8 +964,8 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 		return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, "", err
 	}
 
-	if len(secrets) == 0 {
-		// if request context does not contain secrets, get secrets in the following order:
+	if !hasStorageAccountCredentials(secrets) {
+		// if request context does not contain storage account credentials, get secrets in the following order:
 		// 1. get account key from cache first
 		cache, errCache := d.accountCacheMap.Get(ctx, accountName, azcache.CacheReadTypeDefault)
 		if errCache != nil {
