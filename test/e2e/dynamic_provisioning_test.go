@@ -27,6 +27,8 @@ import (
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/testsuites"
 
+	azurefile "sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
+
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -1004,17 +1006,16 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 		// Create a volume to get a storage account with key-based auth
 		byokShareName := "byok-test-share"
-		byokReq := makeCreateVolumeReq(byokShareName, ns.Name)
+		byokReq := makeCreateVolumeReq(byokShareName, "default")
 		byokResp, err := azurefileDriver.CreateVolume(ctx, byokReq)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
 		}
 		byokVolumeID := byokResp.Volume.VolumeId
-		byokSegments := strings.Split(byokVolumeID, "#")
-		if len(byokSegments) < 2 {
-			ginkgo.Fail(fmt.Sprintf("failed to parse account name from volumeID: %s", byokVolumeID))
+		_, byokAccountName, _, _, _, _, err := azurefile.GetFileShareInfo(byokVolumeID)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("failed to parse volumeID %s: %v", byokVolumeID, err))
 		}
-		byokAccountName := byokSegments[1]
 		secretName := fmt.Sprintf("azure-storage-account-%s-secret", byokAccountName)
 		log.Printf("BYO Key test: volumeID: %s, accountName: %s, secretName: %s\n", byokVolumeID, byokAccountName, secretName)
 
@@ -1261,7 +1262,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		skipIfUsingInTreeVolumePlugin()
 
 		shareName := "csi-inline-smb-volume"
-		req := makeCreateVolumeReq(shareName, ns.Name)
+		req := makeCreateVolumeReq(shareName, "default")
 		resp, err := azurefileDriver.CreateVolume(ctx, req)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
@@ -1269,12 +1270,10 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		volumeID := resp.Volume.VolumeId
 		ginkgo.By(fmt.Sprintf("Successfully provisioned AzureFile volume: %q\n", volumeID))
 
-		// parse account name from volumeID (format: resourceGroup#accountName#shareName#...)
-		segments := strings.Split(volumeID, "#")
-		if len(segments) < 2 {
-			ginkgo.Fail(fmt.Sprintf("failed to parse account name from volumeID: %s", volumeID))
+		_, accountName, _, _, _, _, err := azurefile.GetFileShareInfo(volumeID)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("failed to parse volumeID %s: %v", volumeID, err))
 		}
-		accountName := segments[1]
 		secretName := fmt.Sprintf("azure-storage-account-%s-secret", accountName)
 		log.Printf("volumeID: %s, accountName: %s, secretName: %s\n", volumeID, accountName, secretName)
 
@@ -1335,7 +1334,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		}
 
 		shareName := "intree-inline-smb-volume"
-		req := makeCreateVolumeReq("intree-inline-smb-volume", ns.Name)
+		req := makeCreateVolumeReq(shareName, "default")
 		resp, err := azurefileDriver.CreateVolume(ctx, req)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
@@ -1343,12 +1342,10 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		volumeID := resp.Volume.VolumeId
 		ginkgo.By(fmt.Sprintf("Successfully provisioned AzureFile volume: %q\n", volumeID))
 
-		// parse account name from volumeID (format: resourceGroup#accountName#shareName#...)
-		segments := strings.Split(volumeID, "#")
-		if len(segments) < 2 {
-			ginkgo.Fail(fmt.Sprintf("failed to parse account name from volumeID: %s", volumeID))
+		_, accountName, _, _, _, _, err := azurefile.GetFileShareInfo(volumeID)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("failed to parse volumeID %s: %v", volumeID, err))
 		}
-		accountName := segments[1]
 		secretName := fmt.Sprintf("azure-storage-account-%s-secret", accountName)
 		log.Printf("volumeID: %s, accountName: %s, secretName: %s\n", volumeID, accountName, secretName)
 
