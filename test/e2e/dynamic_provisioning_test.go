@@ -1005,7 +1005,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		skipIfUsingInTreeVolumePlugin()
 
 		// Create a volume to get a storage account with key-based auth
-		byokShareName := "byok-test-share"
+		byokShareName := fmt.Sprintf("byok-test-share-%d", time.Now().UnixNano())
 		byokReq := makeCreateVolumeReq(byokShareName, "default")
 		byokResp, err := azurefileDriver.CreateVolume(ctx, byokReq)
 		if err != nil {
