@@ -1005,7 +1005,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		// Create a volume to get a storage account with key-based auth
 		byokShareName := "byok-test-share"
 		byokReq := makeCreateVolumeReq(byokShareName, ns.Name)
-		delete(byokReq.Parameters, "mountWithManagedIdentity")
 		byokResp, err := azurefileDriver.CreateVolume(ctx, byokReq)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
@@ -1263,8 +1262,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 		shareName := "csi-inline-smb-volume"
 		req := makeCreateVolumeReq(shareName, ns.Name)
-		// Use storage account key (not managed identity) so the secret is created for inline volume mount
-		delete(req.Parameters, "mountWithManagedIdentity")
 		resp, err := azurefileDriver.CreateVolume(ctx, req)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
@@ -1339,8 +1336,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 		shareName := "intree-inline-smb-volume"
 		req := makeCreateVolumeReq("intree-inline-smb-volume", ns.Name)
-		// Use storage account key (not managed identity) so the secret is created for inline volume mount
-		delete(req.Parameters, "mountWithManagedIdentity")
 		resp, err := azurefileDriver.CreateVolume(ctx, req)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
