@@ -293,6 +293,7 @@ func makeCreateVolumeReq(volumeName, secretNamespace string) *csi.CreateVolumeRe
 			"skuname":         "Standard_LRS",
 			"shareName":       volumeName,
 			"secretNamespace": secretNamespace,
+			"createAccount":   "true",
 		},
 	}
 
