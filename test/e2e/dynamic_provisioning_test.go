@@ -27,6 +27,8 @@ import (
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/testsuites"
 
+	azurefile "sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
+
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -1001,24 +1003,22 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 	ginkgo.It("should create a volume on demand with mount options (Bring Your Own Key) [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
 		skipIfUsingInTreeVolumePlugin()
-		// get storage account secret name
-		err := os.Chdir("../..")
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		defer func() {
-			err := os.Chdir("test/e2e")
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		}()
 
-		getSecretNameScript := "test/utils/get_storage_account_secret_name.sh"
-		log.Printf("run script: %s\n", getSecretNameScript)
+		// Create a volume to get a storage account with key-based auth
+		byokShareName := fmt.Sprintf("byok-test-share-%d", time.Now().UnixNano())
+		byokReq := makeCreateVolumeReq(byokShareName, "default")
+		byokResp, err := azurefileDriver.CreateVolume(ctx, byokReq)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
+		}
+		byokVolumeID := byokResp.Volume.VolumeId
+		_, byokAccountName, _, _, _, _, err := azurefile.GetFileShareInfo(byokVolumeID)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("failed to parse volumeID %s: %v", byokVolumeID, err))
+		}
+		secretName := fmt.Sprintf("azure-storage-account-%s-secret", byokAccountName)
+		log.Printf("BYO Key test: volumeID: %s, accountName: %s, secretName: %s\n", byokVolumeID, byokAccountName, secretName)
 
-		cmd := exec.Command("bash", getSecretNameScript)
-		output, err := cmd.CombinedOutput()
-		log.Printf("got output: %v, error: %v\n", string(output), err)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-		secretName := strings.TrimSuffix(string(output), "\n")
-		log.Printf("got storage account secret name: %v\n", secretName)
 		bringKeyStorageClassParameters["csi.storage.k8s.io/provisioner-secret-name"] = secretName
 		bringKeyStorageClassParameters["csi.storage.k8s.io/node-stage-secret-name"] = secretName
 
@@ -1261,29 +1261,21 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 	ginkgo.It("should create an CSI inline volume [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
 		skipIfUsingInTreeVolumePlugin()
 
-		// get storage account secret name
-		err := os.Chdir("../..")
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		defer func() {
-			err := os.Chdir("test/e2e")
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		}()
-
-		getSecretNameScript := "test/utils/get_storage_account_secret_name.sh"
-		log.Printf("run script: %s\n", getSecretNameScript)
-
-		cmd := exec.Command("bash", getSecretNameScript)
-		output, err := cmd.CombinedOutput()
-		log.Printf("got output: %v, error: %v\n", string(output), err)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-		secretName := strings.TrimSuffix(string(output), "\n")
-		log.Printf("got storage account secret name: %v\n", secretName)
-		segments := strings.Split(secretName, "-")
-		if len(segments) != 5 {
-			ginkgo.Fail(fmt.Sprintf("%s have %d elements, expected: %d ", secretName, len(segments), 5))
+		shareName := "csi-inline-smb-volume"
+		req := makeCreateVolumeReq(shareName, "default")
+		resp, err := azurefileDriver.CreateVolume(ctx, req)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
 		}
-		accountName := segments[3]
+		volumeID := resp.Volume.VolumeId
+		ginkgo.By(fmt.Sprintf("Successfully provisioned AzureFile volume: %q\n", volumeID))
+
+		_, accountName, _, _, _, _, err := azurefile.GetFileShareInfo(volumeID)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("failed to parse volumeID %s: %v", volumeID, err))
+		}
+		secretName := fmt.Sprintf("azure-storage-account-%s-secret", accountName)
+		log.Printf("volumeID: %s, accountName: %s, secretName: %s\n", volumeID, accountName, secretName)
 
 		// Copy the storage account secret from default namespace to the test namespace
 		// so that the CSI inline volume's NodePublishVolume can find it.
@@ -1300,16 +1292,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		_, err = cs.CoreV1().Secrets(ns.Name).Create(ctx, secretCopy, metav1.CreateOptions{})
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		log.Printf("copied secret %s from default to %s namespace\n", secretName, ns.Name)
-
-		shareName := "csi-inline-smb-volume"
-		req := makeCreateVolumeReq(shareName, ns.Name)
-		req.Parameters["storageAccount"] = accountName
-		resp, err := azurefileDriver.CreateVolume(ctx, req)
-		if err != nil {
-			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
-		}
-		volumeID := resp.Volume.VolumeId
-		ginkgo.By(fmt.Sprintf("Successfully provisioned AzureFile volume: %q\n", volumeID))
 
 		pods := []testsuites.PodDetails{
 			{
@@ -1350,29 +1332,22 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		if !isTestingMigration {
 			ginkgo.Skip("test case is only available for migration test")
 		}
-		// get storage account secret name
-		err := os.Chdir("../..")
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		defer func() {
-			err := os.Chdir("test/e2e")
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		}()
 
-		getSecretNameScript := "test/utils/get_storage_account_secret_name.sh"
-		log.Printf("run script: %s\n", getSecretNameScript)
-
-		cmd := exec.Command("bash", getSecretNameScript)
-		output, err := cmd.CombinedOutput()
-		log.Printf("got output: %v, error: %v\n", string(output), err)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-		secretName := strings.TrimSuffix(string(output), "\n")
-		log.Printf("got storage account secret name: %v\n", secretName)
-		segments := strings.Split(secretName, "-")
-		if len(segments) != 5 {
-			ginkgo.Fail(fmt.Sprintf("%s have %d elements, expected: %d ", secretName, len(segments), 5))
+		shareName := "intree-inline-smb-volume"
+		req := makeCreateVolumeReq(shareName, "default")
+		resp, err := azurefileDriver.CreateVolume(ctx, req)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
 		}
-		accountName := segments[3]
+		volumeID := resp.Volume.VolumeId
+		ginkgo.By(fmt.Sprintf("Successfully provisioned AzureFile volume: %q\n", volumeID))
+
+		_, accountName, _, _, _, _, err := azurefile.GetFileShareInfo(volumeID)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("failed to parse volumeID %s: %v", volumeID, err))
+		}
+		secretName := fmt.Sprintf("azure-storage-account-%s-secret", accountName)
+		log.Printf("volumeID: %s, accountName: %s, secretName: %s\n", volumeID, accountName, secretName)
 
 		// Copy the storage account secret from default namespace to the test namespace
 		// so that the in-tree azureFile volume plugin can find it.
@@ -1389,16 +1364,6 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		_, err = cs.CoreV1().Secrets(ns.Name).Create(ctx, secretCopy, metav1.CreateOptions{})
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		log.Printf("copied secret %s from default to %s namespace\n", secretName, ns.Name)
-
-		shareName := "intree-inline-smb-volume"
-		req := makeCreateVolumeReq("intree-inline-smb-volume", ns.Name)
-		req.Parameters["storageAccount"] = accountName
-		resp, err := azurefileDriver.CreateVolume(ctx, req)
-		if err != nil {
-			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
-		}
-		volumeID := resp.Volume.VolumeId
-		ginkgo.By(fmt.Sprintf("Successfully provisioned AzureFile volume: %q\n", volumeID))
 
 		pods := []testsuites.PodDetails{
 			{
