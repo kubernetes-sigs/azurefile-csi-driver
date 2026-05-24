@@ -1842,6 +1842,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 	ginkgo.It("should create a volume on demand with managed identity mount [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
 		skipIfUsingInTreeVolumePlugin()
 		skipIfTestingInWindowsCluster()
+		skipIfTestingInMigrationCluster()
 		if !isCapzTest {
 			ginkgo.Skip("test case is only available for capz test")
 		}

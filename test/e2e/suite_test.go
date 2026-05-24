@@ -98,9 +98,9 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		_, err = azureClient.EnsureResourceGroup(ctx, creds.ResourceGroup, creds.Location, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		// Assign Storage File Data SMB MI Admin role to node identities
-		// This is required for mountWithManagedIdentity e2e tests (CAPZ only)
-		if isCapzTest {
+		// Assign Storage File Data SMB MI Admin role to node identities and
+		// set up workload identity for mountWithManagedIdentity/mountWithWorkloadIdentityToken e2e tests (CAPZ Linux only)
+		if isCapzTest && !isWindowsCluster && !isUsingInTreeVolumePlugin && !isTestingMigration {
 			err := azureClient.EnsureNodeStorageFileDataRole(ctx, creds.ResourceGroup)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to assign Storage File Data SMB MI Admin role to node identity")
 			miRoleSetupSucceeded = true
