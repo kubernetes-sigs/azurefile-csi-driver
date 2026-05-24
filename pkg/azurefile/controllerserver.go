@@ -308,6 +308,13 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 	}
 
+	var requiresSmbOAuth *bool
+	if ptr.Deref(mountWithManagedIdentity, false) {
+		storeAccountKey = false
+		klog.V(2).Info("enabling smb oauth for identity-based mount")
+		requiresSmbOAuth = to.Ptr(true)
+	}
+
 	if matchTags && account != "" {
 		return nil, status.Errorf(codes.InvalidArgument, "matchTags must set as false when storageAccount(%s) is provided", account)
 	}
@@ -560,7 +567,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		StorageType:                             storage.StorageTypeFile,
 		StorageEndpointSuffix:                   storageEndpointSuffix,
 		IsMultichannelEnabled:                   isMultichannelEnabled,
-		IsSmbOAuthEnabled:                       mountWithManagedIdentity,
+		IsSmbOAuthEnabled:                       requiresSmbOAuth,
 		PickRandomMatchingAccount:               selectRandomMatchingAccount,
 		GetLatestAccountKey:                     getLatestAccountKey,
 		SourceAccountName:                       srcAccountName,
@@ -577,9 +584,13 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		if v, ok := d.volMap.Load(volName); ok {
 			accountName = v.(string)
 		} else {
-			lockKey = fmt.Sprintf("%s%s%s%s%s%s%s%v%v%v%v%v", sku, accountKind, resourceGroup, location, protocol, subsID, accountAccessTier,
+			lockKey = fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%v|%v|%v|%v|%v|%v|%v|%v|%v|%s|%s|%s|%s|%v|%s",
+				sku, accountKind, resourceGroup, location, protocol, subsID, accountAccessTier,
 				ptr.Deref(createPrivateEndpoint, false), ptr.Deref(allowBlobPublicAccess, false), ptr.Deref(requireInfraEncryption, false),
-				ptr.Deref(enableLFS, false), ptr.Deref(disableDeleteRetentionPolicy, false))
+				ptr.Deref(enableLFS, false), ptr.Deref(disableDeleteRetentionPolicy, false),
+				ptr.Deref(allowSharedKeyAccess, true), ptr.Deref(requiresSmbOAuth, false), ptr.Deref(isMultichannelEnabled, false),
+				enableHTTPSTrafficOnly, publicNetworkAccess, vnetResourceGroup, vnetName, subnetName,
+				matchTags, storageEndpointSuffix)
 			// search in cache first
 			cache, err := d.accountSearchCache.Get(ctx, lockKey, azcache.CacheReadTypeDefault)
 			if err != nil {
