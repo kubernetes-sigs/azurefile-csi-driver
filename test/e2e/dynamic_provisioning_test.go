@@ -32,6 +32,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -1246,6 +1247,21 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		secretName := fmt.Sprintf("azure-storage-account-%s-secret", accountName)
 		log.Printf("volumeID: %s, accountName: %s, secretName: %s\n", volumeID, accountName, secretName)
 
+		// Copy the storage account secret from default namespace to the test namespace
+		// so that the CSI inline volume's NodePublishVolume can find it.
+		secret, err := cs.CoreV1().Secrets("default").Get(ctx, secretName, metav1.GetOptions{})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		secretCopy := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secretName,
+				Namespace: ns.Name,
+			},
+			Data: secret.Data,
+			Type: secret.Type,
+		}
+		_, err = cs.CoreV1().Secrets(ns.Name).Create(ctx, secretCopy, metav1.CreateOptions{})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
 		pods := []testsuites.PodDetails{
 			{
 				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
@@ -1301,6 +1317,21 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		}
 		secretName := fmt.Sprintf("azure-storage-account-%s-secret", accountName)
 		log.Printf("volumeID: %s, accountName: %s, secretName: %s\n", volumeID, accountName, secretName)
+
+		// Copy the storage account secret from default namespace to the test namespace
+		// so that the in-tree azureFile volume plugin can find it.
+		secret, err := cs.CoreV1().Secrets("default").Get(ctx, secretName, metav1.GetOptions{})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		secretCopy := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secretName,
+				Namespace: ns.Name,
+			},
+			Data: secret.Data,
+			Type: secret.Type,
+		}
+		_, err = cs.CoreV1().Secrets(ns.Name).Create(ctx, secretCopy, metav1.CreateOptions{})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		pods := []testsuites.PodDetails{
 			{
