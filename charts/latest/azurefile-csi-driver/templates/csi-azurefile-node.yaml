@@ -208,7 +208,7 @@ spec:
             - "--enable-volume-mount-group={{ .Values.feature.enableVolumeMountGroup }}"
             - "--enable-get-volume-stats={{ .Values.feature.enableGetVolumeStats }}"
             - "--mount-permissions={{ .Values.linux.mountPermissions }}"
-            - "--allow-inline-volume-key-access-with-identity={{ .Values.node.allowInlineVolumeKeyAccessWithIdentity }}"
+            - "--allow-inline-volume-key-access-with-identity={{ .Values.node.allowInlineVolumeKeyAccessWithIdentity }}" # It will be removed in future release.
             - "--metrics-address=0.0.0.0:{{ .Values.node.metricsPort }}"
             - "--enable-kata-cc-mount={{ .Values.node.enableKataCCMount }}"
           livenessProbe:

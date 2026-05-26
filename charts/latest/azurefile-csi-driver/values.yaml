@@ -126,7 +126,7 @@ node:
   cloudConfigSecretName: azure-cloud-provider
   cloudConfigSecretNamespace: kube-system
   allowEmptyCloudConfig: true
-  allowInlineVolumeKeyAccessWithIdentity: false
+  allowInlineVolumeKeyAccessWithIdentity: false # It will be removed in future release.
   enableKataCCMount: false
   enableManagedIdentityAuth: true
   metricsPort: 29615

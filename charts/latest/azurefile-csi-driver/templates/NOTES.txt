@@ -3,3 +3,8 @@ The Azure File CSI Driver is getting deployed to your cluster.
 To check Azure File CSI Driver pods status, please run:
 
   kubectl --namespace={{ .Release.Namespace }} get pods --selector="app.kubernetes.io/instance={{ .Release.Name }}" --watch
+{{- if .Values.node.allowInlineVolumeKeyAccessWithIdentity }}
+
+{{ "\033[33m" }}WARNING: 'allowInlineVolumeKeyAccessWithIdentity' will be deprecated in a future release.
+         Inline volumes will no longer support identity-based key access.{{ "\033[0m" }}
+{{- end }}
