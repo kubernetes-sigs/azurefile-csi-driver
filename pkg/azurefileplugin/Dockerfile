@@ -14,7 +14,7 @@
 
 ARG ARCH=amd64
 ARG BUILDPLATFORM=linux/amd64
-ARG BASE_IMAGE=registry.k8s.io/build-image/debian-base:bookworm-v1.0.7
+ARG BASE_IMAGE=registry.k8s.io/build-image/debian-base:bookworm-v1.0.8
 
 FROM ${BASE_IMAGE} AS base
 
