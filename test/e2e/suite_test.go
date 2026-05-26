@@ -321,14 +321,23 @@ var _ = ginkgo.AfterSuite(func(ctx ginkgo.SpecContext) {
 	}
 })
 
-func TestE2E(t *testing.T) {
-	gomega.RegisterFailHandler(ginkgo.Fail)
+func junitReportPath() string {
 	reportDir := os.Getenv(reportDirEnv)
 	if reportDir == "" {
 		reportDir = defaultReportDir
 	}
-	r := []ginkgo.Reporter{reporters.NewJUnitReporter(path.Join(reportDir, "junit_01.xml"))}
-	ginkgo.RunSpecsWithDefaultAndCustomReporters(t, "AzureFile CSI Driver End-to-End Tests", r)
+	return path.Join(reportDir, "junit_01.xml")
+}
+
+var _ = ginkgo.ReportAfterSuite("JUnit report", func(report ginkgo.Report) {
+	reportPath := junitReportPath()
+	gomega.Expect(os.MkdirAll(path.Dir(reportPath), 0755)).To(gomega.Succeed())
+	gomega.Expect(reporters.GenerateJUnitReport(report, reportPath)).To(gomega.Succeed())
+})
+
+func TestE2E(t *testing.T) {
+	gomega.RegisterFailHandler(ginkgo.Fail)
+	ginkgo.RunSpecs(t, "AzureFile CSI Driver End-to-End Tests")
 }
 
 func execTestCmd(cmds []testCmd) {
