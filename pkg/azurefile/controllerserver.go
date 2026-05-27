@@ -245,6 +245,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			volumeMetadataReplaceMap[pvNameMetadata] = v
 		case serverNameField:
 		case folderNameField:
+			v = strings.Trim(v, "/") // normalize "/" or "///" to empty (root)
 			if v != "" {
 				if err := isValidFolderName(v); err != nil {
 					return nil, status.Errorf(codes.InvalidArgument, "invalid folderName in storage class: %v", err)
