@@ -330,7 +330,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		case diskNameField:
 			diskName = v
 		case folderNameField:
-			folderName = v
+			folderName = strings.Trim(v, "/") // normalize "/" or "///" to empty (root)
 			if folderName != "" {
 				if err := isValidFolderName(folderName); err != nil {
 					return nil, status.Errorf(codes.InvalidArgument, "invalid folderName: %v", err)
