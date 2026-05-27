@@ -830,7 +830,8 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 	var protocol, accountKey, secretName, pvcNamespace string
 	// getAccountKeyFromSecret indicates whether get account key only from k8s secret
 	var getAccountKeyFromSecret, getLatestAccountKey, mountWithManagedIdentity, mountWithOAuthToken, mountWithWIToken bool
-	var clientID, tenantID, tokenFilePath, serviceAccountToken string
+	var clientID, tenantID, tokenFilePath string
+	serviceAccountToken := getServiceAccountTokens(secrets, reqContext)
 
 	for k, v := range reqContext {
 		switch strings.ToLower(k) {
@@ -876,8 +877,6 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 			}
 		case tenantIDField:
 			tenantID = v
-		case strings.ToLower(serviceAccountTokenField):
-			serviceAccountToken = v
 		}
 	}
 
@@ -965,8 +964,8 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 		return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, "", err
 	}
 
-	if len(secrets) == 0 {
-		// if request context does not contain secrets, get secrets in the following order:
+	if !hasStorageAccountCredentials(secrets) {
+		// if request context does not contain storage account credentials, get secrets in the following order:
 		// 1. get account key from cache first
 		cache, errCache := d.accountCacheMap.Get(ctx, accountName, azcache.CacheReadTypeDefault)
 		if errCache != nil {

@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/stretchr/testify/assert"
 	nodev1 "k8s.io/api/node/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -693,6 +694,128 @@ func TestGetValueInMap(t *testing.T) {
 		if result != test.expected {
 			t.Errorf("test[%s]: unexpected output: %v, expected result: %v", test.desc, result, test.expected)
 		}
+	}
+}
+
+func TestGetServiceAccountTokens(t *testing.T) {
+	tests := []struct {
+		name          string
+		secrets       map[string]string
+		volumeContext map[string]string
+		expected      string
+	}{
+		{
+			name: "token from secrets field (new behavior)",
+			secrets: map[string]string{
+				serviceAccountTokenField: "token-from-secrets",
+			},
+			volumeContext: map[string]string{
+				serviceAccountTokenField: "token-from-context",
+			},
+			expected: "token-from-secrets",
+		},
+		{
+			name:    "token from volume context (backward compatible)",
+			secrets: map[string]string{},
+			volumeContext: map[string]string{
+				serviceAccountTokenField: "token-from-context",
+			},
+			expected: "token-from-context",
+		},
+		{
+			name:          "no token available",
+			secrets:       map[string]string{},
+			volumeContext: map[string]string{},
+			expected:      "",
+		},
+		{
+			name:    "nil secrets falls back to volume context",
+			secrets: nil,
+			volumeContext: map[string]string{
+				serviceAccountTokenField: "token-from-context",
+			},
+			expected: "token-from-context",
+		},
+		{
+			name: "nil volume context with secrets",
+			secrets: map[string]string{
+				serviceAccountTokenField: "token-from-secrets",
+			},
+			volumeContext: nil,
+			expected:      "token-from-secrets",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := getServiceAccountTokens(test.secrets, test.volumeContext)
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestHasStorageAccountCredentials(t *testing.T) {
+	tests := []struct {
+		name     string
+		secrets  map[string]string
+		expected bool
+	}{
+		{
+			name:     "nil secrets",
+			secrets:  nil,
+			expected: false,
+		},
+		{
+			name:     "empty secrets",
+			secrets:  map[string]string{},
+			expected: false,
+		},
+		{
+			name: "only SA token in secrets",
+			secrets: map[string]string{
+				serviceAccountTokenField: "some-token",
+			},
+			expected: false,
+		},
+		{
+			name: "storage account credentials in secrets",
+			secrets: map[string]string{
+				"accountname": "myaccount",
+				"accountkey":  "mykey",
+			},
+			expected: true,
+		},
+		{
+			name: "SA token plus storage credentials",
+			secrets: map[string]string{
+				serviceAccountTokenField: "some-token",
+				"accountname":            "myaccount",
+				"accountkey":             "mykey",
+			},
+			expected: true,
+		},
+		{
+			name: "unknown non-credential keys only",
+			secrets: map[string]string{
+				"some-future-kubelet-key": "value",
+			},
+			expected: false,
+		},
+		{
+			name: "azurestorageaccountname/azurestorageaccountkey (built-in plugin compatible)",
+			secrets: map[string]string{
+				"azurestorageaccountname": "myaccount",
+				"azurestorageaccountkey":  "mykey",
+			},
+			expected: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := hasStorageAccountCredentials(test.secrets)
+			assert.Equal(t, test.expected, result)
+		})
 	}
 }
 

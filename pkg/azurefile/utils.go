@@ -316,6 +316,35 @@ func getSecretNamespace(volumeContext map[string]string) string {
 	return defaultNamespace
 }
 
+// getServiceAccountTokens retrieves service account tokens from the CSI request.
+// It first checks the secrets map (new behavior when driver opts in to
+// serviceAccountTokenInSecrets in Kubernetes 1.35+), then falls back to checking
+// volumeContext for backward compatibility.
+func getServiceAccountTokens(secrets, volumeContext map[string]string) string {
+	// Check secrets field first (new behavior when driver opts in)
+	if tokens := getValueInMap(secrets, serviceAccountTokenField); tokens != "" {
+		return tokens
+	}
+	// Fallback to volume context for backward compatibility
+	return getValueInMap(volumeContext, serviceAccountTokenField)
+}
+
+// hasStorageAccountCredentials checks whether the secrets map contains storage account
+// credential keys (accountname/azurestorageaccountname or accountkey/azurestorageaccountkey)
+// rather than only containing service account tokens injected by kubelet.
+func hasStorageAccountCredentials(secrets map[string]string) bool {
+	if len(secrets) == 0 {
+		return false
+	}
+	for k := range secrets {
+		switch strings.ToLower(k) {
+		case "accountname", defaultSecretAccountName, "accountkey", defaultSecretAccountKey:
+			return true
+		}
+	}
+	return false
+}
+
 // replaceWithMap replace key with value for str
 func replaceWithMap(str string, m map[string]string) string {
 	for k, v := range m {
