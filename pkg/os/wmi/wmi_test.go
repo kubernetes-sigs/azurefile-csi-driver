@@ -23,6 +23,31 @@ import (
 	"testing"
 )
 
+func TestComSecurityEnabled(t *testing.T) {
+	tests := []struct {
+		env      string
+		expected bool
+	}{
+		{"", true},
+		{"true", true},
+		{"1", true},
+		{"false", false},
+		{"0", false},
+		{"no", false},
+		{"off", false},
+		{"FALSE", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.env, func(t *testing.T) {
+			t.Setenv(envWMIComSecurity, tc.env)
+			if got := comSecurityEnabled(); got != tc.expected {
+				t.Errorf("comSecurityEnabled() = %v, want %v", got, tc.expected)
+			}
+		})
+	}
+}
+
 func TestFormatValue(t *testing.T) {
 	tests := []struct {
 		name     string
