@@ -173,7 +173,10 @@ const (
 	runtimeClassHandlerField          = "runtimeclasshandler"
 	defaultRuntimeClassHandler        = "kata-cc"
 	mountWithManagedIdentityField     = "mountwithmanagedidentity"
+	mountWithOAuthTokenField          = "mountwithoauthtoken"
 	mountWithWITokenField             = "mountwithworkloadidentitytoken"
+
+	defaultSecretOAuthToken = "oauthtoken"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
 	// this is a workaround fix for 429 throttling issue, will update cloud provider for better fix later
@@ -292,6 +295,8 @@ type Driver struct {
 	secretCacheMap azcache.Resource
 	// a map storing all volumes using data plane API <volumeID, value>
 	dataPlaneAPIVolMap sync.Map
+	// a map storing OAuth token SHA per server to avoid unnecessary credential cache refresh
+	oauthTokenSHAMap sync.Map
 	// a timed cache storing all storage accounts that are using data plane API temporarily
 	dataPlaneAPIAccountCache azcache.Resource
 	// a timed cache storing account search history (solve account list throttling issue)
@@ -460,6 +465,7 @@ func (d *Driver) Run(ctx context.Context) error {
 			csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
 			csi.ControllerServiceCapability_RPC_SINGLE_NODE_MULTI_WRITER,
 			csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
+			csi.ControllerServiceCapability_RPC_MODIFY_VOLUME,
 		})
 	d.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{
 		csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
@@ -823,8 +829,9 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 
 	var protocol, accountKey, secretName, pvcNamespace string
 	// getAccountKeyFromSecret indicates whether get account key only from k8s secret
-	var getAccountKeyFromSecret, getLatestAccountKey, mountWithManagedIdentity, mountWithWIToken bool
-	var clientID, tenantID, tokenFilePath, serviceAccountToken string
+	var getAccountKeyFromSecret, getLatestAccountKey, mountWithManagedIdentity, mountWithOAuthToken, mountWithWIToken bool
+	var clientID, tenantID, tokenFilePath string
+	serviceAccountToken := getServiceAccountTokens(secrets, reqContext)
 
 	for k, v := range reqContext {
 		switch strings.ToLower(k) {
@@ -860,14 +867,16 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 			if mountWithManagedIdentity, err = strconv.ParseBool(v); err != nil {
 				return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("invalid %s: %s in volume context", mountWithManagedIdentityField, v)
 			}
+		case mountWithOAuthTokenField:
+			if mountWithOAuthToken, err = strconv.ParseBool(v); err != nil {
+				return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("invalid %s: %s in volume context", mountWithOAuthTokenField, v)
+			}
 		case mountWithWITokenField:
 			if mountWithWIToken, err = strconv.ParseBool(v); err != nil {
 				return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("invalid %s: %s in volume context", mountWithWITokenField, v)
 			}
 		case tenantIDField:
 			tenantID = v
-		case strings.ToLower(serviceAccountTokenField):
-			serviceAccountToken = v
 		}
 	}
 
@@ -901,6 +910,21 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 
 	if mountWithManagedIdentity {
 		klog.V(2).Infof("mountWithManagedIdentity is true, use managed identity auth")
+		return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, nil
+	}
+
+	if mountWithOAuthToken {
+		klog.V(2).Infof("mountWithOAuthToken is true, use OAuth token from secret for mount")
+		// Read accountName from secret if not already set
+		if accountName == "" && secretName != "" {
+			name, _, _, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
+			if err != nil {
+				return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("failed to get account name from secret for mountWithOAuthToken: %v", err)
+			}
+			if name != "" {
+				accountName = name
+			}
+		}
 		return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, nil
 	}
 
@@ -940,8 +964,8 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 		return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, "", err
 	}
 
-	if len(secrets) == 0 {
-		// if request context does not contain secrets, get secrets in the following order:
+	if !hasStorageAccountCredentials(secrets) {
+		// if request context does not contain storage account credentials, get secrets in the following order:
 		// 1. get account key from cache first
 		cache, errCache := d.accountCacheMap.Get(ctx, accountName, azcache.CacheReadTypeDefault)
 		if errCache != nil {
@@ -956,7 +980,7 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 			if secretName != "" {
 				var name string
 				// 2. if not found in cache, get account key from kubernetes secret
-				name, accountKey, err = d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
+				name, accountKey, _, err = d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
 				if name != "" {
 					accountName = name
 				}
@@ -1211,6 +1235,46 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 	})
 }
 
+// ModifyFileShare modifies the provisioned IOPS and bandwidth of a file share
+func (d *Driver) ModifyFileShare(ctx context.Context, subsID, resourceGroup, accountName, shareName string, provisionedIops *int32, provisionedBandwidthMibps *int32, secrets map[string]string, useDataPlaneAPI string) error {
+	return wait.ExponentialBackoff(getBackOff(d.cloud.Config), func() (bool, error) {
+		var err error
+		if len(secrets) > 0 {
+			accountName, accountKey, rerr := getStorageAccount(secrets)
+			if rerr != nil {
+				return true, rerr
+			}
+			fileClient, rerr := newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix())
+			if rerr != nil {
+				return true, rerr
+			}
+			err = fileClient.ModifyFileShare(ctx, shareName, provisionedIops, provisionedBandwidthMibps)
+		} else if d.cloud != nil && d.cloud.AuthProvider != nil && strings.EqualFold(useDataPlaneAPI, oauth) {
+			fileClient, rerr := newAzureFileClientWithOAuth(d.cloud.AuthProvider.GetAzIdentity(), accountName, d.getStorageEndPointSuffix())
+			if rerr != nil {
+				return true, rerr
+			}
+			err = fileClient.ModifyFileShare(ctx, shareName, provisionedIops, provisionedBandwidthMibps)
+		} else {
+			mgmtClient, rerr := newAzureFileMgmtClient(d.cloud, &storage.AccountOptions{
+				SubscriptionID: subsID,
+				ResourceGroup:  resourceGroup,
+				Name:           accountName,
+			})
+			if rerr != nil {
+				return true, rerr
+			}
+			err = mgmtClient.ModifyFileShare(ctx, shareName, provisionedIops, provisionedBandwidthMibps)
+		}
+		if isRetriableError(err) {
+			klog.Warningf("ModifyFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", shareName, accountName, err)
+			sleepIfThrottled(err, fileOpThrottlingSleepSec)
+			return false, nil
+		}
+		return true, err
+	})
+}
+
 // copyFileShare copies a fileshare, if dstAccountName is empty, then copy in the same account
 func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest, dstAccountName string, dstAccountSasToken string, authAzcopyEnv []string, secretNamespace string, shareOptions *ShareOptions, accountOptions *storage.AccountOptions, storageEndpointSuffix string) error {
 	var sourceVolumeID string
@@ -1313,7 +1377,7 @@ func (d *Driver) GetStorageAccesskey(ctx context.Context, accountOptions *storag
 	if secretName == "" {
 		secretName = fmt.Sprintf(secretNameTemplate, accountName)
 	}
-	_, accountKey, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
+	_, accountKey, _, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
 	if err != nil {
 		klog.V(2).Infof("could not get account(%s) key from secret(%s), error: %v, use cluster identity to get account key instead", accountOptions.Name, secretName, err)
 		accountKey, err = d.GetStorageAccesskeyWithSubsID(ctx, accountOptions.SubscriptionID, accountOptions.Name, accountOptions.ResourceGroup, accountOptions.GetLatestAccountKey)
@@ -1337,21 +1401,22 @@ func (d *Driver) GetStorageAccesskeyWithSubsID(ctx context.Context, subsID, acco
 	return d.cloud.GetStorageAccesskey(ctx, accountClient, account, resourceGroup, getLatestAccountKey)
 }
 
-// GetStorageAccountFromSecret get storage account key from k8s secret
-// return <accountName, accountKey, error>
-func (d *Driver) GetStorageAccountFromSecret(ctx context.Context, secretName, secretNamespace string) (string, string, error) {
+// GetStorageAccountFromSecret get storage account key and OAuth token from k8s secret
+// return <accountName, accountKey, oauthToken, error>
+func (d *Driver) GetStorageAccountFromSecret(ctx context.Context, secretName, secretNamespace string) (string, string, string, error) {
 	if d.kubeClient == nil {
-		return "", "", fmt.Errorf("could not get account key from secret(%s): KubeClient is nil", secretName)
+		return "", "", "", fmt.Errorf("could not get credentials from secret(%s): KubeClient is nil", secretName)
 	}
 
 	secret, err := d.kubeClient.CoreV1().Secrets(secretNamespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil {
-		return "", "", fmt.Errorf("could not get secret(%v): %v", secretName, err)
+		return "", "", "", fmt.Errorf("could not get secret(%v): %v", secretName, err)
 	}
 
-	accountName := strings.TrimSpace(string(secret.Data[defaultSecretAccountName][:]))
-	accountKey := strings.TrimSpace(string(secret.Data[defaultSecretAccountKey][:]))
-	return accountName, accountKey, nil
+	accountName := strings.TrimSpace(string(secret.Data[defaultSecretAccountName]))
+	accountKey := strings.TrimSpace(string(secret.Data[defaultSecretAccountKey]))
+	oauthToken := strings.TrimSpace(string(secret.Data[defaultSecretOAuthToken]))
+	return accountName, accountKey, oauthToken, nil
 }
 
 // getSubnetResourceID get default subnet resource ID from cloud provider config

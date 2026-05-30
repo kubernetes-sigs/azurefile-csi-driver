@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/stretchr/testify/assert"
 	nodev1 "k8s.io/api/node/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -693,6 +694,128 @@ func TestGetValueInMap(t *testing.T) {
 		if result != test.expected {
 			t.Errorf("test[%s]: unexpected output: %v, expected result: %v", test.desc, result, test.expected)
 		}
+	}
+}
+
+func TestGetServiceAccountTokens(t *testing.T) {
+	tests := []struct {
+		name          string
+		secrets       map[string]string
+		volumeContext map[string]string
+		expected      string
+	}{
+		{
+			name: "token from secrets field (new behavior)",
+			secrets: map[string]string{
+				serviceAccountTokenField: "token-from-secrets",
+			},
+			volumeContext: map[string]string{
+				serviceAccountTokenField: "token-from-context",
+			},
+			expected: "token-from-secrets",
+		},
+		{
+			name:    "token from volume context (backward compatible)",
+			secrets: map[string]string{},
+			volumeContext: map[string]string{
+				serviceAccountTokenField: "token-from-context",
+			},
+			expected: "token-from-context",
+		},
+		{
+			name:          "no token available",
+			secrets:       map[string]string{},
+			volumeContext: map[string]string{},
+			expected:      "",
+		},
+		{
+			name:    "nil secrets falls back to volume context",
+			secrets: nil,
+			volumeContext: map[string]string{
+				serviceAccountTokenField: "token-from-context",
+			},
+			expected: "token-from-context",
+		},
+		{
+			name: "nil volume context with secrets",
+			secrets: map[string]string{
+				serviceAccountTokenField: "token-from-secrets",
+			},
+			volumeContext: nil,
+			expected:      "token-from-secrets",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := getServiceAccountTokens(test.secrets, test.volumeContext)
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestHasStorageAccountCredentials(t *testing.T) {
+	tests := []struct {
+		name     string
+		secrets  map[string]string
+		expected bool
+	}{
+		{
+			name:     "nil secrets",
+			secrets:  nil,
+			expected: false,
+		},
+		{
+			name:     "empty secrets",
+			secrets:  map[string]string{},
+			expected: false,
+		},
+		{
+			name: "only SA token in secrets",
+			secrets: map[string]string{
+				serviceAccountTokenField: "some-token",
+			},
+			expected: false,
+		},
+		{
+			name: "storage account credentials in secrets",
+			secrets: map[string]string{
+				"accountname": "myaccount",
+				"accountkey":  "mykey",
+			},
+			expected: true,
+		},
+		{
+			name: "SA token plus storage credentials",
+			secrets: map[string]string{
+				serviceAccountTokenField: "some-token",
+				"accountname":            "myaccount",
+				"accountkey":             "mykey",
+			},
+			expected: true,
+		},
+		{
+			name: "unknown non-credential keys only",
+			secrets: map[string]string{
+				"some-future-kubelet-key": "value",
+			},
+			expected: false,
+		},
+		{
+			name: "azurestorageaccountname/azurestorageaccountkey (built-in plugin compatible)",
+			secrets: map[string]string{
+				"azurestorageaccountname": "myaccount",
+				"azurestorageaccountkey":  "mykey",
+			},
+			expected: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := hasStorageAccountCredentials(test.secrets)
+			assert.Equal(t, test.expected, result)
+		})
 	}
 }
 
@@ -1443,7 +1566,7 @@ func TestSetCredentialCache(t *testing.T) {
 			clientID:      "",
 			tenantID:      "test-tenant-id",
 			tokenFile:     "test-token-file",
-			expectedError: "clientID must be provided",
+			expectedError: "clientID must be provided when tokenFile is set",
 		},
 		{
 			desc:          "empty tenantID with tokenFile",
@@ -1480,7 +1603,7 @@ func TestSetCredentialCache(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		_, err := setCredentialCache(test.server, test.clientID, test.tenantID, test.tokenFile)
+		_, err := setCredentialCache(test.server, test.clientID, test.tenantID, test.tokenFile, "")
 		if test.expectedError != "" {
 			if err == nil {
 				t.Errorf("test[%s]: expected error containing %q, got nil", test.desc, test.expectedError)
@@ -1490,6 +1613,53 @@ func TestSetCredentialCache(t *testing.T) {
 		}
 		// Note: We don't test successful execution as it requires azfilesauthmanager binary
 		// The actual command execution will fail, but we've validated the argument construction
+	}
+
+	// Test direct token mode
+	tokenTests := []struct {
+		desc          string
+		server        string
+		token         string
+		tokenFile     string
+		expectedError string
+	}{
+		{
+			desc:          "token mode: empty server",
+			server:        "",
+			token:         "test-oauth-token",
+			expectedError: "server must be provided",
+		},
+		{
+			desc:          "token mode: valid token bypasses clientID check",
+			server:        "test.file.core.windows.net",
+			token:         "test-oauth-token",
+			expectedError: "", // Will fail due to missing azfilesauthmanager, but must NOT fail with clientID/tenantID error
+		},
+		{
+			desc:          "both token and tokenFile should fail",
+			server:        "test.file.core.windows.net",
+			token:         "test-oauth-token",
+			tokenFile:     "/tmp/token",
+			expectedError: "token and tokenFile are mutually exclusive",
+		},
+	}
+
+	for _, test := range tokenTests {
+		_, err := setCredentialCache(test.server, "", "", test.tokenFile, test.token)
+		if test.expectedError != "" {
+			if err == nil {
+				t.Errorf("test[%s]: expected error containing %q, got nil", test.desc, test.expectedError)
+			} else if !strings.Contains(err.Error(), test.expectedError) {
+				t.Errorf("test[%s]: expected error containing %q, got %v", test.desc, test.expectedError, err)
+			}
+		} else if err != nil {
+			// Token mode should not return clientID/tenantID validation errors
+			errMsg := err.Error()
+			if strings.Contains(errMsg, "clientID must be provided when tokenFile is set") || strings.Contains(errMsg, "tenantID must be provided") {
+				t.Errorf("test[%s]: token mode should bypass clientID/tenantID validation, got: %v", test.desc, err)
+			}
+			// Other errors (e.g., azfilesauthmanager not found) are expected in test environment
+		}
 	}
 }
 

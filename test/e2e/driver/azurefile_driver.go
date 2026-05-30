@@ -76,6 +76,19 @@ func (d *AzureFileDriver) GetVolumeSnapshotClass(namespace string) *snapshotv1.V
 	return getVolumeSnapshotClass(generateName, provisioner)
 }
 
+func (d *AzureFileDriver) GetVolumeAttributesClass(namespace string) *storagev1.VolumeAttributesClass {
+	return &storagev1.VolumeAttributesClass{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: fmt.Sprintf("%s-%s-vac-", namespace, normalizeProvisioner(d.driverName)),
+		},
+		DriverName: d.driverName,
+		Parameters: map[string]string{
+			"provisionedIOPS":      "5000",
+			"provisionedBandwidth": "200",
+		},
+	}
+}
+
 func (d *AzureFileDriver) GetPersistentVolume(volumeID string, fsType string, size string, reclaimPolicy *v1.PersistentVolumeReclaimPolicy, namespace string, attrib map[string]string, nodeStageSecretRef string) *v1.PersistentVolume {
 	provisioner := d.driverName
 	generateName := fmt.Sprintf("%s-%s-preprovsioned-pv-", namespace, normalizeProvisioner(provisioner))

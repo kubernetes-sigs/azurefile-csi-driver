@@ -40,7 +40,7 @@ azcopyPath="/usr/local/bin/azcopy"
 if [ ! -f "$azcopyPath" ]; then
   azcopyTarFile="azcopy.tar.gz"
   echo 'Downloading azcopy...'
-  wget -O $azcopyTarFile https://github.com/Azure/azure-storage-azcopy/releases/download/v10.32.3/azcopy_linux_amd64_10.32.3.tar.gz
+  wget -O $azcopyTarFile https://github.com/Azure/azure-storage-azcopy/releases/download/v10.32.4/azcopy_linux_amd64_10.32.4.tar.gz
   tar -zxvf $azcopyTarFile
   mv ./azcopy*/azcopy /usr/local/bin/azcopy
   rm -rf ./$azcopyTarFile
@@ -54,7 +54,7 @@ sleep 1
 
 echo 'Begin to run sanity test...'
 readonly CSI_SANITY_BIN='csi-sanity'
-"$CSI_SANITY_BIN" --ginkgo.v --ginkgo.noColor --csi.endpoint="$endpoint" --ginkgo.skip='should fail when requesting to create a snapshot with already existing name and different source volume ID'
+"$CSI_SANITY_BIN" --ginkgo.v --ginkgo.noColor --csi.endpoint="$endpoint" --csi.testvolumesize=34359738368 --csi.testvolumeparameters="test/sanity/create-volume-params.yaml" --csi.testvolumemutableparameters="test/sanity/modify-volume-params.yaml" --ginkgo.skip='should fail when requesting to create a snapshot with already existing name and different source volume ID'
 
 testvolumeparameters='/tmp/vhd.yaml'
 cat > $testvolumeparameters << EOF

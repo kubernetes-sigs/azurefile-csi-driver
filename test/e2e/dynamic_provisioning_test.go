@@ -27,9 +27,12 @@ import (
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/testsuites"
 
+	azurefile "sigs.k8s.io/azurefile-csi-driver/pkg/azurefile"
+
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -435,6 +438,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
 							MountPathGenerate: "/mnt/test-",
+							ReadOnly:          true,
 						},
 						AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadOnlyMany},
 					},
@@ -467,6 +471,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 						VolumeMount: testsuites.VolumeMountDetails{
 							NameGenerate:      "test-volume-",
 							MountPathGenerate: "/mnt/test-",
+							ReadOnly:          true,
 						},
 						AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadOnlyMany},
 					},
@@ -568,6 +573,62 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			StorageClassParameters: map[string]string{
 				"skuName": "PremiumV2_LRS",
 			},
+		}
+		test.Run(ctx, cs, ns)
+	})
+
+	ginkgo.It("should create a PremiumV2 volume and modify its IOPS and bandwidth via VolumeAttributesClass [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+		reclaimPolicy := v1.PersistentVolumeReclaimDelete
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data && while true; do sleep 3600; done",
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize:     "100Gi",
+						ReclaimPolicy: &reclaimPolicy,
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+					},
+				},
+			},
+		}
+		test := testsuites.DynamicallyProvisionedModifyVolumeTest{
+			CSIDriver: testDriver,
+			Pods:      pods,
+			StorageClassParameters: map[string]string{
+				"skuName": "PremiumV2_LRS",
+			},
+			VolumeAttributesClass: testDriver.GetVolumeAttributesClass(ns.Name),
+		}
+		test.Run(ctx, cs, ns)
+	})
+
+	ginkgo.It("should create a StandardV2 volume and modify its IOPS and bandwidth via VolumeAttributesClass [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+		reclaimPolicy := v1.PersistentVolumeReclaimDelete
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data && while true; do sleep 3600; done",
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize:     "100Gi",
+						ReclaimPolicy: &reclaimPolicy,
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+					},
+				},
+			},
+		}
+		test := testsuites.DynamicallyProvisionedModifyVolumeTest{
+			CSIDriver: testDriver,
+			Pods:      pods,
+			StorageClassParameters: map[string]string{
+				"skuName": "StandardV2_LRS",
+			},
+			VolumeAttributesClass: testDriver.GetVolumeAttributesClass(ns.Name),
 		}
 		test.Run(ctx, cs, ns)
 	})
@@ -942,24 +1003,22 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 
 	ginkgo.It("should create a volume on demand with mount options (Bring Your Own Key) [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
 		skipIfUsingInTreeVolumePlugin()
-		// get storage account secret name
-		err := os.Chdir("../..")
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		defer func() {
-			err := os.Chdir("test/e2e")
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		}()
 
-		getSecretNameScript := "test/utils/get_storage_account_secret_name.sh"
-		log.Printf("run script: %s\n", getSecretNameScript)
+		// Create a volume to get a storage account with key-based auth
+		byokShareName := fmt.Sprintf("byok-test-share-%d", time.Now().UnixNano())
+		byokReq := makeCreateVolumeReq(byokShareName, "default")
+		byokResp, err := azurefileDriver.CreateVolume(ctx, byokReq)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
+		}
+		byokVolumeID := byokResp.Volume.VolumeId
+		_, byokAccountName, _, _, _, _, err := azurefile.GetFileShareInfo(byokVolumeID)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("failed to parse volumeID %s: %v", byokVolumeID, err))
+		}
+		secretName := fmt.Sprintf("azure-storage-account-%s-secret", byokAccountName)
+		log.Printf("BYO Key test: volumeID: %s, accountName: %s, secretName: %s\n", byokVolumeID, byokAccountName, secretName)
 
-		cmd := exec.Command("bash", getSecretNameScript)
-		output, err := cmd.CombinedOutput()
-		log.Printf("got output: %v, error: %v\n", string(output), err)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-		secretName := strings.TrimSuffix(string(output), "\n")
-		log.Printf("got storage account secret name: %v\n", secretName)
 		bringKeyStorageClassParameters["csi.storage.k8s.io/provisioner-secret-name"] = secretName
 		bringKeyStorageClassParameters["csi.storage.k8s.io/node-stage-secret-name"] = secretName
 
@@ -1202,39 +1261,37 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 	ginkgo.It("should create an CSI inline volume [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
 		skipIfUsingInTreeVolumePlugin()
 
-		// get storage account secret name
-		err := os.Chdir("../..")
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		defer func() {
-			err := os.Chdir("test/e2e")
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		}()
-
-		getSecretNameScript := "test/utils/get_storage_account_secret_name.sh"
-		log.Printf("run script: %s\n", getSecretNameScript)
-
-		cmd := exec.Command("bash", getSecretNameScript)
-		output, err := cmd.CombinedOutput()
-		log.Printf("got output: %v, error: %v\n", string(output), err)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-		secretName := strings.TrimSuffix(string(output), "\n")
-		log.Printf("got storage account secret name: %v\n", secretName)
-		segments := strings.Split(secretName, "-")
-		if len(segments) != 5 {
-			ginkgo.Fail(fmt.Sprintf("%s have %d elements, expected: %d ", secretName, len(segments), 5))
-		}
-		accountName := segments[3]
-
 		shareName := "csi-inline-smb-volume"
-		req := makeCreateVolumeReq(shareName, ns.Name)
-		req.Parameters["storageAccount"] = accountName
+		req := makeCreateVolumeReq(shareName, "default")
 		resp, err := azurefileDriver.CreateVolume(ctx, req)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
 		}
 		volumeID := resp.Volume.VolumeId
 		ginkgo.By(fmt.Sprintf("Successfully provisioned AzureFile volume: %q\n", volumeID))
+
+		_, accountName, _, _, _, _, err := azurefile.GetFileShareInfo(volumeID)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("failed to parse volumeID %s: %v", volumeID, err))
+		}
+		secretName := fmt.Sprintf("azure-storage-account-%s-secret", accountName)
+		log.Printf("volumeID: %s, accountName: %s, secretName: %s\n", volumeID, accountName, secretName)
+
+		// Copy the storage account secret from default namespace to the test namespace
+		// so that the CSI inline volume's NodePublishVolume can find it.
+		secret, err := cs.CoreV1().Secrets("default").Get(ctx, secretName, metav1.GetOptions{})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		secretCopy := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secretName,
+				Namespace: ns.Name,
+			},
+			Data: secret.Data,
+			Type: secret.Type,
+		}
+		_, err = cs.CoreV1().Secrets(ns.Name).Create(ctx, secretCopy, metav1.CreateOptions{})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		log.Printf("copied secret %s from default to %s namespace\n", secretName, ns.Name)
 
 		pods := []testsuites.PodDetails{
 			{
@@ -1275,39 +1332,38 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		if !isTestingMigration {
 			ginkgo.Skip("test case is only available for migration test")
 		}
-		// get storage account secret name
-		err := os.Chdir("../..")
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		defer func() {
-			err := os.Chdir("test/e2e")
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		}()
-
-		getSecretNameScript := "test/utils/get_storage_account_secret_name.sh"
-		log.Printf("run script: %s\n", getSecretNameScript)
-
-		cmd := exec.Command("bash", getSecretNameScript)
-		output, err := cmd.CombinedOutput()
-		log.Printf("got output: %v, error: %v\n", string(output), err)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-		secretName := strings.TrimSuffix(string(output), "\n")
-		log.Printf("got storage account secret name: %v\n", secretName)
-		segments := strings.Split(secretName, "-")
-		if len(segments) != 5 {
-			ginkgo.Fail(fmt.Sprintf("%s have %d elements, expected: %d ", secretName, len(segments), 5))
-		}
-		accountName := segments[3]
 
 		shareName := "intree-inline-smb-volume"
-		req := makeCreateVolumeReq("intree-inline-smb-volume", ns.Name)
-		req.Parameters["storageAccount"] = accountName
+		req := makeCreateVolumeReq(shareName, "default")
 		resp, err := azurefileDriver.CreateVolume(ctx, req)
 		if err != nil {
 			ginkgo.Fail(fmt.Sprintf("create volume error: %v", err))
 		}
 		volumeID := resp.Volume.VolumeId
 		ginkgo.By(fmt.Sprintf("Successfully provisioned AzureFile volume: %q\n", volumeID))
+
+		_, accountName, _, _, _, _, err := azurefile.GetFileShareInfo(volumeID)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("failed to parse volumeID %s: %v", volumeID, err))
+		}
+		secretName := fmt.Sprintf("azure-storage-account-%s-secret", accountName)
+		log.Printf("volumeID: %s, accountName: %s, secretName: %s\n", volumeID, accountName, secretName)
+
+		// Copy the storage account secret from default namespace to the test namespace
+		// so that the in-tree azureFile volume plugin can find it.
+		secret, err := cs.CoreV1().Secrets("default").Get(ctx, secretName, metav1.GetOptions{})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		secretCopy := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secretName,
+				Namespace: ns.Name,
+			},
+			Data: secret.Data,
+			Type: secret.Type,
+		}
+		_, err = cs.CoreV1().Secrets(ns.Name).Create(ctx, secretCopy, metav1.CreateOptions{})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		log.Printf("copied secret %s from default to %s namespace\n", secretName, ns.Name)
 
 		pods := []testsuites.PodDetails{
 			{
@@ -1813,6 +1869,130 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			},
 		}
 		test.Run(ctx, cs, ns)
+	})
+
+	ginkgo.It("should create a volume on demand with managed identity mount [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+		skipIfUsingInTreeVolumePlugin()
+		skipIfTestingInWindowsCluster()
+		skipIfTestingInMigrationCluster()
+		if !isCapzTest {
+			ginkgo.Skip("test case is only available for capz test")
+		}
+		gomega.Expect(miRoleSetupSucceeded).To(gomega.BeTrue(), "MI role assignment failed, cannot run managed identity mount test")
+
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data",
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize: "10Gi",
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+					},
+				},
+			},
+		}
+		scParameters := map[string]string{
+			"skuName":                  "Standard_LRS",
+			"mountWithManagedIdentity": "true",
+		}
+		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
+			CSIDriver:              testDriver,
+			Pods:                   pods,
+			StorageClassParameters: scParameters,
+		}
+		test.Run(ctx, cs, ns)
+	})
+
+	ginkgo.It("should create a volume on demand with mountWithOAuthToken [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+		skipIfUsingInTreeVolumePlugin()
+		skipIfTestingInWindowsCluster()
+		if !isCapzTest {
+			ginkgo.Skip("mountWithOAuthToken test requires CAPZ environment")
+		}
+		// Setup OAuth token inline to ensure fresh token at mount time
+		err := setupOAuthToken(ctx, suiteCreds, suiteAzureClient)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "OAuth token setup failed")
+
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data",
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize: "100Gi",
+						MountOptions: []string{
+							"sec=krb5",
+							"dir_mode=0777",
+							"file_mode=0777",
+						},
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+					},
+				},
+			},
+		}
+		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
+			CSIDriver: testDriver,
+			Pods:      pods,
+			StorageClassParameters: map[string]string{
+				"skuName":             "Premium_LRS",
+				"mountWithOAuthToken": "true",
+				"secretName":          oauthSecretName,
+				"secretNamespace":     oauthSecretNamespace,
+			},
+		}
+		test.Run(ctx, cs, ns)
+	})
+
+	ginkgo.It("should create a volume on demand with workload identity token mount [file.csi.azure.com]", ginkgo.Serial, func(ctx ginkgo.SpecContext) {
+		skipIfUsingInTreeVolumePlugin()
+		skipIfTestingInWindowsCluster()
+		skipIfTestingInMigrationCluster()
+		if !isCapzTest {
+			ginkgo.Skip("test case is only available for capz test")
+		}
+
+		// Wait for background AAD OIDC cache warm-up to complete.
+		ginkgo.By("Waiting for AAD OIDC cache warm-up to complete")
+		<-wiReady
+
+		gomega.Expect(wiSetupSucceeded).To(gomega.BeTrue(), "Workload identity setup failed, cannot run WI mount test")
+		gomega.Expect(wiClientID).NotTo(gomega.BeEmpty(), "WI client ID not set after background warm-up")
+		gomega.Expect(errWISetup).NotTo(gomega.HaveOccurred(),
+			"background AAD OIDC warm-up failed; WI mount will not work")
+
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data",
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize: "100Gi",
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+					},
+				},
+			},
+		}
+		scParameters := map[string]string{
+			"skuName":                        "Premium_LRS",
+			"mountWithWorkloadIdentityToken": "true",
+		}
+		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
+			CSIDriver:              testDriver,
+			Pods:                   pods,
+			StorageClassParameters: scParameters,
+			ServiceAccountName:     wiServiceAccountName,
+		}
+		// Use default namespace because the federated identity credential is bound to
+		// system:serviceaccount:default:<sa-name>, so the SA must be in default namespace
+		defaultNS := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
+		test.Run(ctx, cs, defaultNS)
 	})
 
 })
