@@ -297,6 +297,7 @@ func WithWMIService(namespace string, fn func(*ole.IDispatch) error) error {
 }
 
 // Query queries the WMI objects with the given namespace and query.
+// Callers must ensure COM is initialized on the current OS thread (e.g., via WithCOMThread).
 // The callback fn receives an *ole.IDispatch that is only valid for the duration
 // of the callback; callers must NOT store or use it after fn returns.
 func Query(namespace, query string, fn func(item *ole.IDispatch) error) error {
@@ -598,11 +599,11 @@ func (c *COMDispatchObject) GetStringPropertyAsUint64(name string) (uint64, erro
 		return 0, err
 	}
 	if str == "" {
-		return 0, fmt.Errorf("string is empty")
+		return 0, fmt.Errorf("WMI property %q is empty; cannot parse as uint64", name)
 	}
 	result, err := strconv.ParseUint(str, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse string %s as uint64: %w", str, err)
+		return 0, fmt.Errorf("failed to parse WMI property %q value %q as uint64: %w", name, str, err)
 	}
 	return result, nil
 }
