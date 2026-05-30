@@ -158,10 +158,10 @@ func formatValue(v any) string {
 	switch x := v.(type) {
 
 	case string:
-		// escapes string for WMI Queries
-		x = strings.ReplaceAll(x, "'", "''")
-		x = strings.ReplaceAll(x, "\\", "\\\\")
-		return "'" + x + "'"
+		// WQL escaping: double single quotes and escape backslashes
+		escaped := strings.ReplaceAll(x, "'", "''")
+		escaped = strings.ReplaceAll(escaped, "\\", "\\\\")
+		return "'" + escaped + "'"
 
 	case int, int32, int64, uint, uint32, uint64:
 		return fmt.Sprintf("%v", x)
@@ -394,9 +394,11 @@ func CallMethodOnWMIClass(namespace, class, methodName string, input map[string]
 				inParamsInst := inParamsInstRaw.ToIDispatch()
 
 				for k, v := range input {
-					if _, err := oleutil.PutProperty(inParamsInst, k, v); err != nil {
+					putResult, err := oleutil.PutProperty(inParamsInst, k, v)
+					if err != nil {
 						return fmt.Errorf("set param %s failed: %w", k, err)
 					}
+					putResult.Clear()
 				}
 
 				params = append(params, inParamsInst)
@@ -815,7 +817,7 @@ func WithScope(fn func(*Scope) error) error {
 type WMIError struct {
 	Method  string
 	Class   string
-	Target  *ole.IDispatch
+	Target  string
 	Code    uint32
 	Details string
 }
@@ -825,7 +827,7 @@ func NewWMIError(class, method string, target *ole.IDispatch, code uint32) *WMIE
 	return &WMIError{
 		Class:  class,
 		Method: method,
-		Target: target,
+		Target: fmt.Sprintf("%v", target),
 		Code:   code,
 	}
 }
