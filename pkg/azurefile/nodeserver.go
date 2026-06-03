@@ -422,6 +422,10 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}
 	}
 
+	if protocol == nfs && !encryptInTransit {
+		klog.Warningf("In future releases, NFS file shares will be mounted through the aznfs utility by default")
+	}
+
 	lockKey := fmt.Sprintf("%s-%s", volumeID, targetPath)
 	if acquired := d.volumeLocks.TryAcquire(lockKey); !acquired {
 		return nil, status.Errorf(codes.Aborted, volumeOperationAlreadyExistsFmt, volumeID)

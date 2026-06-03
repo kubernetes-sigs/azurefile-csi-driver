@@ -36,6 +36,8 @@ mountOptions:
   - actimeo=30
 ```
 
+**NOTE**: In future releases (from 1.36.0 onwards), fileshare volumes specifying the nfs protocol will be mounted using the aznfs utility instead of vanilla NFS.
+
 run following commands to create a storage class:
 ```console
 wget https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-nfs.yaml
