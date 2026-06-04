@@ -131,6 +131,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `node.nodeDriverRegistrar.livenessProbe.periodSeconds`       | node-driver-registrar liveness probe periodSeconds                                                         | `20`                                                     |
 | `node.nodeDriverRegistrar.livenessProbe.failureThreshold`    | node-driver-registrar liveness probe failureThreshold                                                      | `2`                                                     |
 | `node.logLevel`                                   | node driver log level                                                          |`5`                                                           |
+| `node.useAZNFSForNFSMounts`                       | If enabled, all volumes configured to use NFS protocol will be mounted through the AZNFS utility.  | false |
 | `snapshot.enabled`                                | whether enable snapshot feature                            | `false`                                                        |
 | `snapshot.image.csiSnapshotter.repository`        | csi-snapshotter container image                               | `/oss/kubernetes-csi/csi-snapshotter`         |
 | `snapshot.image.csiSnapshotter.tag`               | csi-snapshotter container image tag                           | `v8.5.0`                                                       |
