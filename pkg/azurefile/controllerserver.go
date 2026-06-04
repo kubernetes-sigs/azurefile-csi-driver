@@ -39,8 +39,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
@@ -127,7 +125,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		parameters[k] = v
 	}
 	var sku, subsID, resourceGroup, location, account, fileShareName, diskName, fsType, secretName string
-	var secretNamespace, pvcName, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, shareAccessTier, accountAccessTier, rootSquashType, tagValueDelimiter string
+	var secretNamespace, pvcNamespace, protocol, customTags, storageEndpointSuffix, networkEndpointType, shareAccessTier, accountAccessTier, rootSquashType, tagValueDelimiter string
 	var createAccount, useSeretCache, matchTags, selectRandomMatchingAccount, getLatestAccountKey, encryptInTransit, mountWithManagedIdentity, mountWithWIToken, mountWithOAuthToken bool
 	var vnetResourceGroup, vnetName, vnetLinkName, publicNetworkAccess, subnetName, shareNamePrefix, fsGroupChangePolicy, useDataPlaneAPI, privateDNSZoneResourceGroup string
 	var requireInfraEncryption, disableDeleteRetentionPolicy, enableLFS, isMultichannelEnabled, allowSharedKeyAccess, allowCrossTenantReplication *bool
@@ -242,7 +240,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			}
 			allowCrossTenantReplication = &value
 		case pvcNameKey:
-			pvcName = v
 			volumeMetadataReplaceMap[pvcNameMetadata] = v
 		case pvNameKey:
 			volumeMetadataReplaceMap[pvNameMetadata] = v
@@ -447,10 +444,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			// Right now we have to disable secure transfer on accounts to be able to mount an NFS share.
 			// Even though encryptInTransit is enabled.
 			// enableHTTPSTrafficOnly = true
-		} else {
-			// In the future, azure fileshares will be mounted through aznfs utility by default
-			klog.Warningf("In future releases, NFS file shares will be mounted through the aznfs utility by default")
-			d.emitNFSAznfsMigrationEvent(ctx, pvcNamespace, pvcName)
 		}
 		shareProtocol = armstorage.EnabledProtocolsNFS
 		// NFS protocol does not need account key
@@ -854,49 +847,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			ContentSource: req.GetVolumeContentSource(),
 		},
 	}, nil
-}
-
-func (d *Driver) emitNFSAznfsMigrationEvent(ctx context.Context, pvcNamespace, pvcName string) {
-	if pvcNamespace == "" || pvcName == "" {
-		return
-	}
-	if d.kubeClient == nil {
-		klog.V(4).Infof("skip emitting NFS aznfs migration event for pvc %s/%s: kubeClient is nil", pvcNamespace, pvcName)
-		return
-	}
-
-	pvc, err := d.kubeClient.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(ctx, pvcName, metav1.GetOptions{})
-	if err != nil {
-		klog.Warningf("failed to get pvc %s/%s for NFS aznfs migration event: %v", pvcNamespace, pvcName, err)
-		return
-	}
-
-	now := metav1.Now()
-	event := &corev1.Event{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("%s-", pvc.Name),
-			Namespace:    pvc.Namespace,
-		},
-		InvolvedObject: corev1.ObjectReference{
-			Kind:            "PersistentVolumeClaim",
-			Namespace:       pvc.Namespace,
-			Name:            pvc.Name,
-			UID:             pvc.UID,
-			APIVersion:      "v1",
-			ResourceVersion: pvc.ResourceVersion,
-		},
-		Reason:         "NFSAznfsMigration",
-		Message:        "In future releases, NFS file shares will be mounted through the aznfs utility by default",
-		Type:           corev1.EventTypeWarning,
-		Source:         corev1.EventSource{Component: DefaultDriverName},
-		FirstTimestamp: now,
-		LastTimestamp:  now,
-		Count:          1,
-	}
-
-	if _, err := d.kubeClient.CoreV1().Events(pvc.Namespace).Create(ctx, event, metav1.CreateOptions{}); err != nil {
-		klog.Warningf("failed to emit NFS aznfs migration event for pvc %s/%s: %v", pvcNamespace, pvcName, err)
-	}
 }
 
 // DeleteVolume delete an azure file

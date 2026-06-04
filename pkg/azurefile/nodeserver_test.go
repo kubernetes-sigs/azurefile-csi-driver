@@ -587,6 +587,7 @@ func TestNodeStageVolume(t *testing.T) {
 		// error messages
 		flakyWindowsErrorMessage string
 		cleanup                  func()
+		enableAZNFSForNFSVolumes bool
 	}{
 		{
 			desc:        "[Error] Volume ID missing",
@@ -864,6 +865,19 @@ func TestNodeStageVolume(t *testing.T) {
 			expectedErr: testutil.TestError{},
 		},
 		{
+			desc: "[Success] Valid request with NFS protocol and enableAznfsForNFSVolume with notls option",
+			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext:    volContextNfs,
+				Secrets:          secrets},
+			skipOnWindows:            true,
+			enableAZNFSForNFSVolumes: true,
+			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount %s on %v failed with "+
+				"smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
+				errorSource, sourceTest),
+			expectedErr: testutil.TestError{},
+		},
+		{
 			desc: "[Success] Valid request with supported fsType disk",
 			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
 				VolumeCapability: &stdVolCap,
@@ -1016,6 +1030,9 @@ func TestNodeStageVolume(t *testing.T) {
 		mounter, err := NewFakeMounter()
 		if err != nil {
 			t.Fatalf("failed to get fake mounter: %v", err)
+		}
+		if test.enableAZNFSForNFSVolumes {
+			d.WithEnableAznfsForNFSVolumes()
 		}
 
 		if runtime.GOOS != "windows" {

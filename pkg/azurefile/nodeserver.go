@@ -422,10 +422,6 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}
 	}
 
-	if protocol == nfs && !encryptInTransit {
-		klog.Warningf("In future releases, NFS file shares will be mounted through the aznfs utility by default")
-	}
-
 	lockKey := fmt.Sprintf("%s-%s", volumeID, targetPath)
 	if acquired := d.volumeLocks.TryAcquire(lockKey); !acquired {
 		return nil, status.Errorf(codes.Aborted, volumeOperationAlreadyExistsFmt, volumeID)
@@ -478,7 +474,12 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	var mountOptions, sensitiveMountOptions []string
 	if protocol == nfs {
-		mountOptions = util.JoinMountOptions(mountFlags, []string{"vers=4,minorversion=1,sec=sys"})
+		nfsSysMountFlags := []string{"vers=4,minorversion=1,sec=sys"}
+		if d.useAZNFSForNFSMounts && !encryptInTransit {
+			nfsSysMountFlags = append(nfsSysMountFlags, "notls")
+			klog.V(2).Infof("azurefile driver is configured to use aznfs for all nfs mounts, adding notls to mount options for volume %s since encryptInTransit is disabled", volumeID)
+		}
+		mountOptions = util.JoinMountOptions(mountFlags, nfsSysMountFlags)
 		mountOptions = appendDefaultNfsMountOptions(mountOptions, d.appendNoResvPortOption, d.appendActimeoOption)
 	} else {
 		if (mountWithManagedIdentity || mountWithWIToken) && clientID == "" {
@@ -547,7 +548,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 				encryptInTransit = true
 				mountOptions = newOptions
 			}
-			if encryptInTransit {
+			if encryptInTransit || d.useAZNFSForNFSMounts {
 				mountFsType = aznfs
 			}
 		}
@@ -559,7 +560,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			return nil, status.Errorf(codes.Internal, "prepare stage path failed for %s with error: %v", cifsMountPath, err)
 		}
 		if mountFsType == aznfs {
-			klog.V(2).Infof("encryptInTransit is enabled, mount by azurefile-proxy")
+			klog.V(2).Infof("either of encryptInTransit (%t) (or) useAZNFSForNFSMounts (%t) is enabled, mount by azurefile-proxy", encryptInTransit, d.useAZNFSForNFSMounts)
 			if err := d.mountWithProxy(ctx, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions); err != nil {
 				if strings.Contains(err.Error(), "no such file or directory") {
 					return nil, status.Errorf(codes.Internal, "mount with proxy failed for %s with error: %v. "+
