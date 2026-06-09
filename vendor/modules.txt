@@ -329,7 +329,7 @@ github.com/microsoft/wmi/pkg/base/host
 github.com/microsoft/wmi/pkg/base/query
 github.com/microsoft/wmi/pkg/errors
 github.com/microsoft/wmi/pkg/wmiinstance
-# github.com/moby/spdystream v0.5.0
+# github.com/moby/spdystream v0.5.1
 ## explicit; go 1.13
 github.com/moby/spdystream
 github.com/moby/spdystream/spdy
