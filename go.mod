@@ -1,6 +1,6 @@
 module sigs.k8s.io/azurefile-csi-driver
 
-go 1.25.0
+go 1.25.9
 
 godebug winsymlink=0
 
@@ -15,7 +15,7 @@ require (
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.0
-	github.com/kata-containers/kata-containers/src/runtime v0.0.0-20260219194250-ea53779b908a
+	github.com/kata-containers/kata-containers/src/runtime v0.0.0-20260422134612-639ff3578d4d
 	github.com/kubernetes-csi/csi-lib-utils v0.14.1
 	github.com/kubernetes-csi/csi-proxy/client v1.0.1
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
