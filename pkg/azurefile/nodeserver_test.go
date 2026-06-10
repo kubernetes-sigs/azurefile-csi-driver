@@ -34,6 +34,7 @@ import (
 	volume "github.com/kata-containers/kata-containers/src/runtime/pkg/direct-volume"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
@@ -43,6 +44,7 @@ import (
 	mount "k8s.io/mount-utils"
 	"k8s.io/utils/exec"
 	testingexec "k8s.io/utils/exec/testing"
+	mount_azurefile "sigs.k8s.io/azurefile-csi-driver/pkg/azurefile-proxy/pb"
 	"sigs.k8s.io/azurefile-csi-driver/test/utils/testutil"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/accountclient/mock_accountclient"
@@ -60,6 +62,20 @@ type ExecArgs struct {
 	args    []string
 	output  string
 	err     error
+}
+
+type fakeProxyMountServer struct {
+	mount_azurefile.UnimplementedMountServiceServer
+	lastMountOptions     []string
+	validateMountOptions func(mountOptions []string) bool
+}
+
+func (s *fakeProxyMountServer) MountAzureFile(_ context.Context, req *mount_azurefile.MountAzureFileRequest) (*mount_azurefile.MountAzureFileResponse, error) {
+	if s.validateMountOptions != nil && !s.validateMountOptions(req.GetMountOptions()) {
+		return nil, errors.New("mount options validation failed")
+	}
+	s.lastMountOptions = append([]string{}, req.GetMountOptions()...)
+	return &mount_azurefile.MountAzureFileResponse{}, nil
 }
 
 func matchFlakyWindowsError(mainError error, substr string) bool {
@@ -587,6 +603,8 @@ func TestNodeStageVolume(t *testing.T) {
 		// error messages
 		flakyWindowsErrorMessage string
 		cleanup                  func()
+		enableAZNFSForNFSVolumes bool
+		shouldEnableProxy        bool
 	}{
 		{
 			desc:        "[Error] Volume ID missing",
@@ -864,6 +882,122 @@ func TestNodeStageVolume(t *testing.T) {
 			expectedErr: testutil.TestError{},
 		},
 		{
+			desc: "[Error] NFS + use-aznfs-for-nfs-mounts requires azurefile-proxy",
+			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					fsTypeField:           "nfs",
+					protocolField:         "nfs",
+					diskNameField:         "test_disk.vhd",
+					shareNameField:        "test_sharename",
+					serverNameField:       "test_servername",
+					mountPermissionsField: "0755",
+				},
+				Secrets: secrets},
+			skipOnWindows:            true,
+			enableAZNFSForNFSVolumes: true,
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(
+					codes.InvalidArgument,
+					"aznfs mounts (encryptInTransit or use-aznfs-for-nfs-mounts) are only available when azurefile-proxy is enabled",
+				),
+			},
+		},
+		{
+			desc: "[Success] valid request with use-aznfs-for-nfs-mounts enabled should have notls mountoption",
+			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					fsTypeField:           "nfs",
+					protocolField:         "nfs",
+					diskNameField:         "test_disk.vhd",
+					shareNameField:        "test_sharename",
+					serverNameField:       "test_servername",
+					mountPermissionsField: "0755",
+				},
+				Secrets: secrets},
+			skipOnWindows:            true,
+			shouldEnableProxy:        true,
+			enableAZNFSForNFSVolumes: true,
+			expectedErr:              testutil.TestError{},
+			setup: func() {
+				listener, err := net.Listen("tcp", "127.0.0.1:0")
+				if err != nil {
+					t.Fatalf("failed to start fake proxy listener: %v", err)
+				}
+				proxyServer := grpc.NewServer()
+				mountServer := &fakeProxyMountServer{
+					validateMountOptions: func(mountOptions []string) bool {
+						hasNoTLS := false
+						for _, option := range mountOptions {
+							if option == "notls" {
+								hasNoTLS = true
+							}
+						}
+						return hasNoTLS
+					},
+				}
+				mount_azurefile.RegisterMountServiceServer(proxyServer, mountServer)
+				go func() {
+					_ = proxyServer.Serve(listener)
+				}()
+
+				d.azurefileProxyEndpoint = listener.Addr().String()
+				t.Cleanup(func() {
+					proxyServer.Stop()
+					_ = listener.Close()
+				})
+			},
+		},
+		{
+			desc: "[Success] valid request with encryptionIntransit and use-aznfs-for-nfs-mounts enabled should not have notls mountoptions",
+			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					fsTypeField:           "nfs",
+					protocolField:         "nfs",
+					diskNameField:         "test_disk.vhd",
+					shareNameField:        "test_sharename",
+					serverNameField:       "test_servername",
+					mountPermissionsField: "0755",
+					encryptInTransitField: "true",
+				},
+				Secrets: secrets},
+			skipOnWindows:            true,
+			shouldEnableProxy:        true,
+			enableAZNFSForNFSVolumes: true,
+			expectedErr:              testutil.TestError{},
+			setup: func() {
+				listener, err := net.Listen("tcp", "127.0.0.1:0")
+				if err != nil {
+					t.Fatalf("failed to start fake proxy listener: %v", err)
+				}
+				proxyServer := grpc.NewServer()
+				mountServer := &fakeProxyMountServer{
+					validateMountOptions: func(mountOptions []string) bool {
+						hasNoTLS := false
+						for _, option := range mountOptions {
+							if option == "notls" {
+								hasNoTLS = true
+							}
+						}
+						// Expected not to have notls in mount options
+						return !hasNoTLS
+					},
+				}
+				mount_azurefile.RegisterMountServiceServer(proxyServer, mountServer)
+				go func() {
+					_ = proxyServer.Serve(listener)
+				}()
+
+				d.azurefileProxyEndpoint = listener.Addr().String()
+				t.Cleanup(func() {
+					proxyServer.Stop()
+					_ = listener.Close()
+				})
+			},
+		},
+		{
 			desc: "[Success] Valid request with supported fsType disk",
 			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
 				VolumeCapability: &stdVolCap,
@@ -1016,6 +1150,14 @@ func TestNodeStageVolume(t *testing.T) {
 		mounter, err := NewFakeMounter()
 		if err != nil {
 			t.Fatalf("failed to get fake mounter: %v", err)
+		}
+		d.useAZNFSForNFSMounts = false
+		d.enableAzurefileProxy = false
+		if test.enableAZNFSForNFSVolumes {
+			d.WithEnableAznfsForNFSVolumes()
+		}
+		if test.shouldEnableProxy {
+			d.enableAzurefileProxy = true
 		}
 
 		if runtime.GOOS != "windows" {

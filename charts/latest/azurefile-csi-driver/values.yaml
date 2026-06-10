@@ -140,6 +140,7 @@ node:
       periodSeconds: 20
       failureThreshold: 2
   logLevel: 5
+  useAZNFSForNFSMounts: false # when this flag is enabled for NFS shares, even if encryptInTransit is not enabled, the driver will mount NFS shares through azurefile-proxy.
   azurefileProxy:
     enabled: true
     installAznfsMount: true
