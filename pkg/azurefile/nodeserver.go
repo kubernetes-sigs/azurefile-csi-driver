@@ -474,12 +474,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	var mountOptions, sensitiveMountOptions []string
 	if protocol == nfs {
-		nfsSysMountFlags := []string{"vers=4,minorversion=1,sec=sys"}
-		if d.useAZNFSForNFSMounts && !encryptInTransit {
-			nfsSysMountFlags = append(nfsSysMountFlags, "notls")
-			klog.V(2).Infof("azurefile driver is configured to use aznfs for all nfs mounts, adding notls to mount options for volume %s since encryptInTransit is disabled", volumeID)
-		}
-		mountOptions = util.JoinMountOptions(mountFlags, nfsSysMountFlags)
+		mountOptions = util.JoinMountOptions(mountFlags, []string{"vers=4,minorversion=1,sec=sys"})
 		mountOptions = appendDefaultNfsMountOptions(mountOptions, d.appendNoResvPortOption, d.appendActimeoOption)
 	} else {
 		if (mountWithManagedIdentity || mountWithWIToken) && clientID == "" {
@@ -551,9 +546,13 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			if encryptInTransit || d.useAZNFSForNFSMounts {
 				mountFsType = aznfs
 			}
+			if d.useAZNFSForNFSMounts && !encryptInTransit {
+				mountOptions = append(mountOptions, "notls")
+				klog.V(2).Infof("azurefile driver is configured to use aznfs for all nfs mounts, adding notls to mount options for volume %s since encryptInTransit is disabled", volumeID)
+			}
 		}
 		if mountFsType == aznfs && !d.enableAzurefileProxy {
-			return nil, status.Error(codes.InvalidArgument, "encryptInTransit is only available when azurefile-proxy is enabled")
+			return nil, status.Error(codes.InvalidArgument, "aznfs mounts (encryptInTransit or use-aznfs-for-nfs-mounts) are only available when azurefile-proxy is enabled")
 		}
 
 		if err := prepareStagePath(cifsMountPath, d.mounter); err != nil {
