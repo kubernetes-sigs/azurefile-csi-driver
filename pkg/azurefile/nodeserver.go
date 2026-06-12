@@ -864,14 +864,18 @@ func (d *Driver) ensureMountPoint(target string, perm os.FileMode) (bool, error)
 			klog.V(2).Infof("already mounted to target %s", target)
 			return !notMnt, nil
 		}
-		// mount link is invalid, now unmount and remount later
-		klog.Warningf("ReadDir %s failed with %v, unmount this directory", target, err)
-		if err := d.mounter.Unmount(target); err != nil {
-			klog.Errorf("Unmount directory %s failed with %v", target, err)
-			return !notMnt, err
-		}
-		notMnt = true
-		return !notMnt, err
+		// Do not unmount here even if the mount is stale or broken (e.g., ESTALE on NFS).
+		// Unmounting during a periodic NodePublishVolume (requiresRepublish) creates a race
+		// condition: if the application container restarts at the same time, it may bind to
+		// the unmounted target path and write to the container's local filesystem instead of
+		// the persistent volume, causing silent data loss.
+		//
+		// Per the Kubernetes CSI spec, subsequent NodePublishVolume calls (republish) should
+		// only update the contents of the volume, not remount or alter mount state.
+		// The actual cleanup is deferred to NodeUnpublishVolume, which is the proper
+		// teardown path.
+		klog.Warningf("ReadDir %s failed with %v, skip unmount to avoid race condition", target, err)
+		return !notMnt, nil
 	}
 	if err := makeDir(target, perm); err != nil {
 		klog.Errorf("MakeDir failed on target: %s (%v)", target, err)
