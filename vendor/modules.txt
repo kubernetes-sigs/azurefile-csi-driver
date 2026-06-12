@@ -297,8 +297,8 @@ github.com/josharian/intern
 # github.com/json-iterator/go v1.1.12
 ## explicit; go 1.12
 github.com/json-iterator/go
-# github.com/kata-containers/kata-containers/src/runtime v0.0.0-20260219194250-ea53779b908a
-## explicit; go 1.24.13
+# github.com/kata-containers/kata-containers/src/runtime v0.0.0-20260422134612-639ff3578d4d
+## explicit; go 1.25.9
 github.com/kata-containers/kata-containers/src/runtime/pkg/direct-volume
 # github.com/kubernetes-csi/csi-lib-utils v0.14.1
 ## explicit; go 1.18
@@ -332,7 +332,7 @@ github.com/kylelemons/godebug/pretty
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
-# github.com/moby/spdystream v0.5.0
+# github.com/moby/spdystream v0.5.1
 ## explicit; go 1.13
 github.com/moby/spdystream
 github.com/moby/spdystream/spdy
@@ -598,7 +598,7 @@ golang.org/x/oauth2/internal
 ## explicit; go 1.25.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.45.0
+# golang.org/x/sys v0.46.0
 ## explicit; go 1.25.0
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9

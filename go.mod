@@ -1,6 +1,6 @@
 module sigs.k8s.io/azurefile-csi-driver
 
-go 1.25.0
+go 1.25.9
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.1
@@ -19,7 +19,7 @@ require (
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.0
-	github.com/kata-containers/kata-containers/src/runtime v0.0.0-20260219194250-ea53779b908a
+	github.com/kata-containers/kata-containers/src/runtime v0.0.0-20260422134612-639ff3578d4d
 	github.com/kubernetes-csi/csi-lib-utils v0.14.1
 	github.com/kubernetes-csi/csi-proxy/client v1.0.1
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
@@ -30,7 +30,7 @@ require (
 	go.uber.org/goleak v1.3.0
 	go.uber.org/mock v0.6.0
 	golang.org/x/net v0.55.0
-	golang.org/x/sys v0.45.0
+	golang.org/x/sys v0.46.0
 	google.golang.org/grpc v1.81.1
 	google.golang.org/protobuf v1.36.11
 	k8s.io/api v0.35.0
@@ -93,7 +93,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
-	github.com/moby/spdystream v0.5.0 // indirect
+	github.com/moby/spdystream v0.5.1 // indirect
 	github.com/moby/sys/mountinfo v0.7.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
