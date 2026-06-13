@@ -875,7 +875,7 @@ func (d *Driver) ensureMountPoint(target string, perm os.FileMode) (bool, error)
 		// The actual cleanup is deferred to NodeUnpublishVolume, which is the proper
 		// teardown path.
 		klog.Warningf("ReadDir %s failed with %v, skip unmount to avoid race condition", target, err)
-		return !notMnt, nil
+		return !notMnt, err
 	}
 	if err := makeDir(target, perm); err != nil {
 		klog.Errorf("MakeDir failed on target: %s (%v)", target, err)
