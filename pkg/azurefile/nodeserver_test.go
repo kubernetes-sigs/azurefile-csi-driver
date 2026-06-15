@@ -1235,34 +1235,67 @@ func TestEnsureMountPoint(t *testing.T) {
 	azureFile := "./azure.go"
 
 	tests := []struct {
-		desc        string
-		target      string
-		expectedErr error
+		desc                 string
+		target               string
+		shouldUnmount        bool
+		expectedErr          error
+		expectedUnmountCount uint
 	}{
 		{
-			desc:        "[Error] Mocked by IsLikelyNotMountPoint",
-			target:      errorTarget,
-			expectedErr: fmt.Errorf("fake IsLikelyNotMountPoint: fake error"),
+			desc:                 "[Error] Mocked by IsLikelyNotMountPoint",
+			target:               errorTarget,
+			shouldUnmount:        true,
+			expectedErr:          fmt.Errorf("fake IsLikelyNotMountPoint: fake error"),
+			expectedUnmountCount: 0, // If IsLikelyNotMountPoint returns error, unmount should not be called
 		},
 		{
-			desc:        "[Error] Error opening file",
-			target:      falseTarget,
-			expectedErr: &os.PathError{Op: "open", Path: "./false_is_likely_target", Err: syscall.ENOENT},
+			desc:                 "[Error] Error opening file",
+			target:               falseTarget,
+			shouldUnmount:        true,
+			expectedErr:          &os.PathError{Op: "open", Path: "./false_is_likely_target", Err: syscall.ENOENT},
+			expectedUnmountCount: 1,
 		},
 		{
-			desc:        "[Error] Not a directory",
-			target:      azureFile,
-			expectedErr: &os.PathError{Op: "mkdir", Path: "./azure.go", Err: syscall.ENOTDIR},
+			desc:                 "[Error] Not a directory",
+			target:               azureFile,
+			shouldUnmount:        true,
+			expectedErr:          &os.PathError{Op: "mkdir", Path: "./azure.go", Err: syscall.ENOTDIR},
+			expectedUnmountCount: 0,
 		},
 		{
-			desc:        "[Success] Successful run",
-			target:      targetTest,
-			expectedErr: nil,
+			desc:                 "[Success] Successful run",
+			target:               targetTest,
+			shouldUnmount:        true,
+			expectedErr:          nil,
+			expectedUnmountCount: 0,
 		},
 		{
-			desc:        "[Success] Already existing mount",
-			target:      alreadyExistTarget,
-			expectedErr: nil,
+			desc:                 "[Success] Already existing mount",
+			target:               alreadyExistTarget,
+			shouldUnmount:        true,
+			expectedErr:          nil,
+			expectedUnmountCount: 0,
+		},
+		{
+			desc:                 "[Error] Opening file with shouldUnmount false",
+			target:               falseTarget,
+			shouldUnmount:        false,
+			expectedErr:          &os.PathError{Op: "open", Path: "./false_is_likely_target", Err: syscall.ENOENT},
+			expectedUnmountCount: 0, // Since Unmount flag is false, unmount count should be 0
+		},
+		{
+			desc:                 "[Error] Opening file with shouldUnmount false and unmount will return error shouldn't alter expected error",
+			target:               falseTarget,
+			shouldUnmount:        false,
+			expectedErr:          &os.PathError{Op: "open", Path: "./false_is_likely_target", Err: syscall.ENOENT},
+			expectedUnmountCount: 0,
+		},
+		{
+			desc:                 "[Success] Successful run with shouldUnmount false",
+			target:               targetTest,
+			shouldUnmount:        false,
+			expectedErr:          nil,
+			expectedUnmountCount: 0,
 		},
 	}
 
@@ -1277,10 +1310,15 @@ func TestEnsureMountPoint(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		_, err := d.ensureMountPoint(test.target, 0777)
+		_, err := d.ensureMountPoint(test.target, 0777, test.shouldUnmount)
 		if !reflect.DeepEqual(err, test.expectedErr) {
 			t.Errorf("[%s]: Unexpected Error: %v, expected error: %v", test.desc, err, test.expectedErr)
 		}
+		if fakeMounter.unmountCount != test.expectedUnmountCount {
+			t.Errorf("[%s]: Unexpected unmount count: %d, expected: %d", test.desc, fakeMounter.unmountCount, test.expectedUnmountCount)
+		}
+		// Reset unmount count before each test case
+		fakeMounter.unmountCount = 0
 	}
 
 	// Clean up
