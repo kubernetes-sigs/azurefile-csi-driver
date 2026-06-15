@@ -176,6 +176,7 @@ feature:
   enableGetVolumeStats: true
   enableVolumeMountGroup: true
   fsGroupPolicy: ReadWriteOnceWithFSType
+  requiresRepublish: true
   serviceAccountTokenInSecrets: false
 
 driver:
