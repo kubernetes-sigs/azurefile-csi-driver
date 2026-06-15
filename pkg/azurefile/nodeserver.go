@@ -210,7 +210,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		klog.V(2).Infof("NodePublishVolume: refreshed OAuth token credential cache for volume(%s) server(%s)", volumeID, oauthServer)
 	}
 
-	// NodePublishVolume should only alter the content of volume post initial successfull mount
+	// NodePublishVolume should only alter volume content after the initial successful mount.
 	mnt, err := d.ensureMountPoint(target, os.FileMode(mountPermissions), false)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Could not mount target %s: %v", target, err)
