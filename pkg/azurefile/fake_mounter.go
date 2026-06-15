@@ -27,6 +27,7 @@ import (
 
 type fakeMounter struct {
 	mount.FakeMounter
+	unmountCount uint
 }
 
 // Mount overrides mount.FakeMounter.Mount.
@@ -79,4 +80,13 @@ func NewFakeMounter() (*mount.SafeFormatAndMount, error) {
 	return &mount.SafeFormatAndMount{
 		Interface: &fakeMounter{},
 	}, nil
+}
+
+// Unmount overrides mount.FakeMounter.Unmount.
+func (f *fakeMounter) Unmount(target string) error {
+	f.unmountCount++
+	if strings.Contains(target, "error") {
+		return fmt.Errorf("fake Unmount: target error")
+	}
+	return f.FakeMounter.Unmount(target)
 }
