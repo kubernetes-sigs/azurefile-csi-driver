@@ -176,6 +176,7 @@ feature:
   enableGetVolumeStats: true
   enableVolumeMountGroup: true
   fsGroupPolicy: ReadWriteOnceWithFSType
+  requiresRepublish: true
 
 driver:
   name: file.csi.azure.com
