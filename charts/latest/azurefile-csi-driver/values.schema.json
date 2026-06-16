@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "node": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "useAZNFSForNFSMounts": {
+          "type": "boolean"
+        },
+        "azurefileProxy": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "useAZNFSForNFSMounts": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "azurefileProxy": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "enabled"
+                ]
+              }
+            },
+            "required": [
+              "azurefileProxy"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
