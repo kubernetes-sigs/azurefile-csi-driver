@@ -140,6 +140,7 @@ node:
       periodSeconds: 20
       failureThreshold: 2
   logLevel: 5
+  useAZNFSForNFSMounts: false # When enabled for NFS shares, the driver will mount NFS shares through azurefile-proxy using aznfs (requires node.azurefileProxy.enabled=true).
   azurefileProxy:
     enabled: true
     installAznfsMount: true
