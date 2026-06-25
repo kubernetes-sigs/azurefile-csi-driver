@@ -209,6 +209,12 @@ const (
 
 	defaultStorageEndPointSuffix = "core.windows.net"
 
+	// defaultActiveDirectoryEndpoint and defaultStorageResource are the default
+	// public-cloud AAD authority host and storage OAuth resource
+	// (workload-identity mounts).
+	defaultActiveDirectoryEndpoint = "https://login.microsoftonline.com/"
+	defaultStorageResource         = "https://storage.azure.com/"
+
 	VolumeID         = "volumeid"
 	SourceResourceID = "source_resource_id"
 	SnapshotName     = "snapshot_name"
@@ -1497,6 +1503,24 @@ func (d *Driver) getStorageEndPointSuffix() string {
 		return defaultStorageEndPointSuffix
 	}
 	return d.cloud.Environment.StorageEndpointSuffix
+}
+
+// getActiveDirectoryEndpoint returns the AAD authority host for the current cloud
+// (e.g. https://login.chinacloudapi.cn/ for Azure China), falling back to public AAD.
+func (d *Driver) getActiveDirectoryEndpoint() string {
+	if d.cloud == nil || d.cloud.Environment == nil || d.cloud.Environment.ActiveDirectoryEndpoint == "" {
+		return defaultActiveDirectoryEndpoint
+	}
+	return d.cloud.Environment.ActiveDirectoryEndpoint
+}
+
+// getStorageResource returns the AAD resource/scope used to request a storage
+// OAuth token for the current cloud, falling back to the public storage resource.
+func (d *Driver) getStorageResource() string {
+	if d.cloud == nil || d.cloud.Environment == nil || d.cloud.Environment.ResourceIdentifiers == nil || d.cloud.Environment.ResourceIdentifiers.Storage == "" {
+		return defaultStorageResource
+	}
+	return d.cloud.Environment.ResourceIdentifiers.Storage
 }
 
 func (d *Driver) getFileShareClientForSub(subscriptionID string) (fileshareclient.Interface, error) {

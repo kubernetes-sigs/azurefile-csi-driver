@@ -460,7 +460,7 @@ func getDefaultBandwidth(requestGiB int, storageAccountType string) *int32 {
 	return &bandwidth
 }
 
-func setCredentialCache(server, clientID, tenantID, tokenFile, token string) ([]byte, error) {
+func setCredentialCache(server, clientID, tenantID, tokenFile, token, authorityHost, resource string) ([]byte, error) {
 	if server == "" {
 		return nil, fmt.Errorf("server must be provided")
 	}
@@ -482,6 +482,13 @@ func setCredentialCache(server, clientID, tenantID, tokenFile, token string) ([]
 			return nil, fmt.Errorf("tenantID must be provided when tokenFile is provided")
 		}
 		args = []string{"set", serverURL, "--workload-identity", "--tenant-id", tenantID, "--client-id", clientID, "--token-file", tokenFile}
+		// pass the cloud-specific AAD authority host and storage resource
+		if authorityHost != "" {
+			args = append(args, "--authority-host", authorityHost)
+		}
+		if resource != "" {
+			args = append(args, "--resource", resource)
+		}
 	default:
 		if clientID == "" {
 			return nil, fmt.Errorf("clientID must be provided")
