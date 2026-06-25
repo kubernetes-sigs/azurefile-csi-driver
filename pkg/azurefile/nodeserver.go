@@ -544,19 +544,23 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 				encryptInTransit = true
 				mountOptions = newOptions
 			}
-			if encryptInTransit {
+			if encryptInTransit || d.useAZNFSForNFSMounts {
 				mountFsType = aznfs
+			}
+			if d.useAZNFSForNFSMounts && !encryptInTransit {
+				mountOptions = append(mountOptions, "notls")
+				klog.V(2).Infof("azurefile driver is configured to use aznfs for all nfs mounts, adding notls to mount options for volume %s since encryptInTransit is disabled", volumeID)
 			}
 		}
 		if mountFsType == aznfs && !d.enableAzurefileProxy {
-			return nil, status.Error(codes.InvalidArgument, "encryptInTransit is only available when azurefile-proxy is enabled")
+			return nil, status.Error(codes.InvalidArgument, "aznfs mounts (encryptInTransit or use-aznfs-for-nfs-mounts) are only available when azurefile-proxy is enabled")
 		}
 
 		if err := prepareStagePath(cifsMountPath, d.mounter); err != nil {
 			return nil, status.Errorf(codes.Internal, "prepare stage path failed for %s with error: %v", cifsMountPath, err)
 		}
 		if mountFsType == aznfs {
-			klog.V(2).Infof("encryptInTransit is enabled, mount by azurefile-proxy")
+			klog.V(2).Infof("either of encryptInTransit (%t) (or) useAZNFSForNFSMounts (%t) is enabled, mount by azurefile-proxy", encryptInTransit, d.useAZNFSForNFSMounts)
 			if err := d.mountWithProxy(ctx, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions); err != nil {
 				if strings.Contains(err.Error(), "no such file or directory") {
 					return nil, status.Errorf(codes.Internal, "mount with proxy failed for %s with error: %v. "+

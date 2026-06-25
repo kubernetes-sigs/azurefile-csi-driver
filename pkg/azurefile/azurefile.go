@@ -326,6 +326,8 @@ type Driver struct {
 	directVolume          DirectVolume
 	isKataNode            bool
 	requiredAzCopyToTrust bool
+	// Flag that indicates to use aznfs utility to mount nfs volumes instead of vanilla nfs utility.
+	useAZNFSForNFSMounts bool
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -371,7 +373,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.directVolume = new(directVolume)
 	driver.isKataNode = false
 	driver.useWinCIMAPI = options.UseWinCIMAPI
-
+	driver.useAZNFSForNFSMounts = options.UseAZNFSForNFSMounts
 	var err error
 	getter := func(_ context.Context, _ string) (interface{}, error) { return nil, nil }
 

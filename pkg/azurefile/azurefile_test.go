@@ -96,6 +96,11 @@ func NewFakeDriverCustomOptions(opts DriverOptions) *Driver {
 	return driver
 }
 
+func (d *Driver) WithEnableAznfsForNFSMounts() *Driver {
+	d.useAZNFSForNFSMounts = true
+	return d
+}
+
 func TestNewFakeDriver(t *testing.T) {
 	driverOptions := DriverOptions{
 		NodeID:     fakeNodeID,

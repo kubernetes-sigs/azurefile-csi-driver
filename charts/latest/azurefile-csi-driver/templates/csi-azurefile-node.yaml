@@ -211,6 +211,7 @@ spec:
             - "--allow-inline-volume-key-access-with-identity={{ .Values.node.allowInlineVolumeKeyAccessWithIdentity }}"
             - "--metrics-address=0.0.0.0:{{ .Values.node.metricsPort }}"
             - "--enable-kata-cc-mount={{ .Values.node.enableKataCCMount }}"
+            - "--use-aznfs-for-nfs-mounts={{ .Values.node.useAZNFSForNFSMounts }}"
           livenessProbe:
             failureThreshold: 5
             httpGet:
