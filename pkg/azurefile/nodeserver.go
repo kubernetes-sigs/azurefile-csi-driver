@@ -490,7 +490,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			klog.V(2).Infof("using workload identity token for volume %s with mount options: %v", volumeID, sensitiveMountOptions)
 			if tokenFilePath != "" {
 				// always set credential cache when token file is provided even mount does not happen
-				if out, err := setCredentialCache(server, clientID, tenantID, tokenFilePath, ""); err != nil {
+				if out, err := setCredentialCache(server, clientID, tenantID, tokenFilePath, "", d.getActiveDirectoryEndpoint(), d.getStorageResource()); err != nil {
 					return nil, status.Errorf(codes.Internal, "setCredentialCache failed for %s with error: %v, output: %s", server, err, out)
 				}
 			}
@@ -568,7 +568,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		} else {
 			execFunc := func() error {
 				if mountWithManagedIdentity && protocol != nfs && runtime.GOOS != "windows" {
-					if out, err := setCredentialCache(server, clientID, tenantID, tokenFilePath, ""); err != nil {
+					if out, err := setCredentialCache(server, clientID, tenantID, tokenFilePath, "", d.getActiveDirectoryEndpoint(), d.getStorageResource()); err != nil {
 						return fmt.Errorf("setCredentialCache failed for %s with error: %v, output: %s", server, err, out)
 					}
 				}
@@ -967,7 +967,7 @@ func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, volumeID 
 		return server, nil
 	}
 
-	if output, err := setCredentialCache(server, "", "", "", oauthToken); err != nil {
+	if output, err := setCredentialCache(server, "", "", "", oauthToken, "", ""); err != nil {
 		klog.Errorf("setCredentialCache failed for %s with output: %s, error: %v", server, strings.ReplaceAll(string(output), oauthToken, "<redacted>"), err)
 		return "", status.Errorf(codes.Internal, "setCredentialCache failed for %s: %v", server, err)
 	}
