@@ -85,36 +85,9 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 		return fmt.Errorf("remote path is empty")
 	}
 
-	isMapped, err := mounter.smbAPI.IsSmbMapped(remotePath)
-	if err != nil {
-		klog.Errorf("IsSmbMapped(%s) failed with %v", remotePath, err)
-		isMapped = false
-	}
-
-	if isMapped {
-		valid, err := filesystem.PathValid(context.Background(), remotePath)
-		if err != nil {
-			klog.Warningf("PathValid(%s) failed with %v, ignore error", remotePath, err)
-		}
-
-		if !valid {
-			klog.Warningf("RemotePath %s is not valid, removing now", remotePath)
-			if err := mounter.smbAPI.RemoveSmbGlobalMapping(remotePath); err != nil {
-				klog.Errorf("RemoveSmbGlobalMapping(%s) failed with %v", remotePath, err)
-				return err
-			}
-			isMapped = false
-		}
-	}
-
-	if !isMapped {
-		klog.V(2).Infof("Remote %s not mapped. Mapping now!", remotePath)
-		username := mountOptions[0]
-		password := sensitiveMountOptions[0]
-		if err := mounter.smbAPI.NewSmbGlobalMapping(remotePath, username, password); err != nil {
-			klog.Errorf("NewSmbGlobalMapping(%s) failed with %v", remotePath, err)
-			return err
-		}
+	creds := func() (string, string, error) { return mountOptions[0], sensitiveMountOptions[0], nil }
+	if err := mounter.revalidateSMBMapping(remotePath, creds); err != nil {
+		return err
 	}
 
 	if len(localPath) != 0 {
@@ -127,6 +100,66 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 	}
 	klog.V(2).Infof("mount %s on %s successfully", source, normalizedTarget)
 	return nil
+}
+
+// probeSMBMapping reports whether a node-global SMB mapping for remotePath exists
+// (isMapped) and, if so, whether it is still usable (valid). Both checks are local and
+// read-only; a PathValid error is treated as not-valid so a disconnected session heals
+// rather than being trusted.
+func (mounter *winMounter) probeSMBMapping(remotePath string) (isMapped, valid bool) {
+	mapped, err := mounter.smbAPI.IsSmbMapped(remotePath)
+	if err != nil {
+		klog.Errorf("IsSmbMapped(%s) failed with %v", remotePath, err)
+		return false, false
+	}
+	if !mapped {
+		return false, false
+	}
+	ok, err := filesystem.PathValid(context.Background(), remotePath)
+	if err != nil {
+		klog.Warningf("PathValid(%s) failed with %v, treating mapping as not valid", remotePath, err)
+		return true, false
+	}
+	return true, ok
+}
+
+// revalidateSMBMapping ensures the node-global SMB mapping backing remotePath is alive:
+// it removes and recreates a stale mapping, creates a missing one, and is a no-op when the
+// mapping is already healthy. getCredentials is invoked only when a (re)mapping is actually
+// required, so callers on the hot path pay no credential-resolution cost while the mapping
+// is healthy. It does NOT create the staging symlink (see SMBMount).
+func (mounter *winMounter) revalidateSMBMapping(remotePath string, getCredentials func() (string, string, error)) error {
+	if remotePath == "" {
+		return fmt.Errorf("remote path is empty")
+	}
+	isMapped, valid := mounter.probeSMBMapping(remotePath)
+	if isMapped && valid {
+		return nil
+	}
+	if isMapped {
+		klog.Warningf("RemotePath %s is not valid, removing now", remotePath)
+		if err := mounter.smbAPI.RemoveSmbGlobalMapping(remotePath); err != nil {
+			return fmt.Errorf("RemoveSmbGlobalMapping(%s) failed: %w", remotePath, err)
+		}
+	}
+	username, password, err := getCredentials()
+	if err != nil {
+		return err
+	}
+	klog.V(2).Infof("(re)mapping remote %s", remotePath)
+	if err := mounter.smbAPI.NewSmbGlobalMapping(remotePath, username, password); err != nil {
+		return fmt.Errorf("NewSmbGlobalMapping(%s) failed: %w", remotePath, err)
+	}
+	return nil
+}
+
+// RevalidateSMBMount revalidates (and, if needed, remaps) the node-global SMB mapping
+// backing remotePath, resolving credentials lazily via getCredentials only when a remap is
+// required. It is invoked from the per-pod publish path so that a stale mapping is repaired
+// before a new pod (e.g. one using subPath) re-traverses the share.
+func (mounter *winMounter) RevalidateSMBMount(remotePath string, getCredentials func() (string, string, error)) error {
+	remotePath = strings.Replace(remotePath, "/", "\\", -1)
+	return mounter.revalidateSMBMapping(remotePath, getCredentials)
 }
 
 // Mount just creates a soft link at target pointing to source.
