@@ -91,6 +91,12 @@ func (mounter *csiProxyMounterV1Beta) SMBMount(source, target, fsType string, mo
 	return nil
 }
 
+// RevalidateSMBMount is a no-op for the csi-proxy v1beta mounter; the publish-path
+// self-heal is only implemented for the host-process mounter.
+func (mounter *csiProxyMounterV1Beta) RevalidateSMBMount(_ string, _ func() (string, string, error)) error {
+	return nil
+}
+
 // Mount just creates a soft link at target pointing to source.
 func (mounter *csiProxyMounterV1Beta) Mount(source string, target string, fstype string, options []string) error {
 	klog.V(4).Infof("Mount: old name: %s. new name: %s", source, target)

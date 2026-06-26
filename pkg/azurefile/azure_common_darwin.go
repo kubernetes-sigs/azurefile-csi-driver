@@ -31,6 +31,14 @@ func SMBMount(m *mount.SafeFormatAndMount, source, target, fsType string, option
 	return nil
 }
 
+func RevalidateSMBMount(_ *mount.SafeFormatAndMount, _ string, _ func() (username, password string, err error)) error {
+	return nil
+}
+
+func readStagedRemotePath(_ string) (string, error) {
+	return "", nil
+}
+
 func SMBUnmount(m *mount.SafeFormatAndMount, target string, _, _ bool) error {
 	return nil
 }

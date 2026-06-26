@@ -341,6 +341,42 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(ctx, cs, ns)
 	})
 
+	ginkgo.It("should self-heal a stale node-global SMB session for newly created subPath pods [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
+		skipIfUsingInTreeVolumePlugin()
+		if !isWindowsCluster {
+			ginkgo.Skip("stale node-global SMB session self-heal only applies to Windows nodes")
+		}
+
+		pod := testsuites.PodDetails{
+			Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' >> /mnt/test-1/data && while true; do sleep 3600; done"),
+			Volumes: []testsuites.VolumeDetails{
+				{
+					ClaimSize:   "100Gi",
+					AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteMany},
+					VolumeMount: testsuites.VolumeMountDetails{
+						NameGenerate:      "test-volume-",
+						MountPathGenerate: "/mnt/test-",
+					},
+				},
+			},
+			IsWindows:    isWindowsCluster,
+			WinServerVer: winServerVer,
+		}
+
+		scParameters := map[string]string{
+			"skuName":         "Standard_LRS",
+			"secretNamespace": "kube-system",
+			"shareNamePrefix": "stalesmb",
+		}
+		test := testsuites.DynamicallyProvisionedStaleSMBSubpathTester{
+			CSIDriver:              testDriver,
+			Pod:                    pod,
+			StorageClassParameters: scParameters,
+			WinServerVer:           winServerVer,
+		}
+		test.Run(ctx, cs, ns)
+	})
+
 	ginkgo.It("should create multiple PV objects, bind to PVCs and attach all to different pods on the same node [kubernetes.io/azure-file] [file.csi.azure.com] [Windows]", func(ctx ginkgo.SpecContext) {
 		pods := []testsuites.PodDetails{
 			{

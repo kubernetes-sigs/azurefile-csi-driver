@@ -187,6 +187,19 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		return nil, status.Error(codes.InvalidArgument, "Staging target not provided")
 	}
 
+	// Windows self-heal for stale node-global SMB sessions.
+	//
+	// On Windows the SMB share is mounted once per node via New-SmbGlobalMapping during
+	// NodeStageVolume; the staging path is a symlink to the remote UNC path. kubelet calls
+	// NodeStageVolume only once per volume per node, so when that node-global session goes
+	// stale (credential rotation, idle/NAT teardown, storage maintenance, etc.) the existing
+	// self-heal in NodeStageVolume never re-runs for subsequently created pods. Those new pods
+	// re-traverse the share (e.g. kubelet's subPath preparation) against the dead session and
+	// fail with "failed to prepare subPath for volumeMount" until the node is replaced.
+	if err := d.revalidateStaleSMBMount(ctx, source, volumeID, secrets, context); err != nil {
+		return nil, err
+	}
+
 	mountOptions := []string{"bind"}
 	if req.GetReadonly() {
 		mountOptions = append(mountOptions, "ro")
@@ -234,6 +247,48 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	klog.V(2).Infof("NodePublishVolume: mount %s at %s successfully", source, target)
 
 	return &csi.NodePublishVolumeResponse{}, nil
+}
+
+// revalidateStaleSMBMount repairs the node-global SMB mapping backing the staged source
+// when it has gone stale/missing, before the per-pod bind/symlink. On non-Windows platforms
+// readStagedRemotePath returns empty, so this is a no-op. RevalidateSMBMount probes the
+// mapping (cheap, read-only) and invokes the credential resolver only when a remap is
+// actually needed, so healthy publishes and co-tenant pods on the same share are unaffected.
+//
+// Revalidation is serialized per node-global SMB mapping (keyed by the UNC remotePath,
+// shared by every pod/volume on this node referencing the same share). Without this lock,
+// concurrent NodePublishVolume calls could race RemoveSmbGlobalMapping + NewSmbGlobalMapping,
+// where one remap removes the mapping another just recreated (a destructive, node-global
+// operation). TryAcquire fails fast; the caller surfaces Aborted so kubelet retries the
+// publish, by which point the in-flight call has revalidated the mapping. The lock is
+// released as soon as revalidation completes (this helper returns), not spanning the bind.
+func (d *Driver) revalidateStaleSMBMount(ctx context.Context, source, volumeID string, secrets, volContext map[string]string) error {
+	remotePath, rlErr := readStagedRemotePath(source)
+	if rlErr != nil || remotePath == "" {
+		return nil
+	}
+
+	revalidateLockKey := fmt.Sprintf("smb-revalidate-%s", remotePath)
+	if acquired := d.volumeLocks.TryAcquire(revalidateLockKey); !acquired {
+		return status.Errorf(codes.Aborted, volumeOperationAlreadyExistsFmt, volumeID)
+	}
+	defer d.volumeLocks.Release(revalidateLockKey)
+
+	getCredentials := func() (string, string, error) {
+		klog.Warningf("NodePublishVolume: node-global SMB mapping for %s is missing or stale, revalidating before publish of volume(%s)", remotePath, volumeID)
+		_, accountName, accountKey, _, _, _, _, _, gaErr := d.GetAccountInfo(ctx, volumeID, secrets, volContext)
+		if gaErr != nil {
+			return "", "", status.Errorf(codes.Internal, "failed to get account info to revalidate SMB mount for volume(%s): %v", volumeID, gaErr)
+		}
+		if accountName == "" || accountKey == "" {
+			return "", "", status.Errorf(codes.Internal, "accountName(%s) or accountKey is empty, cannot revalidate SMB mount for volume(%s)", accountName, volumeID)
+		}
+		return fmt.Sprintf("AZURE\\%s", accountName), accountKey, nil
+	}
+	if rvErr := RevalidateSMBMount(d.mounter, remotePath, getCredentials); rvErr != nil {
+		return status.Errorf(codes.Internal, "NodePublishVolume: failed to revalidate SMB mount for %s of volume(%s): %v", remotePath, volumeID, rvErr)
+	}
+	return nil
 }
 
 // NodeUnpublishVolume unmount the volume from the target path

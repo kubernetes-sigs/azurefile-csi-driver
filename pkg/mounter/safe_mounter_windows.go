@@ -42,6 +42,10 @@ type CSIProxyMounter interface {
 	mount.Interface
 
 	SMBMount(source, target, fsType string, mountOptions, sensitiveMountOptions []string) error
+	// RevalidateSMBMount revalidates and, if needed, remaps the node-global SMB mapping
+	// backing remotePath (without creating a staging symlink), resolving credentials
+	// lazily via getCredentials only when a remap is required.
+	RevalidateSMBMount(remotePath string, getCredentials func() (username, password string, err error)) error
 	MakeDir(path string) error
 	Rmdir(path string) error
 	IsMountPointMatch(mp mount.MountPoint, dir string) bool
@@ -98,6 +102,12 @@ func (mounter *csiProxyMounter) SMBMount(source, target, fsType string, mountOpt
 		return fmt.Errorf("smb mapping failed with error: %v", err)
 	}
 	klog.V(2).Infof("mount %s on %s successfully", source, normalizedTarget)
+	return nil
+}
+
+// RevalidateSMBMount is a no-op for the csi-proxy mounter; the publish-path self-heal
+// is only implemented for the host-process mounter.
+func (mounter *csiProxyMounter) RevalidateSMBMount(_ string, _ func() (string, string, error)) error {
 	return nil
 }
 
