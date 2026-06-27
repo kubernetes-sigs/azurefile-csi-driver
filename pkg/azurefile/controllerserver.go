@@ -855,11 +855,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 // is preserved so retries can resume rather than starting from zero.
 func (d *Driver) cleanupShareOnFailure(shouldCleanupShare bool, accountName, shareName, subsID, resourceGroup string, secret map[string]string, useDataPlaneAPI, reason string) {
 	if shouldCleanupShare {
-		// Check if an azcopy job is still running for this share — if so,
-		// skip cleanup to avoid orphaning the job and losing partial progress.
+		// Check if an azcopy job is still running or has completed for this share — if so,
+		// skip cleanup to avoid orphaning a running job or deleting a share that was
+		// successfully copied (race between timeout and job completion).
 		jobState, _, err := d.azcopy.GetAzcopyJob(shareName, []string{})
-		if err == nil && jobState == util.AzcopyJobRunning {
-			klog.V(2).Infof("skip cleanup of file share(%s) on account(%s): azcopy job is still running", shareName, accountName)
+		if err == nil && (jobState == util.AzcopyJobRunning || jobState == util.AzcopyJobCompleted) {
+			klog.V(2).Infof("skip cleanup of file share(%s) on account(%s): azcopy job state is %s", shareName, accountName, jobState)
 			return
 		}
 		klog.V(2).Infof("%s on account(%s), cleaning up file share(%s)", reason, accountName, shareName)
