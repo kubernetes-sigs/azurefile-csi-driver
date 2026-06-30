@@ -37,7 +37,7 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: csi-provisioner
-          image: mcr.microsoft.com/oss/v2/kubernetes-csi/csi-provisioner:v6.1.1
+          image: mcr.microsoft.com/oss/v2/kubernetes-csi/csi-provisioner:v6.3.0
           args:
             - "-v=2"
             - "--csi-address=$(ADDRESS)"
@@ -47,7 +47,6 @@ spec:
             - "--extra-create-metadata=true"
             - "--kube-api-qps=50"
             - "--kube-api-burst=100"
-            - "--feature-gates=HonorPVReclaimPolicy=true"
             - "--retry-interval-max=30m"
           env:
             - name: ADDRESS
@@ -90,7 +89,7 @@ spec:
               drop:
                 - ALL
         - name: csi-resizer
-          image: mcr.microsoft.com/oss/v2/kubernetes-csi/csi-resizer:v2.1.0
+          image: mcr.microsoft.com/oss/v2/kubernetes-csi/csi-resizer:v2.2.0
           args:
             - "-csi-address=$(ADDRESS)"
             - "-v=2"
@@ -117,7 +116,7 @@ spec:
               drop:
                 - ALL
         - name: liveness-probe
-          image: mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.18.0
+          image: mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.19.0
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
