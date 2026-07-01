@@ -25,12 +25,27 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/sync/singleflight"
 	"golang.org/x/sys/windows"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/util"
 )
+
+// pathValidDefaultTimeout bounds the GetFileAttributes probe in PathValid. A UNC path
+// backed by a dead SMB session can make GetFileAttributes block; without a bound a
+// single wedged connection could stall NodeStage/NodePublish indefinitely.
+const pathValidDefaultTimeout = 30 * time.Second
+
+// pathValidGroup deduplicates concurrent PathValid probes for the same path. When the
+// underlying GetFileAttributes call against a wedged UNC path blocks past the timeout,
+// the probing goroutine cannot be cancelled (the Windows syscall is not interruptible).
+// singleflight ensures at most one such goroutine is in flight per path, so repeated
+// kubelet retries against the same dead session reuse the in-flight probe instead of
+// accumulating unbounded blocked goroutines.
+var pathValidGroup singleflight.Group
 
 var invalidPathCharsRegexWindows = regexp.MustCompile(`["/\:\?\*|]`)
 var absPathRegexWindows = regexp.MustCompile(`^[a-zA-Z]:\\`)
@@ -85,8 +100,46 @@ func PathExists(path string) (bool, error) {
 	return pathExists(path)
 }
 
-func PathValid(_ context.Context, path string) (bool, error) {
+func PathValid(ctx context.Context, path string) (bool, error) {
 	klog.V(6).Infof("PathValid called with path: %s", path)
+
+	// Bound the probe: GetFileAttributes against a UNC path whose SMB session is dead
+	// can block, so run it on a goroutine and honor the context deadline. If the caller
+	// did not supply a deadline, apply a default one.
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, pathValidDefaultTimeout)
+		defer cancel()
+	}
+
+	type result struct {
+		valid bool
+		err   error
+	}
+	// Deduplicate the actual probe per path via singleflight so concurrent callers
+	// (and rapid kubelet retries) share a single in-flight GetFileAttributes goroutine.
+	// This bounds the number of goroutines that can be left blocked on a wedged UNC path
+	// to at most one per path. resultCh is buffered so the worker can always send and
+	// exit once the (possibly delayed) syscall finally returns, even after we time out.
+	resultCh := make(chan result, 1)
+	go func() {
+		v, _, _ := pathValidGroup.Do(path, func() (interface{}, error) {
+			valid, err := getPathAttributesValid(path)
+			return result{valid: valid, err: err}, nil
+		})
+		resultCh <- v.(result)
+	}()
+
+	select {
+	case <-ctx.Done():
+		klog.Warningf("PathValid(%s) timed out or was cancelled: %v", path, ctx.Err())
+		return false, fmt.Errorf("PathValid(%s) timed out: %w", path, ctx.Err())
+	case r := <-resultCh:
+		return r.valid, r.err
+	}
+}
+
+func getPathAttributesValid(path string) (bool, error) {
 	pathString, err := windows.UTF16PtrFromString(path)
 	if err != nil {
 		klog.V(6).Infof("failed to convert path %s to UTF16: %v", path, err)

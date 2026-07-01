@@ -21,6 +21,7 @@ package azurefile
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"golang.org/x/sys/windows"
@@ -37,6 +38,21 @@ func SMBMount(m *mount.SafeFormatAndMount, source, target, fsType string, mountO
 		return proxy.SMBMount(source, target, fsType, mountOptions, sensitiveMountOptions)
 	}
 	return fmt.Errorf("could not cast to csi proxy class")
+}
+
+func RevalidateSMBMount(m *mount.SafeFormatAndMount, remotePath string, getCredentials func() (username, password string, err error)) error {
+	if proxy, ok := m.Interface.(mounter.CSIProxyMounter); ok {
+		return proxy.RevalidateSMBMount(remotePath, getCredentials)
+	}
+	return fmt.Errorf("could not cast to csi proxy class")
+}
+
+// readStagedRemotePath returns the remote UNC path backing a Windows staging path.
+// On Windows the driver creates the staging path as a symlink that points at
+// \\<account>.file.<suffix>\<share>[\<folder>], so reading the link yields the
+// remote path used to (re)validate the SMB mapping.
+func readStagedRemotePath(source string) (string, error) {
+	return os.Readlink(source)
 }
 
 func SMBUnmount(m *mount.SafeFormatAndMount, target string, extensiveMountCheck, removeSMBMountOnWindows bool) error {

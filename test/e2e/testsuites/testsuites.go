@@ -856,6 +856,34 @@ func (t *TestPod) SetNodeSelector(nodeSelector map[string]string) {
 	t.pod.Spec.NodeSelector = nodeSelector
 }
 
+// SetNodeName pins the pod to a specific node. Used to co-locate pods that must share
+// the same node-global SMB mount.
+func (t *TestPod) SetNodeName(nodeName string) {
+	t.pod.Spec.NodeName = nodeName
+}
+
+// GetNodeName returns the node the pod was scheduled on (after Create).
+func (t *TestPod) GetNodeName(ctx context.Context) string {
+	pod, err := t.client.CoreV1().Pods(t.namespace.Name).Get(ctx, t.pod.Name, metav1.GetOptions{})
+	framework.ExpectNoError(err)
+	return pod.Spec.NodeName
+}
+
+// SetHostProcess turns the pod into a Windows HostProcess pod running as
+// NT AUTHORITY\SYSTEM with host networking, which is required to manipulate the
+// node-global SMB sessions that the CSI driver (also a HostProcess) creates.
+func (t *TestPod) SetHostProcess() {
+	hostProcess := true
+	userName := "NT AUTHORITY\\SYSTEM"
+	t.pod.Spec.SecurityContext = &v1.PodSecurityContext{
+		WindowsOptions: &v1.WindowsSecurityContextOptions{
+			HostProcess:   &hostProcess,
+			RunAsUserName: &userName,
+		},
+	}
+	t.pod.Spec.HostNetwork = true
+}
+
 func (t *TestPod) Cleanup(ctx context.Context) {
 	cleanupPodOrFail(ctx, t.client, t.pod.Name, t.namespace.Name)
 }

@@ -33,6 +33,18 @@ func SMBMount(m *mount.SafeFormatAndMount, source, target, fsType string, option
 	return m.MountSensitive(source, target, fsType, options, sensitiveMountOptions)
 }
 
+// RevalidateSMBMount is a no-op on Linux: the stale node-global SMB session
+// self-heal only applies to Windows (New-SmbGlobalMapping).
+func RevalidateSMBMount(_ *mount.SafeFormatAndMount, _ string, _ func() (username, password string, err error)) error {
+	return nil
+}
+
+// readStagedRemotePath returns empty on Linux so the publish-path SMB revalidation
+// is skipped (staging is a real mount, not a symlink-to-UNC as on Windows).
+func readStagedRemotePath(_ string) (string, error) {
+	return "", nil
+}
+
 func SMBUnmount(m *mount.SafeFormatAndMount, target string, extensiveMountCheck, _ bool) error {
 	return mount.CleanupMountPoint(target, m.Interface, extensiveMountCheck)
 }
