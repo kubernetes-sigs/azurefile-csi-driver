@@ -397,6 +397,26 @@ func TestGetFileShareInfo(t *testing.T) {
 			subsID:            "",
 			expectedError:     nil,
 		},
+		{
+			id:                "rg#f5713de20cde511e8ba4900#fileShareName#../../etc/shadow#uuid#namespace",
+			resourceGroupName: "",
+			accountName:       "",
+			fileShareName:     "",
+			diskName:          "",
+			namespace:         "",
+			subsID:            "",
+			expectedError:     fmt.Errorf("invalid diskName %q: contains directory traversal sequence", "../../etc/shadow"),
+		},
+		{
+			id:                "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#../../evil",
+			resourceGroupName: "",
+			accountName:       "",
+			fileShareName:     "",
+			diskName:          "",
+			namespace:         "",
+			subsID:            "",
+			expectedError:     fmt.Errorf("invalid namespace %q: contains directory traversal sequence", "../../evil"),
+		},
 	}
 
 	for _, test := range tests {

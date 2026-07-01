@@ -567,6 +567,9 @@ func GetFileShareInfo(id string) (string, string, string, string, string, string
 	var diskName, namespace, subsID string
 	if len(segments) > 3 {
 		diskName = segments[3]
+		if err := validateVolumeIDSegment("diskName", diskName); err != nil {
+			return "", "", "", "", "", "", err
+		}
 	}
 	if rg == "" {
 		// in csi migration, rg could be empty, then the 5th element is namespace
@@ -582,7 +585,29 @@ func GetFileShareInfo(id string) (string, string, string, string, string, string
 			subsID = segments[6]
 		}
 	}
+	if err := validateVolumeIDSegment("namespace", namespace); err != nil {
+		return "", "", "", "", "", "", err
+	}
 	return rg, segments[1], segments[2], diskName, namespace, subsID, nil
+}
+
+// validateVolumeIDSegment rejects volume id segments that contain path
+// traversal sequences ("..") so that segments parsed out of a CSI volume id
+// cannot be used to construct unsafe filesystem paths (e.g. when diskName is
+// joined with the CIFS mount path during VHD-on-Azure-File staging).
+func validateVolumeIDSegment(field, value string) error {
+	if value == "" {
+		return nil
+	}
+	segments := strings.FieldsFunc(value, func(r rune) bool {
+		return r == '/' || r == '\\'
+	})
+	for _, segment := range segments {
+		if segment == ".." {
+			return fmt.Errorf("invalid %s %q: contains directory traversal sequence", field, value)
+		}
+	}
+	return nil
 }
 
 // get snapshot info according to snapshot id, e.g.
