@@ -1559,6 +1559,96 @@ func TestGetStorageEndPointSuffix(t *testing.T) {
 	}
 }
 
+func TestGetActiveDirectoryEndpoint(t *testing.T) {
+	d := NewFakeDriver()
+
+	tests := []struct {
+		name     string
+		cloud    *storage.AccountRepo
+		expected string
+	}{
+		{
+			name:     "nil cloud",
+			cloud:    nil,
+			expected: defaultActiveDirectoryEndpoint,
+		},
+		{
+			name:     "empty environment",
+			cloud:    &storage.AccountRepo{},
+			expected: defaultActiveDirectoryEndpoint,
+		},
+		{
+			name: "public cloud",
+			cloud: &storage.AccountRepo{
+				Environment: &azclient.Environment{
+					ActiveDirectoryEndpoint: "https://login.microsoftonline.com/",
+				},
+			},
+			expected: "https://login.microsoftonline.com/",
+		},
+		{
+			name: "china cloud",
+			cloud: &storage.AccountRepo{
+				Environment: &azclient.Environment{
+					ActiveDirectoryEndpoint: "https://login.chinacloudapi.cn/",
+				},
+			},
+			expected: "https://login.chinacloudapi.cn/",
+		},
+	}
+
+	for _, test := range tests {
+		d.cloud = test.cloud
+		assert.Equal(t, test.expected, d.getActiveDirectoryEndpoint(), test.name)
+	}
+}
+
+func TestGetStorageResource(t *testing.T) {
+	d := NewFakeDriver()
+
+	tests := []struct {
+		name     string
+		cloud    *storage.AccountRepo
+		expected string
+	}{
+		{
+			name:     "nil cloud",
+			cloud:    nil,
+			expected: defaultStorageResource,
+		},
+		{
+			name: "nil resource identifiers",
+			cloud: &storage.AccountRepo{
+				Environment: &azclient.Environment{},
+			},
+			expected: defaultStorageResource,
+		},
+		{
+			name: "china cloud with custom storage resource",
+			cloud: &storage.AccountRepo{
+				Environment: &azclient.Environment{
+					ResourceIdentifiers: &azclient.ResourceIdentifier{
+						Storage: "https://storage.example.azure.com/",
+					},
+				},
+			},
+			expected: "https://storage.example.azure.com/",
+		},
+	}
+
+	for _, test := range tests {
+		d.cloud = test.cloud
+		assert.Equal(t, test.expected, d.getStorageResource(), test.name)
+	}
+}
+
+func TestGetEndpointsFromCloudName(t *testing.T) {
+	d := NewFakeDriver()
+	d.cloud = &storage.AccountRepo{Environment: azclient.EnvironmentFromName("AZURECHINACLOUD")}
+	assert.Equal(t, "https://login.chinacloudapi.cn/", d.getActiveDirectoryEndpoint())
+	assert.Equal(t, "https://storage.azure.com/", d.getStorageResource())
+}
+
 func TestGetStorageAccesskey(t *testing.T) {
 	options := &storage.AccountOptions{
 		Name:           "test-sa",
