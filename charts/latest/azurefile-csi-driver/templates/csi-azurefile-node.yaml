@@ -107,6 +107,9 @@ spec:
             - name: mountpoint-dir
               mountPath: "{{ .Values.linux.kubelet }}"
               mountPropagation: Bidirectional
+            - name: kerberos-dir
+              mountPath: /var/lib/kubelet/kerberos
+              mountPropagation: Bidirectional
             {{- end }}
       containers:
         - name: liveness-probe
@@ -163,9 +166,9 @@ spec:
               drop:
                 - ALL
           volumeMounts:
-            - mountPath: "{{ .Values.linux.kubelet }}"
+            - mountPath: /var/lib/kubelet/kerberos
               mountPropagation: Bidirectional
-              name: mountpoint-dir
+              name: kerberos-dir
             - name: azfilesauth
               mountPath: /etc/azfilesauth
             - name: log-dir
@@ -244,6 +247,9 @@ spec:
             - mountPath: {{ .Values.linux.kubelet }}/pods
               mountPropagation: Bidirectional
               name: mountpoint-dir
+            - mountPath: /var/lib/kubelet/kerberos
+              mountPropagation: Bidirectional
+              name: kerberos-dir
             - mountPath: /etc/kubernetes/
               name: azure-cred
             - mountPath: /dev
@@ -286,6 +292,10 @@ spec:
             path: {{ .Values.linux.kubelet }}/pods
             type: DirectoryOrCreate
           name: mountpoint-dir
+        - hostPath:
+            path: /var/lib/kubelet/kerberos
+            type: DirectoryOrCreate
+          name: kerberos-dir
         - hostPath:
             path: {{ .Values.linux.kubelet }}/plugins_registry/
             type: DirectoryOrCreate
