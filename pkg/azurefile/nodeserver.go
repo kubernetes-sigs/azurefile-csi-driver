@@ -484,9 +484,12 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			sensitiveMountOptions = []string{"sec=krb5,cruid=0,upcall_target=mount"}
 			klog.V(2).Infof("using workload identity token for volume %s with mount options: %v", volumeID, sensitiveMountOptions)
 			if tokenFilePath != "" {
+				// Kerberos SPN must be the canonical <account>.file.<suffix>; the CIFS
+				// mount source below still uses `server` (which may be privatelink).
+				krbHost := getKerberosHost(server)
 				// always set credential cache when token file is provided even mount does not happen
-				if out, err := setCredentialCache(server, clientID, tenantID, tokenFilePath, "", d.getActiveDirectoryEndpoint(), d.getStorageResource()); err != nil {
-					return nil, status.Errorf(codes.Internal, "setCredentialCache failed for %s with error: %v, output: %s", server, err, out)
+				if out, err := setCredentialCache(krbHost, clientID, tenantID, tokenFilePath, "", d.getActiveDirectoryEndpoint(), d.getStorageResource()); err != nil {
+					return nil, status.Errorf(codes.Internal, "setCredentialCache failed for %s with error: %v, output: %s", krbHost, err, out)
 				}
 			}
 		} else if mountWithOAuthToken && runtime.GOOS != "windows" {
@@ -563,8 +566,11 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		} else {
 			execFunc := func() error {
 				if mountWithManagedIdentity && protocol != nfs && runtime.GOOS != "windows" {
-					if out, err := setCredentialCache(server, clientID, tenantID, tokenFilePath, "", d.getActiveDirectoryEndpoint(), d.getStorageResource()); err != nil {
-						return fmt.Errorf("setCredentialCache failed for %s with error: %v, output: %s", server, err, out)
+					// Kerberos SPN must be the canonical <account>.file.<suffix>; the CIFS
+					// mount source below still uses `source` (which may be privatelink).
+					krbHost := getKerberosHost(server)
+					if out, err := setCredentialCache(krbHost, clientID, tenantID, tokenFilePath, "", d.getActiveDirectoryEndpoint(), d.getStorageResource()); err != nil {
+						return fmt.Errorf("setCredentialCache failed for %s with error: %v, output: %s", krbHost, err, out)
 					}
 				}
 				return SMBMount(d.mounter, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions)
@@ -913,6 +919,19 @@ func validateMountWithOAuthToken(protocol, fsType string, volumeContext map[stri
 	return nil
 }
 
+// getKerberosHost strips the ".privatelink" label from an Azure Files FQDN so
+// the Kerberos SPN matches the canonical <account>.file.<suffix> that Azure AD
+// (Entra) issues tickets for. The CIFS mount source is not changed; the
+// canonical name still resolves (via the privatelink private DNS zone) to the
+// private endpoint IP, so traffic keeps going through the private link.
+//
+// Callers should use this helper for anything passed to Kerberos (setCredentialCache,
+// SPN lookups) but keep the original server value for the CIFS mount source and
+// volume context.
+func getKerberosHost(server string) string {
+	return strings.Replace(server, ".privatelink.file.", ".file.", 1)
+}
+
 func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, volumeID string, volumeContext map[string]string) (string, error) {
 	secretName := getValueInMap(volumeContext, secretNameField)
 	if secretName == "" {
@@ -962,13 +981,14 @@ func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, volumeID 
 		return server, nil
 	}
 
-	if output, err := setCredentialCache(server, "", "", "", oauthToken, "", ""); err != nil {
-		klog.Errorf("setCredentialCache failed for %s with output: %s, error: %v", server, strings.ReplaceAll(string(output), oauthToken, "<redacted>"), err)
-		return "", status.Errorf(codes.Internal, "setCredentialCache failed for %s: %v", server, err)
+	krbHost := getKerberosHost(server)
+	if output, err := setCredentialCache(krbHost, "", "", "", oauthToken, "", ""); err != nil {
+		klog.Errorf("setCredentialCache failed for %s with output: %s, error: %v", krbHost, strings.ReplaceAll(string(output), oauthToken, "<redacted>"), err)
+		return "", status.Errorf(codes.Internal, "setCredentialCache failed for %s: %v", krbHost, err)
 	}
 
 	d.oauthTokenSHAMap.Store(server, tokenSHA)
-	klog.V(2).Infof("setCredentialCacheWithOAuthToken: refreshed credential cache for server %s using secret %s/%s", server, secretNamespace, secretName)
+	klog.V(2).Infof("setCredentialCacheWithOAuthToken: refreshed credential cache for server %s (SPN host %s) using secret %s/%s", server, krbHost, secretNamespace, secretName)
 	return server, nil
 }
 
