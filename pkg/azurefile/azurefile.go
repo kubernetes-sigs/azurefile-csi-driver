@@ -663,7 +663,30 @@ func GetInfoFromSnapshotID(id string) (string, string, string, string, string, e
 		}
 	}
 
+	if !isValidSnapshotTime(snapshotTime) {
+		return "", "", "", "", "", fmt.Errorf("error parsing snapshot id: %q, invalid snapshot time %q", id, snapshotTime)
+	}
+
 	return segments[0], segments[1], segments[2], snapshotTime, subsID, nil
+}
+
+// isValidSnapshotTime checks whether s is a non-empty timestamp parseable by
+// one of the formats produced by Azure File snapshot APIs.
+func isValidSnapshotTime(s string) bool {
+	if s == "" {
+		return false
+	}
+	formats := []string{
+		"2006-01-02T15:04:05.0000000Z07:00",
+		time.RFC3339Nano,
+		time.RFC3339,
+	}
+	for _, f := range formats {
+		if _, err := time.Parse(f, s); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 // check whether mountOptions contains file_mode, dir_mode, vers, if not, append default mode
