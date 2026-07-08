@@ -2215,8 +2215,8 @@ func TestGetInfoFromSnapshotID(t *testing.T) {
 		},
 		{
 			name:          "Short snapshot ID with 5 segments (in-tree migration with subsID)",
-			id:            "rg#accountname#sharename#2025-09-05T07:51:41.0000000Z#12345678-1234-1234-1234-123456789012",
-			expectedRG:    "rg",
+			id:            "#accountname#sharename#2025-09-05T07:51:41.0000000Z#12345678-1234-1234-1234-123456789012",
+			expectedRG:    "",
 			expectedAcct:  "accountname",
 			expectedShare: "sharename",
 			expectedTime:  "2025-09-05T07:51:41.0000000Z",
@@ -2225,8 +2225,8 @@ func TestGetInfoFromSnapshotID(t *testing.T) {
 		},
 		{
 			name:          "Short snapshot ID with 5 segments (subsID before snapshotTime)",
-			id:            "rg#accountname#sharename#12345678-1234-1234-1234-123456789012#2025-09-05T07:51:41.0000000Z",
-			expectedRG:    "rg",
+			id:            "#accountname#sharename#12345678-1234-1234-1234-123456789012#2025-09-05T07:51:41.0000000Z",
+			expectedRG:    "",
 			expectedAcct:  "accountname",
 			expectedShare: "sharename",
 			expectedTime:  "2025-09-05T07:51:41.0000000Z",
