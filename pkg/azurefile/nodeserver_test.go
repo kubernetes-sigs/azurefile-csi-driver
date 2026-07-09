@@ -1568,3 +1568,55 @@ func TestSetCredentialCacheWithOAuthToken(t *testing.T) {
 		})
 	}
 }
+
+func TestGetKerberosHost(t *testing.T) {
+	tests := []struct {
+		name     string
+		server   string
+		expected string
+	}{
+		{
+			name:     "canonical name is unchanged",
+			server:   "acct.file.core.windows.net",
+			expected: "acct.file.core.windows.net",
+		},
+		{
+			name:     "privatelink name is canonicalized",
+			server:   "acct.privatelink.file.core.windows.net",
+			expected: "acct.file.core.windows.net",
+		},
+		{
+			name:     "privatelink in China cloud",
+			server:   "acct.privatelink.file.core.chinacloudapi.cn",
+			expected: "acct.file.core.chinacloudapi.cn",
+		},
+		{
+			name:     "privatelink in US government cloud",
+			server:   "acct.privatelink.file.core.usgovcloudapi.net",
+			expected: "acct.file.core.usgovcloudapi.net",
+		},
+		{
+			name:     "empty server",
+			server:   "",
+			expected: "",
+		},
+		{
+			name:     "custom endpoint without privatelink label",
+			server:   "acct.file.example.com",
+			expected: "acct.file.example.com",
+		},
+		{
+			name:     "only strips first .privatelink.file. occurrence",
+			server:   "acct.privatelink.file.privatelink.file.core.windows.net",
+			expected: "acct.file.privatelink.file.core.windows.net",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := getKerberosHost(tc.server)
+			if got != tc.expected {
+				t.Errorf("getKerberosHost(%q) = %q, want %q", tc.server, got, tc.expected)
+			}
+		})
+	}
+}
