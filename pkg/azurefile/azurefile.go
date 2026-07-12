@@ -621,27 +621,48 @@ func validateVolumeIDSegment(field, value string) error {
 //
 //	capz-qjbped#f3d5809ad977d4606b8997d#pvc-061c8214-2330-4b3e-88d0-6ef8d84636bc###azurefile-6654#2025-09-05T07:51:41.0000000Z#46678f10-4bbb-447e-98e8-d2829589f2d8
 //	capz-qjbped#f3d5809ad977d4606b8997d#pvc-061c8214-2330-4b3e-88d0-6ef8d84636bc###azurefile-6654#46678f10-4bbb-447e-98e8-d2829589f2d8#2025-09-05T07:51:41.0000000Z
+//	#accountName#fileShareName#2025-09-05T07:51:41.0000000Z (in-tree migration format with 3 #)
+//	#accountName#fileShareName#2025-09-05T07:51:41.0000000Z#46678f10-4bbb-447e-98e8-d2829589f2d8 (in-tree migration format with subsID)
 //
 // output:
 //
 //	capz-qjbped, f3d5809ad977d4606b8997d, pvc-061c8214-2330-4b3e-88d0-6ef8d84636bc, snapshotTime, 46678f10-4bbb-447e-98e8-d2829589f2d8
 func GetInfoFromSnapshotID(id string) (string, string, string, string, string, error) {
 	segments := strings.Split(id, separator)
-	if len(segments) < 7 {
-		return "", "", "", "", "", fmt.Errorf("error parsing snapshot id: %q, should at least contain 6 #", id)
+	if len(segments) < 4 {
+		return "", "", "", "", "", fmt.Errorf("error parsing snapshot id: %q, should at least contain 3 #", id)
 	}
-	snapshotTime := segments[6]
-	var subsID string
-	if len(segments) > 7 {
-		if isValidSubscriptionID(segments[7]) {
-			subsID = segments[7]
-		} else {
-			if isValidSubscriptionID(segments[6]) {
-				subsID = segments[6]
-				snapshotTime = segments[7]
+
+	var snapshotTime, subsID string
+
+	if len(segments) >= 7 {
+		// Standard format: rg#account#share#diskName#namespace#storageClass#snapshotTime[#subsID]
+		snapshotTime = segments[6]
+		if len(segments) > 7 {
+			if isValidSubscriptionID(segments[7]) {
+				subsID = segments[7]
+			} else {
+				if isValidSubscriptionID(segments[6]) {
+					subsID = segments[6]
+					snapshotTime = segments[7]
+				}
 			}
 		}
+	} else {
+		// Short format (e.g. in-tree migration): [rg]#account#share#snapshotTime[#subsID]
+		// The last segment(s) contain snapshotTime and optionally subsID
+		lastIdx := len(segments) - 1
+		if len(segments) >= 5 && isValidSubscriptionID(segments[lastIdx]) {
+			subsID = segments[lastIdx]
+			snapshotTime = segments[lastIdx-1]
+		} else if len(segments) >= 5 && isValidSubscriptionID(segments[lastIdx-1]) {
+			subsID = segments[lastIdx-1]
+			snapshotTime = segments[lastIdx]
+		} else {
+			snapshotTime = segments[lastIdx]
+		}
 	}
+
 	return segments[0], segments[1], segments[2], snapshotTime, subsID, nil
 }
 

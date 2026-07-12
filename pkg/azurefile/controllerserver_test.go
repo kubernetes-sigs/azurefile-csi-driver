@@ -1823,7 +1823,7 @@ var _ = ginkgo.Describe("TestCopyVolume", func() {
 				VolumeContentSource: &volumecontensource,
 			}
 
-			expectedErr := status.Errorf(codes.NotFound, "error parsing snapshot id: \"unit-test\", should at least contain 6 #")
+			expectedErr := status.Errorf(codes.NotFound, "error parsing snapshot id: \"unit-test\", should at least contain 3 #")
 			err := d.copyVolume(ctx, req, "", "", []string{}, "", &ShareOptions{Name: "dstFileshare"}, nil, "core.windows.net")
 			gomega.Expect(err).To(gomega.Equal(expectedErr))
 		})
