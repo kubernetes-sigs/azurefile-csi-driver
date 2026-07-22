@@ -83,6 +83,10 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	context := req.GetVolumeContext()
 	if context != nil {
 		if !strings.EqualFold(getValueInMap(context, mountWithManagedIdentityField), trueValue) && getValueInMap(context, serviceAccountTokenField) != "" && getValueInMap(context, clientIDField) != "" {
+			if d.canSkipRepublishNodeStage(target) {
+				klog.V(2).Infof("NodePublishVolume: volume(%s) already mounted on %s with clientID auth, skipping NodeStageVolume (no time-bound credential to refresh)", volumeID, target)
+				return &csi.NodePublishVolumeResponse{}, nil
+			}
 			klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with service account token, clientID: %s", volumeID, target, getValueInMap(context, clientIDField))
 			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
 				StagingTargetPath: target,
@@ -100,6 +104,10 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 			// Allowing access for inline volume with identity will open up risk of arbitrary pods accessing fileshares with node identity permissions.
 			if strings.EqualFold(getValueInMap(context, mountWithManagedIdentityField), trueValue) {
 				return nil, status.Error(codes.InvalidArgument, "mountWithManagedIdentity cannot be used for ephemeral volumes, please use secret based authentication")
+			}
+			if d.canSkipRepublishNodeStage(target) {
+				klog.V(2).Infof("NodePublishVolume: ephemeral volume(%s) already mounted on %s, skipping NodeStageVolume (no time-bound credential to refresh)", volumeID, target)
+				return &csi.NodePublishVolumeResponse{}, nil
 			}
 			if !d.allowInlineVolumeKeyAccessWithIdentity {
 				// only get storage account from secret
@@ -862,4 +870,16 @@ func checkGidPresentInMountFlags(mountFlags []string) bool {
 		}
 	}
 	return false
+}
+
+// canSkipRepublishNodeStage reports whether a NodePublishVolume call is a kubelet
+// requiresRepublish retry (target already mounted) whose auth mode has no time-bound
+// credential to refresh. When true, callers should return success without re-invoking
+// NodeStageVolume, avoiding wasteful ARM ListKeys calls (clientID-only mounts) or
+// kube-apiserver Secret.Get calls (secret-based ephemeral mounts) whose result would
+// be discarded because NodeStageVolume's ensureMountPoint short-circuits on an
+// existing mount.
+func (d *Driver) canSkipRepublishNodeStage(target string) bool {
+	notMnt, err := d.mounter.IsLikelyNotMountPoint(target)
+	return err == nil && !notMnt
 }
