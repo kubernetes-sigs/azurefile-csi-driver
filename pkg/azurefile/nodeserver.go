@@ -85,6 +85,10 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	context := req.GetVolumeContext()
 	if context != nil {
 		if getValueInMap(context, serviceAccountTokenField) != "" && shouldUseServiceAccountToken(context) {
+			if d.canSkipRepublishNodeStage(context, target) {
+				klog.V(2).Infof("NodePublishVolume: volume(%s) already mounted on %s with clientID auth, skipping NodeStageVolume (no time-bound credential to refresh)", volumeID, target)
+				return &csi.NodePublishVolumeResponse{}, nil
+			}
 			klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with service account token, clientID: %s, mountWithWIToken: %s", volumeID, target, getValueInMap(context, clientIDField), getValueInMap(context, mountWithWITokenField))
 			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
 				StagingTargetPath: target,
@@ -107,6 +111,11 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 				return nil, status.Error(codes.InvalidArgument, "mountWithOAuthToken cannot be used for ephemeral volumes, please use secret based authentication")
 			}
 			useWIToken := strings.EqualFold(getValueInMap(context, mountWithWITokenField), trueValue)
+
+			if d.canSkipRepublishNodeStage(context, target) {
+				klog.V(2).Infof("NodePublishVolume: ephemeral volume(%s) already mounted on %s, skipping NodeStageVolume (no time-bound credential to refresh)", volumeID, target)
+				return &csi.NodePublishVolumeResponse{}, nil
+			}
 			if !d.allowInlineVolumeKeyAccessWithIdentity && !useWIToken {
 				// only get storage account from secret when not using managed identity or workload identity
 				setKeyValueInMap(context, getAccountKeyFromSecretField, trueValue)
@@ -1058,4 +1067,20 @@ func shouldUseServiceAccountToken(attrib map[string]string) bool {
 		return true
 	}
 	return false
+}
+
+// canSkipRepublishNodeStage reports whether a NodePublishVolume call is a kubelet
+// requiresRepublish retry (target already mounted) whose auth mode has no time-bound
+// credential to refresh. When true, callers should return success without re-invoking
+// NodeStageVolume, avoiding wasteful ARM ListKeys calls (clientID-only mounts) or
+// kube-apiserver Secret.Get calls (secret-based ephemeral mounts) whose result would
+// be discarded because NodeStageVolume's ensureMountPoint short-circuits on an
+// existing mount. The WI-token path is excluded so setCredentialCache continues to
+// rotate the Kerberos ticket on every republish.
+func (d *Driver) canSkipRepublishNodeStage(context map[string]string, target string) bool {
+	if strings.EqualFold(getValueInMap(context, mountWithWITokenField), trueValue) {
+		return false
+	}
+	notMnt, err := d.mounter.IsLikelyNotMountPoint(target)
+	return err == nil && !notMnt
 }
