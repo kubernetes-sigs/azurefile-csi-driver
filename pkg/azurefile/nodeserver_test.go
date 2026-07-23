@@ -34,6 +34,7 @@ import (
 	volume "github.com/kata-containers/kata-containers/src/runtime/pkg/direct-volume"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
@@ -43,6 +44,7 @@ import (
 	mount "k8s.io/mount-utils"
 	"k8s.io/utils/exec"
 	testingexec "k8s.io/utils/exec/testing"
+	mount_azurefile "sigs.k8s.io/azurefile-csi-driver/pkg/azurefile-proxy/pb"
 	"sigs.k8s.io/azurefile-csi-driver/test/utils/testutil"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/accountclient/mock_accountclient"
@@ -60,6 +62,20 @@ type ExecArgs struct {
 	args    []string
 	output  string
 	err     error
+}
+
+type fakeProxyMountServer struct {
+	mount_azurefile.UnimplementedMountServiceServer
+	lastMountOptions     []string
+	validateMountOptions func(mountOptions []string) bool
+}
+
+func (s *fakeProxyMountServer) MountAzureFile(_ context.Context, req *mount_azurefile.MountAzureFileRequest) (*mount_azurefile.MountAzureFileResponse, error) {
+	if s.validateMountOptions != nil && !s.validateMountOptions(req.GetMountOptions()) {
+		return nil, errors.New("mount options validation failed")
+	}
+	s.lastMountOptions = append([]string{}, req.GetMountOptions()...)
+	return &mount_azurefile.MountAzureFileResponse{}, nil
 }
 
 func matchFlakyWindowsError(mainError error, substr string) bool {
@@ -273,6 +289,57 @@ func TestNodePublishVolume(t *testing.T) {
 			expectedErr: testutil.TestError{
 				DefaultError: status.Errorf(codes.InvalidArgument, "GetAccountInfo(csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed84) failed with error: clientID is empty for workload identity auth"),
 				WindowsError: status.Errorf(codes.InvalidArgument, "GetAccountInfo(csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed84) failed with error: clientID is empty for workload identity auth"),
+			},
+		},
+		{
+			desc: "[Success] Republish for clientID-only mount already mounted skips NodeStageVolume",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "csi-clientid-republish-already-mounted",
+				TargetPath:        alreadyMountedTarget,
+				StagingTargetPath: sourceTest,
+				Readonly:          true,
+				VolumeContext: map[string]string{
+					storageAccountField:      "teststorageaccount",
+					shareNameField:           "testshare",
+					clientIDField:            "test-client-id-1234",
+					serviceAccountTokenField: "fake-token",
+				},
+			},
+			expectedErr: testutil.TestError{},
+		},
+		{
+			desc: "[Success] Republish for ephemeral clientID-based mount already mounted skips NodeStageVolume",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "csi-ephemeral-clientid-republish-already-mounted",
+				TargetPath:        alreadyMountedTarget,
+				StagingTargetPath: sourceTest,
+				Readonly:          true,
+				VolumeContext: map[string]string{
+					ephemeralField:      "true",
+					storageAccountField: "teststorageaccount",
+					shareNameField:      "testshare",
+					clientIDField:       "test-client-id-1234",
+				},
+			},
+			expectedErr: testutil.TestError{},
+		},
+		{
+			desc: "[Error] Republish for mountWithWIToken already mounted should still refresh credentials (do not skip NodeStageVolume)",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "csi-witoken-republish-already-mounted",
+				TargetPath:        alreadyMountedTarget,
+				StagingTargetPath: sourceTest,
+				Readonly:          true,
+				VolumeContext: map[string]string{
+					storageAccountField:      "teststorageaccount",
+					shareNameField:           "testshare",
+					mountWithWITokenField:    "true",
+					serviceAccountTokenField: "fake-token",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Errorf(codes.InvalidArgument, "GetAccountInfo(csi-witoken-republish-already-mounted) failed with error: clientID is empty for workload identity auth"),
+				WindowsError: status.Errorf(codes.InvalidArgument, "GetAccountInfo(csi-witoken-republish-already-mounted) failed with error: clientID is empty for workload identity auth"),
 			},
 		},
 		{
@@ -587,6 +654,8 @@ func TestNodeStageVolume(t *testing.T) {
 		// error messages
 		flakyWindowsErrorMessage string
 		cleanup                  func()
+		enableAZNFSForNFSMounts  bool
+		shouldEnableProxy        bool
 	}{
 		{
 			desc:        "[Error] Volume ID missing",
@@ -864,6 +933,122 @@ func TestNodeStageVolume(t *testing.T) {
 			expectedErr: testutil.TestError{},
 		},
 		{
+			desc: "[Error] NFS + use-aznfs-for-nfs-mounts requires azurefile-proxy",
+			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					fsTypeField:           "nfs",
+					protocolField:         "nfs",
+					diskNameField:         "test_disk.vhd",
+					shareNameField:        "test_sharename",
+					serverNameField:       "test_servername",
+					mountPermissionsField: "0755",
+				},
+				Secrets: secrets},
+			skipOnWindows:           true,
+			enableAZNFSForNFSMounts: true,
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(
+					codes.InvalidArgument,
+					"aznfs mounts (encryptInTransit or use-aznfs-for-nfs-mounts) are only available when azurefile-proxy is enabled",
+				),
+			},
+		},
+		{
+			desc: "[Success] valid request with use-aznfs-for-nfs-mounts enabled should have notls mountoption",
+			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					fsTypeField:           "nfs",
+					protocolField:         "nfs",
+					diskNameField:         "test_disk.vhd",
+					shareNameField:        "test_sharename",
+					serverNameField:       "test_servername",
+					mountPermissionsField: "0755",
+				},
+				Secrets: secrets},
+			skipOnWindows:           true,
+			shouldEnableProxy:       true,
+			enableAZNFSForNFSMounts: true,
+			expectedErr:             testutil.TestError{},
+			setup: func() {
+				listener, err := net.Listen("tcp", "127.0.0.1:0")
+				if err != nil {
+					t.Fatalf("failed to start fake proxy listener: %v", err)
+				}
+				proxyServer := grpc.NewServer()
+				mountServer := &fakeProxyMountServer{
+					validateMountOptions: func(mountOptions []string) bool {
+						hasNoTLS := false
+						for _, option := range mountOptions {
+							if option == "notls" {
+								hasNoTLS = true
+							}
+						}
+						return hasNoTLS
+					},
+				}
+				mount_azurefile.RegisterMountServiceServer(proxyServer, mountServer)
+				go func() {
+					_ = proxyServer.Serve(listener)
+				}()
+
+				d.azurefileProxyEndpoint = listener.Addr().String()
+				t.Cleanup(func() {
+					proxyServer.Stop()
+					_ = listener.Close()
+				})
+			},
+		},
+		{
+			desc: "[Success] valid request with encryptionIntransit and use-aznfs-for-nfs-mounts enabled should not have notls mountoptions",
+			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					fsTypeField:           "nfs",
+					protocolField:         "nfs",
+					diskNameField:         "test_disk.vhd",
+					shareNameField:        "test_sharename",
+					serverNameField:       "test_servername",
+					mountPermissionsField: "0755",
+					encryptInTransitField: "true",
+				},
+				Secrets: secrets},
+			skipOnWindows:           true,
+			shouldEnableProxy:       true,
+			enableAZNFSForNFSMounts: true,
+			expectedErr:             testutil.TestError{},
+			setup: func() {
+				listener, err := net.Listen("tcp", "127.0.0.1:0")
+				if err != nil {
+					t.Fatalf("failed to start fake proxy listener: %v", err)
+				}
+				proxyServer := grpc.NewServer()
+				mountServer := &fakeProxyMountServer{
+					validateMountOptions: func(mountOptions []string) bool {
+						hasNoTLS := false
+						for _, option := range mountOptions {
+							if option == "notls" {
+								hasNoTLS = true
+							}
+						}
+						// Expected not to have notls in mount options
+						return !hasNoTLS
+					},
+				}
+				mount_azurefile.RegisterMountServiceServer(proxyServer, mountServer)
+				go func() {
+					_ = proxyServer.Serve(listener)
+				}()
+
+				d.azurefileProxyEndpoint = listener.Addr().String()
+				t.Cleanup(func() {
+					proxyServer.Stop()
+					_ = listener.Close()
+				})
+			},
+		},
+		{
 			desc: "[Success] Valid request with supported fsType disk",
 			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
 				VolumeCapability: &stdVolCap,
@@ -1016,6 +1201,14 @@ func TestNodeStageVolume(t *testing.T) {
 		mounter, err := NewFakeMounter()
 		if err != nil {
 			t.Fatalf("failed to get fake mounter: %v", err)
+		}
+		d.useAZNFSForNFSMounts = false
+		d.enableAzurefileProxy = false
+		if test.enableAZNFSForNFSMounts {
+			d.WithEnableAznfsForNFSMounts()
+		}
+		if test.shouldEnableProxy {
+			d.enableAzurefileProxy = true
 		}
 
 		if runtime.GOOS != "windows" {
@@ -1235,34 +1428,67 @@ func TestEnsureMountPoint(t *testing.T) {
 	azureFile := "./azure.go"
 
 	tests := []struct {
-		desc        string
-		target      string
-		expectedErr error
+		desc                 string
+		target               string
+		shouldUnmount        bool
+		expectedErr          error
+		expectedUnmountCount uint
 	}{
 		{
-			desc:        "[Error] Mocked by IsLikelyNotMountPoint",
-			target:      errorTarget,
-			expectedErr: fmt.Errorf("fake IsLikelyNotMountPoint: fake error"),
+			desc:                 "[Error] Mocked by IsLikelyNotMountPoint",
+			target:               errorTarget,
+			shouldUnmount:        true,
+			expectedErr:          fmt.Errorf("fake IsLikelyNotMountPoint: fake error"),
+			expectedUnmountCount: 0, // If IsLikelyNotMountPoint returns error, unmount should not be called
 		},
 		{
-			desc:        "[Error] Error opening file",
-			target:      falseTarget,
-			expectedErr: &os.PathError{Op: "open", Path: "./false_is_likely_target", Err: syscall.ENOENT},
+			desc:                 "[Error] Error opening file",
+			target:               falseTarget,
+			shouldUnmount:        true,
+			expectedErr:          &os.PathError{Op: "open", Path: "./false_is_likely_target", Err: syscall.ENOENT},
+			expectedUnmountCount: 1,
 		},
 		{
-			desc:        "[Error] Not a directory",
-			target:      azureFile,
-			expectedErr: &os.PathError{Op: "mkdir", Path: "./azure.go", Err: syscall.ENOTDIR},
+			desc:                 "[Error] Not a directory",
+			target:               azureFile,
+			shouldUnmount:        true,
+			expectedErr:          &os.PathError{Op: "mkdir", Path: "./azure.go", Err: syscall.ENOTDIR},
+			expectedUnmountCount: 0,
 		},
 		{
-			desc:        "[Success] Successful run",
-			target:      targetTest,
-			expectedErr: nil,
+			desc:                 "[Success] Successful run",
+			target:               targetTest,
+			shouldUnmount:        true,
+			expectedErr:          nil,
+			expectedUnmountCount: 0,
 		},
 		{
-			desc:        "[Success] Already existing mount",
-			target:      alreadyExistTarget,
-			expectedErr: nil,
+			desc:                 "[Success] Already existing mount",
+			target:               alreadyExistTarget,
+			shouldUnmount:        true,
+			expectedErr:          nil,
+			expectedUnmountCount: 0,
+		},
+		{
+			desc:                 "[Error] Opening file with shouldUnmount false",
+			target:               falseTarget,
+			shouldUnmount:        false,
+			expectedErr:          &os.PathError{Op: "open", Path: "./false_is_likely_target", Err: syscall.ENOENT},
+			expectedUnmountCount: 0, // Since Unmount flag is false, unmount count should be 0
+		},
+		{
+			desc:                 "[Error] Opening file with shouldUnmount false and unmount will return error shouldn't alter expected error",
+			target:               falseTarget,
+			shouldUnmount:        false,
+			expectedErr:          &os.PathError{Op: "open", Path: "./false_is_likely_target", Err: syscall.ENOENT},
+			expectedUnmountCount: 0,
+		},
+		{
+			desc:                 "[Success] Successful run with shouldUnmount false",
+			target:               targetTest,
+			shouldUnmount:        false,
+			expectedErr:          nil,
+			expectedUnmountCount: 0,
 		},
 	}
 
@@ -1277,10 +1503,15 @@ func TestEnsureMountPoint(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		_, err := d.ensureMountPoint(test.target, 0777)
+		_, err := d.ensureMountPoint(test.target, 0777, test.shouldUnmount)
 		if !reflect.DeepEqual(err, test.expectedErr) {
 			t.Errorf("[%s]: Unexpected Error: %v, expected error: %v", test.desc, err, test.expectedErr)
 		}
+		if fakeMounter.unmountCount != test.expectedUnmountCount {
+			t.Errorf("[%s]: Unexpected unmount count: %d, expected: %d", test.desc, fakeMounter.unmountCount, test.expectedUnmountCount)
+		}
+		// Reset unmount count before each test case
+		fakeMounter.unmountCount = 0
 	}
 
 	// Clean up
@@ -1526,6 +1757,58 @@ func TestSetCredentialCacheWithOAuthToken(t *testing.T) {
 			} else if test.expectedErr != "" {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), test.expectedErr)
+			}
+		})
+	}
+}
+
+func TestGetKerberosHost(t *testing.T) {
+	tests := []struct {
+		name     string
+		server   string
+		expected string
+	}{
+		{
+			name:     "canonical name is unchanged",
+			server:   "acct.file.core.windows.net",
+			expected: "acct.file.core.windows.net",
+		},
+		{
+			name:     "privatelink name is canonicalized",
+			server:   "acct.privatelink.file.core.windows.net",
+			expected: "acct.file.core.windows.net",
+		},
+		{
+			name:     "privatelink in China cloud",
+			server:   "acct.privatelink.file.core.chinacloudapi.cn",
+			expected: "acct.file.core.chinacloudapi.cn",
+		},
+		{
+			name:     "privatelink in US government cloud",
+			server:   "acct.privatelink.file.core.usgovcloudapi.net",
+			expected: "acct.file.core.usgovcloudapi.net",
+		},
+		{
+			name:     "empty server",
+			server:   "",
+			expected: "",
+		},
+		{
+			name:     "custom endpoint without privatelink label",
+			server:   "acct.file.example.com",
+			expected: "acct.file.example.com",
+		},
+		{
+			name:     "only strips first .privatelink.file. occurrence",
+			server:   "acct.privatelink.file.privatelink.file.core.windows.net",
+			expected: "acct.file.privatelink.file.core.windows.net",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := getKerberosHost(tc.server)
+			if got != tc.expected {
+				t.Errorf("getKerberosHost(%q) = %q, want %q", tc.server, got, tc.expected)
 			}
 		})
 	}

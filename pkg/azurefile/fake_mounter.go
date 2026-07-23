@@ -18,15 +18,14 @@ package azurefile
 
 import (
 	"fmt"
-	"runtime"
 	"strings"
 
 	mount "k8s.io/mount-utils"
-	"sigs.k8s.io/azurefile-csi-driver/pkg/mounter"
 )
 
 type fakeMounter struct {
 	mount.FakeMounter
+	unmountCount uint
 }
 
 // Mount overrides mount.FakeMounter.Mount.
@@ -71,12 +70,19 @@ func (f *fakeMounter) IsMountPoint(file string) (bool, error) {
 	return !notMnt, nil
 }
 
-// NewFakeMounter fake mounter
+// NewFakeMounter fake mounter. The platform-specific implementation lives in
+// fake_mounter_windows.go (which wraps the real Windows mounter so the
+// "false_is_likely" / "error_is_likely" path markers used by the shared unit
+// tests behave the same as on Linux) and fake_mounter_others.go.
 func NewFakeMounter() (*mount.SafeFormatAndMount, error) {
-	if runtime.GOOS == "windows" {
-		return mounter.NewSafeMounter(true, true)
+	return newFakeMounter()
+}
+
+// Unmount overrides mount.FakeMounter.Unmount.
+func (f *fakeMounter) Unmount(target string) error {
+	f.unmountCount++
+	if strings.Contains(target, "error") {
+		return fmt.Errorf("fake Unmount: target error")
 	}
-	return &mount.SafeFormatAndMount{
-		Interface: &fakeMounter{},
-	}, nil
+	return f.FakeMounter.Unmount(target)
 }

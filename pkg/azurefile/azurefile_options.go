@@ -54,6 +54,7 @@ type DriverOptions struct {
 	GoMaxProcs                             int
 	KubeConfig                             string
 	Endpoint                               string
+	UseAZNFSForNFSMounts                   bool
 }
 
 func (o *DriverOptions) AddFlags() *flag.FlagSet {
@@ -95,6 +96,7 @@ func (o *DriverOptions) AddFlags() *flag.FlagSet {
 	fs.StringVar(&o.KubeConfig, "kubeconfig", "", "Absolute path to the kubeconfig file. Required only when running out of cluster.")
 	fs.StringVar(&o.Endpoint, "endpoint", "unix://tmp/csi.sock", "CSI endpoint")
 	fs.IntVar(&o.GoMaxProcs, "max-procs", 2, "maximum number of CPUs that can be executing simultaneously in golang runtime")
+	fs.BoolVar(&o.UseAZNFSForNFSMounts, "use-aznfs-for-nfs-mounts", false, "Whether to use aznfs utility to mount nfs volumes instead of vanilla nfs utility.")
 
 	return fs
 }

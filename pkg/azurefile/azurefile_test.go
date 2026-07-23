@@ -96,6 +96,11 @@ func NewFakeDriverCustomOptions(opts DriverOptions) *Driver {
 	return driver
 }
 
+func (d *Driver) WithEnableAznfsForNFSMounts() *Driver {
+	d.useAZNFSForNFSMounts = true
+	return d
+}
+
 func TestNewFakeDriver(t *testing.T) {
 	driverOptions := DriverOptions{
 		NodeID:     fakeNodeID,
@@ -396,6 +401,26 @@ func TestGetFileShareInfo(t *testing.T) {
 			namespace:         "namespace",
 			subsID:            "",
 			expectedError:     nil,
+		},
+		{
+			id:                "rg#f5713de20cde511e8ba4900#fileShareName#../../etc/shadow#uuid#namespace",
+			resourceGroupName: "",
+			accountName:       "",
+			fileShareName:     "",
+			diskName:          "",
+			namespace:         "",
+			subsID:            "",
+			expectedError:     fmt.Errorf("invalid diskName %q: contains directory traversal sequence", "../../etc/shadow"),
+		},
+		{
+			id:                "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#../../evil",
+			resourceGroupName: "",
+			accountName:       "",
+			fileShareName:     "",
+			diskName:          "",
+			namespace:         "",
+			subsID:            "",
+			expectedError:     fmt.Errorf("invalid namespace %q: contains directory traversal sequence", "../../evil"),
 		},
 	}
 
@@ -1539,6 +1564,96 @@ func TestGetStorageEndPointSuffix(t *testing.T) {
 	}
 }
 
+func TestGetActiveDirectoryEndpoint(t *testing.T) {
+	d := NewFakeDriver()
+
+	tests := []struct {
+		name     string
+		cloud    *storage.AccountRepo
+		expected string
+	}{
+		{
+			name:     "nil cloud",
+			cloud:    nil,
+			expected: defaultActiveDirectoryEndpoint,
+		},
+		{
+			name:     "empty environment",
+			cloud:    &storage.AccountRepo{},
+			expected: defaultActiveDirectoryEndpoint,
+		},
+		{
+			name: "public cloud",
+			cloud: &storage.AccountRepo{
+				Environment: &azclient.Environment{
+					ActiveDirectoryEndpoint: "https://login.microsoftonline.com/",
+				},
+			},
+			expected: "https://login.microsoftonline.com/",
+		},
+		{
+			name: "china cloud",
+			cloud: &storage.AccountRepo{
+				Environment: &azclient.Environment{
+					ActiveDirectoryEndpoint: "https://login.chinacloudapi.cn/",
+				},
+			},
+			expected: "https://login.chinacloudapi.cn/",
+		},
+	}
+
+	for _, test := range tests {
+		d.cloud = test.cloud
+		assert.Equal(t, test.expected, d.getActiveDirectoryEndpoint(), test.name)
+	}
+}
+
+func TestGetStorageResource(t *testing.T) {
+	d := NewFakeDriver()
+
+	tests := []struct {
+		name     string
+		cloud    *storage.AccountRepo
+		expected string
+	}{
+		{
+			name:     "nil cloud",
+			cloud:    nil,
+			expected: defaultStorageResource,
+		},
+		{
+			name: "nil resource identifiers",
+			cloud: &storage.AccountRepo{
+				Environment: &azclient.Environment{},
+			},
+			expected: defaultStorageResource,
+		},
+		{
+			name: "china cloud with custom storage resource",
+			cloud: &storage.AccountRepo{
+				Environment: &azclient.Environment{
+					ResourceIdentifiers: &azclient.ResourceIdentifier{
+						Storage: "https://storage.example.azure.com/",
+					},
+				},
+			},
+			expected: "https://storage.example.azure.com/",
+		},
+	}
+
+	for _, test := range tests {
+		d.cloud = test.cloud
+		assert.Equal(t, test.expected, d.getStorageResource(), test.name)
+	}
+}
+
+func TestGetEndpointsFromCloudName(t *testing.T) {
+	d := NewFakeDriver()
+	d.cloud = &storage.AccountRepo{Environment: azclient.EnvironmentFromName("AZURECHINACLOUD")}
+	assert.Equal(t, "https://login.chinacloudapi.cn/", d.getActiveDirectoryEndpoint())
+	assert.Equal(t, "https://storage.azure.com/", d.getStorageResource())
+}
+
 func TestGetStorageAccesskey(t *testing.T) {
 	options := &storage.AccountOptions{
 		Name:           "test-sa",
@@ -2104,24 +2219,74 @@ func TestGetInfoFromSnapshotID(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			name:          "Invalid snapshot ID with less than 7 segments",
-			id:            "rg#accountname#sharename#diskname#namespace",
+			name:          "Short snapshot ID with 5 segments (in-tree migration with subsID)",
+			id:            "#accountname#sharename#2025-09-05T07:51:41.0000000Z#12345678-1234-1234-1234-123456789012",
 			expectedRG:    "",
-			expectedAcct:  "",
-			expectedShare: "",
-			expectedTime:  "",
-			expectedSubs:  "",
-			expectedError: fmt.Errorf("error parsing snapshot id: \"rg#accountname#sharename#diskname#namespace\", should at least contain 6 #"),
+			expectedAcct:  "accountname",
+			expectedShare: "sharename",
+			expectedTime:  "2025-09-05T07:51:41.0000000Z",
+			expectedSubs:  "12345678-1234-1234-1234-123456789012",
+			expectedError: nil,
 		},
 		{
-			name:          "Invalid snapshot ID with 6 segments",
-			id:            "rg#accountname#sharename#diskname#namespace#azurefile-6654",
+			name:          "Short snapshot ID with 5 segments (subsID before snapshotTime)",
+			id:            "#accountname#sharename#12345678-1234-1234-1234-123456789012#2025-09-05T07:51:41.0000000Z",
+			expectedRG:    "",
+			expectedAcct:  "accountname",
+			expectedShare: "sharename",
+			expectedTime:  "2025-09-05T07:51:41.0000000Z",
+			expectedSubs:  "12345678-1234-1234-1234-123456789012",
+			expectedError: nil,
+		},
+		{
+			name:          "Short snapshot ID with 4 segments (in-tree migration without subsID)",
+			id:            "#accountname#sharename#2025-09-05T07:51:41.0000000Z",
+			expectedRG:    "",
+			expectedAcct:  "accountname",
+			expectedShare: "sharename",
+			expectedTime:  "2025-09-05T07:51:41.0000000Z",
+			expectedSubs:  "",
+			expectedError: nil,
+		},
+		{
+			name:          "Short snapshot ID with 6 segments",
+			id:            "rg#accountname#sharename#diskname#namespace#2025-09-05T07:51:41.0000000Z",
+			expectedRG:    "rg",
+			expectedAcct:  "accountname",
+			expectedShare: "sharename",
+			expectedTime:  "2025-09-05T07:51:41.0000000Z",
+			expectedSubs:  "",
+			expectedError: nil,
+		},
+		{
+			name:          "In-tree migration snapshot ID with empty RG and 7 segments",
+			id:            "#accountname#sharename#diskname#namespace#azurefile-6654#2025-09-05T07:51:41.0000000Z",
+			expectedRG:    "",
+			expectedAcct:  "accountname",
+			expectedShare: "sharename",
+			expectedTime:  "2025-09-05T07:51:41.0000000Z",
+			expectedSubs:  "",
+			expectedError: nil,
+		},
+		{
+			name:          "In-tree migration snapshot ID with empty RG and 8 segments (with subsID)",
+			id:            "#accountname#sharename#diskname#namespace#azurefile-6654#2025-09-05T07:51:41.0000000Z#12345678-1234-1234-1234-123456789012",
+			expectedRG:    "",
+			expectedAcct:  "accountname",
+			expectedShare: "sharename",
+			expectedTime:  "2025-09-05T07:51:41.0000000Z",
+			expectedSubs:  "12345678-1234-1234-1234-123456789012",
+			expectedError: nil,
+		},
+		{
+			name:          "Invalid snapshot ID with less than 4 segments",
+			id:            "rg#accountname#sharename",
 			expectedRG:    "",
 			expectedAcct:  "",
 			expectedShare: "",
 			expectedTime:  "",
 			expectedSubs:  "",
-			expectedError: fmt.Errorf("error parsing snapshot id: \"rg#accountname#sharename#diskname#namespace#azurefile-6654\", should at least contain 6 #"),
+			expectedError: fmt.Errorf("error parsing snapshot id: \"rg#accountname#sharename\", should at least contain 3 #"),
 		},
 		{
 			name:          "Empty snapshot ID",
@@ -2131,7 +2296,7 @@ func TestGetInfoFromSnapshotID(t *testing.T) {
 			expectedShare: "",
 			expectedTime:  "",
 			expectedSubs:  "",
-			expectedError: fmt.Errorf("error parsing snapshot id: \"\", should at least contain 6 #"),
+			expectedError: fmt.Errorf("error parsing snapshot id: \"\", should at least contain 3 #"),
 		},
 		{
 			name:          "Snapshot ID with empty segments",

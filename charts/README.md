@@ -18,7 +18,7 @@
 ### install a specific version
 ```console
 helm repo add azurefile-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts
-helm install azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system --version 1.35.3
+helm install azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system --version 1.35.4
 ```
 
 ### install on RedHat/CentOS
@@ -62,16 +62,16 @@ The following table lists the configurable parameters of the latest Azure File C
 | `image.azurefile.tag`                             | azurefile-csi-driver container image tag                      | ``                                                            |
 | `image.azurefile.pullPolicy`                      | azurefile-csi-driver image pull policy                     | `IfNotPresent`                                                      |
 | `image.csiProvisioner.repository`                 | csi-provisioner container image                               | `/oss/kubernetes-csi/csi-provisioner`              |
-| `image.csiProvisioner.tag`                        | csi-provisioner container image tag                           | `v6.2.0`                                                            |
+| `image.csiProvisioner.tag`                        | csi-provisioner container image tag                           | `v6.3.0`                                                            |
 | `image.csiProvisioner.pullPolicy`                 | csi-provisioner image pull policy                          | `IfNotPresent`                                                      |
 | `image.csiResizer.repository`                     | csi-resizer container image                                   | `/oss/kubernetes-csi/csi-resizer`                  |
-| `image.csiResizer.tag`                            | csi-resizer container image tag                               | `v2.1.0`                                                            |
+| `image.csiResizer.tag`                            | csi-resizer container image tag                               | `v2.2.0`                                                            |
 | `image.csiResizer.pullPolicy`                     | csi-resizer image pull policy                              | `IfNotPresent`                                                      |
 | `image.livenessProbe.repository`                  | liveness-probe container image                                | `/oss/kubernetes-csi/livenessprobe`                |
-| `image.livenessProbe.tag`                         | liveness-probe container image tag                            | `v2.18.0`                                                            |
+| `image.livenessProbe.tag`                         | liveness-probe container image tag                            | `v2.19.0`                                                            |
 | `image.livenessProbe.pullPolicy`                  | liveness-probe image pull policy                           | `IfNotPresent`                                                      |
 | `image.nodeDriverRegistrar.repository`            | csi-node-driver-registrar container image                     | `/oss/kubernetes-csi/csi-node-driver-registrar`    |
-| `image.nodeDriverRegistrar.tag`                   | csi-node-driver-registrar container image tag                 | `v2.16.0`                                                            |
+| `image.nodeDriverRegistrar.tag`                   | csi-node-driver-registrar container image tag                 | `v2.17.0`                                                            |
 | `image.nodeDriverRegistrar.pullPolicy`            | csi-node-driver-registrar image pull policy                | `IfNotPresent`                                                      |
 | `imagePullSecrets`                                | Specify docker-registry secret names as an array           | [] (does not add image pull secrets to deployed pods)             |
 | `customLabels`                                    | Custom labels to add into metadata                         | `{}`                                                                |
@@ -131,6 +131,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `node.nodeDriverRegistrar.livenessProbe.periodSeconds`       | node-driver-registrar liveness probe periodSeconds                                                         | `20`                                                     |
 | `node.nodeDriverRegistrar.livenessProbe.failureThreshold`    | node-driver-registrar liveness probe failureThreshold                                                      | `2`                                                     |
 | `node.logLevel`                                   | node driver log level                                                          |`5`                                                           |
+| `node.useAZNFSForNFSMounts`                       | If enabled, all volumes configured to use NFS protocol will be mounted through the AZNFS utility (requires `node.azurefileProxy.enabled=true`).  | `false` |
 | `snapshot.enabled`                                | whether enable snapshot feature                            | `false`                                                        |
 | `snapshot.image.csiSnapshotter.repository`        | csi-snapshotter container image                               | `/oss/kubernetes-csi/csi-snapshotter`         |
 | `snapshot.image.csiSnapshotter.tag`               | csi-snapshotter container image tag                           | `v8.5.0`                                                       |

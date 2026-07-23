@@ -5,7 +5,7 @@
 ## Limitations
 
 - This feature is **not supported for NFS mounts** since NFS does not require credentials.
-- By default, this feature retrieves the storage account key using federated identity credentials. Alternatively, you can mount with a **workload identity token only** (Preview) by:
+- By default, this feature retrieves the storage account key using federated identity credentials. Alternatively, you can mount with a **workload identity token only** by:
   - Setting `mountWithWorkloadIdentityToken: "true"` in the `parameters` of the StorageClass or PersistentVolume
   - Granting the `Storage File Data SMB MI Admin` role (instead of `Storage Account Contributor`) to the managed identity
 

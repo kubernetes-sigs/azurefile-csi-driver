@@ -1,6 +1,6 @@
 # Mount Azure SMB File Share with Managed Identity
 
-- **Feature status:** Preview
+- **Feature status:** GA
 - **Supported from:** CSI driver v1.34.0 on Linux nodes
 
 This article demonstrates how to mount an SMB file share using user-assigned managed identity authentication, without relying on account key authentication.

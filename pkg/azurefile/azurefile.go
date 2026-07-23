@@ -209,6 +209,12 @@ const (
 
 	defaultStorageEndPointSuffix = "core.windows.net"
 
+	// defaultActiveDirectoryEndpoint and defaultStorageResource are the default
+	// public-cloud AAD authority host and storage OAuth resource
+	// (workload-identity mounts).
+	defaultActiveDirectoryEndpoint = "https://login.microsoftonline.com/"
+	defaultStorageResource         = "https://storage.azure.com/"
+
 	VolumeID         = "volumeid"
 	SourceResourceID = "source_resource_id"
 	SnapshotName     = "snapshot_name"
@@ -326,6 +332,8 @@ type Driver struct {
 	directVolume          DirectVolume
 	isKataNode            bool
 	requiredAzCopyToTrust bool
+	// Flag that indicates to use aznfs utility to mount nfs volumes instead of vanilla nfs utility.
+	useAZNFSForNFSMounts bool
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -371,7 +379,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.directVolume = new(directVolume)
 	driver.isKataNode = false
 	driver.useWinCIMAPI = options.UseWinCIMAPI
-
+	driver.useAZNFSForNFSMounts = options.UseAZNFSForNFSMounts
 	var err error
 	getter := func(_ context.Context, _ string) (interface{}, error) { return nil, nil }
 
@@ -566,6 +574,9 @@ func GetFileShareInfo(id string) (string, string, string, string, string, string
 	var diskName, namespace, subsID string
 	if len(segments) > 3 {
 		diskName = segments[3]
+		if err := validateVolumeIDSegment("diskName", diskName); err != nil {
+			return "", "", "", "", "", "", err
+		}
 	}
 	if rg == "" {
 		// in csi migration, rg could be empty, then the 5th element is namespace
@@ -581,7 +592,29 @@ func GetFileShareInfo(id string) (string, string, string, string, string, string
 			subsID = segments[6]
 		}
 	}
+	if err := validateVolumeIDSegment("namespace", namespace); err != nil {
+		return "", "", "", "", "", "", err
+	}
 	return rg, segments[1], segments[2], diskName, namespace, subsID, nil
+}
+
+// validateVolumeIDSegment rejects volume id segments that contain path
+// traversal sequences ("..") so that segments parsed out of a CSI volume id
+// cannot be used to construct unsafe filesystem paths (e.g. when diskName is
+// joined with the CIFS mount path during VHD-on-Azure-File staging).
+func validateVolumeIDSegment(field, value string) error {
+	if value == "" {
+		return nil
+	}
+	segments := strings.FieldsFunc(value, func(r rune) bool {
+		return r == '/' || r == '\\'
+	})
+	for _, segment := range segments {
+		if segment == ".." {
+			return fmt.Errorf("invalid %s %q: contains directory traversal sequence", field, value)
+		}
+	}
+	return nil
 }
 
 // get snapshot info according to snapshot id, e.g.
@@ -589,27 +622,48 @@ func GetFileShareInfo(id string) (string, string, string, string, string, string
 //
 //	capz-qjbped#f3d5809ad977d4606b8997d#pvc-061c8214-2330-4b3e-88d0-6ef8d84636bc###azurefile-6654#2025-09-05T07:51:41.0000000Z#46678f10-4bbb-447e-98e8-d2829589f2d8
 //	capz-qjbped#f3d5809ad977d4606b8997d#pvc-061c8214-2330-4b3e-88d0-6ef8d84636bc###azurefile-6654#46678f10-4bbb-447e-98e8-d2829589f2d8#2025-09-05T07:51:41.0000000Z
+//	#accountName#fileShareName#2025-09-05T07:51:41.0000000Z (in-tree migration format with 3 #)
+//	#accountName#fileShareName#2025-09-05T07:51:41.0000000Z#46678f10-4bbb-447e-98e8-d2829589f2d8 (in-tree migration format with subsID)
 //
 // output:
 //
 //	capz-qjbped, f3d5809ad977d4606b8997d, pvc-061c8214-2330-4b3e-88d0-6ef8d84636bc, snapshotTime, 46678f10-4bbb-447e-98e8-d2829589f2d8
 func GetInfoFromSnapshotID(id string) (string, string, string, string, string, error) {
 	segments := strings.Split(id, separator)
-	if len(segments) < 7 {
-		return "", "", "", "", "", fmt.Errorf("error parsing snapshot id: %q, should at least contain 6 #", id)
+	if len(segments) < 4 {
+		return "", "", "", "", "", fmt.Errorf("error parsing snapshot id: %q, should at least contain 3 #", id)
 	}
-	snapshotTime := segments[6]
-	var subsID string
-	if len(segments) > 7 {
-		if isValidSubscriptionID(segments[7]) {
-			subsID = segments[7]
-		} else {
-			if isValidSubscriptionID(segments[6]) {
-				subsID = segments[6]
-				snapshotTime = segments[7]
+
+	var snapshotTime, subsID string
+
+	if len(segments) >= 7 {
+		// Standard format: rg#account#share#diskName#namespace#storageClass#snapshotTime[#subsID]
+		snapshotTime = segments[6]
+		if len(segments) > 7 {
+			if isValidSubscriptionID(segments[7]) {
+				subsID = segments[7]
+			} else {
+				if isValidSubscriptionID(segments[6]) {
+					subsID = segments[6]
+					snapshotTime = segments[7]
+				}
 			}
 		}
+	} else {
+		// Short format (e.g. in-tree migration): [rg]#account#share#snapshotTime[#subsID]
+		// The last segment(s) contain snapshotTime and optionally subsID
+		lastIdx := len(segments) - 1
+		if len(segments) >= 5 && isValidSubscriptionID(segments[lastIdx]) {
+			subsID = segments[lastIdx]
+			snapshotTime = segments[lastIdx-1]
+		} else if len(segments) >= 5 && isValidSubscriptionID(segments[lastIdx-1]) {
+			subsID = segments[lastIdx-1]
+			snapshotTime = segments[lastIdx]
+		} else {
+			snapshotTime = segments[lastIdx]
+		}
 	}
+
 	return segments[0], segments[1], segments[2], snapshotTime, subsID, nil
 }
 
@@ -1497,6 +1551,24 @@ func (d *Driver) getStorageEndPointSuffix() string {
 		return defaultStorageEndPointSuffix
 	}
 	return d.cloud.Environment.StorageEndpointSuffix
+}
+
+// getActiveDirectoryEndpoint returns the AAD authority host for the current cloud
+// (e.g. https://login.chinacloudapi.cn/ for Azure China), falling back to public AAD.
+func (d *Driver) getActiveDirectoryEndpoint() string {
+	if d.cloud == nil || d.cloud.Environment == nil || d.cloud.Environment.ActiveDirectoryEndpoint == "" {
+		return defaultActiveDirectoryEndpoint
+	}
+	return d.cloud.Environment.ActiveDirectoryEndpoint
+}
+
+// getStorageResource returns the AAD resource/scope used to request a storage
+// OAuth token for the current cloud, falling back to the public storage resource.
+func (d *Driver) getStorageResource() string {
+	if d.cloud == nil || d.cloud.Environment == nil || d.cloud.Environment.ResourceIdentifiers == nil || d.cloud.Environment.ResourceIdentifiers.Storage == "" {
+		return defaultStorageResource
+	}
+	return d.cloud.Environment.ResourceIdentifiers.Storage
 }
 
 func (d *Driver) getFileShareClientForSub(subscriptionID string) (fileshareclient.Interface, error) {
