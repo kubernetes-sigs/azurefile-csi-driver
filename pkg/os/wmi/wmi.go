@@ -42,6 +42,10 @@ const (
 
 	WBEM_S_FALSE = 0x00000001
 
+	// COM security defaults used by the previous WMI implementation.
+	comAuthnLevelPktPrivacy = 6
+	comImpLevelImpersonate  = 3
+
 	// rpcETooLate is returned when CoInitializeSecurity has already been called.
 	rpcETooLate = 0x80010119
 
@@ -208,7 +212,12 @@ func InitializeCOMSecurity() {
 			return
 		}
 
-		err := ole.CoInitializeSecurity(-1, 0, 3, 0)
+		// go-ole's wrapper maps these arguments as:
+		//   cAuthSvc, dwAuthnLevel, dwImpLevel, dwCapabilities
+		// so -1 means "COM chooses the auth service".
+		// Use packet privacy plus impersonation to match the previous WMI/DCOM behavior
+		// and keep remote COM traffic encrypted when the server requires it.
+		err := ole.CoInitializeSecurity(-1, comAuthnLevelPktPrivacy, comImpLevelImpersonate, 0)
 		if err == nil {
 			klog.V(10).Infof("COM security initialized for WMI/DCOM")
 			return
