@@ -94,6 +94,8 @@ spec:
               value: "{{ .Values.node.azurefileProxy.installAznfsMount }}"
             - name: KUBELET_PATH
               value: "{{ .Values.linux.kubelet }}"
+            - name: DRIVER_NAME
+              value: "{{ .Values.driver.name }}"
             - name: MIGRATE_K8S_REPO
               value: "{{ .Values.node.azurefileProxy.migrateK8sRepo }}"
             - name: ENABLE_MI_AUTH
@@ -211,7 +213,7 @@ spec:
             - "--allow-inline-volume-key-access-with-identity={{ .Values.node.allowInlineVolumeKeyAccessWithIdentity }}"
             - "--metrics-address=0.0.0.0:{{ .Values.node.metricsPort }}"
             - "--enable-kata-cc-mount={{ .Values.node.enableKataCCMount }}"
-            - "--use-aznfs-for-nfs-mounts={{ .Values.node.useAZNFSForNFSMounts }}"
+            - "--use-aznfs-for-nfs-mounts={{ and .Values.node.useAZNFSForNFSMounts .Values.node.azurefileProxy.enabled }}"
           livenessProbe:
             failureThreshold: 5
             httpGet:
