@@ -696,6 +696,47 @@ func TestGetValueInMap(t *testing.T) {
 	}
 }
 
+func TestCaseCollidingKey(t *testing.T) {
+	tests := []struct {
+		desc         string
+		m            map[string]string
+		expectedKey  string
+		expectedColl bool
+	}{
+		{
+			desc:         "nil map",
+			expectedColl: false,
+		},
+		{
+			desc:         "no collision",
+			m:            map[string]string{"secretNamespace": "ns", "shareName": "share"},
+			expectedColl: false,
+		},
+		{
+			desc:         "secretNamespace case collision",
+			m:            map[string]string{"secretNamespace": "attacker", "SecretNamespace": "victim"},
+			expectedKey:  "secretnamespace",
+			expectedColl: true,
+		},
+		{
+			desc:         "managed identity case collision",
+			m:            map[string]string{"mountwithmanagedidentity": "false", "MOUNTWITHMANAGEDIDENTITY": "true"},
+			expectedKey:  "mountwithmanagedidentity",
+			expectedColl: true,
+		},
+	}
+
+	for _, test := range tests {
+		key, ok := caseCollidingKey(test.m)
+		if ok != test.expectedColl {
+			t.Errorf("test[%s]: unexpected collision result: %v, expected: %v", test.desc, ok, test.expectedColl)
+		}
+		if ok && key != test.expectedKey {
+			t.Errorf("test[%s]: unexpected colliding key: %v, expected: %v", test.desc, key, test.expectedKey)
+		}
+	}
+}
+
 func TestReplaceWithMap(t *testing.T) {
 	tests := []struct {
 		desc     string
@@ -1650,6 +1691,65 @@ func TestIsValidFolderName(t *testing.T) {
 			}
 			if !tc.expectErr && err != nil {
 				t.Fatalf("isValidFolderName(%q) unexpected error: %v", tc.folder, err)
+			}
+		})
+	}
+}
+
+func TestFindLocalMountModeOption(t *testing.T) {
+	tests := []struct {
+		name    string
+		options string
+		wantOpt string
+		wantOk  bool
+	}{
+		{name: "empty", options: "", wantOpt: "", wantOk: false},
+		{name: "normal cifs options", options: "dir_mode=0777,file_mode=0777,cache=strict", wantOpt: "", wantOk: false},
+		{name: "bind present", options: "dir_mode=0777,bind", wantOpt: "bind", wantOk: true},
+		{name: "bind with spaces", options: "dir_mode=0777, bind ", wantOpt: "bind", wantOk: true},
+		{name: "uppercase bind", options: "BIND", wantOpt: "BIND", wantOk: true},
+		{name: "rbind", options: "ro,rbind", wantOpt: "rbind", wantOk: true},
+		{name: "remount not blocked", options: "remount", wantOpt: "", wantOk: false},
+		{name: "move not blocked", options: "move,ro", wantOpt: "", wantOk: false},
+		{name: "substring is not matched", options: "rebindable", wantOpt: "", wantOk: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			opt, ok := findLocalMountModeOption(tc.options)
+			if ok != tc.wantOk || opt != tc.wantOpt {
+				t.Fatalf("findLocalMountModeOption(%q) = (%q, %v), want (%q, %v)", tc.options, opt, ok, tc.wantOpt, tc.wantOk)
+			}
+		})
+	}
+}
+
+func TestValidateInlineVolumeMountSource(t *testing.T) {
+	tests := []struct {
+		name      string
+		server    string
+		shareName string
+		expectErr bool
+	}{
+		{name: "valid hostname and share", server: "acct.file.core.windows.net", shareName: "myshare", expectErr: false},
+		{name: "valid ip and share", server: "192.0.2.10", shareName: "my-share", expectErr: false},
+		{name: "empty server allowed (defaulted later)", server: "", shareName: "myshare", expectErr: false},
+		{name: "server with separators", server: "a/b", shareName: "myshare", expectErr: true},
+		{name: "server with leading slash", server: "/abc", shareName: "myshare", expectErr: true},
+		{name: "server with backslash", server: "a\\b", shareName: "myshare", expectErr: true},
+		{name: "server is dot", server: ".", shareName: "myshare", expectErr: true},
+		{name: "server is dotdot", server: "..", shareName: "myshare", expectErr: true},
+		{name: "shareName with slash", server: "acct.file.core.windows.net", shareName: "a/b", expectErr: true},
+		{name: "shareName with backslash", server: "acct.file.core.windows.net", shareName: "a\\b", expectErr: true},
+		{name: "shareName is dotdot", server: "acct.file.core.windows.net", shareName: "..", expectErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateInlineVolumeMountSource(tc.server, tc.shareName)
+			if tc.expectErr && err == nil {
+				t.Fatalf("validateInlineVolumeMountSource(%q, %q) expected error but got nil", tc.server, tc.shareName)
+			}
+			if !tc.expectErr && err != nil {
+				t.Fatalf("validateInlineVolumeMountSource(%q, %q) unexpected error: %v", tc.server, tc.shareName, err)
 			}
 		})
 	}

@@ -31,6 +31,10 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	volume "github.com/kata-containers/kata-containers/src/runtime/pkg/direct-volume"
 
+	authorizationv1 "k8s.io/api/authorization/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/authentication/serviceaccount"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/volume/util"
 
@@ -84,24 +88,30 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	mountPermissions := d.mountPermissions
 	context := req.GetVolumeContext()
 	if context != nil {
-		if getValueInMap(context, serviceAccountTokenField) != "" && shouldUseServiceAccountToken(context) {
-			if d.canSkipRepublishNodeStage(context, target) {
-				klog.V(2).Infof("NodePublishVolume: volume(%s) already mounted on %s with clientID auth, skipping NodeStageVolume (no time-bound credential to refresh)", volumeID, target)
-				return &csi.NodePublishVolumeResponse{}, nil
-			}
-			klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with service account token, clientID: %s, mountWithWIToken: %s", volumeID, target, getValueInMap(context, clientIDField), getValueInMap(context, mountWithWITokenField))
-			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
-				StagingTargetPath: target,
-				VolumeContext:     context,
-				VolumeCapability:  volCap,
-				VolumeId:          volumeID,
-			})
-			return &csi.NodePublishVolumeResponse{}, err
-		}
-
 		// ephemeral volume
 		if strings.EqualFold(context[ephemeralField], trueValue) {
+			// Reject case duplicate keys
+			if key, ok := caseCollidingKey(context); ok {
+				return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("ephemeral volume request contains case-colliding volume attribute keys that normalize to %q", key))
+			}
 			setKeyValueInMap(context, secretNamespaceField, context[podNamespaceField])
+			// Inline volumes do not support NFS.
+			if strings.EqualFold(getValueInMap(context, protocolField), nfs) {
+				return nil, status.Error(codes.InvalidArgument, "NFS protocol is not supported for ephemeral volumes")
+			}
+			// Inline volumes do not support the VHD disk feature.
+			if getValueInMap(context, diskNameField) != "" || isDiskFsType(getValueInMap(context, fsTypeField)) {
+				return nil, status.Error(codes.InvalidArgument, "VHD disk feature (diskName or disk fsType) is not supported for ephemeral volumes")
+			}
+			// Inline volumes must describe a remote Azure Files mount only.
+			// Reject server / shareName that could become a local path,
+			// and reject local bind mount modes in mountOptions.
+			if err := validateInlineVolumeMountSource(getValueInMap(context, serverNameField), getValueInMap(context, shareNameField)); err != nil {
+				return nil, status.Error(codes.InvalidArgument, err.Error())
+			}
+			if opt, found := findLocalMountModeOption(getValueInMap(context, mountOptionsField)); found {
+				return nil, status.Errorf(codes.InvalidArgument, "mount option %q is not supported for ephemeral volumes", opt)
+			}
 			// When Managed Identity or OAuth token is used for ephemeral volumes then reject the request.
 			// Allowing access for inline volume with identity will open up risk of arbitrary pods accessing fileshares with node identity permissions.
 			if strings.EqualFold(getValueInMap(context, mountWithManagedIdentityField), trueValue) {
@@ -121,7 +131,29 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 				setKeyValueInMap(context, getAccountKeyFromSecretField, trueValue)
 				setKeyValueInMap(context, storageAccountField, "")
 			}
+			// For secret-based inline volumes, confirm the mounting pod's own ServiceAccount
+			// is authorized to read the referenced Secret before mounting.
+			if !useWIToken {
+				if err := d.authorizeInlineVolumeSecret(ctx, context); err != nil {
+					return nil, err
+				}
+			}
 			klog.V(2).Infof("NodePublishVolume: ephemeral volume(%s) mount on %s", volumeID, target)
+			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
+				StagingTargetPath: target,
+				VolumeContext:     context,
+				VolumeCapability:  volCap,
+				VolumeId:          volumeID,
+			})
+			return &csi.NodePublishVolumeResponse{}, err
+		}
+
+		if getValueInMap(context, serviceAccountTokenField) != "" && shouldUseServiceAccountToken(context) {
+			if d.canSkipRepublishNodeStage(context, target) {
+				klog.V(2).Infof("NodePublishVolume: volume(%s) already mounted on %s with clientID auth, skipping NodeStageVolume (no time-bound credential to refresh)", volumeID, target)
+				return &csi.NodePublishVolumeResponse{}, nil
+			}
+			klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with service account token, clientID: %s, mountWithWIToken: %s", volumeID, target, getValueInMap(context, clientIDField), getValueInMap(context, mountWithWITokenField))
 			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
 				StagingTargetPath: target,
 				VolumeContext:     context,
@@ -470,6 +502,10 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 	isDiskMount := isDiskFsType(fsType)
 	if isDiskMount {
+		// Reuse traversal check from GetFileShareInfo.
+		if err := validateVolumeIDSegment("diskName", diskName); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
 		if !strings.HasSuffix(diskName, vhdSuffix) {
 			return nil, status.Errorf(codes.Internal, "diskname could not be empty, targetPath: %s", targetPath)
 		}
@@ -531,6 +567,13 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 				cifsMountFlags = util.JoinMountOptions(cifsMountFlags, strings.Split(ephemeralVolMountOptions, ","))
 			}
 			mountOptions = appendDefaultCifsMountOptions(cifsMountFlags, d.appendNoShareSockOption, d.appendClosetimeoOption)
+			if isDiskMount {
+				// A VHD PV is loop-mounted from a plain data blob and never needs CIFS
+				// symlink emulation (enabled by default).
+				if opts, existed := removeOptionIfExists(mountOptions, mfsymlinks); existed {
+					mountOptions = opts
+				}
+			}
 		}
 	}
 
@@ -656,6 +699,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}
 
 		diskPath := filepath.Join(cifsMountPath, diskName)
+		if err := validateDiskIsRegularFile(diskPath); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid disk source: %v", err)
+		}
 		options := util.JoinMountOptions(mountFlags, []string{"loop"})
 		if strings.HasPrefix(fsType, "ext") {
 			// following mount options are only valid for ext2/ext3/ext4 file systems
@@ -680,6 +726,17 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 
 	return &csi.NodeStageVolumeResponse{}, nil
+}
+
+// validateDiskIsRegularFile verifies that diskPath is a real regular file. A
+// missing file is left to fail naturally later in FormatAndMount, and an
+// existing symlink is always reported as a link (never "not found") because
+// Lstat does not traverse it.
+func validateDiskIsRegularFile(diskPath string) error {
+	if fi, err := os.Lstat(diskPath); err == nil && !fi.Mode().IsRegular() {
+		return fmt.Errorf("disk path %q is not a regular file (mode %s)", diskPath, fi.Mode())
+	}
+	return nil
 }
 
 // NodeUnstageVolume unmount the volume from the staging path
@@ -1056,6 +1113,76 @@ func checkGidPresentInMountFlags(mountFlags []string) bool {
 		}
 	}
 	return false
+}
+
+// authorizeInlineVolumeSecret uses SubjectAccessReview to ensure the mounting pod's
+// ServiceAccount is authorized to "get" the referenced Secret before mounting on its behalf.
+// d.inlineVolumeSecretAuthz selects the mode: off (default, no check), warn (log only) or
+// enforce (deny unauthorized mounts).
+func (d *Driver) authorizeInlineVolumeSecret(ctx context.Context, volumeContext map[string]string) error {
+	var enforce bool
+	switch strings.ToLower(d.inlineVolumeSecretAuthz) {
+	case "", inlineVolumeSecretAuthzOff:
+		return nil
+	case inlineVolumeSecretAuthzWarn:
+	case inlineVolumeSecretAuthzEnforce:
+		enforce = true
+	default:
+		return status.Errorf(codes.InvalidArgument, "invalid inline-volume-secret-authz mode %q", d.inlineVolumeSecretAuthz)
+	}
+
+	// Resolve the Secret the mount will read. Use the same resolution as the
+	// read path (getSecretNamespace).
+	secretNamespace := getSecretNamespace(volumeContext)
+	secretName := getValueInMap(volumeContext, secretNameField)
+	if secretName == "" {
+		if accountName := getValueInMap(volumeContext, storageAccountField); accountName != "" {
+			secretName = fmt.Sprintf(secretNameTemplate, accountName)
+		}
+	}
+
+	if secretName == "" || secretNamespace == "" {
+		return nil
+	}
+
+	deny := func(reason string) error {
+		msg := fmt.Sprintf("inline volume Secret %s/%s: %s", secretNamespace, secretName, reason)
+		if enforce {
+			return status.Error(codes.PermissionDenied, msg)
+		}
+		klog.Warningf("inline-volume-secret-authz(warn): %s", msg)
+		return nil
+	}
+
+	podName := volumeContext[podNameField]
+	podNamespace := volumeContext[podNamespaceField]
+	if d.kubeClient == nil || podName == "" || podNamespace == "" {
+		return deny("kube client or pod identity (podInfoOnMount) unavailable")
+	}
+	pod, err := d.kubeClient.CoreV1().Pods(podNamespace).Get(ctx, podName, metav1.GetOptions{})
+	if err != nil {
+		return deny(fmt.Sprintf("failed to get pod %s/%s: %v", podNamespace, podName, err))
+	}
+	serviceAccountName := pod.Spec.ServiceAccountName
+	if serviceAccountName == "" {
+		serviceAccountName = "default"
+	}
+	// Mirror the identity the API server assigns to a ServiceAccount token (username plus
+	// the implicit groups) and do a SubjectAccessReview.
+	serviceAccountUser := serviceaccount.MakeUsername(podNamespace, serviceAccountName)
+	sar := &authorizationv1.SubjectAccessReview{Spec: authorizationv1.SubjectAccessReviewSpec{
+		User:               serviceAccountUser,
+		Groups:             append(serviceaccount.MakeGroupNames(podNamespace), user.AllAuthenticated),
+		ResourceAttributes: &authorizationv1.ResourceAttributes{Namespace: secretNamespace, Verb: "get", Resource: "secrets", Name: secretName},
+	}}
+	result, err := d.kubeClient.AuthorizationV1().SubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
+	if err != nil {
+		return deny(fmt.Sprintf("SubjectAccessReview for %s failed: %v", serviceAccountUser, err))
+	}
+	if !result.Status.Allowed {
+		return deny(fmt.Sprintf("service account %s is not authorized to get it", serviceAccountUser))
+	}
+	return nil
 }
 
 // shouldUseServiceAccountToken determines whether a service account token should be used for authentication based on the volume context attributes.
