@@ -183,6 +183,19 @@ jobs:
           # local ref exists, making the subsequent push a fast-forward.
           git fetch origin gh-pages
           git worktree add -B gh-pages "$workdir" origin/gh-pages
+          # Skip republishing if this exact version's tgz is already on
+          # gh-pages. `helm repo index` unconditionally rewrites the
+          # top-level `generated:` timestamp (and per-entry `created:`
+          # timestamps when re-packaging), so without this guard a rerun
+          # for an already-published version would produce a commit with
+          # only timestamp churn, spamming gh-pages history and making
+          # reruns non-idempotent.
+          if [ -f "$workdir/azurefile-csi-driver-${version}.tgz" ]; then
+            echo "azurefile-csi-driver-${version}.tgz already published on gh-pages; skipping republish."
+            popd >/dev/null 2>&1 || true
+            git worktree remove --force "$workdir"
+            exit 0
+          fi
           cp "$pkg" "$workdir/"
           pushd "$workdir" >/dev/null
           # Merge the new tgz into the existing index.yaml (create one on
