@@ -30,6 +30,7 @@ type DriverOptions struct {
 	UserAgentSuffix                        string
 	AllowEmptyCloudConfig                  bool
 	AllowInlineVolumeKeyAccessWithIdentity bool
+	InlineVolumeSecretAuthz                string
 	EnableVHDDiskFeature                   bool
 	EnableVolumeMountGroup                 bool
 	EnableGetVolumeStats                   bool
@@ -72,6 +73,7 @@ func (o *DriverOptions) AddFlags() *flag.FlagSet {
 	fs.StringVar(&o.UserAgentSuffix, "user-agent-suffix", "", "userAgent suffix")
 	fs.BoolVar(&o.AllowEmptyCloudConfig, "allow-empty-cloud-config", true, "allow running driver without cloud config")
 	fs.BoolVar(&o.AllowInlineVolumeKeyAccessWithIdentity, "allow-inline-volume-key-access-with-identity", false, "allow accessing storage account key using cluster identity for inline volume")
+	fs.StringVar(&o.InlineVolumeSecretAuthz, "inline-volume-secret-authz", "off", "authorize inline volume Secret references via SubjectAccessReview before mount: off|warn|enforce")
 	fs.BoolVar(&o.EnableVHDDiskFeature, "enable-vhd", true, "enable VHD disk feature (experimental)")
 	fs.BoolVar(&o.EnableVolumeMountGroup, "enable-volume-mount-group", true, "indicates whether enabling VOLUME_MOUNT_GROUP")
 	fs.BoolVar(&o.EnableGetVolumeStats, "enable-get-volume-stats", true, "allow GET_VOLUME_STATS on agent node")

@@ -290,6 +290,21 @@ func setKeyValueInMap(m map[string]string, key, value string) {
 	m[key] = value
 }
 
+// caseCollidingKey reports the first key in m that collides with an earlier key
+// under case-insensitive (lowercase) normalization. The returned
+// string is the normalized (lowercase) key that collided.
+func caseCollidingKey(m map[string]string) (string, bool) {
+	seen := make(map[string]struct{}, len(m))
+	for k := range m {
+		lower := strings.ToLower(k)
+		if _, ok := seen[lower]; ok {
+			return lower, true
+		}
+		seen[lower] = struct{}{}
+	}
+	return "", false
+}
+
 // getValueInMap get value from map by key
 // key in the map is case insensitive
 func getValueInMap(m map[string]string, key string) string {
@@ -550,6 +565,30 @@ func isValidFolderName(folderName string) error {
 		if strings.HasSuffix(seg, ".") || strings.HasSuffix(seg, " ") {
 			return fmt.Errorf("folderName(%q) segment %q must not end with a period or space", folderName, seg)
 		}
+	}
+	return nil
+}
+
+// findLocalMountModeOption returns the first comma-separated option in
+// mountOptions that requests a local bind mount.
+func findLocalMountModeOption(mountOptions string) (string, bool) {
+	for _, opt := range strings.Split(mountOptions, ",") {
+		trimmed := strings.TrimSpace(opt)
+		if strings.EqualFold(trimmed, "bind") || strings.EqualFold(trimmed, "rbind") {
+			return trimmed, true
+		}
+	}
+	return "", false
+}
+
+// validateInlineVolumeMountSource validates that there are no path
+// separators or dot-only segments.
+func validateInlineVolumeMountSource(server, shareName string) error {
+	if strings.ContainsAny(server, `/\`) || server == "." || server == ".." {
+		return fmt.Errorf("invalid server %q for ephemeral volume: must be a hostname or address", server)
+	}
+	if strings.ContainsAny(shareName, `/\`) || shareName == "." || shareName == ".." {
+		return fmt.Errorf("invalid shareName %q for ephemeral volume: must be a single share name", shareName)
 	}
 	return nil
 }
