@@ -16,8 +16,26 @@
    - `--set linux.kubelet="/var/snap/microk8s/common/var/lib/kubelet"` - sets correct path to microk8s kubelet even though a user has a folder link to it.
 
 ### install a specific version
+
+Add the helm repo — pick **one** source (both host the same charts; the two commands share the repo name `azurefile-csi-driver`, so running the second after the first will fail unless you pass `--force-update`):
+
+Option 1: raw.githubusercontent.com (default)
+
 ```console
 helm repo add azurefile-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts
+```
+
+Option 2: GitHub Pages mirror (available since 1.34.5, not affected by raw.githubusercontent.com rate limits)
+
+```console
+helm repo add azurefile-csi-driver https://kubernetes-sigs.github.io/azurefile-csi-driver
+```
+
+Then update the repo cache, search for available versions, and install:
+
+```console
+helm repo update azurefile-csi-driver
+helm search repo azurefile-csi-driver --versions
 helm install azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system --version 1.35.6
 ```
 
