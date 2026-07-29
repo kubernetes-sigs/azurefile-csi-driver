@@ -105,10 +105,10 @@ spec:
               mountPath: /host/etc
             {{- if .Values.node.enableManagedIdentityAuth }}
             - name: mountpoint-dir
-              mountPath: "{{ .Values.linux.kubelet }}"
+              mountPath: "{{ .Values.linux.kubelet }}/pods"
               mountPropagation: Bidirectional
             - name: kerberos-dir
-              mountPath: /var/lib/kubelet/kerberos
+              mountPath: "{{ .Values.linux.kubelet }}/kerberos"
               mountPropagation: Bidirectional
             {{- end }}
       containers:
@@ -166,7 +166,7 @@ spec:
               drop:
                 - ALL
           volumeMounts:
-            - mountPath: /var/lib/kubelet/kerberos
+            - mountPath: "{{ .Values.linux.kubelet }}/kerberos"
               mountPropagation: Bidirectional
               name: kerberos-dir
             - name: azfilesauth
@@ -247,7 +247,7 @@ spec:
             - mountPath: {{ .Values.linux.kubelet }}/pods
               mountPropagation: Bidirectional
               name: mountpoint-dir
-            - mountPath: /var/lib/kubelet/kerberos
+            - mountPath: "{{ .Values.linux.kubelet }}/kerberos"
               mountPropagation: Bidirectional
               name: kerberos-dir
             - mountPath: /etc/kubernetes/
@@ -293,7 +293,7 @@ spec:
             type: DirectoryOrCreate
           name: mountpoint-dir
         - hostPath:
-            path: /var/lib/kubelet/kerberos
+            path: {{ .Values.linux.kubelet }}/kerberos
             type: DirectoryOrCreate
           name: kerberos-dir
         - hostPath:
