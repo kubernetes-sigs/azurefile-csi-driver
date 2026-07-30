@@ -3,7 +3,7 @@
 > Restoring an NFS file share snapshot is supported starting from CSI driver version v1.33.4 or later.
 
 ### Limitations of Azure file **restore** feature
-The snapshot restore data copy is performed by the CSI driver controller against the storage account's data plane endpoint (`<account>.file.core.windows.net`), so the controller must be able to reach that endpoint.
+The snapshot restore data copy is performed by the CSI driver controller against the storage account's data plane endpoint (`<account>.file.<storage-endpoint-suffix>`, e.g. `file.core.windows.net` for Azure public cloud, `file.core.chinacloudapi.cn` for Azure China, `file.core.usgovcloudapi.net` for Azure US Government), so the controller must be able to reach that endpoint.
 
 #### Storage account with public network access enabled from all networks
 No extra configuration required.

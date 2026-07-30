@@ -7,7 +7,7 @@
 
 ## Prerequisites
 
-Volume cloning copies data through the storage account's data plane endpoint (`<account>.file.core.windows.net`), so the CSI driver controller must be able to reach that endpoint.
+Volume cloning copies data through the storage account's data plane endpoint (`<account>.file.<storage-endpoint-suffix>`, e.g. `file.core.windows.net` for Azure public cloud, `file.core.chinacloudapi.cn` for Azure China, `file.core.usgovcloudapi.net` for Azure US Government), so the CSI driver controller must be able to reach that endpoint.
 
 ### Storage account with public network access enabled from all networks
 No extra configuration required.
