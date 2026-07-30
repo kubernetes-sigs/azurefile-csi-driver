@@ -174,11 +174,11 @@ Verify the following:
      --query "smbOAuthSettings.isSmbOAuthEnabled"
    ```
 
-3. **The managed identity is actually attached to the VMSS and propagated to the failing node instance.** Assigning the identity at the VMSS level is not enough on its own — the instance may still be running with the previous identity configuration until it is updated.
+3. **The managed identity is attached to the VMSS and propagated to the failing node instance.** `az vmss identity show` only reports the VMSS *model* configuration — it does not tell you whether the identity has actually propagated to a specific instance. The authoritative per-node check is to call IMDS from the node itself (see step (a) below).
 
    ```bash
    az vmss identity show -g <nodeResourceGroup> -n <vmssName> \
-     -o json | jq '.userAssignedIdentities'
+     --query 'userAssignedIdentities'
    ```
 
 #### Collecting the real error from the failing node
@@ -205,16 +205,21 @@ Then inside the container:
 CLIENT_ID=<the clientID from the PV / StorageClass>
 STG=<storageAccountName>
 
-# (a) Verify IMDS can issue a token for this clientID from the node
+# (a) Verify IMDS can issue a token for this clientID from the node.
+# The driver requests the storage OAuth resource https://storage.azure.com/
+# (see pkg/azurefile/azurefile.go), so use the same resource here.
+# Do NOT print or paste the raw access_token anywhere - it is a bearer
+# credential. The one-liner below only reports whether a token was
+# returned (with the token redacted), plus the expiry.
 curl -sS -H "Metadata:true" \
-  "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&client_id=${CLIENT_ID}&resource=https://${STG}.file.core.windows.net/"
-echo
-# Expect JSON with access_token / expires_on.
+  "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&client_id=${CLIENT_ID}&resource=https://storage.azure.com/" \
+  | python3 -c "import sys, json; d=json.load(sys.stdin); print({k: ('<redacted>' if k=='access_token' else v) for k,v in d.items()})"
+# Expect a dict with access_token=<redacted> and expires_on set.
 # If you see {"error":"invalid_request","error_description":"Identity not found"},
 # the managed identity is not attached to this VMSS instance yet.
 
 # (b) Run azfilesauthmanager manually with verbose output to see the real error
-/usr/bin/azfilesauthmanager set https://${STG}.file.core.windows.net \
+azfilesauthmanager set https://${STG}.file.core.windows.net \
   --imds-client-id ${CLIENT_ID} -v 2>&1 | tee /tmp/azfauth.log
 
 # (c) Kernel-side CIFS / Kerberos errors
@@ -232,7 +237,7 @@ Interpretation:
 
 | Output of (b) / (c) | Meaning |
 |---|---|
-| `KRB5KDC_ERR_S_PRINCIPAL_UNKNOWN` / `no such service` | The storage account's Kerberos SPN is not reachable. Check `smbOAuthSettings.isSmbOAuthEnabled` and that SMB Multichannel / SMB 3.1.1 is enabled. |
+| `KRB5KDC_ERR_S_PRINCIPAL_UNKNOWN` / `no such service` | The storage account's Kerberos SPN was not found. Confirm the storage account name / endpoint is correct in the PV / StorageClass, and that Azure AD Kerberos / SMB OAuth is enabled on the account (`smbOAuthSettings.isSmbOAuthEnabled` = true). |
 | `Clock skew too great` / `KRB_AP_ERR_SKEW` | Node clock is drifted more than 5 minutes. Fix NTP / `chronyd` on the node. |
 | Connection timeout to `login.microsoftonline.com` or the storage endpoint | Network / firewall / private endpoint issue. Verify egress and any storage account firewall rules allow the node subnet. |
 | `AADSTS700016` / `AADSTS7000215` | The managed identity is disabled or its service principal was deleted. Recreate the identity and re-assign it. |
