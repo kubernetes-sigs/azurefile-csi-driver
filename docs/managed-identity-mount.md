@@ -168,3 +168,71 @@ Verify the following:
 1. **The managed identity has the correct role assignment.** Ensure the managed identity is assigned the **`Storage File Data SMB MI Admin`** role on the storage account (or the resource group for dynamic provisioning). Other roles such as `Storage File Data SMB Share Contributor` or `Storage File Data SMB Share Elevated Contributor` are **not sufficient** for managed identity mount.
 
 2. **The SMBOauth property is enabled on the storage account.** Without this, the storage account does not support Kerberos ticket acquisition for managed identity authentication.
+
+   ```bash
+   az storage account show --name <storageAccountName> --resource-group <resourceGroup> \
+     --query "smbOAuthSettings.isSmbOAuthEnabled"
+   ```
+
+3. **The managed identity is actually attached to the VMSS and propagated to the failing node instance.** Assigning the identity at the VMSS level is not enough on its own — the instance may still be running with the previous identity configuration until it is updated.
+
+   ```bash
+   az vmss identity show -g <nodeResourceGroup> -n <vmssName> \
+     -o json | jq '.userAssignedIdentities'
+   ```
+
+#### Collecting the real error from the failing node
+
+`Error calling AzAuthenticatorLib: -1` is a generic error code. The real root cause is one of:
+
+- IMDS cannot return a token for the configured `clientID` (identity not propagated to the instance, or wrong `clientID`).
+- Token is acquired but the Kerberos ticket exchange with the storage endpoint is blocked (network / storage firewall / private endpoint misconfiguration).
+- Clock skew > 5 minutes on the node (Kerberos is time-sensitive).
+
+To find out which one it is, run the following on the `csi-azurefile-node` pod that is scheduled on the failing node:
+
+```bash
+# 1. Find the csi-azurefile-node pod on the failing node
+kubectl get pods -n kube-system -l app=csi-azurefile-node -o wide | grep <failingNodeName>
+
+# 2. Exec into the azurefile container
+kubectl exec -it <csi-azurefile-node-pod> -n kube-system -c azurefile -- sh
+```
+
+Then inside the container:
+
+```sh
+CLIENT_ID=<the clientID from the PV / StorageClass>
+STG=<storageAccountName>
+
+# (a) Verify IMDS can issue a token for this clientID from the node
+curl -sS -H "Metadata:true" \
+  "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&client_id=${CLIENT_ID}&resource=https://${STG}.file.core.windows.net/"
+echo
+# Expect JSON with access_token / expires_on.
+# If you see {"error":"invalid_request","error_description":"Identity not found"},
+# the managed identity is not attached to this VMSS instance yet.
+
+# (b) Run azfilesauthmanager manually with verbose output to see the real error
+/usr/bin/azfilesauthmanager set https://${STG}.file.core.windows.net \
+  --imds-client-id ${CLIENT_ID} -v 2>&1 | tee /tmp/azfauth.log
+
+# (c) Kernel-side CIFS / Kerberos errors
+dmesg -T 2>/dev/null | grep -iE "cifs|azauth|kerberos|krb|upcall" | tail -50
+# If dmesg is empty from inside the container, run from the host via nsenter:
+#   nsenter -t 1 -m -u -i -n -p tail -300 /var/log/syslog | grep -iE "azfileauth|azauth|kerberos|krb"
+```
+
+Interpretation:
+
+| Output of (a) | Meaning |
+|---|---|
+| `{"error":"invalid_request",..."Identity not found"}` | The `clientID` is not attached to this VMSS instance. Re-run `az vmss identity assign` and make sure the update is applied to all instances. |
+| Valid JSON with `access_token` | IMDS is fine — move on to (b). |
+
+| Output of (b) / (c) | Meaning |
+|---|---|
+| `KRB5KDC_ERR_S_PRINCIPAL_UNKNOWN` / `no such service` | The storage account's Kerberos SPN is not reachable. Check `smbOAuthSettings.isSmbOAuthEnabled` and that SMB Multichannel / SMB 3.1.1 is enabled. |
+| `Clock skew too great` / `KRB_AP_ERR_SKEW` | Node clock is drifted more than 5 minutes. Fix NTP / `chronyd` on the node. |
+| Connection timeout to `login.microsoftonline.com` or the storage endpoint | Network / firewall / private endpoint issue. Verify egress and any storage account firewall rules allow the node subnet. |
+| `AADSTS700016` / `AADSTS7000215` | The managed identity is disabled or its service principal was deleted. Recreate the identity and re-assign it. |
