@@ -448,7 +448,8 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			},
 		}
 		scParameters := map[string]string{
-			"skuName": "Standard_LRS",
+			"skuName":             "Standard_LRS",
+			"networkEndpointType": "serviceEndpoint",
 		}
 		test := testsuites.DynamicallyProvisionedReadOnlyVolumeTest{
 			CSIDriver:              testDriver,
