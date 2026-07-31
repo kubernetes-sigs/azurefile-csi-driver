@@ -50,6 +50,7 @@ import (
 const (
 	azureFileCSIDriverName = "azurefile_csi_driver"
 	privateEndpoint        = "privateendpoint"
+	serviceEndpoint        = "serviceendpoint"
 	snapshotTimeFormat     = "2006-01-02T15:04:05.0000000Z07:00"
 	snapshotsExpand        = "snapshots"
 
@@ -418,6 +419,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	enableHTTPSTrafficOnly := true
 	shareProtocol := armstorage.EnabledProtocolsSMB
 	var createPrivateEndpoint *bool
+	var createServiceEndpoint bool
 	if strings.EqualFold(networkEndpointType, privateEndpoint) {
 		if strings.Contains(subnetName, ",") {
 			return nil, status.Errorf(codes.InvalidArgument, "subnetName(%s) can only contain one subnet for private endpoint", subnetName)
@@ -427,6 +429,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		if privateDNSZoneResourceGroup != "" {
 			return nil, status.Errorf(codes.InvalidArgument, "%s(%s) is only supported with private endpoint", privateDNSZoneResourceGroupField, privateDNSZoneResourceGroup)
 		}
+		createServiceEndpoint = strings.EqualFold(networkEndpointType, serviceEndpoint)
 	}
 	var vnetResourceIDs []string
 	if fsType == nfs || protocol == nfs {
@@ -451,12 +454,18 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		// reset protocol field (compatible with "fsType: nfs")
 		setKeyValueInMap(parameters, protocolField, protocol)
 
+		// NFS shares can only be accessed from a secured network, so the subnet
+		// is always configured with a service endpoint unless a private endpoint is used.
 		if !ptr.Deref(createPrivateEndpoint, false) {
-			// set VirtualNetworkResourceIDs for storage account firewall setting
-			var err error
-			if vnetResourceIDs, err = d.updateSubnetServiceEndpoints(ctx, vnetResourceGroup, vnetName, subnetName); err != nil {
-				return nil, status.Errorf(codes.Internal, "update service endpoints failed with error: %v", err)
-			}
+			createServiceEndpoint = true
+		}
+	}
+
+	if createServiceEndpoint {
+		// set VirtualNetworkResourceIDs for storage account firewall setting
+		var err error
+		if vnetResourceIDs, err = d.updateSubnetServiceEndpoints(ctx, vnetResourceGroup, vnetName, subnetName); err != nil {
+			return nil, status.Errorf(codes.Internal, "update service endpoints failed with error: %v", err)
 		}
 	}
 
@@ -633,9 +642,9 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		if v, ok := d.volMap.Load(volName); ok {
 			accountName = v.(string)
 		} else {
-			lockKey = fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%v|%v|%v|%v|%v|%v|%v|%v|%v|%v|%s|%s|%s|%s|%s|%v|%s|%s",
+			lockKey = fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%v|%v|%v|%v|%v|%v|%v|%v|%v|%v|%v|%s|%s|%s|%s|%s|%v|%s|%s",
 				sku, accountKind, resourceGroup, location, protocol, subsID, accountAccessTier, privateDNSZoneResourceGroup,
-				ptr.Deref(createPrivateEndpoint, false), ptr.Deref(allowBlobPublicAccess, false), ptr.Deref(requireInfraEncryption, false),
+				ptr.Deref(createPrivateEndpoint, false), createServiceEndpoint, ptr.Deref(allowBlobPublicAccess, false), ptr.Deref(requireInfraEncryption, false),
 				ptr.Deref(enableLFS, false), ptr.Deref(disableDeleteRetentionPolicy, false),
 				ptr.Deref(allowCrossTenantReplication, true), ptr.Deref(allowSharedKeyAccess, true),
 				ptr.Deref(requiresSmbOAuth, false), ptr.Deref(isMultichannelEnabled, false),
