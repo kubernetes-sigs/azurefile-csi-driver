@@ -247,6 +247,9 @@ spec:
             - mountPath: {{ .Values.linux.kubelet }}/pods
               mountPropagation: Bidirectional
               name: mountpoint-dir
+            - mountPath: {{ .Values.linux.kubelet }}/plugins
+              mountPropagation: Bidirectional
+              name: plugins-dir
             - mountPath: "{{ .Values.linux.kubelet }}/kerberos"
               mountPropagation: Bidirectional
               name: kerberos-dir
@@ -292,6 +295,10 @@ spec:
             path: {{ .Values.linux.kubelet }}/pods
             type: DirectoryOrCreate
           name: mountpoint-dir
+        - hostPath:
+            path: {{ .Values.linux.kubelet }}/plugins
+            type: DirectoryOrCreate
+          name: plugins-dir
         - hostPath:
             path: {{ .Values.linux.kubelet }}/kerberos
             type: DirectoryOrCreate
