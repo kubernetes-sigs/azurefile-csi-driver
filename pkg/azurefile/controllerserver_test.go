@@ -710,6 +710,24 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 			gomega.Expect(err).To(gomega.Equal(expectedErr))
 		})
 	})
+	ginkgo.When("networkEndpointType is not supported", func() {
+		ginkgo.It("should fail", func(ctx context.Context) {
+			allParam := map[string]string{
+				networkEndpointTypeField: "serviceEndpiont",
+			}
+
+			req := &csi.CreateVolumeRequest{
+				Name:               "random-vol-name-invalid-network-endpoint-type",
+				CapacityRange:      stdCapRange,
+				VolumeCapabilities: stdVolCap,
+				Parameters:         allParam,
+			}
+
+			expectedErr := status.Errorf(codes.InvalidArgument, "networkEndpointType(serviceEndpiont) is not supported, supported networkEndpointType list: %v", supportedNetworkEndpointTypeList)
+			_, err := d.CreateVolume(ctx, req)
+			gomega.Expect(err).To(gomega.Equal(expectedErr))
+		})
+	})
 	ginkgo.When("networkEndpointType is serviceEndpoint on an SMB volume", func() {
 		ginkgo.It("should update the subnet service endpoints", func(ctx context.Context) {
 			allParam := map[string]string{

@@ -237,6 +237,7 @@ var (
 	supportedProtocolList            = []string{smb, nfs}
 	supportedDiskFsTypeList          = []string{ext4, ext3, ext2, xfs}
 	supportedFSGroupChangePolicyList = []string{FSGroupChangeNone, string(v1.FSGroupChangeAlways), string(v1.FSGroupChangeOnRootMismatch)}
+	supportedNetworkEndpointTypeList = []string{privateEndpoint, serviceEndpoint}
 
 	retriableErrors = []string{accountNotProvisioned, tooManyRequests, shareBeingDeleted, clientThrottled}
 
@@ -1110,6 +1111,18 @@ func isSupportedPublicNetworkAccess(publicNetworkAccess string) bool {
 	}
 	for _, tier := range armstorage.PossiblePublicNetworkAccessValues() {
 		if publicNetworkAccess == string(tier) {
+			return true
+		}
+	}
+	return false
+}
+
+func isSupportedNetworkEndpointType(networkEndpointType string) bool {
+	if networkEndpointType == "" {
+		return true
+	}
+	for _, endpointType := range supportedNetworkEndpointTypeList {
+		if strings.EqualFold(networkEndpointType, endpointType) {
 			return true
 		}
 	}
