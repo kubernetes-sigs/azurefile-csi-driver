@@ -412,6 +412,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Errorf(codes.InvalidArgument, "publicNetworkAccess(%s) is not supported, supported PublicNetworkAccess list: %v", publicNetworkAccess, armstorage.PossiblePublicNetworkAccessValues())
 	}
 
+	if !isSupportedNetworkEndpointType(networkEndpointType) {
+		return nil, status.Errorf(codes.InvalidArgument, "networkEndpointType(%s) is not supported, supported networkEndpointType list: %v", networkEndpointType, supportedNetworkEndpointTypeList)
+	}
+
 	if protocol == nfs && fsType != "" && fsType != nfs {
 		return nil, status.Errorf(codes.InvalidArgument, "fsType(%s) is not supported with protocol(%s)", fsType, protocol)
 	}

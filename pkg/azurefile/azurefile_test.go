@@ -2036,6 +2036,45 @@ func TestIsSupportedPublicNetworkAccess(t *testing.T) {
 	}
 }
 
+func TestIsSupportedNetworkEndpointType(t *testing.T) {
+	tests := []struct {
+		networkEndpointType string
+		expectedResult      bool
+	}{
+		{
+			networkEndpointType: "",
+			expectedResult:      true,
+		},
+		{
+			networkEndpointType: "privateEndpoint",
+			expectedResult:      true,
+		},
+		{
+			networkEndpointType: "serviceEndpoint",
+			expectedResult:      true,
+		},
+		{
+			networkEndpointType: "SERVICEENDPOINT",
+			expectedResult:      true,
+		},
+		{
+			networkEndpointType: "serviceEndpiont",
+			expectedResult:      false,
+		},
+		{
+			networkEndpointType: "InvalidValue",
+			expectedResult:      false,
+		},
+	}
+
+	for _, test := range tests {
+		result := isSupportedNetworkEndpointType(test.networkEndpointType)
+		if result != test.expectedResult {
+			t.Errorf("isSupportedNetworkEndpointType(%s) returned %v, expected %v", test.networkEndpointType, result, test.expectedResult)
+		}
+	}
+}
+
 func TestCreateFolderIfNotExists(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
