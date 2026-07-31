@@ -710,6 +710,136 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 			gomega.Expect(err).To(gomega.Equal(expectedErr))
 		})
 	})
+	ginkgo.When("networkEndpointType is not supported", func() {
+		ginkgo.It("should fail", func(ctx context.Context) {
+			allParam := map[string]string{
+				networkEndpointTypeField: "serviceEndpiont",
+			}
+
+			req := &csi.CreateVolumeRequest{
+				Name:               "random-vol-name-invalid-network-endpoint-type",
+				CapacityRange:      stdCapRange,
+				VolumeCapabilities: stdVolCap,
+				Parameters:         allParam,
+			}
+
+			expectedErr := status.Errorf(codes.InvalidArgument, "networkEndpointType(serviceEndpiont) is not supported, supported networkEndpointType list: %v", supportedNetworkEndpointTypeList)
+			_, err := d.CreateVolume(ctx, req)
+			gomega.Expect(err).To(gomega.Equal(expectedErr))
+		})
+	})
+	ginkgo.When("networkEndpointType is serviceEndpoint on an SMB volume", func() {
+		ginkgo.It("should update the subnet service endpoints", func(ctx context.Context) {
+			allParam := map[string]string{
+				networkEndpointTypeField: "serviceEndpoint",
+				vnetResourceGroupField:   "vnet-rg",
+				vnetNameField:            "smb-vnet",
+				subnetNameField:          "smb-subnet",
+			}
+
+			fakeCloud := &storage.AccountRepo{
+				Config: config.Config{
+					ResourceGroup: "rg",
+					Location:      "loc",
+				},
+			}
+
+			req := &csi.CreateVolumeRequest{
+				Name:               "random-vol-name-smb-service-endpoint",
+				CapacityRange:      stdCapRange,
+				VolumeCapabilities: stdVolCap,
+				Parameters:         allParam,
+			}
+			d.cloud = fakeCloud
+			mockSubnetClient := mock_subnetclient.NewMockInterface(ctrl)
+			fakeCloud.NetworkClientFactory = mock_azclient.NewMockClientFactory(ctrl)
+			fakeCloud.NetworkClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetSubnetClient().Return(mockSubnetClient).AnyTimes()
+
+			// the subnet is returned without any service endpoint, so it must be updated
+			mockSubnetClient.EXPECT().Get(gomock.Any(), "vnet-rg", "smb-vnet", "smb-subnet", gomock.Any()).Return(
+				&armnetwork.Subnet{
+					Name:       ptr.To("smb-subnet"),
+					Properties: &armnetwork.SubnetPropertiesFormat{},
+				}, nil).Times(1)
+			mockSubnetClient.EXPECT().CreateOrUpdate(gomock.Any(), "vnet-rg", "smb-vnet", "smb-subnet", gomock.Any()).Return(nil, nil).Times(1)
+
+			// the subnet is updated first, the request then fails later on in EnsureStorageAccount
+			_, err := d.CreateVolume(ctx, req)
+			gomega.Expect(err).To(gomega.HaveOccurred())
+			gomega.Expect(err.Error()).To(gomega.ContainSubstring("failed to ensure storage account"))
+		})
+	})
+	ginkgo.When("networkEndpointType is not set on an SMB volume", func() {
+		ginkgo.It("should not touch the subnet service endpoints", func(ctx context.Context) {
+			allParam := map[string]string{
+				vnetResourceGroupField: "vnet-rg",
+				vnetNameField:          "smb-vnet",
+				subnetNameField:        "smb-subnet",
+			}
+
+			fakeCloud := &storage.AccountRepo{
+				Config: config.Config{
+					ResourceGroup: "rg",
+					Location:      "loc",
+				},
+			}
+
+			req := &csi.CreateVolumeRequest{
+				Name:               "random-vol-name-smb-no-network-endpoint-type",
+				CapacityRange:      stdCapRange,
+				VolumeCapabilities: stdVolCap,
+				Parameters:         allParam,
+			}
+			d.cloud = fakeCloud
+			mockSubnetClient := mock_subnetclient.NewMockInterface(ctrl)
+			fakeCloud.NetworkClientFactory = mock_azclient.NewMockClientFactory(ctrl)
+			fakeCloud.NetworkClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetSubnetClient().Return(mockSubnetClient).AnyTimes()
+
+			mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			mockSubnetClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			mockSubnetClient.EXPECT().CreateOrUpdate(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+			_, err := d.CreateVolume(ctx, req)
+			gomega.Expect(err).To(gomega.HaveOccurred())
+			gomega.Expect(err.Error()).To(gomega.ContainSubstring("failed to ensure storage account"))
+		})
+	})
+	ginkgo.When("networkEndpointType is privateEndpoint on an SMB volume", func() {
+		ginkgo.It("should not touch the subnet service endpoints", func(ctx context.Context) {
+			allParam := map[string]string{
+				networkEndpointTypeField: "privateEndpoint",
+				vnetResourceGroupField:   "vnet-rg",
+				vnetNameField:            "smb-vnet",
+				subnetNameField:          "smb-subnet",
+			}
+
+			fakeCloud := &storage.AccountRepo{
+				Config: config.Config{
+					ResourceGroup: "rg",
+					Location:      "loc",
+				},
+			}
+
+			req := &csi.CreateVolumeRequest{
+				Name:               "random-vol-name-smb-private-endpoint",
+				CapacityRange:      stdCapRange,
+				VolumeCapabilities: stdVolCap,
+				Parameters:         allParam,
+			}
+			d.cloud = fakeCloud
+			mockSubnetClient := mock_subnetclient.NewMockInterface(ctrl)
+			fakeCloud.NetworkClientFactory = mock_azclient.NewMockClientFactory(ctrl)
+			fakeCloud.NetworkClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetSubnetClient().Return(mockSubnetClient).AnyTimes()
+
+			mockSubnetClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			mockSubnetClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			mockSubnetClient.EXPECT().CreateOrUpdate(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+			_, err := d.CreateVolume(ctx, req)
+			gomega.Expect(err).To(gomega.HaveOccurred())
+			gomega.Expect(err.Error()).To(gomega.ContainSubstring("failed to ensure storage account"))
+		})
+	})
 	ginkgo.When("Failed with storeAccountKey is not supported for account with shared access key disabled", func() {
 		ginkgo.It("should fail", func(ctx context.Context) {
 			allParam := map[string]string{
