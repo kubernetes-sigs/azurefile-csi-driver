@@ -143,6 +143,10 @@ const (
 	provisionedIopsField              = "provisionediops"
 	falseValue                        = "false"
 	trueValue                         = "true"
+	// inline volume secret authorization modes
+	inlineVolumeSecretAuthzOff        = "off"
+	inlineVolumeSecretAuthzWarn       = "warn"
+	inlineVolumeSecretAuthzEnforce    = "enforce"
 	defaultSecretAccountName          = "azurestorageaccountname"
 	defaultSecretAccountKey           = "azurestorageaccountkey"
 	proxyMount                        = "proxy-mount"
@@ -269,6 +273,7 @@ type Driver struct {
 	fsGroupChangePolicy                    string
 	allowEmptyCloudConfig                  bool
 	allowInlineVolumeKeyAccessWithIdentity bool
+	inlineVolumeSecretAuthz                string
 	enableVHDDiskFeature                   bool
 	enableGetVolumeStats                   bool
 	enableVolumeMountGroup                 bool
@@ -350,6 +355,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.userAgentSuffix = options.UserAgentSuffix
 	driver.allowEmptyCloudConfig = options.AllowEmptyCloudConfig
 	driver.allowInlineVolumeKeyAccessWithIdentity = options.AllowInlineVolumeKeyAccessWithIdentity
+	driver.inlineVolumeSecretAuthz = options.InlineVolumeSecretAuthz
 	driver.enableVHDDiskFeature = options.EnableVHDDiskFeature
 	driver.enableVolumeMountGroup = options.EnableVolumeMountGroup
 	driver.enableGetVolumeStats = options.EnableGetVolumeStats
