@@ -37,10 +37,13 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	testingclient "k8s.io/client-go/testing"
 	mount "k8s.io/mount-utils"
 	"k8s.io/utils/exec"
 	testingexec "k8s.io/utils/exec/testing"
@@ -273,6 +276,169 @@ func TestNodePublishVolume(t *testing.T) {
 			},
 		},
 		{
+			desc: "[Error] Ephemeral volume with mountWithOAuthToken and clientID should fail",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e449",
+				TargetPath: targetTest,
+				Readonly:   true,
+				VolumeContext: map[string]string{
+					ephemeralField:           "true",
+					storageAccountField:      "teststorageaccount",
+					shareNameField:           "testshare",
+					mountWithOAuthTokenField: "true",
+					clientIDField:            "branch-trigger",
+					serviceAccountTokenField: "fake-token",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "mountWithOAuthToken cannot be used for ephemeral volumes, please use secret based authentication"),
+				WindowsError: status.Error(codes.InvalidArgument, "mountWithOAuthToken cannot be used for ephemeral volumes, please use secret based authentication"),
+			},
+		},
+		{
+			desc: "[Error] Ephemeral volume with case-colliding secretNamespace keys should fail",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e446",
+				TargetPath: targetTest,
+				Readonly:   true,
+				VolumeContext: map[string]string{
+					ephemeralField:    "true",
+					shareNameField:    "testshare",
+					"secretNamespace": "namespace",
+					"SecretNamespace": "namespace-other",
+					podNamespaceField: "namespace",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "ephemeral volume request contains case-colliding volume attribute keys that normalize to \"secretnamespace\""),
+				WindowsError: status.Error(codes.InvalidArgument, "ephemeral volume request contains case-colliding volume attribute keys that normalize to \"secretnamespace\""),
+			},
+		},
+		{
+			desc: "[Error] Ephemeral volume with case-colliding mountWithManagedIdentity keys should fail",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e372",
+				TargetPath: targetTest,
+				Readonly:   true,
+				VolumeContext: map[string]string{
+					ephemeralField:             "true",
+					shareNameField:             "testshare",
+					"mountwithmanagedidentity": "false",
+					"MOUNTWITHMANAGEDIDENTITY": "true",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "ephemeral volume request contains case-colliding volume attribute keys that normalize to \"mountwithmanagedidentity\""),
+				WindowsError: status.Error(codes.InvalidArgument, "ephemeral volume request contains case-colliding volume attribute keys that normalize to \"mountwithmanagedidentity\""),
+			},
+		},
+		{
+			desc: "[Error] Ephemeral volume with protocol=nfs should fail",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e440",
+				TargetPath: targetTest,
+				Readonly:   true,
+				VolumeContext: map[string]string{
+					ephemeralField:  "true",
+					shareNameField:  "testshare",
+					protocolField:   nfs,
+					serverNameField: "192.0.2.60",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "NFS protocol is not supported for ephemeral volumes"),
+				WindowsError: status.Error(codes.InvalidArgument, "NFS protocol is not supported for ephemeral volumes"),
+			},
+		},
+		{
+			desc: "[Error] Ephemeral volume with diskName should fail",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e441",
+				TargetPath: targetTest,
+				Readonly:   true,
+				VolumeContext: map[string]string{
+					ephemeralField:  "true",
+					shareNameField:  "testshare",
+					serverNameField: "test_servername",
+					diskNameField:   "disk.vhd",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "VHD disk feature (diskName or disk fsType) is not supported for ephemeral volumes"),
+				WindowsError: status.Error(codes.InvalidArgument, "VHD disk feature (diskName or disk fsType) is not supported for ephemeral volumes"),
+			},
+		},
+		{
+			desc: "[Error] Ephemeral volume with disk fsType should fail",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e442",
+				TargetPath: targetTest,
+				Readonly:   true,
+				VolumeContext: map[string]string{
+					ephemeralField:  "true",
+					shareNameField:  "testshare",
+					serverNameField: "test_servername",
+					fsTypeField:     "ext4",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "VHD disk feature (diskName or disk fsType) is not supported for ephemeral volumes"),
+				WindowsError: status.Error(codes.InvalidArgument, "VHD disk feature (diskName or disk fsType) is not supported for ephemeral volumes"),
+			},
+		},
+		{
+			desc: "[Error] Ephemeral volume with server containing separators should fail",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e443",
+				TargetPath: targetTest,
+				Readonly:   true,
+				VolumeContext: map[string]string{
+					ephemeralField:  "true",
+					shareNameField:  "testshare",
+					serverNameField: "a/b",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "invalid server \"a/b\" for ephemeral volume: must be a hostname or address"),
+				WindowsError: status.Error(codes.InvalidArgument, "invalid server \"a/b\" for ephemeral volume: must be a hostname or address"),
+			},
+		},
+		{
+			desc: "[Error] Ephemeral volume with shareName containing separators should fail",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e444",
+				TargetPath: targetTest,
+				Readonly:   true,
+				VolumeContext: map[string]string{
+					ephemeralField:  "true",
+					serverNameField: "test_servername",
+					shareNameField:  "a/b",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "invalid shareName \"a/b\" for ephemeral volume: must be a single share name"),
+				WindowsError: status.Error(codes.InvalidArgument, "invalid shareName \"a/b\" for ephemeral volume: must be a single share name"),
+			},
+		},
+		{
+			desc: "[Error] Ephemeral volume with bind mount option should fail",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e445",
+				TargetPath: targetTest,
+				Readonly:   true,
+				VolumeContext: map[string]string{
+					ephemeralField:    "true",
+					shareNameField:    "testshare",
+					serverNameField:   "test_servername",
+					mountOptionsField: "dir_mode=0777,bind",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "mount option \"bind\" is not supported for ephemeral volumes"),
+				WindowsError: status.Error(codes.InvalidArgument, "mount option \"bind\" is not supported for ephemeral volumes"),
+			},
+		},
+		{
 			desc: "[Error] Ephemeral volume with mountWithWIToken should preserve storageAccount",
 			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
 				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed84",
@@ -477,6 +643,224 @@ func TestNodePublishVolume(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(alreadyMountedTarget)
 	assert.NoError(t, err)
+}
+
+func TestAuthorizeInlineVolumeSecret(t *testing.T) {
+	const (
+		podNS       = "app-ns"
+		podName     = "app-pod"
+		saName      = "app-sa"
+		secretName  = "azure-secret"
+		accountName = "testaccount"
+	)
+
+	newPod := func(sa string) *corev1.Pod {
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: podName, Namespace: podNS},
+			Spec:       corev1.PodSpec{ServiceAccountName: sa},
+		}
+	}
+	baseContext := func() map[string]string {
+		return map[string]string{
+			podNameField:         podName,
+			podNamespaceField:    podNS,
+			secretNamespaceField: podNS,
+			secretNameField:      secretName,
+		}
+	}
+
+	tests := []struct {
+		desc       string
+		mode       string
+		context    map[string]string
+		nilClient  bool
+		pod        *corev1.Pod
+		allowed    bool
+		sarErr     error
+		expectDeny bool
+	}{
+		{
+			desc:       "off mode is a no-op even when unauthorized",
+			mode:       inlineVolumeSecretAuthzOff,
+			context:    baseContext(),
+			pod:        newPod(saName),
+			allowed:    false,
+			expectDeny: false,
+		},
+		{
+			desc:       "enforce allows when SA is authorized",
+			mode:       inlineVolumeSecretAuthzEnforce,
+			context:    baseContext(),
+			pod:        newPod(saName),
+			allowed:    true,
+			expectDeny: false,
+		},
+		{
+			desc:       "enforce denies when SA is not authorized",
+			mode:       inlineVolumeSecretAuthzEnforce,
+			context:    baseContext(),
+			pod:        newPod(saName),
+			allowed:    false,
+			expectDeny: true,
+		},
+		{
+			desc:       "warn allows even when SA is not authorized",
+			mode:       inlineVolumeSecretAuthzWarn,
+			context:    baseContext(),
+			pod:        newPod(saName),
+			allowed:    false,
+			expectDeny: false,
+		},
+		{
+			desc:       "enforce denies when kube client is nil",
+			mode:       inlineVolumeSecretAuthzEnforce,
+			context:    baseContext(),
+			nilClient:  true,
+			expectDeny: true,
+		},
+		{
+			desc: "enforce denies when pod identity is missing",
+			mode: inlineVolumeSecretAuthzEnforce,
+			context: map[string]string{
+				secretNamespaceField: podNS,
+				secretNameField:      secretName,
+			},
+			pod:        newPod(saName),
+			expectDeny: true,
+		},
+		{
+			desc: "enforce denies when secret but no secret namespace",
+			mode: inlineVolumeSecretAuthzEnforce,
+			context: map[string]string{
+				secretNameField: secretName,
+			},
+			pod:        newPod(saName),
+			expectDeny: true,
+		},
+		{
+			desc: "no resolvable secret reference is a no-op",
+			mode: inlineVolumeSecretAuthzEnforce,
+			context: map[string]string{
+				podNameField:      podName,
+				podNamespaceField: podNS,
+			},
+			pod:        newPod(saName),
+			allowed:    false,
+			expectDeny: false,
+		},
+		{
+			desc:       "empty pod service account defaults to 'default'",
+			mode:       inlineVolumeSecretAuthzEnforce,
+			context:    baseContext(),
+			pod:        newPod(""),
+			allowed:    true,
+			expectDeny: false,
+		},
+	}
+
+	for _, test := range tests {
+		d := NewFakeDriver()
+		d.inlineVolumeSecretAuthz = test.mode
+		if test.nilClient {
+			d.kubeClient = nil
+		} else {
+			objs := []k8sruntime.Object{}
+			if test.pod != nil {
+				objs = append(objs, test.pod)
+			}
+			client := fake.NewSimpleClientset(objs...)
+			allowed := test.allowed
+			sarErr := test.sarErr
+			client.PrependReactor("create", "subjectaccessreviews", func(action testingclient.Action) (bool, k8sruntime.Object, error) {
+				if sarErr != nil {
+					return true, nil, sarErr
+				}
+				sar := action.(testingclient.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
+				sar.Status.Allowed = allowed
+				return true, sar, nil
+			})
+			d.kubeClient = client
+		}
+
+		err := d.authorizeInlineVolumeSecret(context.Background(), test.context)
+		if test.expectDeny {
+			if err == nil {
+				t.Errorf("test %q: expected PermissionDenied, got nil", test.desc)
+			} else if status.Code(err) != codes.PermissionDenied {
+				t.Errorf("test %q: expected PermissionDenied, got %v", test.desc, err)
+			}
+		} else if err != nil {
+			t.Errorf("test %q: expected no error, got %v", test.desc, err)
+		}
+	}
+}
+
+func TestAuthorizeInlineVolumeSecretInvalidMode(t *testing.T) {
+	d := NewFakeDriver()
+	d.inlineVolumeSecretAuthz = "bogus"
+	d.kubeClient = fake.NewSimpleClientset()
+	err := d.authorizeInlineVolumeSecret(context.Background(), map[string]string{
+		podNameField:      "app-pod",
+		podNamespaceField: "app-ns",
+		secretNameField:   "azure-secret",
+	})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Errorf("expected InvalidArgument for unknown mode, got %v", err)
+	}
+}
+
+func TestAuthorizeInlineVolumeSecretSubject(t *testing.T) {
+	const (
+		podNS      = "app-ns"
+		podName    = "app-pod"
+		saName     = "app-sa"
+		secretName = "azure-secret"
+	)
+	d := NewFakeDriver()
+	d.inlineVolumeSecretAuthz = inlineVolumeSecretAuthzEnforce
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: podName, Namespace: podNS},
+		Spec:       corev1.PodSpec{ServiceAccountName: saName},
+	}
+	client := fake.NewSimpleClientset(pod)
+	var captured *authorizationv1.SubjectAccessReview
+	client.PrependReactor("create", "subjectaccessreviews", func(action testingclient.Action) (bool, k8sruntime.Object, error) {
+		captured = action.(testingclient.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
+		captured.Status.Allowed = true
+		return true, captured, nil
+	})
+	d.kubeClient = client
+
+	ctx := map[string]string{
+		podNameField:         podName,
+		podNamespaceField:    podNS,
+		secretNamespaceField: podNS,
+		secretNameField:      secretName,
+	}
+	if err := d.authorizeInlineVolumeSecret(context.Background(), ctx); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if captured == nil {
+		t.Fatal("expected a SubjectAccessReview to be created")
+	}
+	if got, want := captured.Spec.User, "system:serviceaccount:app-ns:app-sa"; got != want {
+		t.Errorf("User = %q, want %q", got, want)
+	}
+	wantGroups := map[string]bool{
+		"system:serviceaccounts":        true,
+		"system:serviceaccounts:app-ns": true,
+		"system:authenticated":          true,
+	}
+	for _, g := range captured.Spec.Groups {
+		delete(wantGroups, g)
+	}
+	if len(wantGroups) != 0 {
+		t.Errorf("missing expected groups in SAR: %v (got %v)", wantGroups, captured.Spec.Groups)
+	}
+	ra := captured.Spec.ResourceAttributes
+	if ra == nil || ra.Verb != "get" || ra.Resource != "secrets" || ra.Namespace != podNS || ra.Name != secretName || ra.Group != "" {
+		t.Errorf("unexpected ResourceAttributes: %+v", ra)
+	}
 }
 
 func TestNodeUnpublishVolume(t *testing.T) {
@@ -834,6 +1218,21 @@ func TestNodeStageVolume(t *testing.T) {
 				Secrets:          secrets},
 			expectedErr: testutil.TestError{
 				DefaultError: status.Errorf(codes.Internal, "diskname could not be empty, targetPath: %s", sourceTest),
+			},
+		},
+		{
+			desc: "[Error] PV disk path: diskName traversal is rejected",
+			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
+				VolumeCapability: &stdVolCap,
+				VolumeContext: map[string]string{
+					fsTypeField:     "ext4",
+					diskNameField:   "../../../../host/marker.vhd",
+					shareNameField:  "test_sharename",
+					serverNameField: "test_servername",
+				},
+				Secrets: secrets},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Errorf(codes.InvalidArgument, "invalid %s %q: contains directory traversal sequence", "diskName", "../../../../host/marker.vhd"),
 			},
 		},
 		{
@@ -1809,6 +2208,45 @@ func TestGetKerberosHost(t *testing.T) {
 			got := getKerberosHost(tc.server)
 			if got != tc.expected {
 				t.Errorf("getKerberosHost(%q) = %q, want %q", tc.server, got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestValidateDiskIsRegularFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping symlink-based test on windows")
+	}
+	shareDir := t.TempDir()
+
+	regularPath := filepath.Join(shareDir, "disk.vhd")
+	if err := os.WriteFile(regularPath, []byte("data"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// A CIFS-emulated symlink surfaces to the VFS as a symlink; model that with a
+	// real symlink and assert the no-follow check rejects it regardless of target.
+	symlinkPath := filepath.Join(shareDir, "link.vhd")
+	if err := os.Symlink("/etc/hostname", symlinkPath); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		desc      string
+		diskPath  string
+		expectErr bool
+	}{
+		{desc: "regular file is accepted", diskPath: regularPath, expectErr: false},
+		{desc: "missing file is tolerated", diskPath: filepath.Join(shareDir, "absent.vhd"), expectErr: false},
+		{desc: "symlink is rejected", diskPath: symlinkPath, expectErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			err := validateDiskIsRegularFile(tc.diskPath)
+			if tc.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
