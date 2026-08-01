@@ -277,6 +277,21 @@ func SetVolumeOwnership(path, gid, policy string) error {
 
 // setKeyValueInMap set key/value pair in map
 // key in the map is case insensitive, if key already exists, overwrite existing value
+// caseCollidingKey reports the first key in m that collides with an earlier key
+// under case-insensitive (lowercase) normalization. The returned
+// string is the normalized (lowercase) key that collided.
+func caseCollidingKey(m map[string]string) (string, bool) {
+	seen := make(map[string]struct{}, len(m))
+	for k := range m {
+		lower := strings.ToLower(k)
+		if _, ok := seen[lower]; ok {
+			return lower, true
+		}
+		seen[lower] = struct{}{}
+	}
+	return "", false
+}
+
 func setKeyValueInMap(m map[string]string, key, value string) {
 	if m == nil {
 		return
@@ -428,4 +443,41 @@ func setCredentialCache(server, clientID string) ([]byte, error) {
 	cmd.Env = append(os.Environ(), cmd.Env...)
 	klog.V(2).Infof("Executing command: %q", cmd.String())
 	return cmd.CombinedOutput()
+}
+
+// findLocalMountModeOption returns the first comma-separated option in
+// mountOptions that requests a local bind mount.
+func findLocalMountModeOption(mountOptions string) (string, bool) {
+	for _, opt := range strings.Split(mountOptions, ",") {
+		trimmed := strings.TrimSpace(opt)
+		if strings.EqualFold(trimmed, "bind") || strings.EqualFold(trimmed, "rbind") {
+			return trimmed, true
+		}
+	}
+	return "", false
+}
+
+// validateInlineVolumeMountSource validates that there are no path
+// separators or dot-only segments.
+func validateInlineVolumeMountSource(server, shareName string) error {
+	if strings.ContainsAny(server, `/\`) || server == "." || server == ".." {
+		return fmt.Errorf("invalid server %q for ephemeral volume: must be a hostname or address", server)
+	}
+	if strings.ContainsAny(shareName, `/\`) || shareName == "." || shareName == ".." {
+		return fmt.Errorf("invalid shareName %q for ephemeral volume: must be a single share name", shareName)
+	}
+	return nil
+}
+
+// getSecretNamespace returns the namespace of the Secret referenced by the
+// volume context, preferring an explicit secretNamespace attribute and
+// falling back to PVC namespace, then to "default".
+func getSecretNamespace(volumeContext map[string]string) string {
+	if ns := getValueInMap(volumeContext, secretNamespaceField); ns != "" {
+		return ns
+	}
+	if ns := getValueInMap(volumeContext, pvcNamespaceKey); ns != "" {
+		return ns
+	}
+	return defaultNamespace
 }

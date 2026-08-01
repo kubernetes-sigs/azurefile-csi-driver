@@ -137,6 +137,10 @@ const (
 	provisionedIopsField              = "provisionediops"
 	falseValue                        = "false"
 	trueValue                         = "true"
+	// inline volume secret authorization modes
+	inlineVolumeSecretAuthzOff        = "off"
+	inlineVolumeSecretAuthzWarn       = "warn"
+	inlineVolumeSecretAuthzEnforce    = "enforce"
 	defaultSecretAccountName          = "azurestorageaccountname"
 	defaultSecretAccountKey           = "azurestorageaccountkey"
 	proxyMount                        = "proxy-mount"
@@ -250,6 +254,7 @@ type Driver struct {
 	fsGroupChangePolicy                    string
 	allowEmptyCloudConfig                  bool
 	allowInlineVolumeKeyAccessWithIdentity bool
+	inlineVolumeSecretAuthz                string
 	enableVHDDiskFeature                   bool
 	enableGetVolumeStats                   bool
 	enableVolumeMountGroup                 bool
@@ -329,6 +334,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.userAgentSuffix = options.UserAgentSuffix
 	driver.allowEmptyCloudConfig = options.AllowEmptyCloudConfig
 	driver.allowInlineVolumeKeyAccessWithIdentity = options.AllowInlineVolumeKeyAccessWithIdentity
+	driver.inlineVolumeSecretAuthz = options.InlineVolumeSecretAuthz
 	driver.enableVHDDiskFeature = options.EnableVHDDiskFeature
 	driver.enableVolumeMountGroup = options.EnableVolumeMountGroup
 	driver.enableGetVolumeStats = options.EnableGetVolumeStats
@@ -596,6 +602,25 @@ func GetInfoFromSnapshotID(id string) (string, string, string, string, string, e
 		}
 	}
 	return segments[0], segments[1], segments[2], snapshotTime, subsID, nil
+}
+
+// validateVolumeIDSegment rejects segments that contain path separators or
+// traversal sequences ("..") so that segments parsed out of a CSI volume id
+// cannot be used to construct unsafe filesystem paths (e.g. when diskName is
+// joined with the CIFS mount path during VHD-on-Azure-File staging).
+func validateVolumeIDSegment(field, value string) error {
+	if value == "" {
+		return nil
+	}
+	segments := strings.FieldsFunc(value, func(r rune) bool {
+		return r == '/' || r == '\\'
+	})
+	for _, segment := range segments {
+		if segment == ".." {
+			return fmt.Errorf("invalid %s %q: contains directory traversal sequence", field, value)
+		}
+	}
+	return nil
 }
 
 // check whether mountOptions contains file_mode, dir_mode, vers, if not, append default mode
