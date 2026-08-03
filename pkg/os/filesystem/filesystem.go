@@ -21,12 +21,12 @@ package filesystem
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
 	"strings"
 
-	"github.com/pkg/errors"
 	"golang.org/x/sys/windows"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/util"
