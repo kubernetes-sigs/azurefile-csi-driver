@@ -198,6 +198,9 @@ spec:
               drop:
                 - ALL
           volumeMounts:
+            - mountPath: /var/lib/kubelet/pods
+              mountPropagation: Bidirectional
+              name: mountpoint-dir
             - mountPath: /var/lib/kubelet/kerberos
               mountPropagation: Bidirectional
               name: kerberos-dir

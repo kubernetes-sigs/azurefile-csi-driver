@@ -166,6 +166,9 @@ spec:
               drop:
                 - ALL
           volumeMounts:
+            - mountPath: "{{ .Values.linux.kubelet }}/pods"
+              mountPropagation: Bidirectional
+              name: mountpoint-dir
             - mountPath: "{{ .Values.linux.kubelet }}/kerberos"
               mountPropagation: Bidirectional
               name: kerberos-dir
