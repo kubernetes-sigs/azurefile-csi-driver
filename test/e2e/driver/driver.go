@@ -32,6 +32,7 @@ type PVTestDriver interface {
 	DynamicPVTestDriver
 	PreProvisionedVolumeTestDriver
 	VolumeSnapshotTestDriver
+	VolumeAttributesClassTestDriver
 }
 
 // DynamicPVTestDriver represents an interface for a CSI driver that supports DynamicPV
@@ -50,6 +51,12 @@ type PreProvisionedVolumeTestDriver interface {
 
 type VolumeSnapshotTestDriver interface {
 	GetVolumeSnapshotClass(namespace string) *snapshotv1.VolumeSnapshotClass
+}
+
+// VolumeAttributesClassTestDriver represents an interface for a CSI driver that supports VolumeAttributesClass
+type VolumeAttributesClassTestDriver interface {
+	// GetVolumeAttributesClass returns a VolumeAttributesClass for modifying volume parameters
+	GetVolumeAttributesClass(namespace string) *storagev1.VolumeAttributesClass
 }
 
 func getStorageClass(

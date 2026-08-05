@@ -16,9 +16,27 @@
    - `--set linux.kubelet="/var/snap/microk8s/common/var/lib/kubelet"` - sets correct path to microk8s kubelet even though a user has a folder link to it.
 
 ### install a specific version
+
+Add the helm repo — pick **one** source (both host the same charts; the two commands share the repo name `azurefile-csi-driver`, so running the second after the first will fail unless you pass `--force-update`):
+
+Option 1: raw.githubusercontent.com (default)
+
 ```console
 helm repo add azurefile-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts
-helm install azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system --version 1.34.3
+```
+
+Option 2: GitHub Pages mirror (available since 1.34.5, not affected by raw.githubusercontent.com rate limits)
+
+```console
+helm repo add azurefile-csi-driver https://kubernetes-sigs.github.io/azurefile-csi-driver
+```
+
+Then update the repo cache, search for available versions, and install:
+
+```console
+helm repo update azurefile-csi-driver
+helm search repo azurefile-csi-driver --versions
+helm install azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system --version 1.35.6
 ```
 
 ### install on RedHat/CentOS
@@ -56,21 +74,22 @@ The following table lists the configurable parameters of the latest Azure File C
 | `feature.enableGetVolumeStats`                    | allow GET_VOLUME_STATS on agent node                       | `true`                      |
 | `feature.enableVolumeMountGroup`                  | indicates whether enabling VOLUME_MOUNT_GROUP                       | `true`                      |
 | `feature.fsGroupPolicy`                           | CSIDriver FSGroupPolicy value                  | `ReadWriteOnceWithFSType`(available values: `ReadWriteOnceWithFSType`, `File`, `None`) |
+| `feature.serviceAccountTokenInSecrets`            | deliver service account tokens via CSI secrets field (Kubernetes 1.35+) | `false`                     |
 | `image.baseRepo`                                  | base repository of driver images                           | `mcr.microsoft.com`                      |
 | `image.azurefile.repository`                      | azurefile-csi-driver container image                          | `/oss/kubernetes-csi/azurefile-csi`                            |
 | `image.azurefile.tag`                             | azurefile-csi-driver container image tag                      | ``                                                            |
 | `image.azurefile.pullPolicy`                      | azurefile-csi-driver image pull policy                     | `IfNotPresent`                                                      |
 | `image.csiProvisioner.repository`                 | csi-provisioner container image                               | `/oss/kubernetes-csi/csi-provisioner`              |
-| `image.csiProvisioner.tag`                        | csi-provisioner container image tag                           | `v6.1.0`                                                            |
+| `image.csiProvisioner.tag`                        | csi-provisioner container image tag                           | `v6.3.0`                                                            |
 | `image.csiProvisioner.pullPolicy`                 | csi-provisioner image pull policy                          | `IfNotPresent`                                                      |
 | `image.csiResizer.repository`                     | csi-resizer container image                                   | `/oss/kubernetes-csi/csi-resizer`                  |
-| `image.csiResizer.tag`                            | csi-resizer container image tag                               | `v2.0.0`                                                            |
+| `image.csiResizer.tag`                            | csi-resizer container image tag                               | `v2.2.0`                                                            |
 | `image.csiResizer.pullPolicy`                     | csi-resizer image pull policy                              | `IfNotPresent`                                                      |
 | `image.livenessProbe.repository`                  | liveness-probe container image                                | `/oss/kubernetes-csi/livenessprobe`                |
-| `image.livenessProbe.tag`                         | liveness-probe container image tag                            | `v2.15.0`                                                            |
+| `image.livenessProbe.tag`                         | liveness-probe container image tag                            | `v2.19.0`                                                            |
 | `image.livenessProbe.pullPolicy`                  | liveness-probe image pull policy                           | `IfNotPresent`                                                      |
 | `image.nodeDriverRegistrar.repository`            | csi-node-driver-registrar container image                     | `/oss/kubernetes-csi/csi-node-driver-registrar`    |
-| `image.nodeDriverRegistrar.tag`                   | csi-node-driver-registrar container image tag                 | `v2.13.0`                                                            |
+| `image.nodeDriverRegistrar.tag`                   | csi-node-driver-registrar container image tag                 | `v2.17.0`                                                            |
 | `image.nodeDriverRegistrar.pullPolicy`            | csi-node-driver-registrar image pull policy                | `IfNotPresent`                                                      |
 | `imagePullSecrets`                                | Specify docker-registry secret names as an array           | [] (does not add image pull secrets to deployed pods)             |
 | `customLabels`                                    | Custom labels to add into metadata                         | `{}`                                                                |
@@ -124,13 +143,19 @@ The following table lists the configurable parameters of the latest Azure File C
 | `node.allowInlineVolumeKeyAccessWithIdentity`     | Whether allow accessing storage account key using cluster identity for inline volume          | `false`
 | `node.maxUnavailable`                             | `maxUnavailable` value of driver node daemonset                            | `1`
 | `node.livenessProbe.healthPort `                  | health check port for liveness probe                   | `29613` |
+| `node.nodeDriverRegistrar.healthPort`                        | health check port for node-driver-registrar liveness probe                                                 | `29617`                                                 |
+| `node.nodeDriverRegistrar.livenessProbe.initialDelaySeconds` | node-driver-registrar liveness probe initialDelaySeconds                                                   | `20`                                                    |
+| `node.nodeDriverRegistrar.livenessProbe.timeoutSeconds`      | node-driver-registrar liveness probe timeoutSeconds                                                        | `10`                                                    |
+| `node.nodeDriverRegistrar.livenessProbe.periodSeconds`       | node-driver-registrar liveness probe periodSeconds                                                         | `20`                                                     |
+| `node.nodeDriverRegistrar.livenessProbe.failureThreshold`    | node-driver-registrar liveness probe failureThreshold                                                      | `2`                                                     |
 | `node.logLevel`                                   | node driver log level                                                          |`5`                                                           |
+| `node.useAZNFSForNFSMounts`                       | If enabled, all volumes configured to use NFS protocol will be mounted through the AZNFS utility (requires `node.azurefileProxy.enabled=true`).  | `false` |
 | `snapshot.enabled`                                | whether enable snapshot feature                            | `false`                                                        |
 | `snapshot.image.csiSnapshotter.repository`        | csi-snapshotter container image                               | `/oss/kubernetes-csi/csi-snapshotter`         |
-| `snapshot.image.csiSnapshotter.tag`               | csi-snapshotter container image tag                           | `v8.4.0`                                                       |
+| `snapshot.image.csiSnapshotter.tag`               | csi-snapshotter container image tag                           | `v8.5.0`                                                       |
 | `snapshot.image.csiSnapshotter.pullPolicy`        | csi-snapshotter image pull policy                          | `IfNotPresent`                                                 |
 | `snapshot.image.csiSnapshotController.repository` | snapshot-controller container image                           | `/oss/kubernetes-csi/snapshot-controller`     |
-| `snapshot.image.csiSnapshotController.tag`        | snapshot-controller container image tag                       | `v8.4.0`                                                       |
+| `snapshot.image.csiSnapshotController.tag`        | snapshot-controller container image tag                       | `v8.5.0`                                                       |
 | `snapshot.image.csiSnapshotController.pullPolicy` | snapshot-controller image pull policy                      | `IfNotPresent`                                                 |
 | `snapshot.snapshotController.name`                | snapshot controller name                                   | `csi-snapshot-controller`                                                           |
 | `snapshot.snapshotController.replicas`            | the replicas of snapshot-controller                        | `2`                                                          |

@@ -42,6 +42,8 @@ const (
 	tagKeyValueDelimiter = "="
 )
 
+var subscriptionIDRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
 // lockMap used to lock on entries
 type lockMap struct {
 	sync.Mutex
@@ -288,6 +290,21 @@ func setKeyValueInMap(m map[string]string, key, value string) {
 	m[key] = value
 }
 
+// caseCollidingKey reports the first key in m that collides with an earlier key
+// under case-insensitive (lowercase) normalization. The returned
+// string is the normalized (lowercase) key that collided.
+func caseCollidingKey(m map[string]string) (string, bool) {
+	seen := make(map[string]struct{}, len(m))
+	for k := range m {
+		lower := strings.ToLower(k)
+		if _, ok := seen[lower]; ok {
+			return lower, true
+		}
+		seen[lower] = struct{}{}
+	}
+	return "", false
+}
+
 // getValueInMap get value from map by key
 // key in the map is case insensitive
 func getValueInMap(m map[string]string, key string) string {
@@ -300,6 +317,47 @@ func getValueInMap(m map[string]string, key string) string {
 		}
 	}
 	return ""
+}
+
+// getSecretNamespace resolves the secret namespace from volume context,
+// falling back to PVC namespace, then to "default".
+func getSecretNamespace(volumeContext map[string]string) string {
+	if ns := getValueInMap(volumeContext, secretNamespaceField); ns != "" {
+		return ns
+	}
+	if ns := getValueInMap(volumeContext, pvcNamespaceKey); ns != "" {
+		return ns
+	}
+	return defaultNamespace
+}
+
+// getServiceAccountTokens retrieves service account tokens from the CSI request.
+// It first checks the secrets map (new behavior when driver opts in to
+// serviceAccountTokenInSecrets in Kubernetes 1.35+), then falls back to checking
+// volumeContext for backward compatibility.
+func getServiceAccountTokens(secrets, volumeContext map[string]string) string {
+	// Check secrets field first (new behavior when driver opts in)
+	if tokens := getValueInMap(secrets, serviceAccountTokenField); tokens != "" {
+		return tokens
+	}
+	// Fallback to volume context for backward compatibility
+	return getValueInMap(volumeContext, serviceAccountTokenField)
+}
+
+// hasStorageAccountCredentials checks whether the secrets map contains storage account
+// credential keys (accountname/azurestorageaccountname or accountkey/azurestorageaccountkey)
+// rather than only containing service account tokens injected by kubelet.
+func hasStorageAccountCredentials(secrets map[string]string) bool {
+	if len(secrets) == 0 {
+		return false
+	}
+	for k := range secrets {
+		switch strings.ToLower(k) {
+		case "accountname", defaultSecretAccountName, "accountkey", defaultSecretAccountKey:
+			return true
+		}
+	}
+	return false
 }
 
 // replaceWithMap replace key with value for str
@@ -361,7 +419,7 @@ func getFileServiceURL(accountName, storageEndpointSuffix string) string {
 }
 
 func isValidSubscriptionID(subsID string) bool {
-	return regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`).MatchString(subsID)
+	return subscriptionIDRegex.MatchString(subsID)
 }
 
 // RemoveOptionIfExists removes the given option from the list of options
@@ -417,13 +475,137 @@ func getDefaultBandwidth(requestGiB int, storageAccountType string) *int32 {
 	return &bandwidth
 }
 
-func setCredentialCache(server, clientID string) ([]byte, error) {
-	if server == "" || clientID == "" {
-		return nil, fmt.Errorf("server and clientID must be provided")
+func setCredentialCache(server, clientID, tenantID, tokenFile, token, authorityHost, resource string) ([]byte, error) {
+	if server == "" {
+		return nil, fmt.Errorf("server must be provided")
+	}
+	if token != "" && tokenFile != "" {
+		return nil, fmt.Errorf("token and tokenFile are mutually exclusive, only one can be provided")
 	}
 
-	cmd := exec.Command("azfilesauthmanager", "set", "https://"+server, "--imds-client-id", clientID)
+	serverURL := "https://" + server
+	var args []string
+	switch {
+	case token != "":
+		// direct token mode: azfilesauthmanager set https://<server> <access_token>
+		args = []string{"set", serverURL, token}
+	case tokenFile != "":
+		if clientID == "" {
+			return nil, fmt.Errorf("clientID must be provided when tokenFile is set")
+		}
+		if tenantID == "" {
+			return nil, fmt.Errorf("tenantID must be provided when tokenFile is provided")
+		}
+		args = []string{"set", serverURL, "--workload-identity", "--tenant-id", tenantID, "--client-id", clientID, "--token-file", tokenFile}
+		// pass the cloud-specific AAD authority host and storage resource
+		if authorityHost != "" {
+			args = append(args, "--authority-host", authorityHost)
+		}
+		if resource != "" {
+			args = append(args, "--resource", resource)
+		}
+	default:
+		if clientID == "" {
+			return nil, fmt.Errorf("clientID must be provided")
+		}
+		args = []string{"set", serverURL, "--imds-client-id", clientID}
+	}
+
+	cmd := exec.Command("azfilesauthmanager", args...)
 	cmd.Env = append(os.Environ(), cmd.Env...)
-	klog.V(2).Infof("Executing command: %q", cmd.String())
+	if token != "" {
+		klog.V(2).Infof("Executing command: azfilesauthmanager set %s <token-redacted>", serverURL)
+	} else {
+		klog.V(2).Infof("Executing command: %q", cmd.String())
+	}
 	return cmd.CombinedOutput()
+}
+
+// invalidFolderNameChars contains characters not allowed in Azure file share folder names
+var invalidFolderNameChars = regexp.MustCompile(`[\\:*?"<>|]`)
+
+// isValidFolderName checks if a folder name is valid for Azure file share.
+// Empty folderName is allowed. Folder name may contain "/" as path separator for nested folders.
+// Each path segment must not contain \:*?"<>| or control characters,
+// must not be ".." (directory traversal), and must not end with a period or space.
+func isValidFolderName(folderName string) error {
+	if folderName == "" {
+		return nil
+	}
+
+	// reject null bytes early — they truncate C strings and are a path injection risk
+	if strings.ContainsRune(folderName, 0) {
+		return fmt.Errorf("folderName(%q) contains null byte which is not allowed", folderName)
+	}
+
+	segments := strings.Split(strings.Trim(folderName, "/"), "/")
+	for _, seg := range segments {
+		if seg == "" {
+			return fmt.Errorf("folderName contains empty path segment")
+		}
+
+		// ".." and "." are not allowed as path segments (directory traversal)
+		if seg == ".." || seg == "." {
+			return fmt.Errorf("folderName(%q) contains disallowed path segment %q", folderName, seg)
+		}
+
+		// check for invalid characters
+		if invalidFolderNameChars.MatchString(seg) {
+			return fmt.Errorf("folderName(%q) contains invalid character in segment %q, characters \\:*?\"<>| are not allowed", folderName, seg)
+		}
+
+		// check for control characters (0x00-0x1F)
+		for _, c := range seg {
+			if c >= 0x00 && c <= 0x1F {
+				return fmt.Errorf("folderName(%q) contains control character in segment %q", folderName, seg)
+			}
+		}
+
+		// must not end with period or space
+		if strings.HasSuffix(seg, ".") || strings.HasSuffix(seg, " ") {
+			return fmt.Errorf("folderName(%q) segment %q must not end with a period or space", folderName, seg)
+		}
+	}
+	return nil
+}
+
+// findLocalMountModeOption returns the first comma-separated option in
+// mountOptions that requests a local bind mount.
+func findLocalMountModeOption(mountOptions string) (string, bool) {
+	for _, opt := range strings.Split(mountOptions, ",") {
+		trimmed := strings.TrimSpace(opt)
+		if strings.EqualFold(trimmed, "bind") || strings.EqualFold(trimmed, "rbind") {
+			return trimmed, true
+		}
+	}
+	return "", false
+}
+
+// validateInlineVolumeMountSource validates that there are no path
+// separators or dot-only segments.
+func validateInlineVolumeMountSource(server, shareName string) error {
+	if strings.ContainsAny(server, `/\`) || server == "." || server == ".." {
+		return fmt.Errorf("invalid server %q for ephemeral volume: must be a hostname or address", server)
+	}
+	if strings.ContainsAny(shareName, `/\`) || shareName == "." || shareName == ".." {
+		return fmt.Errorf("invalid shareName %q for ephemeral volume: must be a single share name", shareName)
+	}
+	return nil
+}
+
+// isValidTokenFileName checks if the token file name is valid
+// fileName should only contain alphanumeric characters, hyphens
+func isValidTokenFileName(fileName string) bool {
+	if fileName == "" {
+		return false
+	}
+	for _, c := range fileName {
+		if !(('a' <= c && c <= 'z') ||
+			('A' <= c && c <= 'Z') ||
+			('0' <= c && c <= '9') ||
+			(c == '-')) {
+			return false
+		}
+	}
+	return true
 }

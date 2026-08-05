@@ -51,6 +51,10 @@ var exit = func(code int) {
 }
 
 func main() {
+	// Opt into the new klog behavior so that -stderrthreshold is honored
+	// even when -logtostderr=true (requires klog v2.140.0+).
+	_ = flag.Set("legacy_stderr_threshold_behavior", "false")
+	_ = flag.Set("stderrthreshold", "INFO")
 	flag.Parse()
 	if *version {
 		info, err := azurefile.GetVersionYAML(driverOptions.DriverName)

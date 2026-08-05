@@ -153,3 +153,34 @@ func TestGetFileShareQuotaDataPlane(t *testing.T) {
 		t.Run(tc.name, tc.testFunc)
 	}
 }
+
+func TestModifyFileShareDataPlane(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+	testCases := []struct {
+		name     string
+		testFunc func(t *testing.T)
+	}{
+		{
+			name: "expect error on modify nonexistent share",
+			testFunc: func(t *testing.T) {
+				f, err := newAzureFileClient("test", "dW5pdHRlc3Q=", "ut")
+				if err != nil {
+					t.Errorf("error creating azure client: %v", err)
+				}
+				shareName := "nonexistent"
+				iops := int32(5000)
+				bw := int32(200)
+				actualErr := f.ModifyFileShare(context.Background(), shareName, &iops, &bw)
+				expectedErr := fmt.Errorf("failed to modify file share %s", shareName)
+				if actualErr == nil || !strings.HasPrefix(actualErr.Error(), expectedErr.Error()) {
+					t.Errorf("actualErr: (%v), expectedErr: (%v)", actualErr, expectedErr)
+				}
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, tc.testFunc)
+	}
+}

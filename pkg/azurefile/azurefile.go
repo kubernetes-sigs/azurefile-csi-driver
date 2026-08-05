@@ -20,10 +20,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -81,13 +84,13 @@ const (
 	fileShareNameMinLength = 3
 	fileShareNameMaxLength = 63
 
-	minimumPremiumShareSize   = 100 // GB
-	minimumPremiumV2ShareSize = 32  // GB
-	// Minimum size of Azure Premium Files is 100GiB, and PremiumV2 Files is 32GiB.
-	// See https://docs.microsoft.com/en-us/azure/storage/files/storage-files-planning#provisioned-shares
+	minimumPremiumShareSize = 100 // GiB. Minimum size of Azure Premium Files (provisioned v1).
+	minimumV2ShareSize      = 32  // GiB. Minimum size of Azure provisioned v2 Files (PremiumV2/StandardV2).
+	// See https://learn.microsoft.com/en-us/azure/storage/files/understanding-billing#provisioned-v2-provisioning
 	defaultAzureFileQuota = 100
 	minimumAccountQuota   = 100 // GB
 
+	DefaultTokenAudience = "api://AzureADTokenExchange/.default"
 	// key of snapshot name in metadata
 	snapshotNameKey = "initiator"
 
@@ -123,6 +126,7 @@ const (
 	allowBlobPublicAccessField        = "allowblobpublicaccess"
 	publicNetworkAccessField          = "publicnetworkaccess"
 	allowSharedKeyAccessField         = "allowsharedkeyaccess"
+	allowCrossTenantReplicationField  = "allowcrosstenantreplication"
 	storageEndpointSuffixField        = "storageendpointsuffix"
 	fsGroupChangePolicyField          = "fsgroupchangepolicy"
 	ephemeralField                    = "csi.storage.k8s.io/ephemeral"
@@ -138,6 +142,10 @@ const (
 	provisionedIopsField              = "provisionediops"
 	falseValue                        = "false"
 	trueValue                         = "true"
+	// inline volume secret authorization modes
+	inlineVolumeSecretAuthzOff        = "off"
+	inlineVolumeSecretAuthzWarn       = "warn"
+	inlineVolumeSecretAuthzEnforce    = "enforce"
 	defaultSecretAccountName          = "azurestorageaccountname"
 	defaultSecretAccountKey           = "azurestorageaccountkey"
 	proxyMount                        = "proxy-mount"
@@ -152,6 +160,7 @@ const (
 	vhdSuffix                         = ".vhd"
 	metaDataNode                      = "node"
 	networkEndpointTypeField          = "networkendpointtype"
+	privateDNSZoneResourceGroupField  = "privatednszoneresourcegroup"
 	vnetResourceGroupField            = "vnetresourcegroup"
 	vnetNameField                     = "vnetname"
 	vnetLinkNameField                 = "vnetlinkname"
@@ -168,6 +177,10 @@ const (
 	runtimeClassHandlerField          = "runtimeclasshandler"
 	defaultRuntimeClassHandler        = "kata-cc"
 	mountWithManagedIdentityField     = "mountwithmanagedidentity"
+	mountWithOAuthTokenField          = "mountwithoauthtoken"
+	mountWithWITokenField             = "mountwithworkloadidentitytoken"
+
+	defaultSecretOAuthToken = "oauthtoken"
 
 	accountNotProvisioned = "StorageAccountIsNotProvisioned"
 	// this is a workaround fix for 429 throttling issue, will update cloud provider for better fix later
@@ -200,6 +213,12 @@ const (
 
 	defaultStorageEndPointSuffix = "core.windows.net"
 
+	// defaultActiveDirectoryEndpoint and defaultStorageResource are the default
+	// public-cloud AAD authority host and storage OAuth resource
+	// (workload-identity mounts).
+	defaultActiveDirectoryEndpoint = "https://login.microsoftonline.com/"
+	defaultStorageResource         = "https://storage.azure.com/"
+
 	VolumeID         = "volumeid"
 	SourceResourceID = "source_resource_id"
 	SnapshotName     = "snapshot_name"
@@ -222,6 +241,7 @@ var (
 	supportedProtocolList            = []string{smb, nfs}
 	supportedDiskFsTypeList          = []string{ext4, ext3, ext2, xfs}
 	supportedFSGroupChangePolicyList = []string{FSGroupChangeNone, string(v1.FSGroupChangeAlways), string(v1.FSGroupChangeOnRootMismatch)}
+	supportedNetworkEndpointTypeList = []string{privateEndpoint, serviceEndpoint}
 
 	retriableErrors = []string{accountNotProvisioned, tooManyRequests, shareBeingDeleted, clientThrottled}
 
@@ -229,6 +249,8 @@ var (
 	azcopyCloneVolumeOptions = []string{"--recursive", "--check-length=false", "--log-level=ERROR"}
 	// azcopySnapshotRestoreOptions used in smb snapshot restore and set --check-length to true because snapshot data is changeless
 	azcopySnapshotRestoreOptions = []string{"--recursive", "--check-length=true", "--log-level=ERROR"}
+
+	defaultAzureOAuthTokenDir = "/var/lib/kubelet/plugins/" + DefaultDriverName
 )
 
 // Driver implements all interfaces of CSI drivers
@@ -251,6 +273,7 @@ type Driver struct {
 	fsGroupChangePolicy                    string
 	allowEmptyCloudConfig                  bool
 	allowInlineVolumeKeyAccessWithIdentity bool
+	inlineVolumeSecretAuthz                string
 	enableVHDDiskFeature                   bool
 	enableGetVolumeStats                   bool
 	enableVolumeMountGroup                 bool
@@ -284,6 +307,8 @@ type Driver struct {
 	secretCacheMap azcache.Resource
 	// a map storing all volumes using data plane API <volumeID, value>
 	dataPlaneAPIVolMap sync.Map
+	// a map storing OAuth token SHA per server to avoid unnecessary credential cache refresh
+	oauthTokenSHAMap sync.Map
 	// a timed cache storing all storage accounts that are using data plane API temporarily
 	dataPlaneAPIAccountCache azcache.Resource
 	// a timed cache storing account search history (solve account list throttling issue)
@@ -313,6 +338,8 @@ type Driver struct {
 	directVolume          DirectVolume
 	isKataNode            bool
 	requiredAzCopyToTrust bool
+	// Flag that indicates to use aznfs utility to mount nfs volumes instead of vanilla nfs utility.
+	useAZNFSForNFSMounts bool
 }
 
 // NewDriver Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
@@ -330,6 +357,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.userAgentSuffix = options.UserAgentSuffix
 	driver.allowEmptyCloudConfig = options.AllowEmptyCloudConfig
 	driver.allowInlineVolumeKeyAccessWithIdentity = options.AllowInlineVolumeKeyAccessWithIdentity
+	driver.inlineVolumeSecretAuthz = options.InlineVolumeSecretAuthz
 	driver.enableVHDDiskFeature = options.EnableVHDDiskFeature
 	driver.enableVolumeMountGroup = options.EnableVolumeMountGroup
 	driver.enableGetVolumeStats = options.EnableGetVolumeStats
@@ -358,7 +386,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.directVolume = new(directVolume)
 	driver.isKataNode = false
 	driver.useWinCIMAPI = options.UseWinCIMAPI
-
+	driver.useAZNFSForNFSMounts = options.UseAZNFSForNFSMounts
 	var err error
 	getter := func(_ context.Context, _ string) (interface{}, error) { return nil, nil }
 
@@ -452,6 +480,7 @@ func (d *Driver) Run(ctx context.Context) error {
 			csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
 			csi.ControllerServiceCapability_RPC_SINGLE_NODE_MULTI_WRITER,
 			csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
+			csi.ControllerServiceCapability_RPC_MODIFY_VOLUME,
 		})
 	d.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{
 		csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
@@ -552,6 +581,9 @@ func GetFileShareInfo(id string) (string, string, string, string, string, string
 	var diskName, namespace, subsID string
 	if len(segments) > 3 {
 		diskName = segments[3]
+		if err := validateVolumeIDSegment("diskName", diskName); err != nil {
+			return "", "", "", "", "", "", err
+		}
 	}
 	if rg == "" {
 		// in csi migration, rg could be empty, then the 5th element is namespace
@@ -567,7 +599,29 @@ func GetFileShareInfo(id string) (string, string, string, string, string, string
 			subsID = segments[6]
 		}
 	}
+	if err := validateVolumeIDSegment("namespace", namespace); err != nil {
+		return "", "", "", "", "", "", err
+	}
 	return rg, segments[1], segments[2], diskName, namespace, subsID, nil
+}
+
+// validateVolumeIDSegment rejects volume id segments that contain path
+// traversal sequences ("..") so that segments parsed out of a CSI volume id
+// cannot be used to construct unsafe filesystem paths (e.g. when diskName is
+// joined with the CIFS mount path during VHD-on-Azure-File staging).
+func validateVolumeIDSegment(field, value string) error {
+	if value == "" {
+		return nil
+	}
+	segments := strings.FieldsFunc(value, func(r rune) bool {
+		return r == '/' || r == '\\'
+	})
+	for _, segment := range segments {
+		if segment == ".." {
+			return fmt.Errorf("invalid %s %q: contains directory traversal sequence", field, value)
+		}
+	}
+	return nil
 }
 
 // get snapshot info according to snapshot id, e.g.
@@ -575,27 +629,48 @@ func GetFileShareInfo(id string) (string, string, string, string, string, string
 //
 //	capz-qjbped#f3d5809ad977d4606b8997d#pvc-061c8214-2330-4b3e-88d0-6ef8d84636bc###azurefile-6654#2025-09-05T07:51:41.0000000Z#46678f10-4bbb-447e-98e8-d2829589f2d8
 //	capz-qjbped#f3d5809ad977d4606b8997d#pvc-061c8214-2330-4b3e-88d0-6ef8d84636bc###azurefile-6654#46678f10-4bbb-447e-98e8-d2829589f2d8#2025-09-05T07:51:41.0000000Z
+//	#accountName#fileShareName#2025-09-05T07:51:41.0000000Z (in-tree migration format with 3 #)
+//	#accountName#fileShareName#2025-09-05T07:51:41.0000000Z#46678f10-4bbb-447e-98e8-d2829589f2d8 (in-tree migration format with subsID)
 //
 // output:
 //
 //	capz-qjbped, f3d5809ad977d4606b8997d, pvc-061c8214-2330-4b3e-88d0-6ef8d84636bc, snapshotTime, 46678f10-4bbb-447e-98e8-d2829589f2d8
 func GetInfoFromSnapshotID(id string) (string, string, string, string, string, error) {
 	segments := strings.Split(id, separator)
-	if len(segments) < 7 {
-		return "", "", "", "", "", fmt.Errorf("error parsing snapshot id: %q, should at least contain 6 #", id)
+	if len(segments) < 4 {
+		return "", "", "", "", "", fmt.Errorf("error parsing snapshot id: %q, should at least contain 3 #", id)
 	}
-	snapshotTime := segments[6]
-	var subsID string
-	if len(segments) > 7 {
-		if isValidSubscriptionID(segments[7]) {
-			subsID = segments[7]
-		} else {
-			if isValidSubscriptionID(segments[6]) {
-				subsID = segments[6]
-				snapshotTime = segments[7]
+
+	var snapshotTime, subsID string
+
+	if len(segments) >= 7 {
+		// Standard format: rg#account#share#diskName#namespace#storageClass#snapshotTime[#subsID]
+		snapshotTime = segments[6]
+		if len(segments) > 7 {
+			if isValidSubscriptionID(segments[7]) {
+				subsID = segments[7]
+			} else {
+				if isValidSubscriptionID(segments[6]) {
+					subsID = segments[6]
+					snapshotTime = segments[7]
+				}
 			}
 		}
+	} else {
+		// Short format (e.g. in-tree migration): [rg]#account#share#snapshotTime[#subsID]
+		// The last segment(s) contain snapshotTime and optionally subsID
+		lastIdx := len(segments) - 1
+		if len(segments) >= 5 && isValidSubscriptionID(segments[lastIdx]) {
+			subsID = segments[lastIdx]
+			snapshotTime = segments[lastIdx-1]
+		} else if len(segments) >= 5 && isValidSubscriptionID(segments[lastIdx-1]) {
+			subsID = segments[lastIdx-1]
+			snapshotTime = segments[lastIdx]
+		} else {
+			snapshotTime = segments[lastIdx]
+		}
 	}
+
 	return segments[0], segments[1], segments[2], snapshotTime, subsID, nil
 }
 
@@ -804,8 +879,8 @@ func IsCorruptedDir(dir string) bool {
 }
 
 // GetAccountInfo get account info
-// return <rgName, accountName, accountKey, fileShareName, diskName, subsID, err>
-func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, reqContext map[string]string) (string, string, string, string, string, string, error) {
+// return <rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, err>
+func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, reqContext map[string]string) (string, string, string, string, string, string, string, string, error) {
 	rgName, accountName, fileShareName, diskName, secretNamespace, subsID, err := GetFileShareInfo(volumeID)
 	if err != nil {
 		// ignore volumeID parsing error
@@ -815,8 +890,9 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 
 	var protocol, accountKey, secretName, pvcNamespace string
 	// getAccountKeyFromSecret indicates whether get account key only from k8s secret
-	var getAccountKeyFromSecret, getLatestAccountKey, mountWithManagedIdentity bool
-	var clientID, tenantID, serviceAccountToken string
+	var getAccountKeyFromSecret, getLatestAccountKey, mountWithManagedIdentity, mountWithOAuthToken, mountWithWIToken bool
+	var clientID, tenantID, tokenFilePath string
+	serviceAccountToken := getServiceAccountTokens(secrets, reqContext)
 
 	for k, v := range reqContext {
 		switch strings.ToLower(k) {
@@ -844,18 +920,24 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 			pvcNamespace = v
 		case getLatestAccountKeyField:
 			if getLatestAccountKey, err = strconv.ParseBool(v); err != nil {
-				return rgName, accountName, accountKey, fileShareName, diskName, subsID, fmt.Errorf("invalid %s: %s in volume context", getLatestAccountKeyField, v)
+				return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("invalid %s: %s in volume context", getLatestAccountKeyField, v)
 			}
 		case clientIDField:
 			clientID = v
 		case mountWithManagedIdentityField:
 			if mountWithManagedIdentity, err = strconv.ParseBool(v); err != nil {
-				return rgName, accountName, accountKey, fileShareName, diskName, subsID, fmt.Errorf("invalid %s: %s in volume context", mountWithManagedIdentityField, v)
+				return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("invalid %s: %s in volume context", mountWithManagedIdentityField, v)
+			}
+		case mountWithOAuthTokenField:
+			if mountWithOAuthToken, err = strconv.ParseBool(v); err != nil {
+				return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("invalid %s: %s in volume context", mountWithOAuthTokenField, v)
+			}
+		case mountWithWITokenField:
+			if mountWithWIToken, err = strconv.ParseBool(v); err != nil {
+				return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("invalid %s: %s in volume context", mountWithWITokenField, v)
 			}
 		case tenantIDField:
 			tenantID = v
-		case strings.ToLower(serviceAccountTokenField):
-			serviceAccountToken = v
 		}
 	}
 
@@ -870,7 +952,13 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 	}
 	if protocol == nfs && fileShareName != "" {
 		// nfs protocol does not need account key, return directly
-		return rgName, accountName, accountKey, fileShareName, diskName, subsID, err
+		// unless createFolderIfNotExist is set with a folderName, which requires account key for data plane API
+		needAccountKey := strings.EqualFold(getValueInMap(reqContext, createFolderIfNotExistField), trueValue)
+		hasFolder := getValueInMap(reqContext, folderNameField) != ""
+		if !needAccountKey || !hasFolder {
+			return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, err
+		}
+		klog.V(2).Infof("NFS protocol with createFolderIfNotExist may require an account key for data plane API access")
 	}
 
 	if secretNamespace == "" {
@@ -883,21 +971,66 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 
 	if mountWithManagedIdentity {
 		klog.V(2).Infof("mountWithManagedIdentity is true, use managed identity auth")
-		return rgName, accountName, accountKey, fileShareName, diskName, subsID, nil
+		return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, nil
+	}
+
+	if mountWithOAuthToken {
+		klog.V(2).Infof("mountWithOAuthToken is true, use OAuth token from secret for mount")
+		// Read accountName from secret if not already set
+		if accountName == "" && secretName != "" {
+			name, _, _, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
+			if err != nil {
+				return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("failed to get account name from secret for mountWithOAuthToken: %v", err)
+			}
+			if name != "" {
+				accountName = name
+			}
+		}
+		return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, nil
+	}
+
+	if mountWithWIToken {
+		if clientID == "" {
+			clientID = d.cloud.Config.AzureAuthConfig.UserAssignedIdentityID
+			if clientID == "" {
+				return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("clientID is empty for workload identity auth")
+			}
+		}
+		klog.V(2).Infof("mountWithWorkloadIdentityToken is specified, use workload identity auth for mount, clientID: %s, tenantID: %s", clientID, tenantID)
+		token, err := parseServiceAccountToken(serviceAccountToken)
+		if err != nil {
+			return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("failed to parse service account token: %v", err)
+		}
+		tokenFileName := clientID + "-" + accountName
+		if !isValidTokenFileName(tokenFileName) {
+			return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("invalid token file name(%s) generated for clientID(%s) and accountName(%s)", tokenFileName, clientID, accountName)
+		}
+		tokenFilePath = filepath.Join(defaultAzureOAuthTokenDir, tokenFileName)
+		// check whether token value is the same as the one in the token file
+		existingToken, readErr := os.ReadFile(tokenFilePath)
+		if readErr == nil && string(existingToken) == token {
+			klog.V(4).Infof("the token file(%s) already exists and the token value is the same, no need to rewrite the token file", tokenFilePath)
+			return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, "", nil
+		}
+		// write token to a file
+		if err := os.WriteFile(tokenFilePath, []byte(token), 0600); err != nil {
+			return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("failed to write azure oAuth token file(%s): %v", tokenFilePath, err)
+		}
+		return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, err
 	}
 
 	if clientID != "" {
 		klog.V(2).Infof("clientID(%s) is specified, use service account token to get account key", clientID)
 		accountKey, err := d.cloud.GetStorageAccesskeyFromServiceAccountToken(ctx, subsID, accountName, rgName, clientID, tenantID, serviceAccountToken)
-		return rgName, accountName, accountKey, fileShareName, diskName, subsID, err
+		return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, "", err
 	}
 
-	if len(secrets) == 0 {
-		// if request context does not contain secrets, get secrets in the following order:
+	if !hasStorageAccountCredentials(secrets) {
+		// if request context does not contain storage account credentials, get secrets in the following order:
 		// 1. get account key from cache first
 		cache, errCache := d.accountCacheMap.Get(ctx, accountName, azcache.CacheReadTypeDefault)
 		if errCache != nil {
-			return rgName, accountName, accountKey, fileShareName, diskName, subsID, errCache
+			return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, errCache
 		}
 		if cache != nil {
 			accountKey = cache.(string)
@@ -908,7 +1041,7 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 			if secretName != "" {
 				var name string
 				// 2. if not found in cache, get account key from kubernetes secret
-				name, accountKey, err = d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
+				name, accountKey, _, err = d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
 				if name != "" {
 					accountName = name
 				}
@@ -939,7 +1072,7 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 	if err == nil && accountKey != "" {
 		d.accountCacheMap.Set(accountName, accountKey)
 	}
-	return rgName, accountName, accountKey, fileShareName, diskName, subsID, err
+	return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, err
 }
 
 func isSupportedProtocol(protocol string) bool {
@@ -984,6 +1117,18 @@ func isSupportedPublicNetworkAccess(publicNetworkAccess string) bool {
 	}
 	for _, tier := range armstorage.PossiblePublicNetworkAccessValues() {
 		if publicNetworkAccess == string(tier) {
+			return true
+		}
+	}
+	return false
+}
+
+func isSupportedNetworkEndpointType(networkEndpointType string) bool {
+	if networkEndpointType == "" {
+		return true
+	}
+	for _, endpointType := range supportedNetworkEndpointTypeList {
+		if strings.EqualFold(networkEndpointType, endpointType) {
 			return true
 		}
 	}
@@ -1040,6 +1185,15 @@ func (d *Driver) CreateFileShare(ctx context.Context, accountOptions *storage.Ac
 		if err != nil {
 			return true, err
 		}
+
+		// Check if the file share already exists before attempting to create it.
+		// This allows read-only permissions to suffice when no creation is needed.
+		_, quotaErr := fileClient.GetFileShareQuota(ctx, shareOptions.Name)
+		if quotaErr == nil {
+			klog.V(2).Infof("file share(%s) already exists, skip creating", shareOptions.Name)
+			return true, nil
+		}
+		klog.V(6).Infof("GetFileShareQuota(%s) on account(%s) returned error(%v), proceeding to create", shareOptions.Name, accountOptions.Name, quotaErr)
 
 		if err = fileClient.CreateFileShare(ctx, shareOptions); err != nil {
 			if strings.Contains(err.Error(), "ShareAlreadyExists") {
@@ -1154,6 +1308,46 @@ func (d *Driver) ResizeFileShare(ctx context.Context, subsID, resourceGroup, acc
 	})
 }
 
+// ModifyFileShare modifies the provisioned IOPS and bandwidth of a file share
+func (d *Driver) ModifyFileShare(ctx context.Context, subsID, resourceGroup, accountName, shareName string, provisionedIops *int32, provisionedBandwidthMibps *int32, secrets map[string]string, useDataPlaneAPI string) error {
+	return wait.ExponentialBackoff(getBackOff(d.cloud.Config), func() (bool, error) {
+		var err error
+		if len(secrets) > 0 {
+			accountName, accountKey, rerr := getStorageAccount(secrets)
+			if rerr != nil {
+				return true, rerr
+			}
+			fileClient, rerr := newAzureFileClient(accountName, accountKey, d.getStorageEndPointSuffix())
+			if rerr != nil {
+				return true, rerr
+			}
+			err = fileClient.ModifyFileShare(ctx, shareName, provisionedIops, provisionedBandwidthMibps)
+		} else if d.cloud != nil && d.cloud.AuthProvider != nil && strings.EqualFold(useDataPlaneAPI, oauth) {
+			fileClient, rerr := newAzureFileClientWithOAuth(d.cloud.AuthProvider.GetAzIdentity(), accountName, d.getStorageEndPointSuffix())
+			if rerr != nil {
+				return true, rerr
+			}
+			err = fileClient.ModifyFileShare(ctx, shareName, provisionedIops, provisionedBandwidthMibps)
+		} else {
+			mgmtClient, rerr := newAzureFileMgmtClient(d.cloud, &storage.AccountOptions{
+				SubscriptionID: subsID,
+				ResourceGroup:  resourceGroup,
+				Name:           accountName,
+			})
+			if rerr != nil {
+				return true, rerr
+			}
+			err = mgmtClient.ModifyFileShare(ctx, shareName, provisionedIops, provisionedBandwidthMibps)
+		}
+		if isRetriableError(err) {
+			klog.Warningf("ModifyFileShare(%s) on account(%s) failed with error(%v), waiting for retrying", shareName, accountName, err)
+			sleepIfThrottled(err, fileOpThrottlingSleepSec)
+			return false, nil
+		}
+		return true, err
+	})
+}
+
 // copyFileShare copies a fileshare, if dstAccountName is empty, then copy in the same account
 func (d *Driver) copyFileShare(ctx context.Context, req *csi.CreateVolumeRequest, dstAccountName string, dstAccountSasToken string, authAzcopyEnv []string, secretNamespace string, shareOptions *ShareOptions, accountOptions *storage.AccountOptions, storageEndpointSuffix string) error {
 	var sourceVolumeID string
@@ -1256,7 +1450,7 @@ func (d *Driver) GetStorageAccesskey(ctx context.Context, accountOptions *storag
 	if secretName == "" {
 		secretName = fmt.Sprintf(secretNameTemplate, accountName)
 	}
-	_, accountKey, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
+	_, accountKey, _, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
 	if err != nil {
 		klog.V(2).Infof("could not get account(%s) key from secret(%s), error: %v, use cluster identity to get account key instead", accountOptions.Name, secretName, err)
 		accountKey, err = d.GetStorageAccesskeyWithSubsID(ctx, accountOptions.SubscriptionID, accountOptions.Name, accountOptions.ResourceGroup, accountOptions.GetLatestAccountKey)
@@ -1280,21 +1474,22 @@ func (d *Driver) GetStorageAccesskeyWithSubsID(ctx context.Context, subsID, acco
 	return d.cloud.GetStorageAccesskey(ctx, accountClient, account, resourceGroup, getLatestAccountKey)
 }
 
-// GetStorageAccountFromSecret get storage account key from k8s secret
-// return <accountName, accountKey, error>
-func (d *Driver) GetStorageAccountFromSecret(ctx context.Context, secretName, secretNamespace string) (string, string, error) {
+// GetStorageAccountFromSecret get storage account key and OAuth token from k8s secret
+// return <accountName, accountKey, oauthToken, error>
+func (d *Driver) GetStorageAccountFromSecret(ctx context.Context, secretName, secretNamespace string) (string, string, string, error) {
 	if d.kubeClient == nil {
-		return "", "", fmt.Errorf("could not get account key from secret(%s): KubeClient is nil", secretName)
+		return "", "", "", fmt.Errorf("could not get credentials from secret(%s): KubeClient is nil", secretName)
 	}
 
 	secret, err := d.kubeClient.CoreV1().Secrets(secretNamespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil {
-		return "", "", fmt.Errorf("could not get secret(%v): %v", secretName, err)
+		return "", "", "", fmt.Errorf("could not get secret(%v): %v", secretName, err)
 	}
 
-	accountName := strings.TrimSpace(string(secret.Data[defaultSecretAccountName][:]))
-	accountKey := strings.TrimSpace(string(secret.Data[defaultSecretAccountKey][:]))
-	return accountName, accountKey, nil
+	accountName := strings.TrimSpace(string(secret.Data[defaultSecretAccountName]))
+	accountKey := strings.TrimSpace(string(secret.Data[defaultSecretAccountKey]))
+	oauthToken := strings.TrimSpace(string(secret.Data[defaultSecretOAuthToken]))
+	return accountName, accountKey, oauthToken, nil
 }
 
 // getSubnetResourceID get default subnet resource ID from cloud provider config
@@ -1377,6 +1572,24 @@ func (d *Driver) getStorageEndPointSuffix() string {
 	return d.cloud.Environment.StorageEndpointSuffix
 }
 
+// getActiveDirectoryEndpoint returns the AAD authority host for the current cloud
+// (e.g. https://login.chinacloudapi.cn/ for Azure China), falling back to public AAD.
+func (d *Driver) getActiveDirectoryEndpoint() string {
+	if d.cloud == nil || d.cloud.Environment == nil || d.cloud.Environment.ActiveDirectoryEndpoint == "" {
+		return defaultActiveDirectoryEndpoint
+	}
+	return d.cloud.Environment.ActiveDirectoryEndpoint
+}
+
+// getStorageResource returns the AAD resource/scope used to request a storage
+// OAuth token for the current cloud, falling back to the public storage resource.
+func (d *Driver) getStorageResource() string {
+	if d.cloud == nil || d.cloud.Environment == nil || d.cloud.Environment.ResourceIdentifiers == nil || d.cloud.Environment.ResourceIdentifiers.Storage == "" {
+		return defaultStorageResource
+	}
+	return d.cloud.Environment.ResourceIdentifiers.Storage
+}
+
 func (d *Driver) getFileShareClientForSub(subscriptionID string) (fileshareclient.Interface, error) {
 	if d.cloud == nil || d.cloud.ComputeClientFactory == nil {
 		return nil, fmt.Errorf("cloud or ComputeClientFactory is nil")
@@ -1415,12 +1628,26 @@ func isKataNode(ctx context.Context, nodeID, confidentialContainerLabel string, 
 // createFolderIfNotExists creates a folder in Azure File Share if it doesn't already exist
 // This function handles nested paths by creating each directory level recursively
 func (d *Driver) createFolderIfNotExists(ctx context.Context, accountName, accountKey, fileShareName, folderName, storageEndpointSuffix string) error {
-	fileClient, err := newAzureFileClient(accountName, accountKey, storageEndpointSuffix)
-	if err != nil || fileClient.(*azureFileDataplaneClient).Client == nil {
-		return fmt.Errorf("create Azure File client(%s) failed: %v", accountName, err)
+	if accountName == "" {
+		return fmt.Errorf("accountName is empty")
+	}
+	if fileShareName == "" {
+		return fmt.Errorf("fileShareName is empty")
 	}
 
-	shareClient := fileClient.(*azureFileDataplaneClient).Client.NewShareClient(fileShareName)
+	fileClient, err := newAzureFileClient(accountName, accountKey, storageEndpointSuffix)
+	if err != nil {
+		return fmt.Errorf("create Azure File client(%s) failed: %w", accountName, err)
+	}
+	dc, ok := fileClient.(*azureFileDataplaneClient)
+	if !ok {
+		return fmt.Errorf("create Azure File client(%s) failed: expected *azureFileDataplaneClient but got %T", accountName, fileClient)
+	}
+	if dc.Client == nil {
+		return fmt.Errorf("create Azure File client(%s) failed: dataplane client is nil", accountName)
+	}
+
+	shareClient := dc.Client.NewShareClient(fileShareName)
 
 	// Performance optimization: First check if the complete directory structure already exists
 	// This is the most common case and avoids unnecessary recursive checking
@@ -1445,12 +1672,12 @@ func (d *Driver) createFolderIfNotExists(ctx context.Context, accountName, accou
 
 	// Build path incrementally and create each directory level
 	currentPath := ""
-	for i, component := range pathComponents {
+	for _, component := range pathComponents {
 		if component == "" {
 			continue // Skip empty components
 		}
 
-		if i > 0 {
+		if currentPath != "" {
 			currentPath += "/"
 		}
 		currentPath += component
@@ -1488,4 +1715,29 @@ func (d *Driver) createFolderIfNotExists(ctx context.Context, accountName, accou
 
 	klog.V(2).Infof("Successfully ensured folder path %s exists in share %s", folderName, fileShareName)
 	return nil
+}
+
+// serviceAccountToken represents the service account token sent from NodePublishVolume Request.
+// ref: https://kubernetes-csi.github.io/docs/token-requests.html
+type serviceAccountToken struct {
+	APIAzureADTokenExchange struct {
+		Token               string    `json:"token"`
+		ExpirationTimestamp time.Time `json:"expirationTimestamp"`
+	} `json:"api://AzureADTokenExchange"`
+}
+
+// parseServiceAccountToken parses the bound service account token from the token passed from NodePublishVolume Request.
+// ref: https://kubernetes-csi.github.io/docs/token-requests.html
+func parseServiceAccountToken(tokenStr string) (string, error) {
+	if len(tokenStr) == 0 {
+		return "", fmt.Errorf("service account token is empty")
+	}
+	token := serviceAccountToken{}
+	if err := json.Unmarshal([]byte(tokenStr), &token); err != nil {
+		return "", fmt.Errorf("failed to unmarshal service account tokens, error: %w", err)
+	}
+	if token.APIAzureADTokenExchange.Token == "" {
+		return "", fmt.Errorf("token for audience %s not found", DefaultTokenAudience)
+	}
+	return token.APIAzureADTokenExchange.Token, nil
 }

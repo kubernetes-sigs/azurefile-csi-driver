@@ -11,9 +11,13 @@ metadata:
 spec:
   attachRequired: {{ .Values.controller.attachRequired }}
   podInfoOnMount: true
+  requiresRepublish: {{ if hasKey .Values.feature "requiresRepublish" }}{{ .Values.feature.requiresRepublish }}{{ else }}true{{ end }}
   volumeLifecycleModes:
     - Persistent
     - Ephemeral
   fsGroupPolicy: {{ .Values.feature.fsGroupPolicy }}
+  {{- if .Values.feature.serviceAccountTokenInSecrets }}
+  serviceAccountTokenInSecrets: true
+  {{- end }}
   tokenRequests:
     - audience: api://AzureADTokenExchange

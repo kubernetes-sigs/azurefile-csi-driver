@@ -127,3 +127,20 @@ func (f *azureFileDataplaneClient) GetFileShareQuota(ctx context.Context, name s
 	}
 	return int(ptr.Deref(shareProps.Quota, 0)), nil
 }
+
+// ModifyFileShare updates provisioned IOPS and bandwidth via data plane API
+func (f *azureFileDataplaneClient) ModifyFileShare(ctx context.Context, name string, provisionedIops *int32, provisionedBandwidthMibps *int32) error {
+	shareClient := f.Client.NewShareClient(name)
+	opts := &share.SetPropertiesOptions{}
+	if provisionedIops != nil {
+		opts.ShareProvisionedIops = to.Ptr(int64(*provisionedIops))
+	}
+	if provisionedBandwidthMibps != nil {
+		opts.ShareProvisionedBandwidthMibps = to.Ptr(int64(*provisionedBandwidthMibps))
+	}
+	if _, err := shareClient.SetProperties(ctx, opts); err != nil {
+		return fmt.Errorf("failed to modify file share %s, err: %v", name, err)
+	}
+	klog.V(4).Infof("modify file share completed, accountName: %s, shareName: %s", f.accountName, name)
+	return nil
+}

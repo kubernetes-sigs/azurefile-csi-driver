@@ -94,6 +94,8 @@ spec:
               value: "{{ .Values.node.azurefileProxy.installAznfsMount }}"
             - name: KUBELET_PATH
               value: "{{ .Values.linux.kubelet }}"
+            - name: DRIVER_NAME
+              value: "{{ .Values.driver.name }}"
             - name: MIGRATE_K8S_REPO
               value: "{{ .Values.node.azurefileProxy.migrateK8sRepo }}"
             - name: ENABLE_MI_AUTH
@@ -138,6 +140,7 @@ spec:
             - --csi-address=$(ADDRESS)
             - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
             - --v=2
+            - --http-endpoint=localhost:{{ .Values.node.nodeDriverRegistrar.healthPort }}
           env:
             - name: ADDRESS
               value: /csi/csi.sock
@@ -150,6 +153,19 @@ spec:
             - name: registration-dir
               mountPath: /registration
           resources: {{- toYaml .Values.linux.resources.nodeDriverRegistrar | nindent 12 }}
+          ports:
+            - name: healthz
+              containerPort: {{ .Values.node.nodeDriverRegistrar.healthPort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              host: localhost
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: {{ .Values.node.nodeDriverRegistrar.livenessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.node.nodeDriverRegistrar.livenessProbe.timeoutSeconds }}
+            periodSeconds: {{ .Values.node.nodeDriverRegistrar.livenessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.node.nodeDriverRegistrar.livenessProbe.failureThreshold }}
 {{- if .Values.node.enableManagedIdentityAuth }}
         - name: azfilesrefresh
 {{- if hasPrefix "/" .Values.image.azurefile.repository }}
@@ -203,6 +219,7 @@ spec:
             - "--allow-inline-volume-key-access-with-identity={{ .Values.node.allowInlineVolumeKeyAccessWithIdentity }}"
             - "--metrics-address=0.0.0.0:{{ .Values.node.metricsPort }}"
             - "--enable-kata-cc-mount={{ .Values.node.enableKataCCMount }}"
+            - "--use-aznfs-for-nfs-mounts={{ and .Values.node.useAZNFSForNFSMounts .Values.node.azurefileProxy.enabled }}"
           livenessProbe:
             failureThreshold: 5
             httpGet:

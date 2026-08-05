@@ -2,7 +2,7 @@
 [NFS 4.1 support for Azure Files](https://docs.microsoft.com/en-us/azure/storage/files/files-nfs-protocol) is optimized for random access workloads with in-place data updates and provides full POSIX file system support. This page shows how to use NFS feature by Azure File CSI driver on Azure Kubernetes cluster.
 - [Compare access to Azure Files, Blob Storage, and Azure NetApp Files with NFS](https://docs.microsoft.com/en-us/azure/storage/common/nfs-comparison)
 - [Encrypt in Transit(EiT) for NFS (Preview)](https://learn.microsoft.com/en-us/azure/storage/files/encryption-in-transit-for-nfs-shares) is now supported from CSI driver v1.33.0, by setting `encryptInTransit: "true"` in the `parameters` of storage class or persistent volume, you can enable data encryption in transit for NFS Azure file volumes. Please ensure that you have registered Encrypt in Transit (EiT) feature before proceeding.
-  - Currently, Encrypt in Transit (EiT) feature is not supported on Ubuntu 20.04, Azure Linux, and ARM64 nodes.
+  - Currently, Encrypt in Transit (EiT) feature is not supported on Ubuntu 20.04.
 - supported OS: Linux
 
 #### Prerequisite
@@ -10,7 +10,7 @@
  - [Optional] Create a `Premium_LRS` or `Premium_ZRS` Azure storage account with following configurations to support NFS share
    > `Premium_ZRS` account type is only supported in [limited region support](https://docs.microsoft.com/en-us/azure/storage/common/storage-redundancy#zone-redundant-storage)
    - account kind: `FileStorage`
-   - Require secure transfer for REST API operations(enable HTTPS traffic only): `false`
+   - Set `Require secure transfer for REST API operations(enable HTTPS traffic only)` as `false` when Encrypt in Transit(EiT) feature is not enabled
    - select virtual network of agent nodes in `Firewalls and virtual networks`
    - specify `storageAccount` in below storage class `parameters`
 

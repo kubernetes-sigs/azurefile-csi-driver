@@ -76,7 +76,7 @@ spec:
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
-          image: mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.17.0
+          image: mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.19.0
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
@@ -93,11 +93,12 @@ spec:
               drop:
                 - ALL
         - name: node-driver-registrar
-          image: mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.15.0
+          image: mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.17.0
           args:
             - --csi-address=$(ADDRESS)
             - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
             - --v=2
+            - --http-endpoint=localhost:29617
           env:
             - name: ADDRESS
               value: /csi/csi.sock
@@ -114,6 +115,19 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+          ports:
+            - name: healthz
+              containerPort: 29617
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              host: localhost
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 20
+            timeoutSeconds: 10
+            periodSeconds: 20
+            failureThreshold: 2
           securityContext:
             capabilities:
               drop:

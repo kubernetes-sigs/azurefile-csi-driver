@@ -28,7 +28,7 @@ if [ "${INSTALL_AZNFS_MOUNT}" = "true" ];then
   # install aznfs-mount on ubuntu
   if [ "$DISTRIBUTION" = "ubuntu" ];then
     if [ -z "${AZNFS_UBUNTU_VERSION}" ]; then
-      AZNFS_UBUNTU_VERSION="3.0.10"
+      AZNFS_UBUNTU_VERSION="3.0.14"
     fi
     echo "install aznfs v$AZNFS_UBUNTU_VERSION...."
     # shellcheck disable=SC1091
@@ -73,7 +73,7 @@ if [ "${INSTALL_AZUREFILE_PROXY}" = "true" ];then
       echo "Warning: failed to copy azurefile-proxy, possibly due to read-only file system, continue..."
       exit 0
     fi
-    rm -rf /host/"$KUBELET_PATH"/plugins/file.csi.azure.com/azurefile-proxy.sock
+    rm -rf /host/"$KUBELET_PATH"/plugins/"$DRIVER_NAME"/azurefile-proxy.sock
     chmod 755 /host/usr/bin/azurefile-proxy
   fi
 

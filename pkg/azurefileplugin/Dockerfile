@@ -13,17 +13,19 @@
 # limitations under the License.
 
 ARG ARCH=amd64
+ARG BUILDPLATFORM=linux/amd64
+ARG BASE_IMAGE=registry.k8s.io/build-image/debian-base:bookworm-v1.0.8
 
-FROM registry.k8s.io/build-image/debian-base:bookworm-v1.0.6 AS base
+FROM ${BASE_IMAGE} AS base
 
-FROM base AS builder
+FROM --platform=$BUILDPLATFORM ${BASE_IMAGE} AS builder
 
-ARG ARCH
+ARG TARGETARCH=amd64
 
 RUN apt update \
     && apt install -y curl \
     && curl -Lso /tmp/packages-microsoft-prod-22.04.deb https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb \
-    && curl -Ls https://github.com/Azure/azure-storage-azcopy/releases/download/v10.31.1/azcopy_linux_${ARCH}_10.31.1.tar.gz \
+    && curl -Ls https://github.com/Azure/azure-storage-azcopy/releases/download/v10.32.6/azcopy_linux_${TARGETARCH}_10.32.6.tar.gz \
         | tar xvzf - --strip-components=1 -C /usr/local/bin/ --wildcards "*/azcopy"
 
 FROM base
@@ -45,7 +47,7 @@ RUN chmod +x /azurefile-proxy/*.sh && \
   chmod +x /azurefile-proxy/azurefile-proxy
 
 COPY --from=builder --chown=root:root /tmp/packages-microsoft-prod-22.04.deb /azurefile-proxy/packages-microsoft-prod-22.04.deb
-RUN dpkg -i /azurefile-proxy/packages-microsoft-prod-22.04.deb && apt update && apt install -y azfilesauth && rm -f /azurefile-proxy/packages-microsoft-prod-22.04.deb
+RUN dpkg -i /azurefile-proxy/packages-microsoft-prod-22.04.deb && apt update && apt install -y azfilesauth=1.0-11 && rm -f /azurefile-proxy/packages-microsoft-prod-22.04.deb
 
 LABEL maintainers="andyzhangx"
 LABEL description="AzureFile CSI Driver"

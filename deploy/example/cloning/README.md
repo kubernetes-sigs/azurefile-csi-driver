@@ -3,12 +3,30 @@
 
 - supported from v1.28.6, v1.29.1
 - SMB file share is supported, NFS file share is not supported
-- use of private endpoints is not supported due to the `DenyAll` default network rules in the storage account's VNet settings
 - ensure that you have granted the `Storage File Data Privileged Contributor` role to the CSI driver controller identity; otherwise, the driver will utilize an SAS key for volume cloning operations.
 
 ## Prerequisites
-- Ensure that the virtual network hosting the driver controller pod is included in the allowed virtual networks list within the storage account's VNet settings.
-  - If the driver controller pod is managed by AKS, configure the storage account's VNet settings to `Enable from all networks`.
+
+Volume cloning copies data through the storage account's data plane endpoint (`<account>.file.<storage-endpoint-suffix>`, e.g. `file.core.windows.net` for Azure public cloud, `file.core.chinacloudapi.cn` for Azure China, `file.core.usgovcloudapi.net` for Azure US Government), so the CSI driver controller must be able to reach that endpoint.
+
+### Storage account with public network access enabled from all networks
+No extra configuration required.
+
+### Storage account with firewall, private endpoint or `publicNetworkAccess=Disabled`
+Set `useDataPlaneAPI: "oauth"` in the source and destination `StorageClass`. See [Using `useDataPlaneAPI: oauth` against private storage accounts](../../../docs/driver-parameters.md#using-usedataplaneapi-oauth-against-private-storage-accounts) for the full prerequisites (CSI driver v1.33.0+, `Storage File Data Privileged Contributor` role on the driver controller identity, `networkAcls.bypass` includes `AzureServices`).
+
+Example `StorageClass` snippet:
+
+```yaml
+parameters:
+  useDataPlaneAPI: "oauth"
+  # ... other parameters
+```
+
+> Note: The cloned `PersistentVolumeClaim` will still be mounted on customer nodes via CIFS, which is not affected by `useDataPlaneAPI: oauth`. The node → storage network path must still be reachable (Private Endpoint into the node vnet, or storage account allowing the node subnet).
+
+### Self-managed CSI driver (not the AKS-managed add-on)
+For self-managed installations, `useDataPlaneAPI: "oauth"` does not provide the trusted-service bypass. Either add the vnet hosting the driver controller pod to the storage account's allowed networks list, or set `Public network access` to `Enabled from all networks` during volume cloning.
 
 ## Create a Source PVC
 

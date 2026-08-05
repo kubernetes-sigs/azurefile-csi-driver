@@ -128,3 +128,24 @@ func (az *azureFileMgmtClient) GetFileShareQuota(ctx context.Context, name strin
 	}
 	return int(*share.FileShareProperties.ShareQuota), nil
 }
+
+// ModifyFileShare updates the provisioned IOPS and bandwidth of a file share
+func (az *azureFileMgmtClient) ModifyFileShare(ctx context.Context, name string, provisionedIops *int32, provisionedBandwidthMibps *int32) error {
+	fileShare, err := az.fileShareClient.Get(ctx, az.accountOptions.ResourceGroup, az.accountOptions.Name, name, nil)
+	if err != nil {
+		return err
+	}
+	if fileShare.FileShareProperties == nil {
+		return fmt.Errorf("FileShareProperties is nil for share(%s)", name)
+	}
+
+	if provisionedIops != nil {
+		fileShare.FileShareProperties.ProvisionedIops = provisionedIops
+	}
+	if provisionedBandwidthMibps != nil {
+		fileShare.FileShareProperties.ProvisionedBandwidthMibps = provisionedBandwidthMibps
+	}
+
+	_, err = az.fileShareClient.Update(ctx, az.accountOptions.ResourceGroup, az.accountOptions.Name, name, *fileShare)
+	return err
+}

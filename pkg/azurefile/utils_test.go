@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/stretchr/testify/assert"
 	nodev1 "k8s.io/api/node/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -696,6 +697,169 @@ func TestGetValueInMap(t *testing.T) {
 	}
 }
 
+func TestCaseCollidingKey(t *testing.T) {
+	tests := []struct {
+		desc         string
+		m            map[string]string
+		expectedKey  string
+		expectedColl bool
+	}{
+		{
+			desc:         "nil map",
+			expectedColl: false,
+		},
+		{
+			desc:         "no collision",
+			m:            map[string]string{"secretNamespace": "ns", "shareName": "share"},
+			expectedColl: false,
+		},
+		{
+			desc:         "secretNamespace case collision",
+			m:            map[string]string{"secretNamespace": "attacker", "SecretNamespace": "victim"},
+			expectedKey:  "secretnamespace",
+			expectedColl: true,
+		},
+		{
+			desc:         "managed identity case collision",
+			m:            map[string]string{"mountwithmanagedidentity": "false", "MOUNTWITHMANAGEDIDENTITY": "true"},
+			expectedKey:  "mountwithmanagedidentity",
+			expectedColl: true,
+		},
+	}
+
+	for _, test := range tests {
+		key, ok := caseCollidingKey(test.m)
+		if ok != test.expectedColl {
+			t.Errorf("test[%s]: unexpected collision result: %v, expected: %v", test.desc, ok, test.expectedColl)
+		}
+		if ok && key != test.expectedKey {
+			t.Errorf("test[%s]: unexpected colliding key: %v, expected: %v", test.desc, key, test.expectedKey)
+		}
+	}
+}
+
+func TestGetServiceAccountTokens(t *testing.T) {
+	tests := []struct {
+		name          string
+		secrets       map[string]string
+		volumeContext map[string]string
+		expected      string
+	}{
+		{
+			name: "token from secrets field (new behavior)",
+			secrets: map[string]string{
+				serviceAccountTokenField: "token-from-secrets",
+			},
+			volumeContext: map[string]string{
+				serviceAccountTokenField: "token-from-context",
+			},
+			expected: "token-from-secrets",
+		},
+		{
+			name:    "token from volume context (backward compatible)",
+			secrets: map[string]string{},
+			volumeContext: map[string]string{
+				serviceAccountTokenField: "token-from-context",
+			},
+			expected: "token-from-context",
+		},
+		{
+			name:          "no token available",
+			secrets:       map[string]string{},
+			volumeContext: map[string]string{},
+			expected:      "",
+		},
+		{
+			name:    "nil secrets falls back to volume context",
+			secrets: nil,
+			volumeContext: map[string]string{
+				serviceAccountTokenField: "token-from-context",
+			},
+			expected: "token-from-context",
+		},
+		{
+			name: "nil volume context with secrets",
+			secrets: map[string]string{
+				serviceAccountTokenField: "token-from-secrets",
+			},
+			volumeContext: nil,
+			expected:      "token-from-secrets",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := getServiceAccountTokens(test.secrets, test.volumeContext)
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestHasStorageAccountCredentials(t *testing.T) {
+	tests := []struct {
+		name     string
+		secrets  map[string]string
+		expected bool
+	}{
+		{
+			name:     "nil secrets",
+			secrets:  nil,
+			expected: false,
+		},
+		{
+			name:     "empty secrets",
+			secrets:  map[string]string{},
+			expected: false,
+		},
+		{
+			name: "only SA token in secrets",
+			secrets: map[string]string{
+				serviceAccountTokenField: "some-token",
+			},
+			expected: false,
+		},
+		{
+			name: "storage account credentials in secrets",
+			secrets: map[string]string{
+				"accountname": "myaccount",
+				"accountkey":  "mykey",
+			},
+			expected: true,
+		},
+		{
+			name: "SA token plus storage credentials",
+			secrets: map[string]string{
+				serviceAccountTokenField: "some-token",
+				"accountname":            "myaccount",
+				"accountkey":             "mykey",
+			},
+			expected: true,
+		},
+		{
+			name: "unknown non-credential keys only",
+			secrets: map[string]string{
+				"some-future-kubelet-key": "value",
+			},
+			expected: false,
+		},
+		{
+			name: "azurestorageaccountname/azurestorageaccountkey (built-in plugin compatible)",
+			secrets: map[string]string{
+				"azurestorageaccountname": "myaccount",
+				"azurestorageaccountkey":  "mykey",
+			},
+			expected: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := hasStorageAccountCredentials(test.secrets)
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
 func TestReplaceWithMap(t *testing.T) {
 	tests := []struct {
 		desc     string
@@ -742,6 +906,63 @@ func TestReplaceWithMap(t *testing.T) {
 
 	for _, test := range tests {
 		result := replaceWithMap(test.str, test.m)
+		if result != test.expected {
+			t.Errorf("test[%s]: unexpected output: %v, expected result: %v", test.desc, result, test.expected)
+		}
+	}
+}
+
+func TestFolderNamePlaceholderExpansion(t *testing.T) {
+	tests := []struct {
+		desc       string
+		folderName string
+		replaceMap map[string]string
+		expected   string
+	}{
+		{
+			desc:       "expand all placeholders in folderName",
+			folderName: pvcNamespaceMetadata + "/" + pvcNameMetadata + "/" + pvNameMetadata,
+			replaceMap: map[string]string{
+				pvcNamespaceMetadata: "test-ns",
+				pvcNameMetadata:      "test-pvc",
+				pvNameMetadata:       "test-pv",
+			},
+			expected: "test-ns/test-pvc/test-pv",
+		},
+		{
+			desc:       "expand partial placeholders",
+			folderName: "static-prefix/" + pvcNameMetadata,
+			replaceMap: map[string]string{
+				pvcNameMetadata: "my-pvc",
+			},
+			expected: "static-prefix/my-pvc",
+		},
+		{
+			desc:       "no placeholders in folderName",
+			folderName: "static-folder/subfolder",
+			replaceMap: map[string]string{
+				pvcNameMetadata: "my-pvc",
+			},
+			expected: "static-folder/subfolder",
+		},
+		{
+			desc:       "empty folderName",
+			folderName: "",
+			replaceMap: map[string]string{
+				pvcNameMetadata: "my-pvc",
+			},
+			expected: "",
+		},
+		{
+			desc:       "empty replaceMap",
+			folderName: pvcNameMetadata + "/" + pvNameMetadata,
+			replaceMap: map[string]string{},
+			expected:   pvcNameMetadata + "/" + pvNameMetadata,
+		},
+	}
+
+	for _, test := range tests {
+		result := replaceWithMap(test.folderName, test.replaceMap)
 		if result != test.expected {
 			t.Errorf("test[%s]: unexpected output: %v, expected result: %v", test.desc, result, test.expected)
 		}
@@ -1368,30 +1589,62 @@ func TestSetCredentialCache(t *testing.T) {
 		desc          string
 		server        string
 		clientID      string
+		tenantID      string
+		tokenFile     string
 		expectedError string
 	}{
 		{
 			desc:          "empty server",
 			server:        "",
 			clientID:      "test-client-id",
-			expectedError: "server and clientID must be provided",
+			tenantID:      "test-tenant-id",
+			tokenFile:     "test-token-file",
+			expectedError: "server must be provided",
 		},
 		{
 			desc:          "empty clientID",
 			server:        "test.file.core.windows.net",
 			clientID:      "",
-			expectedError: "server and clientID must be provided",
+			tenantID:      "test-tenant-id",
+			tokenFile:     "test-token-file",
+			expectedError: "clientID must be provided when tokenFile is set",
 		},
 		{
-			desc:          "both empty",
+			desc:          "empty tenantID with tokenFile",
+			server:        "test.file.core.windows.net",
+			clientID:      "test-client-id",
+			tenantID:      "",
+			tokenFile:     "test-token-file",
+			expectedError: "tenantID must be provided when tokenFile is provided",
+		},
+		{
+			desc:          "valid IMDS authentication (no tokenFile)",
+			server:        "test.file.core.windows.net",
+			clientID:      "test-client-id",
+			tenantID:      "",
+			tokenFile:     "",
+			expectedError: "", // Will fail due to missing azfilesauthmanager, but validates argument construction
+		},
+		{
+			desc:          "valid workload identity authentication",
+			server:        "test.file.core.windows.net",
+			clientID:      "test-client-id",
+			tenantID:      "test-tenant-id",
+			tokenFile:     "test-token-file",
+			expectedError: "", // Will fail due to missing azfilesauthmanager, but validates argument construction
+		},
+		{
+			desc:          "both empty server and clientID",
 			server:        "",
 			clientID:      "",
-			expectedError: "server and clientID must be provided",
+			tenantID:      "test-tenant-id",
+			tokenFile:     "test-token-file",
+			expectedError: "server must be provided",
 		},
 	}
 
 	for _, test := range tests {
-		_, err := setCredentialCache(test.server, test.clientID)
+		_, err := setCredentialCache(test.server, test.clientID, test.tenantID, test.tokenFile, "", defaultActiveDirectoryEndpoint, defaultStorageResource)
 		if test.expectedError != "" {
 			if err == nil {
 				t.Errorf("test[%s]: expected error containing %q, got nil", test.desc, test.expectedError)
@@ -1399,9 +1652,228 @@ func TestSetCredentialCache(t *testing.T) {
 				t.Errorf("test[%s]: expected error containing %q, got %v", test.desc, test.expectedError, err)
 			}
 		}
+		// Note: We don't test successful execution as it requires azfilesauthmanager binary
+		// The actual command execution will fail, but we've validated the argument construction
+	}
+
+	// Test direct token mode
+	tokenTests := []struct {
+		desc          string
+		server        string
+		token         string
+		tokenFile     string
+		expectedError string
+	}{
+		{
+			desc:          "token mode: empty server",
+			server:        "",
+			token:         "test-oauth-token",
+			expectedError: "server must be provided",
+		},
+		{
+			desc:          "token mode: valid token bypasses clientID check",
+			server:        "test.file.core.windows.net",
+			token:         "test-oauth-token",
+			expectedError: "", // Will fail due to missing azfilesauthmanager, but must NOT fail with clientID/tenantID error
+		},
+		{
+			desc:          "both token and tokenFile should fail",
+			server:        "test.file.core.windows.net",
+			token:         "test-oauth-token",
+			tokenFile:     "/tmp/token",
+			expectedError: "token and tokenFile are mutually exclusive",
+		},
+	}
+
+	for _, test := range tokenTests {
+		_, err := setCredentialCache(test.server, "", "", test.tokenFile, test.token, "", "")
+		if test.expectedError != "" {
+			if err == nil {
+				t.Errorf("test[%s]: expected error containing %q, got nil", test.desc, test.expectedError)
+			} else if !strings.Contains(err.Error(), test.expectedError) {
+				t.Errorf("test[%s]: expected error containing %q, got %v", test.desc, test.expectedError, err)
+			}
+		} else if err != nil {
+			// Token mode should not return clientID/tenantID validation errors
+			errMsg := err.Error()
+			if strings.Contains(errMsg, "clientID must be provided when tokenFile is set") || strings.Contains(errMsg, "tenantID must be provided") {
+				t.Errorf("test[%s]: token mode should bypass clientID/tenantID validation, got: %v", test.desc, err)
+			}
+			// Other errors (e.g., azfilesauthmanager not found) are expected in test environment
+		}
 	}
 }
 
 func int32Ptr(i int32) *int32 {
 	return &i
+}
+
+func TestIsValidTokenFileName(t *testing.T) {
+	testCases := []struct {
+		name     string
+		fileName string
+		expected bool
+	}{
+		{
+			name:     "valid lowercase",
+			fileName: "token",
+			expected: true,
+		},
+		{
+			name:     "valid uppercase",
+			fileName: "TOKEN",
+			expected: true,
+		},
+		{
+			name:     "valid mixed alphanumeric with hyphen",
+			fileName: "Token-123",
+			expected: true,
+		},
+		{
+			name:     "valid mixed alphanumeric with hyphen#2",
+			fileName: "0ab48765-efce-4799-8a9c-c3e1de2ee42eg",
+			expected: true,
+		},
+		{
+			name:     "empty string",
+			fileName: "",
+			expected: false,
+		},
+		{
+			name:     "contains underscore",
+			fileName: "token_file",
+			expected: false,
+		},
+		{
+			name:     "contains dot",
+			fileName: "token.file",
+			expected: false,
+		},
+		{
+			name:     "contains space",
+			fileName: "token file",
+			expected: false,
+		},
+		{
+			name:     "contains slash",
+			fileName: "token/file",
+			expected: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isValidTokenFileName(tc.fileName); got != tc.expected {
+				t.Fatalf("isValidTokenFileName(%q) = %t, want %t", tc.fileName, got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestIsValidFolderName(t *testing.T) {
+	tests := []struct {
+		name      string
+		folder    string
+		expectErr bool
+	}{
+		{name: "valid simple", folder: "myfolder", expectErr: false},
+		{name: "valid nested", folder: "a/b/c", expectErr: false},
+		{name: "valid with leading slash", folder: "/myfolder", expectErr: false},
+		{name: "valid with trailing slash", folder: "myfolder/", expectErr: false},
+		{name: "valid with pvc placeholder", folder: "${pvc.metadata.name}", expectErr: false},
+		{name: "empty string is allowed", folder: "", expectErr: false},
+		{name: "backslash", folder: "my\\folder", expectErr: true},
+		{name: "colon", folder: "my:folder", expectErr: true},
+		{name: "asterisk", folder: "my*folder", expectErr: true},
+		{name: "question mark", folder: "my?folder", expectErr: true},
+		{name: "double quote", folder: `my"folder`, expectErr: true},
+		{name: "less than", folder: "my<folder", expectErr: true},
+		{name: "greater than", folder: "my>folder", expectErr: true},
+		{name: "pipe", folder: "my|folder", expectErr: true},
+		{name: "control char", folder: "my\x01folder", expectErr: true},
+		{name: "null byte", folder: "my\x00folder", expectErr: true},
+		{name: "whitespace only", folder: "   ", expectErr: true},
+		{name: "whitespace only segment in path", folder: "a/   /b", expectErr: true},
+		{name: "dot dot segment", folder: "..", expectErr: true},
+		{name: "dot dot in path", folder: "a/../b", expectErr: true},
+		{name: "ends with period", folder: "folder.", expectErr: true},
+		{name: "ends with space", folder: "folder ", expectErr: true},
+		{name: "empty segment", folder: "a//b", expectErr: true},
+		{name: "nested segment ends with period", folder: "a/b./c", expectErr: true},
+		{name: "valid hyphen and underscore", folder: "my-folder_name", expectErr: false},
+		{name: "valid dots in middle", folder: "my.folder.name", expectErr: false},
+		{name: "invalid single dot segment", folder: ".", expectErr: true},
+		{name: "reserved name CON is allowed", folder: "CON", expectErr: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := isValidFolderName(tc.folder)
+			if tc.expectErr && err == nil {
+				t.Fatalf("isValidFolderName(%q) expected error but got nil", tc.folder)
+			}
+			if !tc.expectErr && err != nil {
+				t.Fatalf("isValidFolderName(%q) unexpected error: %v", tc.folder, err)
+			}
+		})
+	}
+}
+
+func TestFindLocalMountModeOption(t *testing.T) {
+	tests := []struct {
+		name    string
+		options string
+		wantOpt string
+		wantOk  bool
+	}{
+		{name: "empty", options: "", wantOpt: "", wantOk: false},
+		{name: "normal cifs options", options: "dir_mode=0777,file_mode=0777,cache=strict", wantOpt: "", wantOk: false},
+		{name: "bind present", options: "dir_mode=0777,bind", wantOpt: "bind", wantOk: true},
+		{name: "bind with spaces", options: "dir_mode=0777, bind ", wantOpt: "bind", wantOk: true},
+		{name: "uppercase bind", options: "BIND", wantOpt: "BIND", wantOk: true},
+		{name: "rbind", options: "ro,rbind", wantOpt: "rbind", wantOk: true},
+		{name: "remount not blocked", options: "remount", wantOpt: "", wantOk: false},
+		{name: "move not blocked", options: "move,ro", wantOpt: "", wantOk: false},
+		{name: "substring is not matched", options: "rebindable", wantOpt: "", wantOk: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			opt, ok := findLocalMountModeOption(tc.options)
+			if ok != tc.wantOk || opt != tc.wantOpt {
+				t.Fatalf("findLocalMountModeOption(%q) = (%q, %v), want (%q, %v)", tc.options, opt, ok, tc.wantOpt, tc.wantOk)
+			}
+		})
+	}
+}
+
+func TestValidateInlineVolumeMountSource(t *testing.T) {
+	tests := []struct {
+		name      string
+		server    string
+		shareName string
+		expectErr bool
+	}{
+		{name: "valid hostname and share", server: "acct.file.core.windows.net", shareName: "myshare", expectErr: false},
+		{name: "valid ip and share", server: "192.0.2.10", shareName: "my-share", expectErr: false},
+		{name: "empty server allowed (defaulted later)", server: "", shareName: "myshare", expectErr: false},
+		{name: "server with separators", server: "a/b", shareName: "myshare", expectErr: true},
+		{name: "server with leading slash", server: "/abc", shareName: "myshare", expectErr: true},
+		{name: "server with backslash", server: "a\\b", shareName: "myshare", expectErr: true},
+		{name: "server is dot", server: ".", shareName: "myshare", expectErr: true},
+		{name: "server is dotdot", server: "..", shareName: "myshare", expectErr: true},
+		{name: "shareName with slash", server: "acct.file.core.windows.net", shareName: "a/b", expectErr: true},
+		{name: "shareName with backslash", server: "acct.file.core.windows.net", shareName: "a\\b", expectErr: true},
+		{name: "shareName is dotdot", server: "acct.file.core.windows.net", shareName: "..", expectErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateInlineVolumeMountSource(tc.server, tc.shareName)
+			if tc.expectErr && err == nil {
+				t.Fatalf("validateInlineVolumeMountSource(%q, %q) expected error but got nil", tc.server, tc.shareName)
+			}
+			if !tc.expectErr && err != nil {
+				t.Fatalf("validateInlineVolumeMountSource(%q, %q) unexpected error: %v", tc.server, tc.shareName, err)
+			}
+		})
+	}
 }

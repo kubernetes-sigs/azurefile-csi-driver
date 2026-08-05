@@ -872,6 +872,10 @@ func (t *TestPod) SetLabel(labels map[string]string) {
 	t.pod.ObjectMeta.Labels = labels
 }
 
+func (t *TestPod) SetServiceAccountName(name string) {
+	t.pod.Spec.ServiceAccountName = name
+}
+
 type TestSecret struct {
 	client    clientset.Interface
 	secret    *v1.Secret

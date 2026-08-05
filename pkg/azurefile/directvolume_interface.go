@@ -46,9 +46,9 @@ func (dv *directVolume) VolumeMountInfo(volumePath string) (*volume.MountInfo, e
 }
 
 func (dv *directVolume) RecordSandboxID(sandboxID string, volumePath string) error {
-	return volume.RecordSandboxId(sandboxID, volumePath)
+	return volume.RecordSandboxID(sandboxID, volumePath)
 }
 
 func (dv *directVolume) GetSandboxIDForVolume(volumePath string) (string, error) {
-	return volume.GetSandboxIdForVolume(volumePath)
+	return volume.GetSandboxIDForVolume(volumePath)
 }

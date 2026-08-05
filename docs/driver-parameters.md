@@ -44,13 +44,14 @@ skuName | Azure file storage account type (alias: `storageAccountType`) | `Stand
 storageAccount | specify Azure storage account name| STORAGE_ACCOUNT_NAME | No | If the driver is not provided with a specific storage account name, it will search for a suitable storage account that matches the account settings within the same resource group. If it cannot find a matching storage account, it will create a new one. However, if a storage account name is specified, the storage account must already exist.
 enableLargeFileShares | indicate whether the storage account should have large file shares enabled or disabled. This parameter should be **only** used on Standard account as Premium account is already enabled by default.  | `true`,`false` | No | `false`
 protocol | file share protocol | `smb`, `nfs` | No | `smb`
-networkEndpointType | specify network endpoint type for the storage account created by driver. If `privateEndpoint` is specified, a private endpoint will be created for the storage account. For other cases, a service endpoint will be created for `nfs` protocol by default. | "",`privateEndpoint` | No | `` <br>for AKS cluster, make sure cluster Control plane identity (that is, your AKS cluster name) is added to the Contributor role in the resource group hosting the VNet
+networkEndpointType | specify network endpoint type for the storage account created by driver. If `privateEndpoint` is specified, a private endpoint will be created for the storage account. If `serviceEndpoint` is specified, the `Microsoft.Storage` service endpoint will be configured on the subnet(s) and the storage account firewall will be restricted to those subnets. For `nfs` protocol, a service endpoint is created by default; for `smb` protocol, a service endpoint is only created when `serviceEndpoint` is set explicitly. | "",`privateEndpoint`,`serviceEndpoint` | No | `` <br>for AKS cluster, make sure cluster Control plane identity (that is, your AKS cluster name) is added to the Contributor role in the resource group hosting the VNet
 location | specify Azure storage account location | `eastus`, `westus`, etc. | No | if empty, driver will use the same location name as current k8s cluster
 resourceGroup | specify the resource group in which Azure file share will be created | existing resource group name | No | if empty, driver will use the same resource group name as current k8s cluster
 subscriptionID | specify Azure subscription ID where Azure file share will be created | Azure subscription ID | No | if not empty, `resourceGroup` must be provided
 shareName | specify Azure file share name | existing or new Azure file name | No | if empty, driver will generate an Azure file share name
 shareNamePrefix | specify Azure file share name prefix created by driver | can only contain lowercase letters, numbers, hyphens, and length should be less than 21 | No |
-folderName | specify folder name in Azure file share | existing folder name in Azure file share | No | if folder name does not exist in file share, mount would fail
+folderName | specify folder name in Azure file share | existing folder name in Azure file share, supports `${pvc.metadata.name}`, `${pvc.metadata.namespace}`, `${pv.metadata.name}` placeholders | No | if the folder does not exist in the file share, mount may fail unless `createFolderIfNotExist=true`
+createFolderIfNotExist | specify whether to create the folder if it does not exist in the Azure file share (supported from v1.34.0) | `true`,`false` | No | `false`
 shareAccessTier | [Access tier for file share](https://docs.microsoft.com/en-us/azure/storage/files/storage-files-planning#storage-tiers) (this parameter is ignored when using bring your own account key scenario) | For general-purpose v2 account, the available tiers are `TransactionOptimized`(default), `Hot`, and `Cool`. For file storage account, the available tier is `Premium`. | No | empty(use default setting for different storage account types)
 server | specify Azure storage account server address | existing server address, e.g. `accountname.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
 disableDeleteRetentionPolicy | specify whether disable DeleteRetentionPolicy for storage account created by driver | `true`,`false` | No | `false`
@@ -68,7 +69,7 @@ storeAccountKey | Should the storage account key be stored in a Kubernetes secre
 getLatestAccountKey | whether getting the latest account key based on the creation time, this driver would get the first key by default | `true`,`false` | No | `false`
 secretName | specify secret name to store account key | | No |
 secretNamespace | specify the namespace of secret to store account key | `default`,`kube-system`, etc | No | pvc namespace (`csi.storage.k8s.io/pvc/namespace`)
-useDataPlaneAPI | specify whether use [data plane API](https://github.com/Azure/azure-sdk-for-go/blob/master/storage/share.go) for file share create/delete/resize, this could solve the SRP API throttling issue since data plane API has almost no limit, while it would fail when there is firewall or vnet setting on storage account | `true`,`false` | No | `false`
+useDataPlaneAPI | specify whether use [data plane API](https://learn.microsoft.com/en-us/rest/api/storageservices/file-service-rest-api) for file share create/delete/resize, this could solve the SRP API throttling issue since data plane API has almost no limit.<br>`true`: use data plane API with shared key; the controller must have network reachability to the data plane endpoint. This is blocked when `publicNetworkAccess=Disabled` (or when firewall / vnet rules do not allow the controller's source network / trusted-service bypass).<br>`false` (default): use the ARM (SRP) management plane; not subject to storage account firewall.<br>`oauth` (supported from v1.33.0): use data plane API authenticated with an OAuth token. On AKS-managed CSI driver this works with private storage accounts (Selected networks / Public disabled / Private Endpoint) when the driver identity has the `Storage File Data Privileged Contributor` role and `networkAcls.bypass` includes `AzureServices` (default). See [private storage account support](#using-usedataplaneapi-oauth-against-private-storage-accounts) below. | `true`,`false`,`oauth` | No | `false`
 enableMultichannel | specify whether enable [SMB multi-channel](https://learn.microsoft.com/en-us/azure/storage/files/files-smb-protocol?tabs=azure-portal#smb-multichannel) for **Premium** storage account <br> Note: this feature is used with `max_channels=4` (or 2,3) mount option | `true`,`false` | No | `false`
 clientID | Specify the Azure client ID that will be used to create the Azure file share | Azure client ID | No | If left empty, the kubelet managed identity will be used when mounting without an account key
 --- | **Following parameters are only for NFS protocol** | --- | --- |
@@ -76,7 +77,7 @@ allowSharedKeyAccess | Allow or disallow shared key access for storage account c
 rootSquashType | specify root squashing behavior on the share. The default is `NoRootSquash` | `AllSquash`, `NoRootSquash`, `RootSquash` | No |
 mountPermissions | mounted folder permissions. The default is `0777`, if set as `0`, driver will not perform `chmod` after mount | `0777` | No |
 encryptInTransit | support [Encrypt in Transit(EiT) for NFS (Preview)](https://learn.microsoft.com/en-us/azure/storage/files/encryption-in-transit-for-nfs-shares) | `true`,`false` | No | `false`
---- | **Following parameters are only for vnet setting, e.g. NFS, private endpoint** | --- | --- |
+--- | **Following parameters are only for vnet setting, e.g. NFS, private endpoint, service endpoint** | --- | --- |
 vnetResourceGroup | specify vnet resource group where virtual network is | existing resource group name | No | if empty, driver will use the `vnetResourceGroup` value in azure cloud config file
 vnetName | virtual network name | existing virtual network name | No | if empty, driver will use the `vnetName` value in azure cloud config file
 subnetName | subnet name | existing subnet name(s) of virtual network, if you want to update service endpoints on multiple subnets, separate them using a comma (`,`) | No | if empty, driver will update all the subnets under the cluster virtual network
@@ -112,7 +113,8 @@ volumeAttributes.subscriptionID | specify Azure subscription ID where Azure file
 volumeAttributes.resourceGroup | Azure resource group name | existing resource group name | No | if empty, driver will use the same resource group name as current k8s cluster
 volumeAttributes.storageAccount | existing storage account name | existing storage account name | Yes |
 volumeAttributes.shareName | Azure file share name | existing Azure file share name | Yes |
-volumeAttributes.folderName | specify folder name in Azure file share | existing folder name in Azure file share | No | if folder name does not exist in file share, mount would fail
+volumeAttributes.folderName | specify folder name in Azure file share | existing folder name in Azure file share, supports `${pvc.metadata.name}`, `${pvc.metadata.namespace}`, `${pv.metadata.name}` placeholders | No | if folder name does not exist in file share, mount would fail unless `volumeAttributes.createFolderIfNotExist=true`
+volumeAttributes.createFolderIfNotExist | specify whether to create the folder if it does not exist in the Azure file share (supported from v1.34.0) | `true`,`false` | No | `false`
 volumeAttributes.protocol | specify file share protocol | `smb`, `nfs` | No | `smb`
 volumeAttributes.server | specify Azure storage account server address | existing server address, e.g. `accountname.file.core.windows.net` | No | if empty, driver will use default `accountname.file.core.windows.net` or other sovereign cloud account address
 volumeAttributes.storageEndpointSuffix | specify Azure storage endpoint suffix | `core.windows.net`, `core.chinacloudapi.cn`, etc | No | if empty, driver will use default storage endpoint suffix according to cloud environment, e.g. `core.windows.net`
@@ -137,7 +139,18 @@ kubectl create secret generic azure-storage-account-{accountname}-secret --from-
 
 Name | Meaning | Available Value | Mandatory | Default value
 --- | --- | --- | --- | ---
-useDataPlaneAPI | specify whether use [data plane API](https://github.com/Azure/azure-sdk-for-go/blob/master/storage/share.go) for snapshot create/delete, this could solve the SRP API throttling issue since data plane API has almost no limit, while it would fail when there is firewall or vnet setting on storage account | `true`,`false` | No | `false`
+useDataPlaneAPI | specify whether use [data plane API](https://learn.microsoft.com/en-us/rest/api/storageservices/file-service-rest-api) for snapshot create/delete and restore. This could solve the SRP API throttling issue since data plane API has almost no limit.<br>`true`: use data plane API with shared key; the controller must have network reachability to the data plane endpoint. This is blocked when `publicNetworkAccess=Disabled` (or when firewall / vnet rules do not allow the controller's source network / trusted-service bypass).<br>`false` (default): use SRP for snapshot metadata operations where possible; the snapshot restore data copy is still performed by AzCopy against the data plane endpoint and is subject to the storage account firewall.<br>`oauth` (supported from v1.33.0, **recommended for private storage accounts**): use data plane API authenticated with an OAuth token. On AKS-managed CSI driver this lets snapshot / restore work against private storage accounts (Selected networks / Public disabled / Private Endpoint) when the driver identity has the `Storage File Data Privileged Contributor` role and `networkAcls.bypass` includes `AzureServices` (default). See [private storage account support](#using-usedataplaneapi-oauth-against-private-storage-accounts) below. | `true`,`false`,`oauth` | No | `false`
+
+### `VolumeAttributesClass`
+
+> Supported from Azure File CSI driver v1.35.0. Requires Kubernetes 1.31+ (beta) or 1.34+ (GA).
+
+Name | Meaning | Available Value | Mandatory | Default value
+--- | --- | --- | --- | ---
+provisionedIOPS | provisioned IOPS for [file share v2](https://learn.microsoft.com/en-us/azure/storage/files/understanding-billing#provisioned-v2-provisioning-detail). Only applicable to PremiumV2 and StandardV2 SKUs. | integer string, e.g. `"5000"` | No |
+provisionedBandwidth | provisioned throughput (MiB/s) for [file share v2](https://learn.microsoft.com/en-us/azure/storage/files/understanding-billing#provisioned-v2-provisioning-detail). Only applicable to PremiumV2 and StandardV2 SKUs. | integer string, e.g. `"200"` | No |
+
+> For usage examples, see [ModifyVolume example](../deploy/example/modifyvolume/README.md).
 
 ### Tips
   - mounting Azure SMB File share requires account key
@@ -162,3 +175,44 @@ useDataPlaneAPI | specify whether use [data plane API](https://github.com/Azure/
 
 #### [Storage considerations for Azure Kubernetes Service (AKS)](https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/scenarios/app-platform/aks/storage)
 #### [Compare access to Azure Files, Blob Storage, and Azure NetApp Files with NFS](https://learn.microsoft.com/en-us/azure/storage/common/nfs-comparison#comparison)
+
+## Using `useDataPlaneAPI: oauth` against private storage accounts
+
+Setting `useDataPlaneAPI: "oauth"` on a `StorageClass` or `VolumeSnapshotClass` changes how the CSI driver **authenticates** to the storage account's data plane endpoint (`<account>.file.<storage-endpoint-suffix>`, e.g. `file.core.windows.net` for Azure public cloud, `file.core.chinacloudapi.cn` for Azure China, `file.core.usgovcloudapi.net` for Azure US Government). It uses an OAuth bearer token instead of a shared account key.
+
+On the **AKS-managed CSI driver**, this OAuth token also carries a trusted-service claim, which the Storage firewall recognizes as a bypass when the storage account's `networkAcls.bypass` includes `AzureServices` (the default). That authorization bypass is what allows controller operations to succeed even when:
+
+- `Public network access` is `Enabled from selected networks` with no allowed IP / vnet, or
+- `Public network access` is `Disabled` and the account is only reachable via a Private Endpoint from the AKS control plane path.
+
+> Note: OAuth changes **authorization** (who is allowed to call the data plane), not **routing**. The CSI driver controller still needs a network path to the data plane endpoint. On the AKS-managed CSI driver the controller runs on infrastructure that Azure trusts as a service, which is what enables the bypass. For self-managed installations, see [Limitations](#limitations) below.
+
+### Prerequisites
+
+1. **CSI driver** v1.33.0 or later (v1.33.4+ recommended for NFS snapshot restore support).
+2. **AKS-managed CSI driver only**: the AKS cluster must be on a release that registers the storage data plane audience for the CSI driver control plane identity. This is included in AKS releases from mid-2026 onwards; if snapshot / restore still fails with `403 AuthorizationFailure`, verify with your AKS support contact whether the trusted-service audience config has reached your region.
+3. **RBAC**: assign the **`Storage File Data Privileged Contributor`** role to the CSI driver controller identity on the storage account. Without this role, the driver falls back to SAS-based auth, which does not carry the trusted-service claim.
+4. **Storage account settings**:
+   - `networkAcls.bypass` includes `AzureServices` (default).
+   - Optional (NFS-only file shares): set `allowSharedKeyAccess = false` on the storage account to prevent the driver from silently falling back to SAS-based auth. Do **not** disable shared key access on SMB workloads — SMB mount relies on the account key. The controller rejects the default `storeAccountKey=true` when shared key access is disabled, so disabling it will break SMB provisioning unless you also switch to identity-based SMB mount ([managed identity mount](managed-identity-mount.md)).
+5. **`useDataPlaneAPI: "oauth"`** set on both the `StorageClass` (for dynamic provisioning) and the `VolumeSnapshotClass` (for snapshot / restore).
+
+### Example role assignment
+
+```bash
+# For AKS-managed CSI driver, use the AKS control plane identity
+PRINCIPAL_ID=$(az aks show -g <rg> -n <cluster> --query identity.principalId -o tsv)
+STORAGE_ID=$(az storage account show -g <rg> -n <account> --query id -o tsv)
+
+az role assignment create \
+  --assignee-object-id "$PRINCIPAL_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role "Storage File Data Privileged Contributor" \
+  --scope "$STORAGE_ID"
+```
+
+### Limitations
+
+- Only affects operations initiated by the CSI driver controller (share create/delete/resize, snapshot metadata, snapshot restore via AzCopy).
+- Does **not** affect the CIFS / NFS mount from the node — the node → storage network path still needs to be reachable (Private Endpoint into the node vnet, or storage account allowing the node subnet).
+- Self-managed CSI driver installations (non-AKS-managed) do not benefit from this bypass; the trusted-service claim is injected by AKS-managed infrastructure. Those installations still require vnet / IP / PE allowlisting on the storage account.

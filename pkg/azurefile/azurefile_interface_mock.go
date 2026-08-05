@@ -112,3 +112,17 @@ func (mr *MockAzureFileClientMockRecorder) ResizeFileShare(ctx, name, sizeGiB an
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResizeFileShare", reflect.TypeOf((*MockAzureFileClient)(nil).ResizeFileShare), ctx, name, sizeGiB)
 }
+
+// ModifyFileShare mocks base method.
+func (m *MockAzureFileClient) ModifyFileShare(ctx context.Context, name string, provisionedIops *int32, provisionedBandwidthMibps *int32) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModifyFileShare", ctx, name, provisionedIops, provisionedBandwidthMibps)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ModifyFileShare indicates an expected call of ModifyFileShare.
+func (mr *MockAzureFileClientMockRecorder) ModifyFileShare(ctx, name, provisionedIops, provisionedBandwidthMibps any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifyFileShare", reflect.TypeOf((*MockAzureFileClient)(nil).ModifyFileShare), ctx, name, provisionedIops, provisionedBandwidthMibps)
+}
