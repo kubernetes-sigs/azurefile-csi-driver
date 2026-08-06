@@ -11,6 +11,8 @@ No extra configuration required.
 #### Storage account with firewall, private endpoint or `publicNetworkAccess=Disabled`
 Use `useDataPlaneAPI: "oauth"` in the `VolumeSnapshotClass` (and in the destination `StorageClass` if it also targets a private storage account). See [Using `useDataPlaneAPI: oauth` against private storage accounts](../../../docs/driver-parameters.md#using-usedataplaneapi-oauth-against-private-storage-accounts) for the full prerequisites (CSI driver v1.33.0+, `Storage File Data Privileged Contributor` role on the driver controller identity, `networkAcls.bypass` includes `AzureServices`).
 
+> Important: Ensure that you have granted the `Storage File Data Privileged Contributor` role to the CSI driver controller identity; otherwise, the driver will utilize an SAS key for volume cloning operations.
+
 Example `VolumeSnapshotClass` for private storage accounts:
 
 ```yaml
