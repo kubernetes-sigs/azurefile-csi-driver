@@ -54,6 +54,7 @@ import (
 var getRuntimeClassForPodFunc = getRuntimeClassForPod
 var isConfidentialRuntimeClassFunc = isConfidentialRuntimeClass
 var isWindowsOSFunc = func() bool { return runtime.GOOS == "windows" }
+var smbUnmountFunc = SMBUnmount
 var nodeUnstageSMBUnmountTimeout = MountTimeoutInSec * time.Second
 
 type MountClient struct {
@@ -774,7 +775,7 @@ func (d *Driver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolu
 
 	klog.V(2).Infof("NodeUnstageVolume: unmount volume %s on %s", volumeID, stagingTargetPath)
 	unmountFunc := func() error {
-		return SMBUnmount(d.mounter, stagingTargetPath, true /*extensiveMountPointCheck*/, d.removeSMBMountOnWindows)
+		return smbUnmountFunc(d.mounter, stagingTargetPath, true /*extensiveMountPointCheck*/, d.removeSMBMountOnWindows)
 	}
 	if d.removeSMBMountOnWindows && isWindowsOSFunc() {
 		timeout := nodeUnstageSMBUnmountTimeout
