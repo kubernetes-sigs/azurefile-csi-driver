@@ -53,6 +53,7 @@ import (
 
 var getRuntimeClassForPodFunc = getRuntimeClassForPod
 var isConfidentialRuntimeClassFunc = isConfidentialRuntimeClass
+var nodeUnstageSMBUnmountTimeout = MountTimeoutInSec * time.Second
 
 type MountClient struct {
 	service mount_azurefile.MountServiceClient
@@ -748,7 +749,7 @@ func validateDiskIsRegularFile(diskPath string) error {
 }
 
 // NodeUnstageVolume unmount the volume from the staging path
-func (d *Driver) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
+func (d *Driver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
 	volumeID := req.GetVolumeId()
 	if len(volumeID) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
@@ -771,8 +772,26 @@ func (d *Driver) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolume
 	}()
 
 	klog.V(2).Infof("NodeUnstageVolume: unmount volume %s on %s", volumeID, stagingTargetPath)
-	if err := SMBUnmount(d.mounter, stagingTargetPath, true /*extensiveMountPointCheck*/, d.removeSMBMountOnWindows); err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to unmount staging target %s: %v", stagingTargetPath, err)
+	unmountFunc := func() error {
+		return SMBUnmount(d.mounter, stagingTargetPath, true /*extensiveMountPointCheck*/, d.removeSMBMountOnWindows)
+	}
+	if d.removeSMBMountOnWindows {
+		timeout := nodeUnstageSMBUnmountTimeout
+		if deadline, ok := ctx.Deadline(); ok {
+			if remaining := time.Until(deadline); remaining > 0 && remaining < timeout {
+				timeout = remaining
+			}
+		}
+		timeoutFunc := func() error {
+			return fmt.Errorf("windows SMB unmount operation timed out after %v for volume %s on %s", timeout, volumeID, stagingTargetPath)
+		}
+		if err := volumehelper.WaitUntilTimeout(timeout, unmountFunc, timeoutFunc); err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to unmount staging target %s: %v", stagingTargetPath, err)
+		}
+	} else {
+		if err := unmountFunc(); err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to unmount staging target %s: %v", stagingTargetPath, err)
+		}
 	}
 
 	if runtime.GOOS != "windows" {

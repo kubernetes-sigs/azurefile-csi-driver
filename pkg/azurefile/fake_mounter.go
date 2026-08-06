@@ -19,6 +19,7 @@ package azurefile
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	mount "k8s.io/mount-utils"
 )
@@ -81,6 +82,9 @@ func NewFakeMounter() (*mount.SafeFormatAndMount, error) {
 // Unmount overrides mount.FakeMounter.Unmount.
 func (f *fakeMounter) Unmount(target string) error {
 	f.unmountCount++
+	if strings.Contains(target, "slow_unmount") {
+		time.Sleep(200 * time.Millisecond)
+	}
 	if strings.Contains(target, "error") {
 		return fmt.Errorf("fake Unmount: target error")
 	}

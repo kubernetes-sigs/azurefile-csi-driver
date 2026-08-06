@@ -29,6 +29,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	volume "github.com/kata-containers/kata-containers/src/runtime/pkg/direct-volume"
@@ -1765,6 +1766,36 @@ func TestNodeUnstageVolume(t *testing.T) {
 	// Clean up
 	err = os.RemoveAll(errorTarget)
 	assert.NoError(t, err)
+}
+
+func TestNodeUnstageVolumeTimeout(t *testing.T) {
+	targetSlow := testutil.GetWorkDirPath("slow_unmount_false_is_likely", t)
+	d := NewFakeDriver()
+	mounter, err := NewFakeMounter()
+	if err != nil {
+		t.Fatalf("failed to get fake mounter: %v", err)
+	}
+	if runtime.GOOS != "windows" {
+		mounter.Exec = &testingexec.FakeExec{ExactOrder: true}
+	}
+	d.mounter = mounter
+	d.removeSMBMountOnWindows = true
+
+	oldTimeout := nodeUnstageSMBUnmountTimeout
+	nodeUnstageSMBUnmountTimeout = 50 * time.Millisecond
+	defer func() {
+		nodeUnstageSMBUnmountTimeout = oldTimeout
+		_ = os.RemoveAll(targetSlow)
+	}()
+
+	_ = makeDir(targetSlow, 0755)
+	_, err = d.NodeUnstageVolume(context.Background(), &csi.NodeUnstageVolumeRequest{StagingTargetPath: targetSlow, VolumeId: "vol_1"})
+	if err == nil {
+		t.Fatalf("expected timeout error, got nil")
+	}
+	if !strings.Contains(err.Error(), "windows SMB unmount operation timed out") {
+		t.Fatalf("expected timeout error, got: %v", err)
+	}
 }
 
 func TestNodeGetVolumeStats(t *testing.T) {
