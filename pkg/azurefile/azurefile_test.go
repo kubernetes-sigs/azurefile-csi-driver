@@ -924,6 +924,88 @@ func TestGetAccountInfo(t *testing.T) {
 	}
 }
 
+// TestGetAccountInfoWorkloadIdentityTokenFile covers the workload-identity
+// token-file behaviors: (1) the token cache filename must be unique per volume
+// so shared clientID/accountName do not race on one shared file. (2) when the
+// token file is unchanged, (for inline volumes only) GetAccountInfo must still
+// return a non-empty tokenFilePath so the caller always refreshes the
+// credential cache.
+func TestGetAccountInfoWorkloadIdentityTokenFile(t *testing.T) {
+	skipIfTestingOnWindows(t)
+
+	origTokenDir := defaultAzureOAuthTokenDir
+	tokenDir := t.TempDir()
+	defaultAzureOAuthTokenDir = tokenDir
+	defer func() { defaultAzureOAuthTokenDir = origTokenDir }()
+
+	d := NewFakeDriver()
+	d.cloud = &storage.AccountRepo{}
+
+	const (
+		clientID    = "test-client-id-1234"
+		accountName = "testaccount"
+		tokenValue  = "test-token-value"
+	)
+	saToken := `{"api://AzureADTokenExchange":{"token":"` + tokenValue + `","expirationTimestamp":"2025-01-01T00:00:00Z"}}`
+	baseContext := func() map[string]string {
+		return map[string]string{
+			mountWithWITokenField:    "true",
+			clientIDField:            clientID,
+			tenantIDField:            "test-tenant-id",
+			storageAccountField:      accountName,
+			shareNameField:           "testshare",
+			serviceAccountTokenField: saToken,
+		}
+	}
+	ephemeralContext := func() map[string]string {
+		ctx := baseContext()
+		ctx[ephemeralField] = "true"
+		return ctx
+	}
+
+	getTokenFilePath := func(volumeID string, reqContext map[string]string) (string, error) {
+		rgName, returnedAccountName, accountKey, fileShareName, diskName, subsID, returnedTenantID, tokenFilePath, err := d.GetAccountInfo(context.Background(), volumeID, nil, reqContext)
+		_ = rgName
+		_ = returnedAccountName
+		_ = accountKey
+		_ = fileShareName
+		_ = diskName
+		_ = subsID
+		_ = returnedTenantID
+		return tokenFilePath, err
+	}
+
+	// distinct volume IDs must yield distinct token file paths.
+	tokenFilePathA, err := getTokenFilePath("volume-A", baseContext())
+	assert.NoError(t, err)
+	tokenFilePathB, err := getTokenFilePath("volume-B", baseContext())
+	assert.NoError(t, err)
+
+	assert.NotEmpty(t, tokenFilePathA)
+	assert.NotEmpty(t, tokenFilePathB)
+	assert.NotEqual(t, tokenFilePathA, tokenFilePathB, "token file path must be unique per volume ID")
+	assert.True(t, strings.HasSuffix(tokenFilePathA, hashVolumeIDForTokenFile("volume-A")))
+	assert.True(t, strings.HasSuffix(tokenFilePathB, hashVolumeIDForTokenFile("volume-B")))
+	assert.Equal(t, filepath.Join(tokenDir, clientID+"-"+accountName+"-"+hashVolumeIDForTokenFile("volume-A")), tokenFilePathA)
+
+	// token file was actually written with the parsed token value.
+	written, readErr := os.ReadFile(tokenFilePathA)
+	assert.NoError(t, readErr)
+	assert.Equal(t, tokenValue, string(written))
+
+	// unchanged token, non-ephemeral volume: return an empty path so the caller
+	// skips the (unnecessary) credential-cache refresh.
+	tokenFilePathNonEphemeral, err := getTokenFilePath("volume-A", baseContext())
+	assert.NoError(t, err)
+	assert.Empty(t, tokenFilePathNonEphemeral, "unchanged token on a non-ephemeral volume must return an empty path")
+
+	// unchanged token, ephemeral inline volume: still return the token file path
+	// (non-empty) so the caller refreshes the credential cache and re-enforces identity.
+	tokenFilePathEphemeral, err := getTokenFilePath("volume-A", ephemeralContext())
+	assert.NoError(t, err)
+	assert.Equal(t, tokenFilePathA, tokenFilePathEphemeral, "unchanged token on an ephemeral volume must still return the token file path, not empty")
+}
+
 func TestCreateDisk(t *testing.T) {
 	skipIfTestingOnWindows(t)
 	d := NewFakeDriver()
