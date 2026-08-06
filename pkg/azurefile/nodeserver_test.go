@@ -1784,13 +1784,16 @@ func TestNodeUnstageVolumeTimeout(t *testing.T) {
 	oldTimeout := nodeUnstageSMBUnmountTimeout
 	oldIsWindowsOSFunc := isWindowsOSFunc
 	oldSMBUnmountFunc := smbUnmountFunc
+	slowUnmountDone := make(chan struct{})
 	nodeUnstageSMBUnmountTimeout = 50 * time.Millisecond
 	isWindowsOSFunc = func() bool { return true }
 	smbUnmountFunc = func(_ *mount.SafeFormatAndMount, _ string, _ bool, _ bool) error {
+		defer close(slowUnmountDone)
 		time.Sleep(200 * time.Millisecond)
 		return nil
 	}
 	defer func() {
+		<-slowUnmountDone
 		nodeUnstageSMBUnmountTimeout = oldTimeout
 		isWindowsOSFunc = oldIsWindowsOSFunc
 		smbUnmountFunc = oldSMBUnmountFunc
