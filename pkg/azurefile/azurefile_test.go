@@ -963,10 +963,22 @@ func TestGetAccountInfoWorkloadIdentityTokenFile(t *testing.T) {
 		return ctx
 	}
 
+	getTokenFilePath := func(volumeID string, reqContext map[string]string) (string, error) {
+		rgName, returnedAccountName, accountKey, fileShareName, diskName, subsID, returnedTenantID, tokenFilePath, err := d.GetAccountInfo(context.Background(), volumeID, nil, reqContext)
+		_ = rgName
+		_ = returnedAccountName
+		_ = accountKey
+		_ = fileShareName
+		_ = diskName
+		_ = subsID
+		_ = returnedTenantID
+		return tokenFilePath, err
+	}
+
 	// distinct volume IDs must yield distinct token file paths.
-	_, _, _, _, _, _, _, tokenFilePathA, err := d.GetAccountInfo(context.Background(), "volume-A", nil, baseContext())
+	tokenFilePathA, err := getTokenFilePath("volume-A", baseContext())
 	assert.NoError(t, err)
-	_, _, _, _, _, _, _, tokenFilePathB, err := d.GetAccountInfo(context.Background(), "volume-B", nil, baseContext())
+	tokenFilePathB, err := getTokenFilePath("volume-B", baseContext())
 	assert.NoError(t, err)
 
 	assert.NotEmpty(t, tokenFilePathA)
@@ -983,13 +995,13 @@ func TestGetAccountInfoWorkloadIdentityTokenFile(t *testing.T) {
 
 	// unchanged token, non-ephemeral volume: return an empty path so the caller
 	// skips the (unnecessary) credential-cache refresh.
-	_, _, _, _, _, _, _, tokenFilePathNonEphemeral, err := d.GetAccountInfo(context.Background(), "volume-A", nil, baseContext())
+	tokenFilePathNonEphemeral, err := getTokenFilePath("volume-A", baseContext())
 	assert.NoError(t, err)
 	assert.Empty(t, tokenFilePathNonEphemeral, "unchanged token on a non-ephemeral volume must return an empty path")
 
 	// unchanged token, ephemeral inline volume: still return the token file path
 	// (non-empty) so the caller refreshes the credential cache and re-enforces identity.
-	_, _, _, _, _, _, _, tokenFilePathEphemeral, err := d.GetAccountInfo(context.Background(), "volume-A", nil, ephemeralContext())
+	tokenFilePathEphemeral, err := getTokenFilePath("volume-A", ephemeralContext())
 	assert.NoError(t, err)
 	assert.Equal(t, tokenFilePathA, tokenFilePathEphemeral, "unchanged token on an ephemeral volume must still return the token file path, not empty")
 }
