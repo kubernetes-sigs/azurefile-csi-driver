@@ -1,6 +1,6 @@
 # Azure File Snapshot and Restore feature
 
-> Important: For volume snapshot restore against storage accounts with firewall, private endpoint, or `publicNetworkAccess=Disabled` using `useDataPlaneAPI: "oauth"`, grant `Storage File Data Privileged Contributor` to the CSI driver controller identity on the storage account. Otherwise, the driver will fall back to SAS-based auth for the restore data copy / volume cloning operation.
+> Important: For volume snapshot restore using `useDataPlaneAPI: "oauth"`, grant `Storage File Data Privileged Contributor` to the CSI driver controller identity on the storage account. Otherwise, the driver will fall back to SAS-based auth for the restore data copy / volume cloning operation.
 
 > Restoring an NFS file share snapshot is supported starting from CSI driver version v1.33.4 or later.
 
