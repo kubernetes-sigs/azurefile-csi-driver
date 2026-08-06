@@ -1782,9 +1782,12 @@ func TestNodeUnstageVolumeTimeout(t *testing.T) {
 	d.removeSMBMountOnWindows = true
 
 	oldTimeout := nodeUnstageSMBUnmountTimeout
+	oldIsWindowsOSFunc := isWindowsOSFunc
 	nodeUnstageSMBUnmountTimeout = 50 * time.Millisecond
+	isWindowsOSFunc = func() bool { return true }
 	defer func() {
 		nodeUnstageSMBUnmountTimeout = oldTimeout
+		isWindowsOSFunc = oldIsWindowsOSFunc
 		_ = os.RemoveAll(targetSlow)
 	}()
 
