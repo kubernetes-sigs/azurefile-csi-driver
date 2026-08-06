@@ -1115,8 +1115,8 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				gomega.Expect(err).To(gomega.Equal(expectedErr))
 			})
 		})
-		ginkgo.When("Account limit exceeded", func() {
-			ginkgo.It("should fail", func(ctx context.Context) {
+		ginkgo.When("Account limit exceeded on auto-selected account", func() {
+			ginkgo.It("should retry with another matching account", func(ctx context.Context) {
 				name := "baz"
 				SKU := "SKU"
 				kind := "StorageV2"
@@ -1132,7 +1132,6 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 					skuNameField:            "premium",
 					storageAccountTypeField: "stoacctype",
 					locationField:           "loc",
-					storageAccountField:     "stoacc",
 					resourceGroupField:      "rg",
 					shareNameField:          "",
 					diskNameField:           "diskname.vhd",
@@ -1165,6 +1164,48 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				_, err = d.CreateVolume(ctx, req)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
+			})
+		})
+		ginkgo.When("Account limit exceeded on fixed storage account", func() {
+			ginkgo.It("should fail fast without recursively retrying the same account", func(ctx context.Context) {
+				name := "stoacc"
+				SKU := "SKU"
+				kind := "StorageV2"
+				location := "centralus"
+				value := "foo bar"
+				accounts := []*armstorage.Account{
+					{Name: &name, SKU: &armstorage.SKU{Name: to.Ptr(armstorage.SKUName(SKU))}, Kind: to.Ptr(armstorage.Kind(kind)), Location: &location},
+				}
+				keys := []*armstorage.AccountKey{{Value: &value}}
+				allParam := map[string]string{
+					skuNameField:            "premium",
+					storageAccountTypeField: "stoacctype",
+					locationField:           "loc",
+					storageAccountField:     "stoacc",
+					resourceGroupField:      "rg",
+					shareNameField:          "",
+					diskNameField:           "diskname.vhd",
+					fsTypeField:             "",
+					storeAccountKeyField:    "storeaccountkey",
+					secretNamespaceField:    "default",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name-fixed-account-limit",
+					VolumeCapabilities: stdVolCap,
+					CapacityRange:      lessThanPremCapRange,
+					Parameters:         allParam,
+				}
+				mockStorageAccountsClient := d.cloud.ComputeClientFactory.GetAccountClient().(*mock_accountclient.MockInterface)
+				mockFileClient.EXPECT().Create(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: nil}}, fmt.Errorf(accountLimitExceedManagementAPI)).Times(1)
+				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().List(gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+				mockFileClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{}, &azcore.ResponseError{StatusCode: http.StatusNotFound}).AnyTimes()
+
+				expectedErr := status.Errorf(codes.Internal, "account(%s) is in %s, wait for a few minutes to retry", "stoacc", accountLimitExceedManagementAPI)
+				_, err := d.CreateVolume(ctx, req)
+				gomega.Expect(err).To(gomega.Equal(expectedErr))
 			})
 		})
 		ginkgo.When("Premium storage account type (SKU) loads from storage account when not given as parameter and share request size is increased to min. size required by premium", func() {
