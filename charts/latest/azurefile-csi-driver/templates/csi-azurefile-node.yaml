@@ -107,7 +107,10 @@ spec:
               mountPath: /host/etc
             {{- if .Values.node.enableManagedIdentityAuth }}
             - name: mountpoint-dir
-              mountPath: "{{ .Values.linux.kubelet }}"
+              mountPath: "{{ .Values.linux.kubelet }}/pods"
+              mountPropagation: Bidirectional
+            - name: kerberos-dir
+              mountPath: "{{ .Values.linux.kubelet }}/kerberos"
               mountPropagation: Bidirectional
             {{- end }}
       containers:
@@ -179,9 +182,12 @@ spec:
               drop:
                 - ALL
           volumeMounts:
-            - mountPath: "{{ .Values.linux.kubelet }}"
+            - mountPath: "{{ .Values.linux.kubelet }}/pods"
               mountPropagation: Bidirectional
               name: mountpoint-dir
+            - mountPath: "{{ .Values.linux.kubelet }}/kerberos"
+              mountPropagation: Bidirectional
+              name: kerberos-dir
             - name: azfilesauth
               mountPath: /etc/azfilesauth
             - name: log-dir
@@ -258,9 +264,15 @@ spec:
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
-            - mountPath: {{ .Values.linux.kubelet }}/
+            - mountPath: {{ .Values.linux.kubelet }}/pods
               mountPropagation: Bidirectional
               name: mountpoint-dir
+            - mountPath: {{ .Values.linux.kubelet }}/plugins
+              mountPropagation: Bidirectional
+              name: plugins-dir
+            - mountPath: "{{ .Values.linux.kubelet }}/kerberos"
+              mountPropagation: Bidirectional
+              name: kerberos-dir
             - mountPath: /etc/kubernetes/
               name: azure-cred
             - mountPath: /dev
@@ -300,9 +312,17 @@ spec:
             type: DirectoryOrCreate
           name: socket-dir
         - hostPath:
-            path: {{ .Values.linux.kubelet }}/
+            path: {{ .Values.linux.kubelet }}/pods
             type: DirectoryOrCreate
           name: mountpoint-dir
+        - hostPath:
+            path: {{ .Values.linux.kubelet }}/plugins
+            type: DirectoryOrCreate
+          name: plugins-dir
+        - hostPath:
+            path: {{ .Values.linux.kubelet }}/kerberos
+            type: DirectoryOrCreate
+          name: kerberos-dir
         - hostPath:
             path: {{ .Values.linux.kubelet }}/plugins_registry/
             type: DirectoryOrCreate
