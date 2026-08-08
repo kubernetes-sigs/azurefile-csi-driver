@@ -16,6 +16,9 @@
 
 set -xe
 
+KUBELET_PATH=${KUBELET_PATH:-/var/lib/kubelet}
+DRIVER_NAME=${DRIVER_NAME:-file.csi.azure.com}
+
 if [ "${MIGRATE_K8S_REPO}" = "true" ]
 then
   # https://kubernetes.io/blog/2023/08/15/pkgs-k8s-io-introduction/#how-to-migrate
