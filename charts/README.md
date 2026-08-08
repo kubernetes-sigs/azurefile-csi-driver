@@ -36,7 +36,7 @@ Then update the repo cache, search for available versions, and install:
 ```console
 helm repo update azurefile-csi-driver
 helm search repo azurefile-csi-driver --versions
-helm install azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system --version 1.35.6
+helm install azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system --version 1.35.7
 ```
 
 ### install on RedHat/CentOS
