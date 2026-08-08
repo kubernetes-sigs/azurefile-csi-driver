@@ -76,7 +76,7 @@ if [ "${INSTALL_AZUREFILE_PROXY}" = "true" ];then
       echo "Warning: failed to copy azurefile-proxy, possibly due to read-only file system, continue..."
       exit 0
     fi
-    rm -rf /host/"$KUBELET_PATH"/plugins/file.csi.azure.com/azurefile-proxy.sock
+    rm -rf /host/"$KUBELET_PATH"/plugins/"$DRIVER_NAME"/azurefile-proxy.sock
     chmod 755 /host/usr/bin/azurefile-proxy
   fi
 

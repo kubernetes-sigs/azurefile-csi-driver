@@ -20,10 +20,11 @@ MIGRATE_K8S_REPO=${MIGRATE_K8S_REPO:-false}
 ENABLE_MI_AUTH=${ENABLE_MI_AUTH:-true}
 
 KUBELET_PATH=${KUBELET_PATH:-/var/lib/kubelet}
-if [ "$KUBELET_PATH" != "/var/lib/kubelet" ];then
-  echo "kubelet path is $KUBELET_PATH, update azurefile-proxy.service...."
-  sed -i "s#--azurefile-proxy-endpoint[^ ]*#--azurefile-proxy-endpoint=unix:/${KUBELET_PATH}/plugins/file.csi.azure.com/azurefile-proxy.sock#" /azurefile-proxy/azurefile-proxy.service
-  echo "azurefile-proxy endpoint is updated to unix:/$KUBELET_PATH/plugins/file.csi.azure.com/azurefile-proxy.sock"
+DRIVER_NAME=${DRIVER_NAME:-file.csi.azure.com}
+if [ "$KUBELET_PATH" != "/var/lib/kubelet" ] || [ "$DRIVER_NAME" != "file.csi.azure.com" ];then
+  echo "kubelet path is $KUBELET_PATH, driver name is $DRIVER_NAME, update azurefile-proxy.service...."
+  sed -i "s#--azurefile-proxy-endpoint[^ ]*#--azurefile-proxy-endpoint=unix:/${KUBELET_PATH}/plugins/${DRIVER_NAME}/azurefile-proxy.sock#" /azurefile-proxy/azurefile-proxy.service
+  echo "azurefile-proxy endpoint is updated to unix:/$KUBELET_PATH/plugins/$DRIVER_NAME/azurefile-proxy.sock"
 fi
 
 HOST_CMD="nsenter --mount=/proc/1/ns/mnt"
