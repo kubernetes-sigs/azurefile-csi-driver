@@ -96,7 +96,9 @@ func (f *azureFileDataplaneClient) CreateFileShare(ctx context.Context, shareOpt
 
 // delete a file share
 func (f *azureFileDataplaneClient) DeleteFileShare(ctx context.Context, shareName string) error {
-	_, err := f.Client.NewShareClient(shareName).Delete(ctx, nil)
+	_, err := f.Client.NewShareClient(shareName).Delete(ctx, &share.DeleteOptions{
+		DeleteSnapshots: to.Ptr(share.DeleteSnapshotsOptionTypeInclude),
+	})
 	return err
 }
 
