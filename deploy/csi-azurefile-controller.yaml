@@ -92,7 +92,7 @@ spec:
               drop:
                 - ALL
         - name: csi-resizer
-          image: mcr.microsoft.com/oss/v2/kubernetes-csi/csi-resizer:v2.2.0
+          image: mcr.microsoft.com/oss/v2/kubernetes-csi/csi-resizer:v2.2.1
           args:
             - "-csi-address=$(ADDRESS)"
             - "-v=2"
