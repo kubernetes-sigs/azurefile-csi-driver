@@ -2424,8 +2424,20 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 					},
 					expectedErrMsg: "failed to check if snapshot(snapname) exists",
 				},
+				{
+					desc: "Create snapshot success with comment",
+					req: &csi.CreateSnapshotRequest{
+						SourceVolumeId: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID",
+						Name:           "snapname",
+						Parameters: map[string]string{
+							"comment": "snapshot before migration",
+						},
+					},
+					expectedErr: nil,
+				},
 			}
 
+			var createdShare armstorage.FileShare
 			for _, test := range tests {
 				if test.desc == "Snapshot already exists" {
 					mockFileClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return([]*armstorage.FileShareItem{
@@ -2460,13 +2472,17 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 							ShareQuota: to.Ptr(int32(100)),
 						},
 					}, nil).AnyTimes()
-					mockFileClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{
-						Name: to.Ptr("fileShareName"),
-						FileShareProperties: &armstorage.FileShareProperties{
-							SnapshotTime: to.Ptr(time.Now()),
-							ShareQuota:   to.Ptr(int32(0)),
-						},
-					}, nil).AnyTimes()
+					mockFileClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+						func(_ context.Context, _, _, _ string, resource armstorage.FileShare, _ *string) (*armstorage.FileShare, error) {
+							createdShare = resource
+							return &armstorage.FileShare{
+								Name: to.Ptr("fileShareName"),
+								FileShareProperties: &armstorage.FileShareProperties{
+									SnapshotTime: to.Ptr(time.Now()),
+									ShareQuota:   to.Ptr(int32(0)),
+								},
+							}, nil
+						}).AnyTimes()
 				}
 
 				_, err := d.CreateSnapshot(context.Background(), test.req)
@@ -2478,6 +2494,10 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 					}
 				} else {
 					gomega.Expect(err).To(gomega.BeNil())
+				}
+
+				if test.desc == "Create snapshot success with comment" {
+					gomega.Expect(createdShare.FileShareProperties.Metadata).To(gomega.HaveKeyWithValue(snapshotCommentKey, to.Ptr("snapshot before migration")))
 				}
 			}
 		})

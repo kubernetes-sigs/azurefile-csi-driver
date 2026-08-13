@@ -1073,7 +1073,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		subsID = d.cloud.SubscriptionID
 	}
 
-	var useDataPlaneAPI string
+	var useDataPlaneAPI, snapshotComment string
 	for k, v := range req.GetParameters() {
 		switch strings.ToLower(k) {
 		case useDataPlaneAPIField:
@@ -1081,6 +1081,8 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in snapshot storage class", useDataPlaneAPIField, v)
 			}
 			useDataPlaneAPI = v
+		case commentField:
+			snapshotComment = v
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, "invalid parameter %q in storage class", k)
 		}
@@ -1116,6 +1118,11 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		}, nil
 	}
 
+	snapshotMetadata := map[string]*string{snapshotNameKey: to.Ptr(snapshotName)}
+	if snapshotComment != "" {
+		snapshotMetadata[snapshotCommentKey] = to.Ptr(snapshotComment)
+	}
+
 	if len(req.GetSecrets()) > 0 || useDataPlaneAPI != "" {
 		shareClient, err := d.getShareClient(ctx, sourceVolumeID, req.GetSecrets(), useDataPlaneAPI)
 		if err != nil {
@@ -1123,7 +1130,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		}
 
 		snapshotShare, err := shareClient.CreateSnapshot(ctx, &share.CreateSnapshotOptions{
-			Metadata: map[string]*string{snapshotNameKey: to.Ptr(snapshotName)},
+			Metadata: snapshotMetadata,
 		})
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "create snapshot from(%s) failed with %v", sourceVolumeID, err)
@@ -1143,7 +1150,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 			return nil, status.Errorf(codes.Internal, "failed to get snapshot client for subID(%s): %v", subsID, err)
 		}
 		snapshotShare, err := fileshareClient.Create(ctx, rgName, accountName, fileShareName, armstorage.FileShare{Name: to.Ptr(fileShareName),
-			FileShareProperties: &armstorage.FileShareProperties{Metadata: map[string]*string{snapshotNameKey: &snapshotName}}}, to.Ptr(snapshotsExpand))
+			FileShareProperties: &armstorage.FileShareProperties{Metadata: snapshotMetadata}}, to.Ptr(snapshotsExpand))
 		if err != nil {
 			if isThrottlingError(err) {
 				klog.Warningf("switch to use data plane API instead for account %s since it's throttled", accountName)

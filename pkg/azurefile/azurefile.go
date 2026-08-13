@@ -95,6 +95,8 @@ const (
 	DefaultTokenAudience = "api://AzureADTokenExchange/.default"
 	// key of snapshot name in metadata
 	snapshotNameKey = "initiator"
+	// key of snapshot comment in metadata, this is the same key that Azure portal uses
+	snapshotCommentKey = "comment"
 
 	shareNameField                    = "sharename"
 	accessTierField                   = "accesstier"
@@ -120,6 +122,7 @@ const (
 	secretNameField                   = "secretname"
 	createAccountField                = "createaccount"
 	useDataPlaneAPIField              = "usedataplaneapi"
+	commentField                      = "comment"
 	storeAccountKeyField              = "storeaccountkey"
 	getLatestAccountKeyField          = "getlatestaccountkey"
 	useSecretCacheField               = "usesecretcache"
