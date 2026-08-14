@@ -96,7 +96,8 @@ const (
 	// key of snapshot name in metadata
 	snapshotNameKey = "initiator"
 	// key of snapshot comment in metadata, this is the same key that Azure portal uses
-	snapshotCommentKey = "comment"
+	snapshotCommentKey       = "comment"
+	snapshotCommentMaxLength = 2048
 
 	shareNameField                    = "sharename"
 	accessTierField                   = "accesstier"

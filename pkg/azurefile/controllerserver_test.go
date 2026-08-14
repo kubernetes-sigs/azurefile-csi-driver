@@ -30,6 +30,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
 	armstorage "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v2"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/onsi/ginkgo/v2"
@@ -2360,6 +2361,8 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 	})
 	ginkgo.When("test", func() {
 		ginkgo.It("should work", func(_ context.Context) {
+			// A multibyte rune verifies that comment limits count characters rather than UTF-8 bytes.
+			const multibyteCharacter = "界"
 			tests := []struct {
 				desc           string
 				req            *csi.CreateSnapshotRequest
@@ -2398,6 +2401,17 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 					expectedErr: status.Errorf(codes.InvalidArgument, "invalid %s: %s in snapshot storage class", useDataPlaneAPIField, "invalid"),
 				},
 				{
+					desc: "Comment exceeds maximum length",
+					req: &csi.CreateSnapshotRequest{
+						SourceVolumeId: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID",
+						Name:           "snapname",
+						Parameters: map[string]string{
+							"comment": strings.Repeat(multibyteCharacter, snapshotCommentMaxLength+1),
+						},
+					},
+					expectedErr: status.Errorf(codes.InvalidArgument, "%s must not exceed %d characters", commentField, snapshotCommentMaxLength),
+				},
+				{
 					desc: "Snapshot already exists",
 					req: &csi.CreateSnapshotRequest{
 						SourceVolumeId: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID",
@@ -2431,6 +2445,17 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 						Name:           "snapname",
 						Parameters: map[string]string{
 							"comment": "snapshot before migration",
+						},
+					},
+					expectedErr: nil,
+				},
+				{
+					desc: "Create snapshot success with maximum length comment",
+					req: &csi.CreateSnapshotRequest{
+						SourceVolumeId: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID",
+						Name:           "snapname",
+						Parameters: map[string]string{
+							"comment": strings.Repeat(multibyteCharacter, snapshotCommentMaxLength),
 						},
 					},
 					expectedErr: nil,
@@ -2498,11 +2523,40 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 
 				if test.desc == "Create snapshot success with comment" {
 					gomega.Expect(createdShare.FileShareProperties.Metadata).To(gomega.HaveKeyWithValue(snapshotCommentKey, to.Ptr("snapshot before migration")))
+					gomega.Expect(createdShare.FileShareProperties.Metadata).To(gomega.HaveKeyWithValue(snapshotNameKey, to.Ptr("snapname")))
+				}
+				if test.desc == "Create snapshot success with maximum length comment" {
+					gomega.Expect(createdShare.FileShareProperties.Metadata).To(gomega.HaveKeyWithValue(snapshotCommentKey, to.Ptr(strings.Repeat(multibyteCharacter, snapshotCommentMaxLength))))
 				}
 			}
 		})
+
+		ginkgo.It("passes comment metadata to the data-plane snapshot request", func(ctx context.Context) {
+			var capturedOptions *share.CreateSnapshotOptions
+			shareClient := &fakeSnapshotShareClient{
+				createSnapshot: func(_ context.Context, options *share.CreateSnapshotOptions) (share.CreateSnapshotResponse, error) {
+					capturedOptions = options
+					return share.CreateSnapshotResponse{}, nil
+				},
+			}
+
+			_, err := createSnapshotWithDataPlane(ctx, shareClient, getSnapshotMetadata("snapname", "snapshot before migration"))
+
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(capturedOptions.Metadata).To(gomega.HaveKeyWithValue(snapshotNameKey, to.Ptr("snapname")))
+			gomega.Expect(capturedOptions.Metadata).To(gomega.HaveKeyWithValue(snapshotCommentKey, to.Ptr("snapshot before migration")))
+		})
 	})
 })
+
+type fakeSnapshotShareClient struct {
+	createSnapshot func(context.Context, *share.CreateSnapshotOptions) (share.CreateSnapshotResponse, error)
+}
+
+func (f *fakeSnapshotShareClient) CreateSnapshot(ctx context.Context, options *share.CreateSnapshotOptions) (share.CreateSnapshotResponse, error) {
+	return f.createSnapshot(ctx, options)
+}
+
 var _ = ginkgo.DescribeTable("DeleteSnapshot", func(req *csi.DeleteSnapshotRequest, expectedErr error) {
 	d := NewFakeDriver()
 	d.cloud = &storage.AccountRepo{}

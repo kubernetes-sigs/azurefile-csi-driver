@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"sigs.k8s.io/azurefile-csi-driver/pkg/util"
 
@@ -1082,6 +1083,9 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 			}
 			useDataPlaneAPI = v
 		case commentField:
+			if utf8.RuneCountInString(v) > snapshotCommentMaxLength {
+				return nil, status.Errorf(codes.InvalidArgument, "%s must not exceed %d characters", commentField, snapshotCommentMaxLength)
+			}
 			snapshotComment = v
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, "invalid parameter %q in storage class", k)
@@ -1118,10 +1122,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		}, nil
 	}
 
-	snapshotMetadata := map[string]*string{snapshotNameKey: to.Ptr(snapshotName)}
-	if snapshotComment != "" {
-		snapshotMetadata[snapshotCommentKey] = to.Ptr(snapshotComment)
-	}
+	snapshotMetadata := getSnapshotMetadata(snapshotName, snapshotComment)
 
 	if len(req.GetSecrets()) > 0 || useDataPlaneAPI != "" {
 		shareClient, err := d.getShareClient(ctx, sourceVolumeID, req.GetSecrets(), useDataPlaneAPI)
@@ -1129,13 +1130,10 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 			return nil, status.Errorf(codes.Internal, "failed to get share url with (%s): %v", sourceVolumeID, err)
 		}
 
-		snapshotShare, err := shareClient.CreateSnapshot(ctx, &share.CreateSnapshotOptions{
-			Metadata: snapshotMetadata,
-		})
+		snapshotShare, err := createSnapshotWithDataPlane(ctx, shareClient, snapshotMetadata)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "create snapshot from(%s) failed with %v", sourceVolumeID, err)
 		}
-
 		properties, err := shareClient.GetProperties(ctx, nil)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to get snapshot properties from (%s): %v", *snapshotShare.Snapshot, err)
@@ -1205,6 +1203,22 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 	}
 
 	return resp, nil
+}
+
+type snapshotShareClient interface {
+	CreateSnapshot(context.Context, *share.CreateSnapshotOptions) (share.CreateSnapshotResponse, error)
+}
+
+func getSnapshotMetadata(snapshotName, snapshotComment string) map[string]*string {
+	metadata := map[string]*string{snapshotNameKey: to.Ptr(snapshotName)}
+	if snapshotComment != "" {
+		metadata[snapshotCommentKey] = to.Ptr(snapshotComment)
+	}
+	return metadata
+}
+
+func createSnapshotWithDataPlane(ctx context.Context, shareClient snapshotShareClient, metadata map[string]*string) (share.CreateSnapshotResponse, error) {
+	return shareClient.CreateSnapshot(ctx, &share.CreateSnapshotOptions{Metadata: metadata})
 }
 
 // DeleteSnapshot delete a snapshot (todo)
