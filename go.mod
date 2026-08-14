@@ -1,6 +1,6 @@
 module sigs.k8s.io/azurefile-csi-driver
 
-go 1.25.9
+go 1.26.0
 
 godebug winsymlink=0
 
