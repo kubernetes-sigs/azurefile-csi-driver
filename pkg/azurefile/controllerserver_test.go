@@ -2361,8 +2361,6 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 	})
 	ginkgo.When("test", func() {
 		ginkgo.It("should work", func(_ context.Context) {
-			// A multibyte rune verifies that comment limits count characters rather than UTF-8 bytes.
-			const multibyteCharacter = "界"
 			tests := []struct {
 				desc           string
 				req            *csi.CreateSnapshotRequest
@@ -2401,15 +2399,26 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 					expectedErr: status.Errorf(codes.InvalidArgument, "invalid %s: %s in snapshot storage class", useDataPlaneAPIField, "invalid"),
 				},
 				{
-					desc: "Comment exceeds maximum length",
+					desc: "Invalid snapshot metadata",
 					req: &csi.CreateSnapshotRequest{
 						SourceVolumeId: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID",
 						Name:           "snapname",
 						Parameters: map[string]string{
-							"comment": strings.Repeat(multibyteCharacter, snapshotCommentMaxLength+1),
+							"metadata": "comment",
 						},
 					},
-					expectedErr: status.Errorf(codes.InvalidArgument, "%s must not exceed %d characters", commentField, snapshotCommentMaxLength),
+					expectedErrMsg: "invalid metadata in snapshot storage class",
+				},
+				{
+					desc: "Reserved snapshot metadata",
+					req: &csi.CreateSnapshotRequest{
+						SourceVolumeId: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID",
+						Name:           "snapname",
+						Parameters: map[string]string{
+							"metadata": "Initiator=custom",
+						},
+					},
+					expectedErr: status.Errorf(codes.InvalidArgument, "%q is reserved snapshot metadata", snapshotNameKey),
 				},
 				{
 					desc: "Snapshot already exists",
@@ -2439,23 +2448,12 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 					expectedErrMsg: "failed to check if snapshot(snapname) exists",
 				},
 				{
-					desc: "Create snapshot success with comment",
+					desc: "Create snapshot success with metadata",
 					req: &csi.CreateSnapshotRequest{
 						SourceVolumeId: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID",
 						Name:           "snapname",
 						Parameters: map[string]string{
-							"comment": "snapshot before migration",
-						},
-					},
-					expectedErr: nil,
-				},
-				{
-					desc: "Create snapshot success with maximum length comment",
-					req: &csi.CreateSnapshotRequest{
-						SourceVolumeId: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID",
-						Name:           "snapname",
-						Parameters: map[string]string{
-							"comment": strings.Repeat(multibyteCharacter, snapshotCommentMaxLength),
+							"metadata": "comment=snapshot before migration,environment=production",
 						},
 					},
 					expectedErr: nil,
@@ -2521,17 +2519,15 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 					gomega.Expect(err).To(gomega.BeNil())
 				}
 
-				if test.desc == "Create snapshot success with comment" {
-					gomega.Expect(createdShare.FileShareProperties.Metadata).To(gomega.HaveKeyWithValue(snapshotCommentKey, to.Ptr("snapshot before migration")))
+				if test.desc == "Create snapshot success with metadata" {
+					gomega.Expect(createdShare.FileShareProperties.Metadata).To(gomega.HaveKeyWithValue("comment", to.Ptr("snapshot before migration")))
+					gomega.Expect(createdShare.FileShareProperties.Metadata).To(gomega.HaveKeyWithValue("environment", to.Ptr("production")))
 					gomega.Expect(createdShare.FileShareProperties.Metadata).To(gomega.HaveKeyWithValue(snapshotNameKey, to.Ptr("snapname")))
-				}
-				if test.desc == "Create snapshot success with maximum length comment" {
-					gomega.Expect(createdShare.FileShareProperties.Metadata).To(gomega.HaveKeyWithValue(snapshotCommentKey, to.Ptr(strings.Repeat(multibyteCharacter, snapshotCommentMaxLength))))
 				}
 			}
 		})
 
-		ginkgo.It("passes comment metadata to the data-plane snapshot request", func(ctx context.Context) {
+		ginkgo.It("passes metadata to the data-plane snapshot request", func(ctx context.Context) {
 			var capturedOptions *share.CreateSnapshotOptions
 			shareClient := &fakeSnapshotShareClient{
 				createSnapshot: func(_ context.Context, options *share.CreateSnapshotOptions) (share.CreateSnapshotResponse, error) {
@@ -2540,11 +2536,15 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 				},
 			}
 
-			_, err := createSnapshotWithDataPlane(ctx, shareClient, getSnapshotMetadata("snapname", "snapshot before migration"))
+			_, err := createSnapshotWithDataPlane(ctx, shareClient, getSnapshotMetadata("snapname", map[string]string{
+				"comment":     "snapshot before migration",
+				"environment": "production",
+			}))
 
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			gomega.Expect(capturedOptions.Metadata).To(gomega.HaveKeyWithValue(snapshotNameKey, to.Ptr("snapname")))
-			gomega.Expect(capturedOptions.Metadata).To(gomega.HaveKeyWithValue(snapshotCommentKey, to.Ptr("snapshot before migration")))
+			gomega.Expect(capturedOptions.Metadata).To(gomega.HaveKeyWithValue("comment", to.Ptr("snapshot before migration")))
+			gomega.Expect(capturedOptions.Metadata).To(gomega.HaveKeyWithValue("environment", to.Ptr("production")))
 		})
 	})
 })

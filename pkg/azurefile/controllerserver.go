@@ -26,7 +26,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"sigs.k8s.io/azurefile-csi-driver/pkg/util"
 
@@ -1074,7 +1073,8 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		subsID = d.cloud.SubscriptionID
 	}
 
-	var useDataPlaneAPI, snapshotComment string
+	var useDataPlaneAPI string
+	snapshotMetadata := make(map[string]string)
 	for k, v := range req.GetParameters() {
 		switch strings.ToLower(k) {
 		case useDataPlaneAPIField:
@@ -1082,11 +1082,16 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 				return nil, status.Errorf(codes.InvalidArgument, "invalid %s: %s in snapshot storage class", useDataPlaneAPIField, v)
 			}
 			useDataPlaneAPI = v
-		case commentField:
-			if utf8.RuneCountInString(v) > snapshotCommentMaxLength {
-				return nil, status.Errorf(codes.InvalidArgument, "%s must not exceed %d characters", commentField, snapshotCommentMaxLength)
+		case metadataField:
+			snapshotMetadata, err = ConvertTagsToMap(v, "")
+			if err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid %s in snapshot storage class: %v", metadataField, err)
 			}
-			snapshotComment = v
+			for key := range snapshotMetadata {
+				if strings.EqualFold(key, snapshotNameKey) {
+					return nil, status.Errorf(codes.InvalidArgument, "%q is reserved snapshot metadata", snapshotNameKey)
+				}
+			}
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, "invalid parameter %q in storage class", k)
 		}
@@ -1122,7 +1127,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 		}, nil
 	}
 
-	snapshotMetadata := getSnapshotMetadata(snapshotName, snapshotComment)
+	metadata := getSnapshotMetadata(snapshotName, snapshotMetadata)
 
 	if len(req.GetSecrets()) > 0 || useDataPlaneAPI != "" {
 		shareClient, err := d.getShareClient(ctx, sourceVolumeID, req.GetSecrets(), useDataPlaneAPI)
@@ -1130,7 +1135,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 			return nil, status.Errorf(codes.Internal, "failed to get share url with (%s): %v", sourceVolumeID, err)
 		}
 
-		snapshotShare, err := createSnapshotWithDataPlane(ctx, shareClient, snapshotMetadata)
+		snapshotShare, err := createSnapshotWithDataPlane(ctx, shareClient, metadata)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "create snapshot from(%s) failed with %v", sourceVolumeID, err)
 		}
@@ -1148,7 +1153,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 			return nil, status.Errorf(codes.Internal, "failed to get snapshot client for subID(%s): %v", subsID, err)
 		}
 		snapshotShare, err := fileshareClient.Create(ctx, rgName, accountName, fileShareName, armstorage.FileShare{Name: to.Ptr(fileShareName),
-			FileShareProperties: &armstorage.FileShareProperties{Metadata: snapshotMetadata}}, to.Ptr(snapshotsExpand))
+			FileShareProperties: &armstorage.FileShareProperties{Metadata: metadata}}, to.Ptr(snapshotsExpand))
 		if err != nil {
 			if isThrottlingError(err) {
 				klog.Warningf("switch to use data plane API instead for account %s since it's throttled", accountName)
@@ -1209,10 +1214,11 @@ type snapshotShareClient interface {
 	CreateSnapshot(context.Context, *share.CreateSnapshotOptions) (share.CreateSnapshotResponse, error)
 }
 
-func getSnapshotMetadata(snapshotName, snapshotComment string) map[string]*string {
-	metadata := map[string]*string{snapshotNameKey: to.Ptr(snapshotName)}
-	if snapshotComment != "" {
-		metadata[snapshotCommentKey] = to.Ptr(snapshotComment)
+func getSnapshotMetadata(snapshotName string, snapshotMetadata map[string]string) map[string]*string {
+	metadata := make(map[string]*string, len(snapshotMetadata)+1)
+	metadata[snapshotNameKey] = to.Ptr(snapshotName)
+	for key, value := range snapshotMetadata {
+		metadata[key] = to.Ptr(value)
 	}
 	return metadata
 }
