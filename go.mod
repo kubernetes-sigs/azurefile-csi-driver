@@ -1,6 +1,6 @@
 module sigs.k8s.io/azurefile-csi-driver
 
-go 1.25.9
+go 1.26.0
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.22.0
