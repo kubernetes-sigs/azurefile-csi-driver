@@ -2536,7 +2536,7 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 				},
 			}
 
-			_, err := createSnapshotWithDataPlane(ctx, shareClient, getSnapshotMetadata("snapname", map[string]string{
+			_, err := createShareSnapshot(ctx, shareClient, getSnapshotMetadata("snapname", map[string]string{
 				"comment":     "snapshot before migration",
 				"environment": "production",
 			}))

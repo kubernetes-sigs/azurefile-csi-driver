@@ -1135,7 +1135,7 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequ
 			return nil, status.Errorf(codes.Internal, "failed to get share url with (%s): %v", sourceVolumeID, err)
 		}
 
-		snapshotShare, err := createSnapshotWithDataPlane(ctx, shareClient, metadata)
+		snapshotShare, err := createShareSnapshot(ctx, shareClient, metadata)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "create snapshot from(%s) failed with %v", sourceVolumeID, err)
 		}
@@ -1223,7 +1223,7 @@ func getSnapshotMetadata(snapshotName string, snapshotMetadata map[string]string
 	return metadata
 }
 
-func createSnapshotWithDataPlane(ctx context.Context, shareClient snapshotShareClient, metadata map[string]*string) (share.CreateSnapshotResponse, error) {
+func createShareSnapshot(ctx context.Context, shareClient snapshotShareClient, metadata map[string]*string) (share.CreateSnapshotResponse, error) {
 	return shareClient.CreateSnapshot(ctx, &share.CreateSnapshotOptions{Metadata: metadata})
 }
 
