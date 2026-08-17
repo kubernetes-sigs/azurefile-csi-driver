@@ -282,9 +282,17 @@ func (volume *VolumeDetails) SetupPreProvisionedPersistentVolumeClaim(ctx contex
 	return tpvc, cleanupFuncs
 }
 
-func CreateVolumeSnapshotClass(ctx context.Context, client restclientset.Interface, namespace *v1.Namespace, csiDriver driver.VolumeSnapshotTestDriver) (*TestVolumeSnapshotClass, func()) {
+func CreateVolumeSnapshotClass(ctx context.Context, client restclientset.Interface, namespace *v1.Namespace, csiDriver driver.VolumeSnapshotTestDriver, extraParameters map[string]string) (*TestVolumeSnapshotClass, func()) {
 	ginkgo.By("setting up the VolumeSnapshotClass")
 	volumeSnapshotClass := csiDriver.GetVolumeSnapshotClass(namespace.Name)
+	if extraParameters != nil {
+		if volumeSnapshotClass.Parameters == nil {
+			volumeSnapshotClass.Parameters = map[string]string{}
+		}
+		for k, v := range extraParameters {
+			volumeSnapshotClass.Parameters[k] = v
+		}
+	}
 	tvsc := NewTestVolumeSnapshotClass(client, namespace, volumeSnapshotClass)
 	tvsc.Create(ctx)
 

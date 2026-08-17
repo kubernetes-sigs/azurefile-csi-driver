@@ -64,13 +64,7 @@ func (t *DynamicallyProvisionedVolumeSnapshotTest) Run(ctx context.Context, clie
 	time.Sleep(time.Millisecond * 10000)
 
 	ginkgo.By("creating volume snapshot class")
-	tvsc, cleanup := CreateVolumeSnapshotClass(ctx, restclient, namespace, t.CSIDriver)
-	if tvsc.volumeSnapshotClass.Parameters == nil {
-		tvsc.volumeSnapshotClass.Parameters = map[string]string{}
-	}
-	for k, v := range t.VolumeSnapshotClassParameters {
-		tvsc.volumeSnapshotClass.Parameters[k] = v
-	}
+	tvsc, cleanup := CreateVolumeSnapshotClass(ctx, restclient, namespace, t.CSIDriver, t.VolumeSnapshotClassParameters)
 	defer cleanup()
 
 	ginkgo.By("sleeping for 5 seconds to wait for data to be written to the volume")
