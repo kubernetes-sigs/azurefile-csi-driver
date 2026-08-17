@@ -422,6 +422,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	enableHTTPSTrafficOnly := true
 	shareProtocol := armstorage.EnabledProtocolsSMB
+	var isNFSEncryptionInTransitEnabled *bool
+	var skipHTTPSTrafficOnlyMatch bool
 	var createPrivateEndpoint *bool
 	var createServiceEndpoint bool
 	if strings.EqualFold(networkEndpointType, privateEndpoint) {
@@ -445,13 +447,15 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}
 
 		protocol = nfs
-		enableHTTPSTrafficOnly = false
-		if encryptInTransit {
-			klog.V(2).Info("encryptInTransit is enabled")
-			// Right now we have to disable secure transfer on accounts to be able to mount an NFS share.
-			// Even though encryptInTransit is enabled.
-			// enableHTTPSTrafficOnly = true
-		}
+		// Configure per-protocol encryption in transit for NFS at account
+		// creation time. Account matching keeps EiT and non-EiT NFS accounts
+		// separate.
+		isNFSEncryptionInTransitEnabled = ptr.To(encryptInTransit)
+		// EnableHTTPSTrafficOnly only controls REST and has no effect on NFS
+		// mounts. Skip matching on it so pre-existing NFS accounts (created
+		// when EnableHTTPSTrafficOnly=false was forced) are still reused
+		// instead of creating a new account per request.
+		skipHTTPSTrafficOnlyMatch = true
 		shareProtocol = armstorage.EnabledProtocolsNFS
 		// NFS protocol does not need account key
 		storeAccountKey = false
@@ -629,6 +633,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		StorageEndpointSuffix:                   storageEndpointSuffix,
 		IsMultichannelEnabled:                   isMultichannelEnabled,
 		IsSmbOAuthEnabled:                       requiresSmbOAuth,
+		IsNFSEncryptionInTransitEnabled:         isNFSEncryptionInTransitEnabled,
+		SkipHTTPSTrafficOnlyMatch:               skipHTTPSTrafficOnlyMatch,
 		PickRandomMatchingAccount:               selectRandomMatchingAccount,
 		GetLatestAccountKey:                     getLatestAccountKey,
 		SourceAccountName:                       srcAccountName,
@@ -646,14 +652,14 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		if v, ok := d.volMap.Load(volName); ok {
 			accountName = v.(string)
 		} else {
-			lockKey = fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%v|%v|%v|%v|%v|%v|%v|%v|%v|%v|%v|%s|%s|%s|%s|%s|%v|%s|%s",
+			lockKey = fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%v|%v|%v|%v|%v|%v|%v|%v|%v|%v|%v|%s|%s|%s|%s|%s|%v|%s|%s|%v",
 				sku, accountKind, resourceGroup, location, protocol, subsID, accountAccessTier, privateDNSZoneResourceGroup,
 				ptr.Deref(createPrivateEndpoint, false), createServiceEndpoint, ptr.Deref(allowBlobPublicAccess, false), ptr.Deref(requireInfraEncryption, false),
 				ptr.Deref(enableLFS, false), ptr.Deref(disableDeleteRetentionPolicy, false),
 				ptr.Deref(allowCrossTenantReplication, true), ptr.Deref(allowSharedKeyAccess, true),
 				ptr.Deref(requiresSmbOAuth, false), ptr.Deref(isMultichannelEnabled, false),
 				enableHTTPSTrafficOnly, publicNetworkAccess, vnetResourceGroup, vnetName, vnetLinkName, subnetName,
-				matchTags, serializeTags(tags), storageEndpointSuffix)
+				matchTags, serializeTags(tags), storageEndpointSuffix, encryptInTransit)
 			// search in cache first
 			cache, err := d.accountSearchCache.Get(ctx, lockKey, azcache.CacheReadTypeDefault)
 			if err != nil {
