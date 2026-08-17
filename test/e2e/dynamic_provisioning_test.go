@@ -176,7 +176,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			PodOverwrite:                   podOverwrite,
 			PodWithSnapshot:                podWithSnapshot,
 			StorageClassParameters:         map[string]string{"skuName": "Standard_LRS"},
-			SnapshotStorageClassParameters: map[string]string{"skuName": "Premium_LRS"},
+			SnapshotStorageClassParameters: map[string]string{"skuName": "Premium_LRS", "metadata": "comment=e2e-snapshot,environment=test"},
 		}
 		test.Run(ctx, cs, snapshotrcs, ns)
 	})
