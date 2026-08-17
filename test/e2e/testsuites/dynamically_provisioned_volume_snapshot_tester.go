@@ -43,6 +43,7 @@ type DynamicallyProvisionedVolumeSnapshotTest struct {
 	PodWithSnapshot                PodDetails
 	StorageClassParameters         map[string]string
 	SnapshotStorageClassParameters map[string]string
+	VolumeSnapshotClassParameters  map[string]string
 }
 
 func (t *DynamicallyProvisionedVolumeSnapshotTest) Run(ctx context.Context, client clientset.Interface, restclient restclientset.Interface, namespace *v1.Namespace) {
@@ -66,6 +67,9 @@ func (t *DynamicallyProvisionedVolumeSnapshotTest) Run(ctx context.Context, clie
 	tvsc, cleanup := CreateVolumeSnapshotClass(ctx, restclient, namespace, t.CSIDriver)
 	if tvsc.volumeSnapshotClass.Parameters == nil {
 		tvsc.volumeSnapshotClass.Parameters = map[string]string{}
+	}
+	for k, v := range t.VolumeSnapshotClassParameters {
+		tvsc.volumeSnapshotClass.Parameters[k] = v
 	}
 	defer cleanup()
 
