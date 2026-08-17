@@ -57,10 +57,6 @@ func (az *azureFileMgmtClient) CreateFileShare(ctx context.Context, shareOptions
 	if shareOptions == nil {
 		return fmt.Errorf("shareOptions of account(%s) is nil", az.accountOptions.Name)
 	}
-	az.accountOptions.EnableHTTPSTrafficOnly = true
-	if shareOptions.Protocol == armstorage.EnabledProtocolsNFS {
-		az.accountOptions.EnableHTTPSTrafficOnly = false
-	}
 	shareOps := armstorage.FileShare{
 		Name: to.Ptr(shareOptions.Name),
 		FileShareProperties: &armstorage.FileShareProperties{
