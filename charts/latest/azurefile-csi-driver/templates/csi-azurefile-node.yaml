@@ -185,6 +185,9 @@ spec:
             - mountPath: "{{ .Values.linux.kubelet }}/pods"
               mountPropagation: Bidirectional
               name: mountpoint-dir
+            - mountPath: "{{ .Values.linux.kubelet }}/plugins"
+              mountPropagation: Bidirectional
+              name: plugins-dir
             - mountPath: "{{ .Values.linux.kubelet }}/kerberos"
               mountPropagation: Bidirectional
               name: kerberos-dir
