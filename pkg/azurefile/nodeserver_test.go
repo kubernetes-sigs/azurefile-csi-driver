@@ -442,6 +442,50 @@ func TestNodePublishVolume(t *testing.T) {
 			},
 		},
 		{
+			desc: "[Error] Ephemeral volume should reject destination override in mountOptions",
+			req: &csi.NodePublishVolumeRequest{
+				VolumeCapability:  &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "csi-inline-destination-override",
+				TargetPath:        targetTest,
+				StagingTargetPath: sourceTest,
+				VolumeContext: map[string]string{
+					ephemeralField:    "true",
+					shareNameField:    "testshare",
+					serverNameField:   "testaccount.file.core.windows.net",
+					mountOptionsField: "nosharesock,addr=203.0.113.10",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, `mount option "addr" is not supported for ephemeral volumes`),
+				WindowsError: status.Error(codes.InvalidArgument, `mount option "addr" is not supported for ephemeral volumes`),
+			},
+		},
+		{
+			desc: "[Error] Ephemeral volume should reject packed authentication override in mount flags",
+			req: &csi.NodePublishVolumeRequest{
+				VolumeCapability: &csi.VolumeCapability{
+					AccessMode: &volumeCap,
+					AccessType: &csi.VolumeCapability_Mount{
+						Mount: &csi.VolumeCapability_MountVolume{
+							MountFlags: []string{"nosharesock,sec=krb5"},
+						},
+					},
+				},
+				VolumeId:          "csi-inline-authentication-override",
+				TargetPath:        targetTest,
+				StagingTargetPath: sourceTest,
+				VolumeContext: map[string]string{
+					ephemeralField:  "true",
+					shareNameField:  "testshare",
+					serverNameField: "testaccount.file.core.windows.net",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, `mount option "sec" is not supported for ephemeral volumes`),
+				WindowsError: status.Error(codes.InvalidArgument, `mount option "sec" is not supported for ephemeral volumes`),
+			},
+		},
+		{
 			desc: "[Error] Ephemeral volume with mountWithWIToken should preserve storageAccount",
 			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
 				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed84",
@@ -1043,6 +1087,7 @@ func TestNodeStageVolume(t *testing.T) {
 		cleanup                  func()
 		enableAZNFSForNFSMounts  bool
 		shouldEnableProxy        bool
+		storageEndpointSuffix    string
 	}{
 		{
 			desc:        "[Error] Volume ID missing",
@@ -1243,13 +1288,15 @@ func TestNodeStageVolume(t *testing.T) {
 			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
 				VolumeCapability: &stdVolCap,
 				VolumeContext: map[string]string{
-					fsTypeField:       "ext4",
-					protocolField:     "nfs",
-					diskNameField:     "test_disk.vhd",
-					shareNameField:    "test_sharename",
-					serverNameField:   "test_servername",
-					ephemeralField:    "true",
-					mountOptionsField: "test_ephemeral",
+					fsTypeField:                "ext4",
+					protocolField:              "nfs",
+					diskNameField:              "test_disk.vhd",
+					shareNameField:             "test_sharename",
+					serverNameField:            "test_servername.file.core.windows.net",
+					ephemeralField:             "true",
+					mountOptionsField:          "test_ephemeral",
+					storageEndpointSuffixField: ".core.windows.net",
+					storageAccountField:        "test_servername",
 				},
 				Secrets: secrets},
 			execScripts: []ExecArgs{
@@ -1316,7 +1363,8 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability: &stdVolCap,
 				VolumeContext:    volContextEmptyShareName,
 				Secrets:          secrets},
-			skipOnWindows: true,
+			storageEndpointSuffix: "test_suffix",
+			skipOnWindows:         true,
 			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount \\\\k8s.file.test_suffix\\test_sharename on %v failed with "+
 				"smb mapping failed with error: rpc error: code = Unknown desc = NewSmbGlobalMapping failed.",
 				sourceTest),
@@ -1586,6 +1634,86 @@ func TestNodeStageVolume(t *testing.T) {
 				Secrets: secrets},
 			skipOnWindows: true,
 		},
+		{
+			desc: "non-inline volume should preserve customer server",
+			setup: func() {
+				d.isKataNode = false
+			},
+			req: &csi.NodeStageVolumeRequest{
+				VolumeId:          "vol_1##",
+				StagingTargetPath: sourceTest,
+				VolumeCapability:  &stdVolCap,
+				VolumeContext: map[string]string{
+					shareNameField:             "test_sharename",
+					serverNameField:            "10.10.24.244",
+					storageEndpointSuffixField: ".core.windows.net",
+				},
+				Secrets: secrets,
+			},
+		},
+		{
+			desc: "[Error] inline volume should reject arbitrary server address",
+			setup: func() {
+				d.isKataNode = false
+			},
+			req: &csi.NodeStageVolumeRequest{
+				VolumeId:          "vol_1##",
+				StagingTargetPath: sourceTest,
+				VolumeCapability:  &stdVolCap,
+				VolumeContext: map[string]string{
+					shareNameField:             "test_sharename",
+					serverNameField:            "10.10.24.244",
+					storageEndpointSuffixField: ".core.windows.net",
+					storageAccountField:        "10.10.24.244",
+					ephemeralField:             "true",
+				},
+				Secrets: secrets,
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "invalid server error: invalid server \"10.10.24.244\": IP addresses are not allowed"),
+			},
+		},
+		{
+			desc: "[Error] inline volume with untrusted storage endpoint suffix should be rejected before creating folder",
+			setup: func() {
+				d.isKataNode = false
+			},
+			req: &csi.NodeStageVolumeRequest{
+				VolumeId:          "vol_1##",
+				StagingTargetPath: sourceTest,
+				VolumeCapability:  &stdVolCap,
+				VolumeContext: map[string]string{
+					shareNameField:              "test_sharename",
+					serverNameField:             "k8s.file.core.windows.net",
+					storageEndpointSuffixField:  "untrusted.suffix",
+					ephemeralField:              "true",
+					folderNameField:             "folder",
+					createFolderIfNotExistField: "true",
+				},
+				Secrets: secrets,
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "storageEndpointSuffix \"untrusted.suffix\" does not match configured cloud suffix \"core.windows.net\""),
+			},
+		},
+		{
+			desc: "inline volume accepts private Azure DNS zone endpoint",
+			setup: func() {
+				d.isKataNode = false
+			},
+			req: &csi.NodeStageVolumeRequest{
+				VolumeId:          "vol_1##",
+				StagingTargetPath: sourceTest,
+				VolumeCapability:  &stdVolCap,
+				VolumeContext: map[string]string{
+					shareNameField:             "test_sharename",
+					serverNameField:            "k8s.z32.privatelink.file.storage.azure.net",
+					storageEndpointSuffixField: "core.windows.net",
+					ephemeralField:             "true",
+				},
+				Secrets: secrets,
+			},
+		},
 	}
 
 	// Setup
@@ -1629,8 +1757,12 @@ func TestNodeStageVolume(t *testing.T) {
 		clientFactory := mock_azclient.NewMockClientFactory(ctrl)
 		mockAccountClient := mock_accountclient.NewMockInterface(ctrl)
 		clientFactory.EXPECT().GetAccountClientForSub(gomock.Any()).Return(mockAccountClient, nil).AnyTimes()
+		storageEndpointSuffix := test.storageEndpointSuffix
+		if storageEndpointSuffix == "" {
+			storageEndpointSuffix = defaultStorageEndPointSuffix
+		}
 		d.cloud = &storage.AccountRepo{
-			Environment:          &azclient.Environment{StorageEndpointSuffix: "test_suffix"},
+			Environment:          &azclient.Environment{StorageEndpointSuffix: storageEndpointSuffix},
 			NetworkClientFactory: clientFactory,
 			ComputeClientFactory: clientFactory,
 		}
@@ -1658,6 +1790,261 @@ func TestNodeStageVolume(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(errorMountSensSource)
 	assert.NoError(t, err)
+}
+
+func TestValidateInlineSMBMountOptions(t *testing.T) {
+	tests := []struct {
+		desc          string
+		mountOptions  []string
+		expectedError string
+	}{
+		{
+			desc:         "empty options",
+			mountOptions: []string{"", "  "},
+		},
+		{
+			desc:         "options without values",
+			mountOptions: []string{"ro", "nosharesock"},
+		},
+		{
+			desc: "allowed options",
+			mountOptions: []string{
+				"acdirmax=30,acregmax=30,actimeo=30,cache=strict,closetimeo=0",
+				"dir_mode=0777,file_mode=0777,gid=1000,max_channels=4",
+				"mfsymlinks,nobrl,nosharesock,ro,sloppy,uid=1000,vers=3.1.1",
+			},
+		},
+		{
+			desc:          "read-write override",
+			mountOptions:  []string{"rw"},
+			expectedError: `mount option "rw" is not supported for ephemeral volumes`,
+		},
+		{
+			desc:          "cred option",
+			mountOptions:  []string{"cred=/tmp/credentials"},
+			expectedError: `mount option "cred" is not supported for ephemeral volumes`,
+		},
+		{
+			desc:          "credentials option with arbitrary path",
+			mountOptions:  []string{"credentials=/proc/self/fd/0"},
+			expectedError: `mount option "credentials" is not supported for ephemeral volumes`,
+		},
+		{
+			desc:          "mixed case and whitespace",
+			mountOptions:  []string{" CREDENTIALS = /dev/zero "},
+			expectedError: `mount option "CREDENTIALS" is not supported for ephemeral volumes`,
+		},
+		{
+			desc:          "addr option",
+			mountOptions:  []string{"addr=203.0.113.10"},
+			expectedError: `mount option "addr" is not supported for ephemeral volumes`,
+		},
+		{
+			desc:          "packed IP option",
+			mountOptions:  []string{"nosharesock,ip=203.0.113.10"},
+			expectedError: `mount option "ip" is not supported for ephemeral volumes`,
+		},
+		{
+			desc:          "packed mixed case UNC option",
+			mountOptions:  []string{"ro, UNC = //attacker/share"},
+			expectedError: `mount option "UNC" is not supported for ephemeral volumes`,
+		},
+		{
+			desc:          "target alias",
+			mountOptions:  []string{"target=//attacker/share"},
+			expectedError: `mount option "target" is not supported for ephemeral volumes`,
+		},
+		{
+			desc:          "path alias",
+			mountOptions:  []string{"path=//attacker/share"},
+			expectedError: `mount option "path" is not supported for ephemeral volumes`,
+		},
+		{
+			desc:          "Kerberos security option",
+			mountOptions:  []string{"sec=krb5"},
+			expectedError: `mount option "sec" is not supported for ephemeral volumes`,
+		},
+		{
+			desc:          "credential UID option",
+			mountOptions:  []string{"cruid=0"},
+			expectedError: `mount option "cruid" is not supported for ephemeral volumes`,
+		},
+		{
+			desc:          "upcall target option",
+			mountOptions:  []string{"upcall_target=mount"},
+			expectedError: `mount option "upcall_target" is not supported for ephemeral volumes`,
+		},
+		{
+			desc:          "CIFS ACL option",
+			mountOptions:  []string{"cifsacl"},
+			expectedError: `mount option "cifsacl" is not supported for ephemeral volumes`,
+		},
+		{
+			desc:          "mode from SID option",
+			mountOptions:  []string{"modefromsid"},
+			expectedError: `mount option "modefromsid" is not supported for ephemeral volumes`,
+		},
+		{
+			desc:          "unknown option",
+			mountOptions:  []string{"unknown=value"},
+			expectedError: `mount option "unknown" is not supported for ephemeral volumes`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			err := validateInlineSMBMountOptions(test.mountOptions)
+			if test.expectedError == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.EqualError(t, err, test.expectedError)
+			}
+		})
+	}
+}
+
+func TestValidateInlineVolumeServer(t *testing.T) {
+	tests := []struct {
+		desc          string
+		server        string
+		accountName   string
+		suffix        string
+		expectedError string
+	}{
+		{
+			desc:        "public endpoint",
+			server:      "account.file.core.windows.net",
+			accountName: "account",
+			suffix:      "core.windows.net",
+		},
+		{
+			desc:        "private link endpoint",
+			server:      "account.privatelink.file.core.windows.net",
+			accountName: "account",
+			suffix:      "core.windows.net",
+		},
+		{
+			desc:        "AFS endpoint",
+			server:      "account.afs.core.windows.net",
+			accountName: "account",
+			suffix:      "core.windows.net",
+		},
+		{
+			desc:        "secondary endpoint",
+			server:      "account-secondary.file.core.windows.net",
+			accountName: "account",
+			suffix:      "core.windows.net",
+		},
+		{
+			desc:        "sovereign cloud endpoint",
+			server:      "account.file.core.chinacloudapi.cn",
+			accountName: "account",
+			suffix:      "core.chinacloudapi.cn",
+		},
+		{
+			desc:        "Azure DNS zone endpoint",
+			server:      "account.z32.file.storage.azure.net",
+			accountName: "account",
+			suffix:      "core.windows.net",
+		},
+		{
+			desc:        "private Azure DNS zone endpoint",
+			server:      "account.z1.privatelink.afs.storage.azure.net",
+			accountName: "account",
+			suffix:      "core.windows.net",
+		},
+		{
+			desc:        "case insensitive endpoint",
+			server:      "ACCOUNT.FILE.CORE.WINDOWS.NET",
+			accountName: "Account",
+			suffix:      ".CORE.WINDOWS.NET.",
+		},
+		{
+			desc:          "empty server",
+			accountName:   "account",
+			suffix:        "core.windows.net",
+			expectedError: "server must not be empty",
+		},
+		{
+			desc:          "leading whitespace",
+			server:        " account.file.core.windows.net",
+			accountName:   "account",
+			suffix:        "core.windows.net",
+			expectedError: `server " account.file.core.windows.net" must not contain leading or trailing whitespace`,
+		},
+		{
+			desc:          "IP address",
+			server:        "10.0.0.1",
+			accountName:   "account",
+			suffix:        "core.windows.net",
+			expectedError: `invalid server "10.0.0.1": IP addresses are not allowed`,
+		},
+		{
+			desc:          "explicit port",
+			server:        "account.file.core.windows.net:445",
+			accountName:   "account",
+			suffix:        "core.windows.net",
+			expectedError: `invalid server "account.file.core.windows.net:445": explicit ports are not allowed`,
+		},
+		{
+			desc:          "path",
+			server:        "account.file.core.windows.net/share",
+			accountName:   "account",
+			suffix:        "core.windows.net",
+			expectedError: `invalid server "account.file.core.windows.net/share": paths are not allowed`,
+		},
+		{
+			desc:          "wrong account",
+			server:        "other.file.core.windows.net",
+			accountName:   "account",
+			suffix:        "core.windows.net",
+			expectedError: `invalid server "other.file.core.windows.net": hostname must match storage account "account" in the configured Azure cloud`,
+		},
+		{
+			desc:          "wrong cloud suffix",
+			server:        "account.file.example.com",
+			accountName:   "account",
+			suffix:        "core.windows.net",
+			expectedError: `invalid server "account.file.example.com": hostname must match storage account "account" in the configured Azure cloud`,
+		},
+		{
+			desc:          "invalid Azure DNS zone",
+			server:        "account.z0.file.storage.azure.net",
+			accountName:   "account",
+			suffix:        "core.windows.net",
+			expectedError: `invalid server "account.z0.file.storage.azure.net": hostname must match storage account "account" in the configured Azure cloud`,
+		},
+		{
+			desc:          "Azure DNS zone unavailable in sovereign cloud",
+			server:        "account.z32.file.storage.azure.net",
+			accountName:   "account",
+			suffix:        "core.chinacloudapi.cn",
+			expectedError: `invalid server "account.z32.file.storage.azure.net": hostname must match storage account "account" in the configured Azure cloud`,
+		},
+		{
+			desc:          "empty account",
+			server:        "account.file.core.windows.net",
+			suffix:        "core.windows.net",
+			expectedError: "invalid server configuration: account name or storage endpoint suffix is empty",
+		},
+		{
+			desc:          "empty suffix",
+			server:        "account.file.core.windows.net",
+			accountName:   "account",
+			expectedError: "invalid server configuration: account name or storage endpoint suffix is empty",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			err := validateInlineVolumeServer(test.server, test.accountName, test.suffix)
+			if test.expectedError == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.EqualError(t, err, test.expectedError)
+			}
+		})
+	}
 }
 
 func TestNodeUnstageVolume(t *testing.T) {
