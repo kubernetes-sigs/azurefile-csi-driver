@@ -36,7 +36,7 @@ Then update the repo cache, search for available versions, and install:
 ```console
 helm repo update azurefile-csi-driver
 helm search repo azurefile-csi-driver --versions
-helm install azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system --version 1.35.6
+helm install azurefile-csi-driver azurefile-csi-driver/azurefile-csi-driver --namespace kube-system --version 1.35.7
 ```
 
 ### install on RedHat/CentOS
@@ -83,7 +83,7 @@ The following table lists the configurable parameters of the latest Azure File C
 | `image.csiProvisioner.tag`                        | csi-provisioner container image tag                           | `v6.3.0`                                                            |
 | `image.csiProvisioner.pullPolicy`                 | csi-provisioner image pull policy                          | `IfNotPresent`                                                      |
 | `image.csiResizer.repository`                     | csi-resizer container image                                   | `/oss/kubernetes-csi/csi-resizer`                  |
-| `image.csiResizer.tag`                            | csi-resizer container image tag                               | `v2.2.0`                                                            |
+| `image.csiResizer.tag`                            | csi-resizer container image tag                               | `v2.2.1`                                                            |
 | `image.csiResizer.pullPolicy`                     | csi-resizer image pull policy                              | `IfNotPresent`                                                      |
 | `image.livenessProbe.repository`                  | liveness-probe container image                                | `/oss/kubernetes-csi/livenessprobe`                |
 | `image.livenessProbe.tag`                         | liveness-probe container image tag                            | `v2.19.0`                                                            |

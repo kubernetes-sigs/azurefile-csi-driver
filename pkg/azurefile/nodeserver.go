@@ -792,6 +792,21 @@ func (d *Driver) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolume
 
 	klog.V(2).Infof("NodeUnstageVolume: unmount volume %s on %s successfully", volumeID, stagingTargetPath)
 
+	// Best effort removal of any per-volume workload-identity token cache file
+	// written by GetAccountInfo for this volume.
+	if runtime.GOOS != "windows" {
+		tokenFileGlob := filepath.Join(defaultAzureOAuthTokenDir, "*-"+hashVolumeIDForTokenFile(volumeID))
+		if matches, globErr := filepath.Glob(tokenFileGlob); globErr != nil {
+			klog.Warningf("NodeUnstageVolume: failed to list token cache files for volume %s: %v", volumeID, globErr)
+		} else {
+			for _, tokenFile := range matches {
+				if rmErr := os.Remove(tokenFile); rmErr != nil && !os.IsNotExist(rmErr) {
+					klog.Warningf("NodeUnstageVolume: failed to remove token cache file %s for volume %s: %v", tokenFile, volumeID, rmErr)
+				}
+			}
+		}
+	}
+
 	isOperationSucceeded = true
 	return &csi.NodeUnstageVolumeResponse{}, nil
 }

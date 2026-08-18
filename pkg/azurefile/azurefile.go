@@ -19,7 +19,9 @@ package azurefile
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -118,6 +120,7 @@ const (
 	secretNameField                   = "secretname"
 	createAccountField                = "createaccount"
 	useDataPlaneAPIField              = "usedataplaneapi"
+	metadataField                     = "metadata"
 	storeAccountKeyField              = "storeaccountkey"
 	getLatestAccountKeyField          = "getlatestaccountkey"
 	useSecretCacheField               = "usesecretcache"
@@ -1001,7 +1004,9 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 		if err != nil {
 			return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("failed to parse service account token: %v", err)
 		}
-		tokenFileName := clientID + "-" + accountName
+		// Use volume ID so concurrent mounts with same clientID and SA do not
+		// share a single token file.
+		tokenFileName := clientID + "-" + accountName + "-" + hashVolumeIDForTokenFile(volumeID)
 		if !isValidTokenFileName(tokenFileName) {
 			return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, fmt.Errorf("invalid token file name(%s) generated for clientID(%s) and accountName(%s)", tokenFileName, clientID, accountName)
 		}
@@ -1010,6 +1015,11 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 		existingToken, readErr := os.ReadFile(tokenFilePath)
 		if readErr == nil && string(existingToken) == token {
 			klog.V(4).Infof("the token file(%s) already exists and the token value is the same, no need to rewrite the token file", tokenFilePath)
+			if strings.EqualFold(getValueInMap(reqContext, ephemeralField), trueValue) {
+				// The token file is unchanged, but return token file path so caller
+				// refreshes credential cache via setCredentialCache (inline only).
+				return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, nil
+			}
 			return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, "", nil
 		}
 		// write token to a file
@@ -1740,4 +1750,13 @@ func parseServiceAccountToken(tokenStr string) (string, error) {
 		return "", fmt.Errorf("token for audience %s not found", DefaultTokenAudience)
 	}
 	return token.APIAzureADTokenExchange.Token, nil
+}
+
+// hashVolumeIDForTokenFile returns a filesystem-safe, collision-resistant string
+// derived from the volume ID. It is appended to the workload-identity token cache
+// filename so each volume gets its own token file, preventing concurrent mounts
+// that share a clientID/accountName from racing on a single shared file.
+func hashVolumeIDForTokenFile(volumeID string) string {
+	sum := sha256.Sum256([]byte(volumeID))
+	return hex.EncodeToString(sum[:8])
 }

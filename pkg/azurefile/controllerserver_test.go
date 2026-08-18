@@ -30,6 +30,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
 	armstorage "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v2"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/onsi/ginkgo/v2"
@@ -1548,8 +1549,8 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				gomega.Expect(err).To(gomega.Equal(expectedErr))
 			})
 		})
-		ginkgo.When("Account limit exceeded", func() {
-			ginkgo.It("should fail", func(ctx context.Context) {
+		ginkgo.When("Account limit exceeded on auto-selected account", func() {
+			ginkgo.It("should retry with another matching account", func(ctx context.Context) {
 				name := "baz"
 				SKU := "SKU"
 				kind := "StorageV2"
@@ -1565,7 +1566,6 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 					skuNameField:            "premium",
 					storageAccountTypeField: "stoacctype",
 					locationField:           "loc",
-					storageAccountField:     "stoacc",
 					resourceGroupField:      "rg",
 					shareNameField:          "",
 					diskNameField:           "diskname.vhd",
@@ -1598,6 +1598,48 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				_, err = d.CreateVolume(ctx, req)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
+			})
+		})
+		ginkgo.When("Account limit exceeded on fixed storage account", func() {
+			ginkgo.It("should fail fast without recursively retrying the same account", func(ctx context.Context) {
+				name := "stoacc"
+				SKU := "SKU"
+				kind := "StorageV2"
+				location := "centralus"
+				value := "foo bar"
+				accounts := []*armstorage.Account{
+					{Name: &name, SKU: &armstorage.SKU{Name: to.Ptr(armstorage.SKUName(SKU))}, Kind: to.Ptr(armstorage.Kind(kind)), Location: &location},
+				}
+				keys := []*armstorage.AccountKey{{Value: &value}}
+				allParam := map[string]string{
+					skuNameField:            "premium",
+					storageAccountTypeField: "stoacctype",
+					locationField:           "loc",
+					storageAccountField:     "stoacc",
+					resourceGroupField:      "rg",
+					shareNameField:          "",
+					diskNameField:           "diskname.vhd",
+					fsTypeField:             "",
+					storeAccountKeyField:    "storeaccountkey",
+					secretNamespaceField:    "default",
+				}
+
+				req := &csi.CreateVolumeRequest{
+					Name:               "random-vol-name-fixed-account-limit",
+					VolumeCapabilities: stdVolCap,
+					CapacityRange:      lessThanPremCapRange,
+					Parameters:         allParam,
+				}
+				mockStorageAccountsClient := d.cloud.ComputeClientFactory.GetAccountClient().(*mock_accountclient.MockInterface)
+				mockFileClient.EXPECT().Create(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: nil}}, fmt.Errorf(accountLimitExceedManagementAPI)).Times(1)
+				mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().List(gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
+				mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+				mockFileClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{}, &azcore.ResponseError{StatusCode: http.StatusNotFound}).AnyTimes()
+
+				expectedErr := status.Errorf(codes.Internal, "account(%s) is in %s, wait for a few minutes to retry", "stoacc", accountLimitExceedManagementAPI)
+				_, err := d.CreateVolume(ctx, req)
+				gomega.Expect(err).To(gomega.Equal(expectedErr))
 			})
 		})
 		ginkgo.When("Premium storage account type (SKU) loads from storage account when not given as parameter and share request size is increased to min. size required by premium", func() {
@@ -2357,6 +2399,28 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 					expectedErr: status.Errorf(codes.InvalidArgument, "invalid %s: %s in snapshot storage class", useDataPlaneAPIField, "invalid"),
 				},
 				{
+					desc: "Invalid snapshot metadata",
+					req: &csi.CreateSnapshotRequest{
+						SourceVolumeId: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID",
+						Name:           "snapname",
+						Parameters: map[string]string{
+							"metadata": "comment",
+						},
+					},
+					expectedErrMsg: "invalid metadata in snapshot storage class",
+				},
+				{
+					desc: "Reserved snapshot metadata",
+					req: &csi.CreateSnapshotRequest{
+						SourceVolumeId: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID",
+						Name:           "snapname",
+						Parameters: map[string]string{
+							"metadata": "Initiator=custom",
+						},
+					},
+					expectedErr: status.Errorf(codes.InvalidArgument, "%q is reserved snapshot metadata", snapshotNameKey),
+				},
+				{
 					desc: "Snapshot already exists",
 					req: &csi.CreateSnapshotRequest{
 						SourceVolumeId: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID",
@@ -2383,8 +2447,20 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 					},
 					expectedErrMsg: "failed to check if snapshot(snapname) exists",
 				},
+				{
+					desc: "Create snapshot success with metadata",
+					req: &csi.CreateSnapshotRequest{
+						SourceVolumeId: "rg#f5713de20cde511e8ba4900#fileShareName#diskname.vhd#uuid#namespace#subsID",
+						Name:           "snapname",
+						Parameters: map[string]string{
+							"metadata": "comment=snapshot before migration,environment=production",
+						},
+					},
+					expectedErr: nil,
+				},
 			}
 
+			var createdShare armstorage.FileShare
 			for _, test := range tests {
 				if test.desc == "Snapshot already exists" {
 					mockFileClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return([]*armstorage.FileShareItem{
@@ -2419,13 +2495,17 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 							ShareQuota: to.Ptr(int32(100)),
 						},
 					}, nil).AnyTimes()
-					mockFileClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{
-						Name: to.Ptr("fileShareName"),
-						FileShareProperties: &armstorage.FileShareProperties{
-							SnapshotTime: to.Ptr(time.Now()),
-							ShareQuota:   to.Ptr(int32(0)),
-						},
-					}, nil).AnyTimes()
+					mockFileClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+						func(_ context.Context, _, _, _ string, resource armstorage.FileShare, _ *string) (*armstorage.FileShare, error) {
+							createdShare = resource
+							return &armstorage.FileShare{
+								Name: to.Ptr("fileShareName"),
+								FileShareProperties: &armstorage.FileShareProperties{
+									SnapshotTime: to.Ptr(time.Now()),
+									ShareQuota:   to.Ptr(int32(0)),
+								},
+							}, nil
+						}).AnyTimes()
 				}
 
 				_, err := d.CreateSnapshot(context.Background(), test.req)
@@ -2438,10 +2518,45 @@ var _ = ginkgo.Describe("CreateSnapshot", func() {
 				} else {
 					gomega.Expect(err).To(gomega.BeNil())
 				}
+
+				if test.desc == "Create snapshot success with metadata" {
+					gomega.Expect(createdShare.FileShareProperties.Metadata).To(gomega.HaveKeyWithValue("comment", to.Ptr("snapshot before migration")))
+					gomega.Expect(createdShare.FileShareProperties.Metadata).To(gomega.HaveKeyWithValue("environment", to.Ptr("production")))
+					gomega.Expect(createdShare.FileShareProperties.Metadata).To(gomega.HaveKeyWithValue(snapshotNameKey, to.Ptr("snapname")))
+				}
 			}
+		})
+
+		ginkgo.It("passes metadata to the data-plane snapshot request", func(ctx context.Context) {
+			var capturedOptions *share.CreateSnapshotOptions
+			shareClient := &fakeSnapshotShareClient{
+				createSnapshot: func(_ context.Context, options *share.CreateSnapshotOptions) (share.CreateSnapshotResponse, error) {
+					capturedOptions = options
+					return share.CreateSnapshotResponse{}, nil
+				},
+			}
+
+			_, err := createShareSnapshot(ctx, shareClient, getSnapshotMetadata("snapname", map[string]string{
+				"comment":     "snapshot before migration",
+				"environment": "production",
+			}))
+
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(capturedOptions.Metadata).To(gomega.HaveKeyWithValue(snapshotNameKey, to.Ptr("snapname")))
+			gomega.Expect(capturedOptions.Metadata).To(gomega.HaveKeyWithValue("comment", to.Ptr("snapshot before migration")))
+			gomega.Expect(capturedOptions.Metadata).To(gomega.HaveKeyWithValue("environment", to.Ptr("production")))
 		})
 	})
 })
+
+type fakeSnapshotShareClient struct {
+	createSnapshot func(context.Context, *share.CreateSnapshotOptions) (share.CreateSnapshotResponse, error)
+}
+
+func (f *fakeSnapshotShareClient) CreateSnapshot(ctx context.Context, options *share.CreateSnapshotOptions) (share.CreateSnapshotResponse, error) {
+	return f.createSnapshot(ctx, options)
+}
+
 var _ = ginkgo.DescribeTable("DeleteSnapshot", func(req *csi.DeleteSnapshotRequest, expectedErr error) {
 	d := NewFakeDriver()
 	d.cloud = &storage.AccountRepo{}
