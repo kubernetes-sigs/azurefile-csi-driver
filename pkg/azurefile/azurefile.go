@@ -120,6 +120,7 @@ const (
 	secretNameField                   = "secretname"
 	createAccountField                = "createaccount"
 	useDataPlaneAPIField              = "usedataplaneapi"
+	metadataField                     = "metadata"
 	storeAccountKeyField              = "storeaccountkey"
 	getLatestAccountKeyField          = "getlatestaccountkey"
 	useSecretCacheField               = "usesecretcache"
