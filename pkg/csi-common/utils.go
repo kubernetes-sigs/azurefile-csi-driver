@@ -108,8 +108,19 @@ func LogGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, h
 	resp, err := handler(ctx, req)
 	if err != nil {
 		klog.Errorf("GRPC error: %v", err)
-	} else {
-		klog.V(level).Infof("GRPC response: %s", protosanitizer.StripSecrets(resp))
+	} else if klog.V(level).Enabled() {
+		// Only serialize once we know V(level) is enabled so that
+		// protosanitizer's lazy formatting is preserved for disabled levels
+		// (e.g. probe/NodeGetCapabilities at V(6) in production).
+		// Empty response bodies carry zero diagnostic value but dominate node
+		// logs (kubelet reconciles NodePublishVolume/NodeUnpublishVolume on
+		// every sync loop, all of which return "{}" on success). Demote to V(6).
+		respStr := protosanitizer.StripSecrets(resp).String()
+		respLevel := level
+		if respStr == "{}" {
+			respLevel = klog.Level(6)
+		}
+		klog.V(respLevel).Infof("GRPC response: %s", respStr)
 	}
 	return resp, err
 }

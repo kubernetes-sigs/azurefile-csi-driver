@@ -138,7 +138,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 					return nil, err
 				}
 			}
-			klog.V(2).Infof("NodePublishVolume: ephemeral volume(%s) mount on %s", volumeID, target)
+			klog.V(6).Infof("NodePublishVolume: ephemeral volume(%s) mount on %s", volumeID, target)
 			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
 				StagingTargetPath: target,
 				VolumeContext:     context,
@@ -248,7 +248,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	}
 
 	// NodePublishVolume should only alter volume content after the initial successful mount.
-	mnt, err := d.ensureMountPoint(target, os.FileMode(mountPermissions), false)
+	mnt, err := d.ensureMountPoint(target, os.FileMode(mountPermissions), false, false)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Could not mount target %s: %v", target, err)
 	}
@@ -579,7 +579,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	klog.V(2).Infof("cifsMountPath(%v) fstype(%v) volumeID(%v) mountflags(%v) mountOptions(%v) volumeMountGroup(%s)", cifsMountPath, fsType, volumeID, mountFlags, mountOptions, volumeMountGroup)
 
-	isDirMounted, err := d.ensureMountPoint(cifsMountPath, os.FileMode(mountPermissions), true)
+	isDirMounted, err := d.ensureMountPoint(cifsMountPath, os.FileMode(mountPermissions), true, ephemeralVol)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Could not mount target %s: %v", cifsMountPath, err)
 	}
@@ -693,7 +693,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 
 	if isDiskMount {
-		mnt, err := d.ensureMountPoint(targetPath, os.FileMode(mountPermissions), true)
+		mnt, err := d.ensureMountPoint(targetPath, os.FileMode(mountPermissions), true, ephemeralVol)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "mount %s on target %s failed with %v", volumeID, targetPath, err)
 		}
@@ -908,7 +908,10 @@ func (d *Driver) NodeExpandVolume(_ context.Context, _ *csi.NodeExpandVolumeRequ
 
 // ensureMountPoint: create mount point if not exists
 // return <true, nil> if it's already a mounted point otherwise return <false, nil>
-func (d *Driver) ensureMountPoint(target string, perm os.FileMode, shouldUnmount bool) (bool, error) {
+// ephemeralVol indicates whether this call is on the CSI ephemeral (inline) volume
+// short-circuit path; kubelet reconciles those on every sync loop, so the
+// "already mounted" log is demoted to V(6) to avoid log flooding.
+func (d *Driver) ensureMountPoint(target string, perm os.FileMode, shouldUnmount, ephemeralVol bool) (bool, error) {
 	notMnt, err := d.mounter.IsLikelyNotMountPoint(target)
 	if err != nil && !os.IsNotExist(err) {
 		if IsCorruptedDir(target) {
@@ -953,7 +956,11 @@ func (d *Driver) ensureMountPoint(target string, perm os.FileMode, shouldUnmount
 			}
 		}
 		if err == nil {
-			klog.V(2).Infof("already mounted to target %s", target)
+			if ephemeralVol {
+				klog.V(6).Infof("already mounted to target %s", target)
+			} else {
+				klog.V(2).Infof("already mounted to target %s", target)
+			}
 			return !notMnt, nil
 		}
 		if shouldUnmount {
