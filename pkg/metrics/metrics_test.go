@@ -400,6 +400,84 @@ func TestCSIMetricContext_WithLogLevel_Chaining(t *testing.T) {
 	}
 }
 
+func TestCSIMetricContext_ObserveMountWithLabels(t *testing.T) {
+	operationTotal.Reset()
+	mountOperationsTotal.Reset()
+
+	// Failure: account/share recorded (lowercased), sub/rg recorded (lowercased), reason set.
+	NewCSIMetricContext("node_stage_volume_mount").ObserveMountWithLabels(false,
+		Protocol, "cifs",
+		StorageAccount, "MyAccount",
+		FileShare, "MyShare",
+		SubscriptionID, "SUB-ABC",
+		ResourceGroup, "MyRG",
+		MountErrorReason, "enoent")
+
+	// Success: account/share blank, sub/rg still recorded (lowercased), empty reason.
+	NewCSIMetricContext("node_stage_volume_mount").ObserveMountWithLabels(true,
+		Protocol, "cifs",
+		StorageAccount, "MyAccount",
+		FileShare, "MyShare",
+		SubscriptionID, "SUB-ABC",
+		ResourceGroup, "MyRG",
+		MountErrorReason, "")
+
+	families, err := legacyregistry.DefaultGatherer.Gather()
+	if err != nil {
+		t.Fatalf("failed to gather metrics: %v", err)
+	}
+
+	var foundFailure, foundSuccess bool
+	for _, family := range families {
+		// Standalone: must NOT pollute operations_total with the mount operation.
+		if family.GetName() == "azurefile_csi_driver_operations_total" {
+			for _, m := range family.GetMetric() {
+				for _, l := range m.GetLabel() {
+					if l.GetName() == "operation" && l.GetValue() == "node_stage_volume_mount" {
+						t.Errorf("mount operation leaked into operations_total")
+					}
+				}
+			}
+		}
+		if family.GetName() != "azurefile_csi_driver_mount_operations_total" {
+			continue
+		}
+		for _, m := range family.GetMetric() {
+			lbl := make(map[string]string)
+			for _, l := range m.GetLabel() {
+				lbl[l.GetName()] = l.GetValue()
+			}
+			switch lbl["success"] {
+			case "false":
+				foundFailure = true
+				if lbl[StorageAccount] != "myaccount" || lbl[FileShare] != "myshare" {
+					t.Errorf("failure row: expected lowercased account/share, got %v", lbl)
+				}
+				if lbl[SubscriptionID] != "sub-abc" || lbl[ResourceGroup] != "myrg" {
+					t.Errorf("failure row: expected lowercased sub/rg, got %v", lbl)
+				}
+				if lbl[MountErrorReason] != "enoent" {
+					t.Errorf("failure row: expected reason enoent, got %v", lbl)
+				}
+			case "true":
+				foundSuccess = true
+				if lbl[StorageAccount] != "" || lbl[FileShare] != "" {
+					t.Errorf("success row: expected blank account/share, got %v", lbl)
+				}
+				if lbl[SubscriptionID] != "sub-abc" || lbl[ResourceGroup] != "myrg" {
+					t.Errorf("success row: expected sub/rg still set, got %v", lbl)
+				}
+			}
+		}
+	}
+	if !foundFailure {
+		t.Error("expected a failure row in mount_operations_total")
+	}
+	if !foundSuccess {
+		t.Error("expected a success row in mount_operations_total")
+	}
+}
+
 func BenchmarkCSIMetricContext_Observe(b *testing.B) {
 	mc := NewCSIMetricContext("benchmark_test").WithBasicVolumeInfo("test-rg", "test-sub", "test-source")
 	b.ResetTimer()
