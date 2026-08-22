@@ -1940,6 +1940,10 @@ func TestEnsureMountPointEphemeralLogVerbosity(t *testing.T) {
 	}
 
 	buf := new(bytes.Buffer)
+	// klog defaults to logtostderr=true, which bypasses SetOutput. Disable it
+	// so the buffer captures the log output.
+	klog.LogToStderr(false)
+	defer klog.LogToStderr(true)
 	klog.SetOutput(buf)
 	defer klog.SetOutput(io.Discard)
 	var vLevel klog.Level
