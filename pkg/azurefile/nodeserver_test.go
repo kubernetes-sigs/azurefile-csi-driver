@@ -17,10 +17,12 @@ limitations under the License.
 package azurefile
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -44,6 +46,7 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	testingclient "k8s.io/client-go/testing"
+	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
 	"k8s.io/utils/exec"
 	testingexec "k8s.io/utils/exec/testing"
@@ -1918,6 +1921,73 @@ func TestEnsureMountPoint(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(targetTest)
 	assert.NoError(t, err)
+}
+
+func TestEnsureMountPointEphemeralLogVerbosity(t *testing.T) {
+	// The "already mounted to target ..." log is demoted to V(6) for the
+	// ephemeral (CSI inline) volume path to avoid flooding logs on kubelet
+	// republish reconciles. Non-ephemeral callers must keep V(2) visibility.
+	alreadyMountedTarget := "./false_is_likely_ephemeral_target"
+	_ = makeDir(alreadyMountedTarget, 0755)
+	defer func() { _ = os.RemoveAll(alreadyMountedTarget) }()
+
+	d := NewFakeDriver()
+	fakeMounter := &fakeMounter{}
+	fakeExec := &testingexec.FakeExec{ExactOrder: true}
+	d.mounter = &mount.SafeFormatAndMount{
+		Interface: fakeMounter,
+		Exec:      fakeExec,
+	}
+
+	buf := new(bytes.Buffer)
+	klog.SetOutput(buf)
+	defer klog.SetOutput(io.Discard)
+	var vLevel klog.Level
+	defer func() { _ = vLevel.Set("0") }()
+
+	tests := []struct {
+		name         string
+		v            string
+		ephemeralVol bool
+		expectLog    bool
+	}{
+		{
+			name:         "non-ephemeral: already-mounted log is visible at V(2)",
+			v:            "2",
+			ephemeralVol: false,
+			expectLog:    true,
+		},
+		{
+			name:         "ephemeral: already-mounted log is suppressed at V(2)",
+			v:            "2",
+			ephemeralVol: true,
+			expectLog:    false,
+		},
+		{
+			name:         "ephemeral: already-mounted log is visible at V(6)",
+			v:            "6",
+			ephemeralVol: true,
+			expectLog:    true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_ = vLevel.Set(test.v)
+			buf.Reset()
+
+			// shouldUnmount=false hits the fast "already mounted" branch.
+			_, err := d.ensureMountPoint(alreadyMountedTarget, 0777, false, test.ephemeralVol)
+			assert.NoError(t, err)
+			klog.Flush()
+
+			if test.expectLog {
+				assert.Contains(t, buf.String(), "already mounted to target")
+			} else {
+				assert.NotContains(t, buf.String(), "already mounted to target")
+			}
+		})
+	}
 }
 
 func TestMakeDir(t *testing.T) {
