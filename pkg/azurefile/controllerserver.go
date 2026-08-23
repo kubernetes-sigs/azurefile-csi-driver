@@ -448,9 +448,21 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 		protocol = nfs
 		// Configure per-protocol encryption in transit for NFS at account
-		// creation time. Account matching keeps EiT and non-EiT NFS accounts
-		// separate.
+		// creation time. Account matching in cloud-provider-azure is
+		// one-directional: an encryptInTransit=true request may reuse any
+		// existing NFS account (its enforcement comes from client-side TLS
+		// plus the account-level ProtocolSettings.Nfs.EncryptionInTransit
+		// stamped when the driver creates the account), while an
+		// encryptInTransit=false request is prevented from reusing an
+		// account whose EiT is already required.
 		isNFSEncryptionInTransitEnabled = ptr.To(encryptInTransit)
+		// EnableHTTPSTrafficOnly on the account blocks plaintext Azure Files
+		// NFS mounts. Only keep HTTPS-only on when encryptInTransit=true
+		// (client-side TLS via aznfs), otherwise disable it so plaintext NFS
+		// mounts work.
+		if !encryptInTransit {
+			enableHTTPSTrafficOnly = false
+		}
 		// EnableHTTPSTrafficOnly only controls REST and has no effect on NFS
 		// mounts. Skip matching on it so pre-existing NFS accounts (created
 		// when EnableHTTPSTrafficOnly=false was forced) are still reused
@@ -659,7 +671,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				ptr.Deref(allowCrossTenantReplication, true), ptr.Deref(allowSharedKeyAccess, true),
 				ptr.Deref(requiresSmbOAuth, false), ptr.Deref(isMultichannelEnabled, false),
 				enableHTTPSTrafficOnly, publicNetworkAccess, vnetResourceGroup, vnetName, vnetLinkName, subnetName,
-				matchTags, serializeTags(tags), storageEndpointSuffix, encryptInTransit)
+				matchTags, serializeTags(tags), storageEndpointSuffix, ptr.Deref(isNFSEncryptionInTransitEnabled, false))
 			// search in cache first
 			cache, err := d.accountSearchCache.Get(ctx, lockKey, azcache.CacheReadTypeDefault)
 			if err != nil {
