@@ -1417,7 +1417,6 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 		//     via aznfs), and false when EiT=false so plaintext Azure Files
 		//     NFS mounts are not rejected by the server.
 		nfsEncryptInTransitTest := func(ctx context.Context, encryptInTransit string) {
-			name := "nfsacc"
 			SKU := "Premium_LRS"
 			kind := "FileStorage"
 			location := "centralus"
