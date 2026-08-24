@@ -6,7 +6,7 @@
 This article demonstrates how to mount an SMB file share using user-assigned managed identity authentication, without relying on account key authentication.
 
 > [!IMPORTANT]
-> **Inline (ephemeral) CSI volumes are not supported.** Requests with `mountWithManagedIdentity: "true"` on a `csi:` inline volume in a Pod spec are rejected by the node driver. Use a StorageClass (dynamic) or PersistentVolume (static) so the identity and `clientID` are controlled by the cluster admin, not by tenant Pods. This prevents arbitrary Pods from mounting file shares under the node's managed identity.
+> **Managed identity mount is not supported for inline (ephemeral) CSI volumes.** Requests with `mountWithManagedIdentity: "true"` on a `csi:` inline volume in a Pod spec are rejected by the node driver; use a StorageClass (dynamic) or PersistentVolume (static) so the identity and `clientID` are controlled by the cluster admin, not by tenant Pods. Inline volumes remain supported with workload identity (`mountWithWorkloadIdentityToken: "true"`) or secret-based authentication.
 
 > [!NOTE]
 > By default, you can leverage the built-in user-assigned managed identity (kubelet identity) bound to the AKS agent node pool (with the naming convention [`<AKS Cluster Name>-agentpool`](https://docs.microsoft.com/en-us/azure/aks/use-managed-identity#summary-of-managed-identities)).
