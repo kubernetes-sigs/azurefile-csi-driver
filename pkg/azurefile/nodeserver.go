@@ -1257,25 +1257,22 @@ func (d *Driver) canSkipRepublishNodeStage(context map[string]string, target str
 	return err == nil && !notMnt
 }
 
-// allowedInlineSMBMountOptions is a set of mount options that are allowed for ephemeral volumes with inline SMB mounts
-var allowedInlineSMBMountOptions = map[string]struct{}{
-	"acdirmax":     {},
-	"acregmax":     {},
-	"actimeo":      {},
-	"cache":        {},
-	"closetimeo":   {},
-	"dir_mode":     {},
-	"file_mode":    {},
-	"gid":          {},
-	"max_channels": {},
-	"mfsymlinks":   {},
-	"nobrl":        {},
-	"nosharesock":  {},
-	"ro":           {},
-	"sloppy":       {},
-	"uid":          {},
-	"vers":         {},
-	"rw":           {},
+// deniedInlineSMBMountOptions is a set of mount options that are not allowed for ephemeral volumes with inline SMB mounts
+var deniedInlineSMBMountOptions = map[string]struct{}{
+	"bind":          {},
+	"rbind":         {},
+	"cred":          {},
+	"credentials":   {},
+	"addr":          {},
+	"ip":            {},
+	"unc":           {},
+	"target":        {},
+	"path":          {},
+	"sec":           {},
+	"cruid":         {},
+	"upcall_target": {},
+	"cifsacl":       {},
+	"modefromsid":   {},
 }
 
 func validateInlineSMBMountOptions(mountOptions []string) error {
@@ -1286,7 +1283,7 @@ func validateInlineSMBMountOptions(mountOptions []string) error {
 			if key == "" {
 				continue
 			}
-			if _, allowed := allowedInlineSMBMountOptions[strings.ToLower(key)]; !allowed {
+			if _, denied := deniedInlineSMBMountOptions[strings.ToLower(key)]; denied {
 				return fmt.Errorf("mount option %q is not supported for ephemeral volumes", key)
 			}
 		}
@@ -1317,7 +1314,7 @@ func validateInlineVolumeServer(server, accountName, storageEndPointSuffix strin
 		fmt.Sprintf("%s.privatelink.file.%s", secondaryAccount, suffix): {},
 		fmt.Sprintf("%s.privatelink.afs.%s", secondaryAccount, suffix):  {},
 	}
-	if _, ok := allowedHosts[strings.ToLower(strings.TrimSpace(server))]; ok {
+	if _, ok := allowedHosts[strings.TrimSuffix(strings.ToLower(server), ".")]; ok {
 		return nil
 	}
 	if suffix == defaultStorageEndPointSuffix && isAzureDNSZoneStorageHost(host, account) {
