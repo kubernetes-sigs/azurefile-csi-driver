@@ -1055,7 +1055,7 @@ func TestNodeStageVolume(t *testing.T) {
 		serverNameField: "test_servername",
 	}
 	errorSource := `\\test_servername\test_sharename`
-	errorSourceNFS := `test_servername://test_sharename`
+	errorSourceNFS := `test_servername.file.core.windows.net:/test_servername/test_sharename`
 
 	secrets := map[string]string{
 		"accountname": "k8s",
@@ -1650,6 +1650,8 @@ func TestNodeStageVolume(t *testing.T) {
 				},
 				Secrets: secrets,
 			},
+			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount \\\\10.10.24.244\\test_sharename on %v failed with ",
+				sourceTest),
 		},
 		{
 			desc: "[Error] inline volume should reject arbitrary server address",
@@ -1713,6 +1715,8 @@ func TestNodeStageVolume(t *testing.T) {
 				},
 				Secrets: secrets,
 			},
+			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount \\\\k8s.z32.privatelink.file.storage.azure.net\\test_sharename on %v failed with ",
+				sourceTest),
 		},
 	}
 
@@ -1819,6 +1823,16 @@ func TestValidateInlineSMBMountOptions(t *testing.T) {
 			mountOptions: []string{"rw"},
 		},
 		{
+			desc:          "bind option",
+			mountOptions:  []string{"bind"},
+			expectedError: `mount option "bind" is not supported for ephemeral volumes`,
+		},
+		{
+			desc:          "recursive bind option",
+			mountOptions:  []string{"rbind"},
+			expectedError: `mount option "rbind" is not supported for ephemeral volumes`,
+		},
+		{
 			desc:          "cred option",
 			mountOptions:  []string{"cred=/tmp/credentials"},
 			expectedError: `mount option "cred" is not supported for ephemeral volumes`,
@@ -1884,9 +1898,8 @@ func TestValidateInlineSMBMountOptions(t *testing.T) {
 			expectedError: `mount option "modefromsid" is not supported for ephemeral volumes`,
 		},
 		{
-			desc:          "unknown option",
-			mountOptions:  []string{"unknown=value"},
-			expectedError: `mount option "unknown" is not supported for ephemeral volumes`,
+			desc:         "unknown option is not denied",
+			mountOptions: []string{"unknown=value"},
 		},
 	}
 
