@@ -464,10 +464,16 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			enableHTTPSTrafficOnly = false
 		}
 		// EnableHTTPSTrafficOnly only controls REST and has no effect on NFS
-		// mounts. Skip matching on it so pre-existing NFS accounts (created
-		// when EnableHTTPSTrafficOnly=false was forced) are still reused
-		// instead of creating a new account per request.
-		skipHTTPSTrafficOnlyMatch = true
+		// mounts when encryptInTransit=true, so skip matching on it in that
+		// case to reuse pre-existing NFS accounts (created when
+		// EnableHTTPSTrafficOnly=false was forced) instead of creating a new
+		// account per request. For plaintext NFS (encryptInTransit=false),
+		// keep the HTTPS match on: reusing an account with
+		// EnableHTTPSTrafficOnly=true would cause Azure to reject the
+		// plaintext mount, so we must land on an HTTPS-off account.
+		if encryptInTransit {
+			skipHTTPSTrafficOnlyMatch = true
+		}
 		shareProtocol = armstorage.EnabledProtocolsNFS
 		// NFS protocol does not need account key
 		storeAccountKey = false
