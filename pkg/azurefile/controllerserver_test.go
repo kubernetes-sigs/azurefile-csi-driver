@@ -47,6 +47,7 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/accountclient/mock_accountclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/fileshareclient/mock_fileshareclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/fileservicepropertiesclient/mock_fileservicepropertiesclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/mock_azclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/subnetclient/mock_subnetclient"
 	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
@@ -1429,9 +1430,12 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 			}
 
 			allParam := map[string]string{
-				protocolField:         "nfs",
-				skuNameField:          SKU,
-				encryptInTransitField: encryptInTransit,
+				protocolField:          "nfs",
+				skuNameField:           SKU,
+				encryptInTransitField:  encryptInTransit,
+				vnetResourceGroupField: "vnet-rg",
+				vnetNameField:          "nfs-vnet",
+				subnetNameField:        "nfs-subnet",
 			}
 
 			req := &csi.CreateVolumeRequest{
@@ -1440,6 +1444,43 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				CapacityRange:      lessThanPremCapRange,
 				Parameters:         allParam,
 			}
+
+			// Use a fakeCloud with a real Config so updateSubnetServiceEndpoints
+			// and EnsureStorageAccount proceed into the account-create branch.
+			var err error
+			d.cloud, err = storage.NewRepository(
+				config.Config{
+					ResourceGroup: "rg",
+					Location:      location,
+				},
+				&azclient.Environment{},
+				nil,
+				computeClientFactory,
+				networkClientFactory,
+			)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			fakeCloud := d.cloud
+
+			// Mock the subnet client so updateSubnetServiceEndpoints succeeds.
+			mockSubnetClient := mock_subnetclient.NewMockInterface(ctrl)
+			fakeCloud.NetworkClientFactory = mock_azclient.NewMockClientFactory(ctrl)
+			fakeCloud.NetworkClientFactory.(*mock_azclient.MockClientFactory).EXPECT().GetSubnetClient().Return(mockSubnetClient).AnyTimes()
+			mockSubnetClient.EXPECT().Get(gomock.Any(), "vnet-rg", "nfs-vnet", "nfs-subnet", gomock.Any()).Return(
+				&armnetwork.Subnet{
+					Name:       ptr.To("nfs-subnet"),
+					Properties: &armnetwork.SubnetPropertiesFormat{},
+				}, nil).AnyTimes()
+			mockSubnetClient.EXPECT().CreateOrUpdate(gomock.Any(), "vnet-rg", "nfs-vnet", "nfs-subnet", gomock.Any()).Return(nil, nil).AnyTimes()
+
+			// Mock the file service properties client so the NFS EiT branch
+			// in EnsureStorageAccount (which reads/writes account-level
+			// ProtocolSettings.Nfs.EncryptionInTransit) can run to completion
+			// instead of panicking on a nil client.
+			mockFilePropsClient := mock_fileservicepropertiesclient.NewMockInterface(ctrl)
+			computeClientFactory.EXPECT().GetFileServicePropertiesClient().Return(mockFilePropsClient).AnyTimes()
+			computeClientFactory.EXPECT().GetFileServicePropertiesClientForSub(gomock.Any()).Return(mockFilePropsClient, nil).AnyTimes()
+			mockFilePropsClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileServiceProperties{FileServiceProperties: &armstorage.FileServicePropertiesProperties{}}, nil).AnyTimes()
+			mockFilePropsClient.EXPECT().Set(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileServiceProperties{FileServiceProperties: &armstorage.FileServicePropertiesProperties{}}, nil).AnyTimes()
 
 			mockStorageAccountsClient := d.cloud.ComputeClientFactory.GetAccountClient().(*mock_accountclient.MockInterface)
 
@@ -1454,18 +1495,21 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				}).AnyTimes()
 			mockFileClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
 
-			_, err := d.CreateVolume(ctx, req)
-			// The CreateVolume happy path drives dependencies past this test's
-			// mock coverage (private DNS, file service properties, etc.), so
-			// we only assert that the NFS EiT wiring itself does not add new
-			// argument-validation errors. If Create was invoked, verify that
-			// EnableHTTPSTrafficOnly is no longer forced off for NFS accounts.
-			if err == nil && capturedCreateParams != nil && capturedCreateParams.Properties != nil {
-				expectedHTTPSOnly := encryptInTransit == "true"
-				gomega.Expect(ptr.Deref(capturedCreateParams.Properties.EnableHTTPSTrafficOnly, false)).To(gomega.Equal(expectedHTTPSOnly),
-					"EnableHTTPSTrafficOnly on NFS accounts should track encryptInTransit (true→true, false→false)")
+			_, err = d.CreateVolume(ctx, req)
+			// CreateVolume may still fail past this point due to unmocked
+			// dependencies (private DNS zone, file service properties, etc.),
+			// but by then the account Create call must already have been
+			// invoked — assert on the captured params unconditionally so a
+			// regression that skips Create fails this test loudly.
+			gomega.Expect(capturedCreateParams).NotTo(gomega.BeNil(),
+				"account Create must be invoked so the NFS EiT wiring is exercised")
+			gomega.Expect(capturedCreateParams.Properties).NotTo(gomega.BeNil())
+			expectedHTTPSOnly := encryptInTransit == "true"
+			gomega.Expect(ptr.Deref(capturedCreateParams.Properties.EnableHTTPSTrafficOnly, false)).To(gomega.Equal(expectedHTTPSOnly),
+				"EnableHTTPSTrafficOnly on NFS accounts should track encryptInTransit (true→true, false→false)")
+			if err != nil {
+				gomega.Expect(err).NotTo(gomega.MatchError(gomega.ContainSubstring(encryptInTransitField)))
 			}
-			gomega.Expect(err).NotTo(gomega.MatchError(gomega.ContainSubstring(encryptInTransitField)))
 		}
 
 		ginkgo.When("protocol is nfs and encryptInTransit is true", func() {
