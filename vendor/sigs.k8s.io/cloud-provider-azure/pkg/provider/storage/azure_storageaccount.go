@@ -65,6 +65,12 @@ type AccountOptions struct {
 	SubscriptionID                            string
 	Name, Type, Kind, ResourceGroup, Location string
 	EnableHTTPSTrafficOnly                    bool
+	// SkipHTTPSTrafficOnlyMatch skips EnableHTTPSTrafficOnly account matching
+	// during account reuse lookup. Useful for NFS file share callers where
+	// EnableHTTPSTrafficOnly only governs the REST plane and has no effect
+	// on the NFS mount, so existing accounts should be reused regardless of
+	// their EnableHTTPSTrafficOnly value. Has no effect on account creation.
+	SkipHTTPSTrafficOnlyMatch bool
 	// indicate whether create new account when Name is empty or when account does not exists
 	CreateAccount                           bool
 	CreatePrivateEndpoint                   *bool
@@ -80,6 +86,7 @@ type AccountOptions struct {
 	AllowCrossTenantReplication             *bool
 	IsMultichannelEnabled                   *bool
 	IsSmbOAuthEnabled                       *bool
+	IsNFSEncryptionInTransitEnabled         *bool
 	KeyName                                 *string
 	KeyVersion                              *string
 	KeyVaultURI                             *string
@@ -172,6 +179,13 @@ func (az *AccountRepo) getStorageAccounts(ctx context.Context, storageAccountCli
 			}
 
 			if equal, err = az.isDisableFileServiceDeleteRetentionPolicyEqual(ctx, acct, accountOptions); err != nil {
+				return nil, err
+			}
+			if !equal {
+				continue
+			}
+
+			if equal, err = az.isNFSEncryptionInTransitEnabledEqual(ctx, acct, accountOptions); err != nil {
 				return nil, err
 			}
 			if !equal {
@@ -671,7 +685,7 @@ func (az *AccountRepo) EnsureStorageAccount(ctx context.Context, accountOptions 
 			}
 		}
 
-		if accountOptions.DisableFileServiceDeleteRetentionPolicy != nil || accountOptions.IsMultichannelEnabled != nil {
+		if accountOptions.DisableFileServiceDeleteRetentionPolicy != nil || accountOptions.IsMultichannelEnabled != nil || ptr.Deref(accountOptions.IsNFSEncryptionInTransitEnabled, false) {
 			prop, err := az.fileServiceRepo.Get(ctx, accountOptions.SubscriptionID, accountOptions.ResourceGroup, accountName)
 			if err != nil {
 				return "", "", err
@@ -693,7 +707,21 @@ func (az *AccountRepo) EnsureStorageAccount(ctx context.Context, accountOptions 
 			if accountOptions.IsMultichannelEnabled != nil {
 				logger.V(2).Info("enable SMB Multichannel setting on account", "account", accountName, "subscription", subsID, "resourceGroup", resourceGroup)
 				enabled := *accountOptions.IsMultichannelEnabled
-				prop.FileServiceProperties.ProtocolSettings = &armstorage.ProtocolSettings{Smb: &armstorage.SmbSetting{Multichannel: &armstorage.Multichannel{Enabled: &enabled}}}
+				if prop.FileServiceProperties.ProtocolSettings == nil {
+					prop.FileServiceProperties.ProtocolSettings = &armstorage.ProtocolSettings{}
+				}
+				prop.FileServiceProperties.ProtocolSettings.Smb = &armstorage.SmbSetting{Multichannel: &armstorage.Multichannel{Enabled: &enabled}}
+			}
+			if ptr.Deref(accountOptions.IsNFSEncryptionInTransitEnabled, false) {
+				logger.V(2).Info("set NFS EncryptionInTransit setting on account",
+					"required", true,
+					"account", accountName,
+					"subscription", subsID,
+					"resourceGroup", resourceGroup)
+				if prop.FileServiceProperties.ProtocolSettings == nil {
+					prop.FileServiceProperties.ProtocolSettings = &armstorage.ProtocolSettings{}
+				}
+				prop.FileServiceProperties.ProtocolSettings.Nfs = &armstorage.NfsSetting{EncryptionInTransit: &armstorage.EncryptionInTransit{Required: ptr.To(true)}}
 			}
 
 			if err := az.fileServiceRepo.Set(ctx, subsID, resourceGroup, accountName, prop); err != nil {
@@ -1035,6 +1063,15 @@ func isEnableNfsV3PropertyEqual(account *armstorage.Account, accountOptions *Acc
 }
 
 func isEnableHTTPSTrafficOnlyEqual(account *armstorage.Account, accountOptions *AccountOptions) bool {
+	// Callers can opt out of EnableHTTPSTrafficOnly matching for scenarios
+	// where the setting is irrelevant to the mount protocol (e.g. NFS file
+	// shares, where EnableHTTPSTrafficOnly only affects REST traffic). This
+	// preserves account reuse across driver-side cleanups such as
+	// kubernetes-sigs/azurefile-csi-driver#3335 that stop explicitly setting
+	// EnableHTTPSTrafficOnly=false for NFS accounts.
+	if accountOptions.SkipHTTPSTrafficOnlyMatch {
+		return true
+	}
 	return accountOptions.EnableHTTPSTrafficOnly == ptr.Deref(account.Properties.EnableHTTPSTrafficOnly, true)
 }
 
@@ -1118,6 +1155,42 @@ func (az *AccountRepo) isMultichannelEnabledEqual(ctx context.Context, account *
 	}
 
 	return *accountOptions.IsMultichannelEnabled == ptr.Deref(prop.FileServiceProperties.ProtocolSettings.Smb.Multichannel.Enabled, false), nil
+}
+
+func (az *AccountRepo) isNFSEncryptionInTransitEnabledEqual(ctx context.Context, account *armstorage.Account, accountOptions *AccountOptions) (bool, error) {
+	if accountOptions.IsNFSEncryptionInTransitEnabled == nil {
+		return true, nil
+	}
+
+	// An EiT request can reuse any existing account. Enforcement handled by
+	// ProtocolSettings.Nfs.EncryptionInTransit.Required (stamped at account
+	// creation) and client-side TLS. Short circuit prevents EiT requests from
+	// always creating a new account per PVC (Required property is new, no
+	// pre-existing account has it).
+	if *accountOptions.IsNFSEncryptionInTransitEnabled {
+		return true, nil
+	}
+
+	if account.Name == nil {
+		klog.Warningf("account.Name under resource group(%s) is nil", accountOptions.ResourceGroup)
+		return false, nil
+	}
+
+	prop, err := az.fileServiceRepo.Get(ctx, accountOptions.SubscriptionID, accountOptions.ResourceGroup, ptr.Deref(account.Name, ""))
+	if err != nil {
+		return false, err
+	}
+
+	if prop.FileServiceProperties == nil ||
+		prop.FileServiceProperties.ProtocolSettings == nil ||
+		prop.FileServiceProperties.ProtocolSettings.Nfs == nil ||
+		prop.FileServiceProperties.ProtocolSettings.Nfs.EncryptionInTransit == nil {
+		// Account has no NFS EiT requirement, non EiT request may reuse it.
+		return true, nil
+	}
+
+	// Non-EiT request must not reuse an account requiring EiT.
+	return !ptr.Deref(prop.FileServiceProperties.ProtocolSettings.Nfs.EncryptionInTransit.Required, false), nil
 }
 
 func (az *AccountRepo) isDisableFileServiceDeleteRetentionPolicyEqual(ctx context.Context, account *armstorage.Account, accountOptions *AccountOptions) (bool, error) {
