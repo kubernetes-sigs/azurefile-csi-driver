@@ -76,7 +76,7 @@ clientID | Specify the Azure client ID that will be used to create the Azure fil
 allowSharedKeyAccess | Allow or disallow shared key access for storage account created by driver | `true`,`false` | No | `true`
 rootSquashType | specify root squashing behavior on the share. The default is `NoRootSquash` | `AllSquash`, `NoRootSquash`, `RootSquash` | No |
 mountPermissions | mounted folder permissions. The default is `0777`, if set as `0`, driver will not perform `chmod` after mount | `0777` | No |
-encryptInTransit | support [Encrypt in Transit(EiT) for NFS (Preview)](https://learn.microsoft.com/en-us/azure/storage/files/encryption-in-transit-for-nfs-shares) | `true`,`false` | No | `false`
+encryptInTransit | support [Encrypt in Transit(EiT) for NFS](https://learn.microsoft.com/en-us/azure/storage/files/encryption-in-transit-for-nfs-shares). When `true`, per-protocol encryption in transit is configured on the storage account's file service (`ProtocolSettings.Nfs.EncryptionInTransit.Required=true`) only for storage accounts newly created by the driver; the driver never mutates this property on an existing account, and account matching may reuse an existing NFS account whose `Required` is unset or `false`. The account-level `Required=true` setting, once stamped, applies to all NFS shares in that account. GA and available wherever premium (SSD) NFS file shares are offered. When specifying `storageAccount`, do not mix `encryptInTransit` and non-`encryptInTransit` NFS volumes in the same account. | `true`,`false` | No | `false`
 --- | **Following parameters are only for vnet setting, e.g. NFS, private endpoint, service endpoint** | --- | --- |
 vnetResourceGroup | specify vnet resource group where virtual network is | existing resource group name | No | if empty, driver will use the `vnetResourceGroup` value in azure cloud config file
 vnetName | virtual network name | existing virtual network name | No | if empty, driver will use the `vnetName` value in azure cloud config file
@@ -128,7 +128,7 @@ nodeStageSecretRef.namespace | secret namespace | k8s namespace  |  Yes  |
 --- | **Following parameters are only for NFS protocol** | --- | --- |
 volumeAttributes.fsGroupChangePolicy | indicates how volume's ownership will be changed by the driver, pod `securityContext.fsGroupChangePolicy` is ignored  | `OnRootMismatch`(by default), `Always`, `None` | No | `OnRootMismatch`
 volumeAttributes.mountPermissions | mounted folder permissions. The default is `0777` |  | No |
-volumeAttributes.encryptInTransit | support [Encrypt in Transit(EiT) for NFS (Preview)](https://learn.microsoft.com/en-us/azure/storage/files/encryption-in-transit-for-nfs-shares)| `true`,`false` | No | `false`
+volumeAttributes.encryptInTransit | support [Encrypt in Transit(EiT) for NFS](https://learn.microsoft.com/en-us/azure/storage/files/encryption-in-transit-for-nfs-shares)| `true`,`false` | No | `false`
 
  - create a Kubernetes secret for `nodeStageSecretRef.name`
  ```console
