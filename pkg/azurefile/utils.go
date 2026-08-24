@@ -290,16 +290,21 @@ func setKeyValueInMap(m map[string]string, key, value string) {
 	m[key] = value
 }
 
-// caseCollidingKey reports the first key in m that collides with an earlier key
+// caseCollidingKey reports the first keys in m that collides with an earlier keys
 // under case-insensitive (lowercase/ASCII) normalization. The returned
-// string is the normalized (lowercase) key that collided.
+// string is the normalized (lowercase) keys that collided.
 func caseCollidingKey(m map[string]string) (string, bool) {
 	// Since context map contains very limited values, we can use a simple O(n^2) algorithm to check for UNICODE case-insensitive collisions.
 	for validatingKey := range m {
 		for curKey := range m {
 			if validatingKey != curKey {
 				if strings.EqualFold(validatingKey, curKey) {
-					return strings.ToLower(validatingKey), true
+					firstKey := strings.ToLower(validatingKey)
+					secondKey := strings.ToLower(curKey)
+					if secondKey < firstKey {
+						firstKey, secondKey = secondKey, firstKey
+					}
+					return fmt.Sprintf("%s, %s", firstKey, secondKey), true
 				}
 			}
 		}

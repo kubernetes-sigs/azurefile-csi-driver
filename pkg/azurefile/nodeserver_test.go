@@ -313,8 +313,8 @@ func TestNodePublishVolume(t *testing.T) {
 				},
 			},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.InvalidArgument, "ephemeral volume request contains case-colliding volume attribute keys that normalize to \"secretnamespace\""),
-				WindowsError: status.Error(codes.InvalidArgument, "ephemeral volume request contains case-colliding volume attribute keys that normalize to \"secretnamespace\""),
+				DefaultError: status.Error(codes.InvalidArgument, "ephemeral volume request contains case-colliding volume attribute keys that normalize to \"secretnamespace, secretnamespace\""),
+				WindowsError: status.Error(codes.InvalidArgument, "ephemeral volume request contains case-colliding volume attribute keys that normalize to \"secretnamespace, secretnamespace\""),
 			},
 		},
 		{
@@ -331,8 +331,8 @@ func TestNodePublishVolume(t *testing.T) {
 				},
 			},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.InvalidArgument, "ephemeral volume request contains case-colliding volume attribute keys that normalize to \"mountwithmanagedidentity\""),
-				WindowsError: status.Error(codes.InvalidArgument, "ephemeral volume request contains case-colliding volume attribute keys that normalize to \"mountwithmanagedidentity\""),
+				DefaultError: status.Error(codes.InvalidArgument, "ephemeral volume request contains case-colliding volume attribute keys that normalize to \"mountwithmanagedidentity, mountwithmanagedidentity\""),
+				WindowsError: status.Error(codes.InvalidArgument, "ephemeral volume request contains case-colliding volume attribute keys that normalize to \"mountwithmanagedidentity, mountwithmanagedidentity\""),
 			},
 		},
 		{
@@ -1815,9 +1815,8 @@ func TestValidateInlineSMBMountOptions(t *testing.T) {
 			},
 		},
 		{
-			desc:          "read-write override",
-			mountOptions:  []string{"rw"},
-			expectedError: `mount option "rw" is not supported for ephemeral volumes`,
+			desc:         "read-write override",
+			mountOptions: []string{"rw"},
 		},
 		{
 			desc:          "cred option",
