@@ -1275,6 +1275,7 @@ var allowedInlineSMBMountOptions = map[string]struct{}{
 	"sloppy":       {},
 	"uid":          {},
 	"vers":         {},
+	"rw":           {},
 }
 
 func validateInlineSMBMountOptions(mountOptions []string) error {

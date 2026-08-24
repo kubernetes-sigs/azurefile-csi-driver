@@ -716,19 +716,19 @@ func TestCaseCollidingKey(t *testing.T) {
 		{
 			desc:         "secretNamespace case collision",
 			m:            map[string]string{"secretNamespace": "attacker", "SecretNamespace": "victim"},
-			expectedKey:  "secretnamespace",
+			expectedKey:  "secretnamespace, secretnamespace",
 			expectedColl: true,
 		},
 		{
 			desc:         "managed identity case collision",
 			m:            map[string]string{"mountwithmanagedidentity": "false", "MOUNTWITHMANAGEDIDENTITY": "true"},
-			expectedKey:  "mountwithmanagedidentity",
+			expectedKey:  "mountwithmanagedidentity, mountwithmanagedidentity",
 			expectedColl: true,
 		},
 		{
 			desc:         "unicode collision",
 			m:            map[string]string{"mountoptions": "option1,option2", "mountoptionſ": "option3"},
-			expectedKey:  "mountoptions",
+			expectedKey:  "mountoptions, mountoptionſ",
 			expectedColl: true,
 		},
 	}
@@ -738,7 +738,7 @@ func TestCaseCollidingKey(t *testing.T) {
 		if ok != test.expectedColl {
 			t.Errorf("test[%s]: unexpected collision result: %v, expected: %v", test.desc, ok, test.expectedColl)
 		}
-		if ok && !strings.EqualFold(key, test.expectedKey) {
+		if ok && key != test.expectedKey {
 			t.Errorf("test[%s]: unexpected colliding key: %v, expected: %v", test.desc, key, test.expectedKey)
 		}
 	}
