@@ -49,6 +49,7 @@ The Azure File CSI driver exposes the following custom metrics:
 | `azurefile_csi_driver_operation_duration_seconds` | Histogram | `operation`, `success` | Duration of CSI operations in seconds |
 | `azurefile_csi_driver_operations_total` | Counter | `operation`, `success` | Total number of CSI operations |
 | `azurefile_csi_driver_mount_operations_total` | Counter | `operation`, `success`, `protocol`, `storage_account`, `file_share`, `subscription_id`, `resource_group`, `mount_error_reason` | Total number of mount-path executions, labeled with the target share identity and a classified error reason. Used to track mount failures for a single file share across many nodes/clusters/subscriptions. |
+| `azurefile_csi_driver_inline_volume_operations_total` | Counter | `success` | Total number of ephemeral (inline) volume `NodePublishVolume` operations. Incremented only on the inline code path. |
 
 **Label Values:**
 - `operation`: `node_stage_volume`, `node_unstage_volume`, `node_publish_volume`, `node_unpublish_volume`

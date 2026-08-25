@@ -89,6 +89,18 @@ var (
 		},
 		[]string{"operation", "success"},
 	)
+
+	// inlineVolumeOperationsTotal counts ephemeral (inline) volume
+	// NodePublishVolume operations.
+	inlineVolumeOperationsTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      subSystem,
+			Name:           "inline_volume_operations_total",
+			Help:           "Total number of ephemeral (inline) volume NodePublishVolume operations",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"success"},
+	)
 )
 
 func init() {
@@ -96,6 +108,13 @@ func init() {
 	legacyregistry.MustRegister(operationDurationWithLabels)
 	legacyregistry.MustRegister(operationTotal)
 	legacyregistry.MustRegister(mountOperationsTotal)
+	legacyregistry.MustRegister(inlineVolumeOperationsTotal)
+}
+
+// ObserveInlineVolumeOperation records one ephemeral (inline) volume
+// NodePublishVolume operation, incremented only on the inline code path.
+func ObserveInlineVolumeOperation(success bool) {
+	inlineVolumeOperationsTotal.WithLabelValues(strconv.FormatBool(success)).Inc()
 }
 
 // CSIMetricContext represents the context for CSI operation metrics
