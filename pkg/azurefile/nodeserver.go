@@ -92,6 +92,11 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	if context != nil {
 		// ephemeral volume
 		if strings.EqualFold(context[ephemeralField], trueValue) {
+			// Track inline (ephemeral) volume usage independently of persistent
+			// volumes; the outcome is the NodePublishVolume result.
+			defer func() {
+				csiMetrics.ObserveInlineVolumeOperation(returnedErr == nil)
+			}()
 			// Reject case duplicate keys
 			if key, ok := caseCollidingKey(context); ok {
 				return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("ephemeral volume request contains case-colliding volume attribute keys that normalize to %q", key))
