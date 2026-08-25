@@ -1454,7 +1454,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 								VirtualNetworkRules: []*armstorage.VirtualNetworkRule{
 									{
 										VirtualNetworkResourceID: ptr.To(subnetResourceID),
-										Action: to.Ptr(string(armstorage.DefaultActionAllow)),
+										Action:                   to.Ptr(string(armstorage.DefaultActionAllow)),
 									},
 								},
 							},
