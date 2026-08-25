@@ -1423,9 +1423,16 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 			location := "centralus"
 			value := "foo bar"
 			// Optionally seed one pre-existing NFS account with
-			// EnableHTTPSTrafficOnly=true so we can prove:
-			//   - plaintext NFS refuses to reuse it and calls Create,
-			//   - EiT NFS is allowed to reuse it and skips Create.
+			// EnableHTTPSTrafficOnly=true and a matching VNet allow-rule so
+			// we can prove:
+			//   - plaintext NFS refuses to reuse it (HTTPS-only mismatch)
+			//     and calls Create,
+			//   - EiT NFS is allowed to reuse it (SkipHTTPSTrafficOnlyMatch)
+			//     and skips Create.
+			// The subnet resource ID that updateSubnetServiceEndpoints will
+			// produce for vnet-rg/nfs-vnet/nfs-subnet (SubscriptionID is
+			// empty in this test config).
+			subnetResourceID := "/subscriptions//resourceGroups/vnet-rg/providers/Microsoft.Network/virtualNetworks/nfs-vnet/subnets/nfs-subnet"
 			var accounts []*armstorage.Account
 			if preExistingHTTPSOnAccount {
 				accounts = []*armstorage.Account{
@@ -1437,6 +1444,14 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 						Properties: &armstorage.AccountProperties{
 							EnableHTTPSTrafficOnly: ptr.To(true),
 							ProvisioningState:      to.Ptr(armstorage.ProvisioningStateSucceeded),
+							NetworkRuleSet: &armstorage.NetworkRuleSet{
+								VirtualNetworkRules: []*armstorage.VirtualNetworkRule{
+									{
+										VirtualNetworkResourceID: ptr.To(subnetResourceID),
+										Action: to.Ptr(string(armstorage.DefaultActionAllow)),
+									},
+								},
+							},
 						},
 					},
 				}
@@ -1575,6 +1590,12 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 		ginkgo.When("protocol is nfs and encryptInTransit is false with a pre-existing HTTPS-on NFS account", func() {
 			ginkgo.It("must reject reuse of the HTTPS-on account and create a new HTTPS-off account", func(ctx context.Context) {
 				nfsEncryptInTransitTest(ctx, "false", true, true)
+			})
+		})
+
+		ginkgo.When("protocol is nfs and encryptInTransit is true with a pre-existing HTTPS-on NFS account", func() {
+			ginkgo.It("should reuse the HTTPS-on account and skip Create", func(ctx context.Context) {
+				nfsEncryptInTransitTest(ctx, "true", true, false)
 			})
 		})
 
