@@ -1443,7 +1443,13 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 						Kind:     to.Ptr(armstorage.Kind(kind)),
 						Properties: &armstorage.AccountProperties{
 							EnableHTTPSTrafficOnly: ptr.To(true),
-							ProvisioningState:      to.Ptr(armstorage.ProvisioningStateSucceeded),
+							// AccountOptions in this path defaults
+							// AllowBlobPublicAccess=false; the reuse matcher
+							// treats a missing value as true and would
+							// therefore reject reuse before the HTTPS-only
+							// check is exercised, so pin it explicitly.
+							AllowBlobPublicAccess: ptr.To(false),
+							ProvisioningState:     to.Ptr(armstorage.ProvisioningStateSucceeded),
 							NetworkRuleSet: &armstorage.NetworkRuleSet{
 								VirtualNetworkRules: []*armstorage.VirtualNetworkRule{
 									{
@@ -1556,11 +1562,14 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 				gomega.Expect(capturedCreateParams).To(gomega.BeNil(),
 					"pre-existing HTTPS-on NFS account should be reused when encryptInTransit=true, no Create expected")
 			}
-			if encryptInTransit == "true" {
-				// Also assert the post-Create/post-reuse ProtocolSettings.Set
-				// call carried Nfs.EncryptionInTransit.Required=true; a
+			if encryptInTransit == "true" && expectCreate {
+				// Also assert the post-Create ProtocolSettings.Set call
+				// carried Nfs.EncryptionInTransit.Required=true; a
 				// regression that skips this update would leave the account
-				// without EiT enforcement.
+				// without EiT enforcement. Note: this ProtocolSettings.Set
+				// only runs on the create-new-account path in
+				// EnsureStorageAccount, so we don't assert it in the reuse
+				// (expectCreate=false) branch.
 				gomega.Expect(capturedSetProps).NotTo(gomega.BeNil(),
 					"fileServiceProperties.Set must be called to stamp Nfs.EncryptionInTransit.Required=true")
 				gomega.Expect(capturedSetProps.FileServiceProperties).NotTo(gomega.BeNil())
