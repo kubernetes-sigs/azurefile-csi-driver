@@ -23,6 +23,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -323,6 +324,163 @@ func TestIsRetriableError(t *testing.T) {
 		if result != test.expectedBool {
 			t.Errorf("desc: (%s), input: rpcErr(%v), isRetriableError returned with bool(%v), not equal to expectedBool(%v)",
 				test.desc, test.rpcErr, result, test.expectedBool)
+		}
+	}
+}
+
+func TestClassifyMountError(t *testing.T) {
+	tests := []struct {
+		desc     string
+		err      error
+		expected string
+	}{
+		{
+			desc:     "nil error",
+			err:      nil,
+			expected: "",
+		},
+		{
+			desc:     "stale/corrupted mount (typed ESTALE)",
+			err:      &os.PathError{Op: "stat", Path: "/mnt/x", Err: syscall.ESTALE},
+			expected: mountErrorStale,
+		},
+		{
+			desc:     "typed EACCES classified precisely, not stale",
+			err:      &os.PathError{Op: "open", Path: "/mnt/x", Err: syscall.EACCES},
+			expected: mountErrorAccessDenied,
+		},
+		{
+			desc:     "typed EHOSTDOWN classified as network, not stale",
+			err:      &os.PathError{Op: "stat", Path: "/mnt/x", Err: syscall.EHOSTDOWN},
+			expected: mountErrorNetwork,
+		},
+		{
+			desc:     "timed out",
+			err:      errors.New("mount.cifs: mount error(110): Connection timed out"),
+			expected: mountErrorTimeout,
+		},
+		{
+			desc:     "generic timeout keyword",
+			err:      errors.New("context deadline exceeded: operation timeout"),
+			expected: mountErrorTimeout,
+		},
+		{
+			desc:     "proxy grpc deadline exceeded (no timeout keyword)",
+			err:      errors.New("rpc error: code = DeadlineExceeded desc = context deadline exceeded"),
+			expected: mountErrorTimeout,
+		},
+		{
+			desc:     "permission denied",
+			err:      errors.New("mount error: Permission denied"),
+			expected: mountErrorAccessDenied,
+		},
+		{
+			desc:     "cifs error(13)",
+			err:      errors.New("mount.cifs: mount error(13): Permission denied"),
+			expected: mountErrorAccessDenied,
+		},
+		{
+			desc:     "nfs access denied by server",
+			err:      errors.New("mount.nfs: access denied by server while mounting server:/share"),
+			expected: mountErrorAccessDenied,
+		},
+		{
+			desc:     "no such file or directory (transient SMB enoent)",
+			err:      errors.New("mount: no such file or directory"),
+			expected: mountErrorENOENT,
+		},
+		{
+			desc:     "cifs error(2)",
+			err:      errors.New("mount.cifs: mount error(2): No such file or directory"),
+			expected: mountErrorENOENT,
+		},
+		{
+			desc:     "device or resource busy",
+			err:      errors.New("mount.cifs: mount error(16): Device or resource busy"),
+			expected: mountErrorBusy,
+		},
+		{
+			desc:     "target is busy",
+			err:      errors.New("unmount failed: target is busy"),
+			expected: mountErrorBusy,
+		},
+		{
+			desc:     "connection reset",
+			err:      errors.New("read: connection reset by peer"),
+			expected: mountErrorNetwork,
+		},
+		{
+			desc:     "host is down",
+			err:      errors.New("mount.cifs: host is down"),
+			expected: mountErrorNetwork,
+		},
+		{
+			desc:     "no route to host",
+			err:      errors.New("connect: no route to host"),
+			expected: mountErrorNetwork,
+		},
+		{
+			desc:     "connection refused",
+			err:      errors.New("dial tcp: connection refused"),
+			expected: mountErrorNetwork,
+		},
+		{
+			desc:     "cifs error(111)",
+			err:      errors.New("mount.cifs: mount error(111): Connection refused"),
+			expected: mountErrorNetwork,
+		},
+		{
+			desc:     "cifs could not connect / unable to find suitable address",
+			err:      errors.New("mount error(113): could not connect to 10.0.0.4\nUnable to find suitable address."),
+			expected: mountErrorNetwork,
+		},
+		{
+			desc:     "cifs error(115) EINPROGRESS during connect",
+			err:      errors.New("mount.cifs: mount error(115): Operation now in progress"),
+			expected: mountErrorNetwork,
+		},
+		{
+			desc:     "dns resolution failure (getaddrinfo)",
+			err:      errors.New("mount error: could not resolve address for nonexistentacct.file.core.windows.net: Unknown error"),
+			expected: mountErrorNetwork,
+		},
+		{
+			desc:     "status codes only in dmesg fall through to other",
+			err:      errors.New("cifs: STATUS_LOGON_FAILURE"),
+			expected: mountErrorOther,
+		},
+		{
+			desc:     "unclassified error",
+			err:      errors.New("some unexpected failure"),
+			expected: mountErrorOther,
+		},
+	}
+
+	for _, test := range tests {
+		if result := classifyMountError(test.err); result != test.expected {
+			t.Errorf("desc: (%s), input: err(%v), classifyMountError returned (%q), expected (%q)",
+				test.desc, test.err, result, test.expected)
+		}
+	}
+}
+
+func TestFileShareNameForMetric(t *testing.T) {
+	tests := []struct {
+		desc     string
+		input    string
+		expected string
+	}{
+		{desc: "empty", input: "", expected: ""},
+		{desc: "bare share name", input: "myshare", expected: "myshare"},
+		{desc: "share with subpath", input: "myshare/dir1/dir2/dir3", expected: "myshare"},
+		{desc: "share with single subdir", input: "myshare/subdir", expected: "myshare"},
+		{desc: "leading slash", input: "/share/sub", expected: "share"},
+		{desc: "only slash", input: "/", expected: ""},
+	}
+	for _, test := range tests {
+		if result := fileShareNameForMetric(test.input); result != test.expected {
+			t.Errorf("desc: (%s), input: %q, fileShareNameForMetric returned (%q), expected (%q)",
+				test.desc, test.input, result, test.expected)
 		}
 	}
 }
