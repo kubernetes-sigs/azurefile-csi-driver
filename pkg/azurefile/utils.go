@@ -277,17 +277,24 @@ func SetVolumeOwnership(path, gid, policy string) error {
 
 // setKeyValueInMap set key/value pair in map
 // key in the map is case insensitive, if key already exists, overwrite existing value
-// caseCollidingKey reports the first key in m that collides with an earlier key
-// under case-insensitive (lowercase) normalization. The returned
-// string is the normalized (lowercase) key that collided.
+// caseCollidingKey reports the first pair of keys in m that collide under
+// Unicode case folding. The returned string contains the two lowercased keys
+// in lexical order.
 func caseCollidingKey(m map[string]string) (string, bool) {
-	seen := make(map[string]struct{}, len(m))
-	for k := range m {
-		lower := strings.ToLower(k)
-		if _, ok := seen[lower]; ok {
-			return lower, true
+	// Since context map contains very limited values, we can use a simple O(n^2) algorithm to check for UNICODE case-insensitive collisions.
+	for validatingKey := range m {
+		for curKey := range m {
+			if validatingKey != curKey {
+				if strings.EqualFold(validatingKey, curKey) {
+					firstKey := strings.ToLower(validatingKey)
+					secondKey := strings.ToLower(curKey)
+					if secondKey < firstKey {
+						firstKey, secondKey = secondKey, firstKey
+					}
+					return fmt.Sprintf("%s, %s", firstKey, secondKey), true
+				}
+			}
 		}
-		seen[lower] = struct{}{}
 	}
 	return "", false
 }
@@ -443,18 +450,6 @@ func setCredentialCache(server, clientID string) ([]byte, error) {
 	cmd.Env = append(os.Environ(), cmd.Env...)
 	klog.V(2).Infof("Executing command: %q", cmd.String())
 	return cmd.CombinedOutput()
-}
-
-// findLocalMountModeOption returns the first comma-separated option in
-// mountOptions that requests a local bind mount.
-func findLocalMountModeOption(mountOptions string) (string, bool) {
-	for _, opt := range strings.Split(mountOptions, ",") {
-		trimmed := strings.TrimSpace(opt)
-		if strings.EqualFold(trimmed, "bind") || strings.EqualFold(trimmed, "rbind") {
-			return trimmed, true
-		}
-	}
-	return "", false
 }
 
 // validateInlineVolumeMountSource validates that there are no path

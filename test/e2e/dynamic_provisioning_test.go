@@ -1409,7 +1409,11 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 				Cmd: convertToPowershellCommandIfNecessary("echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data"),
 				Volumes: []testsuites.VolumeDetails{
 					{
-						ClaimSize: "100Gi",
+						VolumeID:           "onprem#USERNAME#share",
+						ShareName:          "share",
+						Server:             server,
+						NodeStageSecretRef: secretName,
+						ClaimSize:          "100Gi",
 						MountOptions: []string{
 							"dir_mode=0777",
 							"file_mode=0777",
@@ -1430,14 +1434,9 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 			},
 		}
 
-		test := testsuites.DynamicallyProvisionedInlineVolumeTest{
-			CSIDriver:       testDriver,
-			Pods:            pods,
-			SecretName:      secretName,
-			Server:          server,
-			ShareName:       "share",
-			ReadOnly:        false,
-			CSIInlineVolume: true,
+		test := testsuites.PreProvisionedMultiplePods{
+			CSIDriver: testDriver,
+			Pods:      pods,
 		}
 		test.Run(ctx, cs, ns)
 	})

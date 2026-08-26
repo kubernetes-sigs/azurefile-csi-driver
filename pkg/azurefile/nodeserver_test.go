@@ -483,7 +483,7 @@ func TestNodeStageVolume(t *testing.T) {
 		serverNameField: "test_servername",
 	}
 	errorSource := `\\test_servername\test_sharename`
-	errorSourceNFS := `test_servername://test_sharename`
+	errorSourceNFS := `test_servername.file.test_suffix:/test_servername/test_sharename`
 
 	secrets := map[string]string{
 		"accountname": "k8s",
@@ -654,13 +654,15 @@ func TestNodeStageVolume(t *testing.T) {
 			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
 				VolumeCapability: &stdVolCap,
 				VolumeContext: map[string]string{
-					fsTypeField:       "ext4",
-					protocolField:     "nfs",
-					diskNameField:     "test_disk.vhd",
-					shareNameField:    "test_sharename",
-					serverNameField:   "test_servername",
-					ephemeralField:    "true",
-					mountOptionsField: "test_ephemeral",
+					fsTypeField:                "ext4",
+					protocolField:              "nfs",
+					diskNameField:              "test_disk.vhd",
+					shareNameField:             "test_sharename",
+					serverNameField:            "test_servername.file.test_suffix",
+					ephemeralField:             "true",
+					mountOptionsField:          "test_ephemeral",
+					storageEndpointSuffixField: "test_suffix",
+					storageAccountField:        "test_servername",
 				},
 				Secrets: secrets},
 			execScripts: []ExecArgs{
