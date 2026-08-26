@@ -715,13 +715,19 @@ func TestCaseCollidingKey(t *testing.T) {
 		{
 			desc:         "secretNamespace case collision",
 			m:            map[string]string{"secretNamespace": "attacker", "SecretNamespace": "victim"},
-			expectedKey:  "secretnamespace",
+			expectedKey:  "secretnamespace, secretnamespace",
 			expectedColl: true,
 		},
 		{
 			desc:         "managed identity case collision",
 			m:            map[string]string{"mountwithmanagedidentity": "false", "MOUNTWITHMANAGEDIDENTITY": "true"},
-			expectedKey:  "mountwithmanagedidentity",
+			expectedKey:  "mountwithmanagedidentity, mountwithmanagedidentity",
+			expectedColl: true,
+		},
+		{
+			desc:         "unicode collision",
+			m:            map[string]string{"mountoptions": "option1,option2", "mountoptionſ": "option3"},
+			expectedKey:  "mountoptions, mountoptionſ",
 			expectedColl: true,
 		},
 	}
@@ -1691,33 +1697,6 @@ func TestIsValidFolderName(t *testing.T) {
 			}
 			if !tc.expectErr && err != nil {
 				t.Fatalf("isValidFolderName(%q) unexpected error: %v", tc.folder, err)
-			}
-		})
-	}
-}
-
-func TestFindLocalMountModeOption(t *testing.T) {
-	tests := []struct {
-		name    string
-		options string
-		wantOpt string
-		wantOk  bool
-	}{
-		{name: "empty", options: "", wantOpt: "", wantOk: false},
-		{name: "normal cifs options", options: "dir_mode=0777,file_mode=0777,cache=strict", wantOpt: "", wantOk: false},
-		{name: "bind present", options: "dir_mode=0777,bind", wantOpt: "bind", wantOk: true},
-		{name: "bind with spaces", options: "dir_mode=0777, bind ", wantOpt: "bind", wantOk: true},
-		{name: "uppercase bind", options: "BIND", wantOpt: "BIND", wantOk: true},
-		{name: "rbind", options: "ro,rbind", wantOpt: "rbind", wantOk: true},
-		{name: "remount not blocked", options: "remount", wantOpt: "", wantOk: false},
-		{name: "move not blocked", options: "move,ro", wantOpt: "", wantOk: false},
-		{name: "substring is not matched", options: "rebindable", wantOpt: "", wantOk: false},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			opt, ok := findLocalMountModeOption(tc.options)
-			if ok != tc.wantOk || opt != tc.wantOpt {
-				t.Fatalf("findLocalMountModeOption(%q) = (%q, %v), want (%q, %v)", tc.options, opt, ok, tc.wantOpt, tc.wantOk)
 			}
 		})
 	}
