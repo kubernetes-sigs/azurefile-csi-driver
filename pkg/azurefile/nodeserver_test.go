@@ -486,6 +486,30 @@ func TestNodePublishVolume(t *testing.T) {
 			},
 		},
 		{
+			// Regression guard: an ephemeral request that also carries serviceAccountToken+clientID
+			// must still go through inline-mount-option validation. Ensures denied mount options
+			// cannot be smuggled in via an ephemeral request that would otherwise be routed
+			// through the token+clientID code path.
+			desc: "[Error] Ephemeral volume with serviceAccountToken+clientID must still validate denied mount options",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:   "csi-inline-denied-token-clientid",
+				TargetPath: targetTest,
+				Readonly:   true,
+				VolumeContext: map[string]string{
+					ephemeralField:           "true",
+					shareNameField:           "testshare",
+					serverNameField:          "testaccount.file.core.windows.net",
+					serviceAccountTokenField: "fake-token",
+					clientIDField:            "test-client-id",
+					mountOptionsField:        "nosharesock,bind",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, `mount option "bind" is not supported for ephemeral volumes`),
+				WindowsError: status.Error(codes.InvalidArgument, `mount option "bind" is not supported for ephemeral volumes`),
+			},
+		},
+		{
 			desc: "[Error] Ephemeral volume with mountWithWIToken should preserve storageAccount",
 			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
 				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed84",
