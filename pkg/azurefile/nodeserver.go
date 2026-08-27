@@ -88,18 +88,9 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	mountPermissions := d.mountPermissions
 	context := req.GetVolumeContext()
 	if context != nil {
-		if !strings.EqualFold(getValueInMap(context, mountWithManagedIdentityField), trueValue) && getValueInMap(context, serviceAccountTokenField) != "" && getValueInMap(context, clientIDField) != "" {
-			klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with service account token, clientID: %s", volumeID, target, getValueInMap(context, clientIDField))
-			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
-				StagingTargetPath: target,
-				VolumeContext:     context,
-				VolumeCapability:  volCap,
-				VolumeId:          volumeID,
-			})
-			return &csi.NodePublishVolumeResponse{}, err
-		}
-
-		// ephemeral volume
+		// Run all ephemeral volume validation before any early-return path
+		// (e.g. service-account-token + clientID) to prevent bypassing
+		// security checks via alternate code paths.
 		if strings.EqualFold(context[ephemeralField], trueValue) {
 			// Reject case duplicate keys
 			if key, ok := caseCollidingKey(context); ok {
@@ -142,6 +133,21 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 			if err := d.authorizeInlineVolumeSecret(ctx, context); err != nil {
 				return nil, err
 			}
+		}
+
+		if !strings.EqualFold(getValueInMap(context, mountWithManagedIdentityField), trueValue) && getValueInMap(context, serviceAccountTokenField) != "" && getValueInMap(context, clientIDField) != "" {
+			klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with service account token, clientID: %s", volumeID, target, getValueInMap(context, clientIDField))
+			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
+				StagingTargetPath: target,
+				VolumeContext:     context,
+				VolumeCapability:  volCap,
+				VolumeId:          volumeID,
+			})
+			return &csi.NodePublishVolumeResponse{}, err
+		}
+
+		// ephemeral volume
+		if strings.EqualFold(context[ephemeralField], trueValue) {
 			klog.V(2).Infof("NodePublishVolume: ephemeral volume(%s) mount on %s", volumeID, target)
 			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
 				StagingTargetPath: target,
