@@ -235,6 +235,90 @@ func TestNodePublishVolume(t *testing.T) {
 			},
 		},
 		{
+			desc: "[Error] Ephemeral volume with comma-packed bind option in mountOptions should fail",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:   "csi-inline-denied-bind",
+				TargetPath: targetTest,
+				Readonly:   true,
+				VolumeContext: map[string]string{
+					ephemeralField:    "true",
+					shareNameField:    "testshare",
+					serverNameField:   "testaccount.file.core.windows.net",
+					mountOptionsField: "dir_mode=0777,bind",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "mount option \"bind\" is not supported for ephemeral volumes"),
+				WindowsError: status.Error(codes.InvalidArgument, "mount option \"bind\" is not supported for ephemeral volumes"),
+			},
+		},
+		{
+			desc: "[Error] Ephemeral volume with mixed-case denied option in mountOptions should fail",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:   "csi-inline-denied-mixedcase",
+				TargetPath: targetTest,
+				Readonly:   true,
+				VolumeContext: map[string]string{
+					ephemeralField:    "true",
+					shareNameField:    "testshare",
+					serverNameField:   "testaccount.file.core.windows.net",
+					mountOptionsField: "nosharesock,ADDR=203.0.113.10",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "mount option \"ADDR\" is not supported for ephemeral volumes"),
+				WindowsError: status.Error(codes.InvalidArgument, "mount option \"ADDR\" is not supported for ephemeral volumes"),
+			},
+		},
+		{
+			desc: "[Error] Ephemeral volume with packed denied option in MountFlags capability should fail",
+			req: &csi.NodePublishVolumeRequest{
+				VolumeCapability: &csi.VolumeCapability{
+					AccessMode: &volumeCap,
+					AccessType: &csi.VolumeCapability_Mount{
+						Mount: &csi.VolumeCapability_MountVolume{
+							MountFlags: []string{"nosharesock,sec=krb5"},
+						},
+					},
+				},
+				VolumeId:   "csi-inline-denied-mountflags",
+				TargetPath: targetTest,
+				Readonly:   true,
+				VolumeContext: map[string]string{
+					ephemeralField:  "true",
+					shareNameField:  "testshare",
+					serverNameField: "testaccount.file.core.windows.net",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "mount option \"sec\" is not supported for ephemeral volumes"),
+				WindowsError: status.Error(codes.InvalidArgument, "mount option \"sec\" is not supported for ephemeral volumes"),
+			},
+		},
+		{
+			// Regression guard: an ephemeral request that also carries serviceAccountToken+clientID
+			// must still go through inline-mount-option validation before hitting the token+clientID
+			// early-return path in NodePublishVolume.
+			desc: "[Error] Ephemeral volume with serviceAccountToken+clientID must still validate denied mount options",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:   "csi-inline-denied-token-clientid",
+				TargetPath: targetTest,
+				Readonly:   true,
+				VolumeContext: map[string]string{
+					ephemeralField:           "true",
+					shareNameField:           "testshare",
+					serverNameField:          "testaccount.file.core.windows.net",
+					serviceAccountTokenField: "fake-token",
+					clientIDField:            "test-client-id",
+					mountOptionsField:        "nosharesock,bind",
+				},
+			},
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.InvalidArgument, "mount option \"bind\" is not supported for ephemeral volumes"),
+				WindowsError: status.Error(codes.InvalidArgument, "mount option \"bind\" is not supported for ephemeral volumes"),
+			},
+		},
+		{
 			desc: "[Success] Regular volume mounting with mountWithManagedIdentity should succeed",
 			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
 				VolumeId:          "vol_1",

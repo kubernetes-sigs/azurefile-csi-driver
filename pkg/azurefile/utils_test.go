@@ -1432,6 +1432,14 @@ func TestCaseCollidingKey(t *testing.T) {
 			expectedKey:  "mountwithmanagedidentity, mountwithmanagedidentity",
 			expectedColl: true,
 		},
+		{
+			// Regression guard: Unicode case-folding collision (e.g. "ſ" folds to "s").
+			// Using strings.ToLower here would miss the collision; strings.EqualFold catches it.
+			desc:         "unicode collision",
+			m:            map[string]string{"mountoptions": "option1,option2", "mountoptionſ": "option3"},
+			expectedKey:  "mountoptions, mountoptionſ",
+			expectedColl: true,
+		},
 	}
 
 	for _, test := range tests {
