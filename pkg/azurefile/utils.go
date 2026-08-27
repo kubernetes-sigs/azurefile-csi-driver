@@ -235,18 +235,6 @@ func classifyMountError(err error) string {
 	}
 }
 
-// fileShareNameForMetric returns just the Azure file share name for use as a
-// metric label, stripping any subpath that may be baked into the volumeID share
-// segment (e.g. "share/dir/sub" -> "share") for aggregation. A leading slash is
-// trimmed first so "/share/sub" still resolves to "share" rather than "".
-func fileShareNameForMetric(fileShareName string) string {
-	fileShareName = strings.TrimLeft(fileShareName, "/")
-	if i := strings.IndexByte(fileShareName, '/'); i >= 0 {
-		return fileShareName[:i]
-	}
-	return fileShareName
-}
-
 func isThrottlingError(err error) bool {
 	if err != nil {
 		errMsg := strings.ToLower(err.Error())

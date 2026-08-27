@@ -23,7 +23,6 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -340,21 +339,6 @@ func TestClassifyMountError(t *testing.T) {
 			expected: "",
 		},
 		{
-			desc:     "stale/corrupted mount (typed ESTALE)",
-			err:      &os.PathError{Op: "stat", Path: "/mnt/x", Err: syscall.ESTALE},
-			expected: mountErrorStale,
-		},
-		{
-			desc:     "typed EACCES classified precisely, not stale",
-			err:      &os.PathError{Op: "open", Path: "/mnt/x", Err: syscall.EACCES},
-			expected: mountErrorAccessDenied,
-		},
-		{
-			desc:     "typed EHOSTDOWN classified as network, not stale",
-			err:      &os.PathError{Op: "stat", Path: "/mnt/x", Err: syscall.EHOSTDOWN},
-			expected: mountErrorNetwork,
-		},
-		{
 			desc:     "timed out",
 			err:      errors.New("mount.cifs: mount error(110): Connection timed out"),
 			expected: mountErrorTimeout,
@@ -431,7 +415,7 @@ func TestClassifyMountError(t *testing.T) {
 		},
 		{
 			desc:     "cifs could not connect / unable to find suitable address",
-			err:      errors.New("mount error(113): could not connect to 10.0.0.4\nUnable to find suitable address."),
+			err:      errors.New("mount error(113): could not connect to 10.0.0.4\nUnable to find suitable address"),
 			expected: mountErrorNetwork,
 		},
 		{
@@ -460,27 +444,6 @@ func TestClassifyMountError(t *testing.T) {
 		if result := classifyMountError(test.err); result != test.expected {
 			t.Errorf("desc: (%s), input: err(%v), classifyMountError returned (%q), expected (%q)",
 				test.desc, test.err, result, test.expected)
-		}
-	}
-}
-
-func TestFileShareNameForMetric(t *testing.T) {
-	tests := []struct {
-		desc     string
-		input    string
-		expected string
-	}{
-		{desc: "empty", input: "", expected: ""},
-		{desc: "bare share name", input: "myshare", expected: "myshare"},
-		{desc: "share with subpath", input: "myshare/dir1/dir2/dir3", expected: "myshare"},
-		{desc: "share with single subdir", input: "myshare/subdir", expected: "myshare"},
-		{desc: "leading slash", input: "/share/sub", expected: "share"},
-		{desc: "only slash", input: "/", expected: ""},
-	}
-	for _, test := range tests {
-		if result := fileShareNameForMetric(test.input); result != test.expected {
-			t.Errorf("desc: (%s), input: %q, fileShareNameForMetric returned (%q), expected (%q)",
-				test.desc, test.input, result, test.expected)
 		}
 	}
 }

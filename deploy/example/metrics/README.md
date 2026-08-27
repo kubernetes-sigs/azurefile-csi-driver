@@ -48,19 +48,19 @@ The Azure File CSI driver exposes the following custom metrics:
 |--------|------|--------|-------------|
 | `azurefile_csi_driver_operation_duration_seconds` | Histogram | `operation`, `success` | Duration of CSI operations in seconds |
 | `azurefile_csi_driver_operations_total` | Counter | `operation`, `success` | Total number of CSI operations |
-| `azurefile_csi_driver_mount_operations_total` | Counter | `operation`, `success`, `protocol`, `storage_account`, `file_share`, `subscription_id`, `resource_group`, `mount_error_reason` | Total number of mount-path executions, labeled with the target share identity and a classified error reason. Used to track mount failures for a single file share across many nodes/clusters/subscriptions. |
-| `azurefile_csi_driver_inline_volume_operations_total` | Counter | `success` | Total number of ephemeral (inline) volume `NodePublishVolume` operations. Incremented only on the inline code path. |
+| `azurefile_csi_driver_mount_operations_total` | Counter | `operation`, `success`, `protocol`, `storage_account`, `subscription_id`, `mount_error_reason` | Total number of mount-path executions, labeled with the target storage account identity (on failures) and a classified error reason. Used to track mount failures for a single file share across many nodes/clusters/subscriptions. |
 
 **Label Values:**
-- `operation`: `node_stage_volume`, `node_unstage_volume`, `node_publish_volume`, `node_unpublish_volume`
+- `operation`: `node_stage_volume`, `node_unstage_volume`, `node_publish_volume`, `node_unpublish_volume`, `inline_mount`
 - `success`: `true`, `false`
+
+Ephemeral (inline) volume `NodePublishVolume` calls are tracked through `operations_total` with `operation="inline_mount"`, so they can be distinguished from persistent publishes without a dedicated metric.
 
 **Details of `mount_operations_total`**
 - `operation`: `node_stage_volume_mount` (the mount command).
   - For disk-on-file (vhd) volumes a single `NodeStageVolume` emits two rows: the SMB mount (`protocol="cifs"`) and the inner disk mount (`protocol="disk"`), so filter `protocol="cifs"`/`"nfs"` when counting share mounts to avoid double-counting those volumes.
 - `protocol`: `SMB`/`cifs`, `NFS`/`nfs`, `aznfs`, or `disk`.
-- `storage_account`, `file_share`: the target share's identity. **Populated only on failed mounts** (`success="false"`); successful mounts leave these blank so steady-state cardinality stays bounded to the small set of distinct *failing* shares rather than every share ever mounted on the node.
-- `subscription_id`, `resource_group`: the target's subscription and resource group. Default to the node's own cloud config.
+- `storage_account`, `subscription_id`: the target share's storage account and subscription. **Populated only on failed mounts** (`success="false"`); successful mounts leave these blank so steady-state cardinality stays bounded to the small set of distinct *failing* shares/subscriptions rather than every share ever mounted on the node. `file_share` and `resource_group` are intentionally never recorded (file_share is per-PVC high-cardinality; resource_group adds no attribution value beyond account + subscription).
 - `mount_error_reason`: `""` on success, otherwise one of `timeout`, `network`, `stale` (retryable/transient), `busy` (target/resource busy, often already mounted), `enoent` (ambiguous, see below), `access_denied`, or `other`.
   - **`enoent` is ambiguous, not just "retryable"** for SMB. Kernel returns `mount error(2): No such file or directory` for a truly absent share (SMB2 maps `STATUS_BAD_NETWORK_NAME` to `-ENOENT`, terminal) and a transient tree-connect rejection under overload. `mount.cifs` prints the mapped errno, not status name (which only reaches `dmesg`), so indistinguishable from the mount error alone.
   - The reason is derived only from the mount command's own output (`mount.cifs`/`mount.nfs` stderr and synthesized timeout).

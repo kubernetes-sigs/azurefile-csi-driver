@@ -404,22 +404,18 @@ func TestCSIMetricContext_ObserveMountWithLabels(t *testing.T) {
 	operationTotal.Reset()
 	mountOperationsTotal.Reset()
 
-	// Failure: account/share recorded (lowercased), sub/rg recorded (lowercased), reason set.
+	// Failure: account recorded (lowercased), sub recorded (lowercased), reason set.
 	NewCSIMetricContext("node_stage_volume_mount").ObserveMountWithLabels(false,
 		Protocol, "cifs",
 		StorageAccount, "MyAccount",
-		FileShare, "MyShare",
 		SubscriptionID, "SUB-ABC",
-		ResourceGroup, "MyRG",
 		MountErrorReason, "enoent")
 
-	// Success: account/share blank, sub/rg still recorded (lowercased), empty reason.
+	// Success: account/sub blank, empty reason.
 	NewCSIMetricContext("node_stage_volume_mount").ObserveMountWithLabels(true,
 		Protocol, "cifs",
 		StorageAccount, "MyAccount",
-		FileShare, "MyShare",
 		SubscriptionID, "SUB-ABC",
-		ResourceGroup, "MyRG",
 		MountErrorReason, "")
 
 	families, err := legacyregistry.DefaultGatherer.Gather()
@@ -450,22 +446,22 @@ func TestCSIMetricContext_ObserveMountWithLabels(t *testing.T) {
 			switch lbl["success"] {
 			case "false":
 				foundFailure = true
-				if lbl[StorageAccount] != "myaccount" || lbl[FileShare] != "myshare" {
-					t.Errorf("failure row: expected lowercased account/share, got %v", lbl)
+				if lbl[StorageAccount] != "myaccount" {
+					t.Errorf("failure row: expected lowercased account, got %v", lbl)
 				}
-				if lbl[SubscriptionID] != "sub-abc" || lbl[ResourceGroup] != "myrg" {
-					t.Errorf("failure row: expected lowercased sub/rg, got %v", lbl)
+				if lbl[SubscriptionID] != "sub-abc" {
+					t.Errorf("failure row: expected lowercased sub, got %v", lbl)
 				}
 				if lbl[MountErrorReason] != "enoent" {
 					t.Errorf("failure row: expected reason enoent, got %v", lbl)
 				}
 			case "true":
 				foundSuccess = true
-				if lbl[StorageAccount] != "" || lbl[FileShare] != "" {
-					t.Errorf("success row: expected blank account/share, got %v", lbl)
+				if lbl[StorageAccount] != "" {
+					t.Errorf("success row: expected blank account, got %v", lbl)
 				}
-				if lbl[SubscriptionID] != "sub-abc" || lbl[ResourceGroup] != "myrg" {
-					t.Errorf("success row: expected sub/rg still set, got %v", lbl)
+				if lbl[SubscriptionID] != "" {
+					t.Errorf("success row: expected blank sub, got %v", lbl)
 				}
 			}
 		}
