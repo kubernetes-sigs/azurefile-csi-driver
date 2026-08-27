@@ -35,13 +35,10 @@ const (
 	// MountErrorReason classifies why a mount command failed (timeout, enoent,
 	// access_denied, network, stale, busy, other). Empty on success.
 	MountErrorReason = "mount_error_reason"
-	// StorageAccount and FileShare identify the mount target.
+	// StorageAccount identifies the mount target's storage account (on failure).
 	StorageAccount = "storage_account"
-	FileShare      = "file_share"
-	// SubscriptionID identifies the subscription that owns the mount target.
+	// SubscriptionID identifies the subscription that owns the mount target (on failure).
 	SubscriptionID = "subscription_id"
-	// ResourceGroup identifies the resource group that owns the mount target.
-	ResourceGroup = "resource_group"
 )
 
 var (
@@ -68,8 +65,9 @@ var (
 	)
 
 	// mountOperationsTotal is a dedicated counter for mount-path operations. It
-	// carries the full identity of the mount target plus an error reason so a
-	// single failing share can be tracked across nodes and subscriptions.
+	// carries the identity of the mount target plus an error reason so a
+	// single failing share can be tracked across nodes. storage_account and
+	// subscription_id are recorded only on failures to keep cardinality bounded.
 	mountOperationsTotal = metrics.NewCounterVec(
 		&metrics.CounterOpts{
 			Subsystem:      subSystem,
@@ -77,7 +75,7 @@ var (
 			Help:           "Total number of mount command executions, labeled by target identity and error reason",
 			StabilityLevel: metrics.ALPHA,
 		},
-		[]string{"operation", "success", Protocol, StorageAccount, FileShare, SubscriptionID, ResourceGroup, MountErrorReason},
+		[]string{"operation", "success", Protocol, StorageAccount, SubscriptionID, MountErrorReason},
 	)
 
 	operationTotal = metrics.NewCounterVec(
@@ -89,18 +87,6 @@ var (
 		},
 		[]string{"operation", "success"},
 	)
-
-	// inlineVolumeOperationsTotal counts ephemeral (inline) volume
-	// NodePublishVolume operations.
-	inlineVolumeOperationsTotal = metrics.NewCounterVec(
-		&metrics.CounterOpts{
-			Subsystem:      subSystem,
-			Name:           "inline_volume_operations_total",
-			Help:           "Total number of ephemeral (inline) volume NodePublishVolume operations",
-			StabilityLevel: metrics.ALPHA,
-		},
-		[]string{"success"},
-	)
 )
 
 func init() {
@@ -108,13 +94,6 @@ func init() {
 	legacyregistry.MustRegister(operationDurationWithLabels)
 	legacyregistry.MustRegister(operationTotal)
 	legacyregistry.MustRegister(mountOperationsTotal)
-	legacyregistry.MustRegister(inlineVolumeOperationsTotal)
-}
-
-// ObserveInlineVolumeOperation records one ephemeral (inline) volume
-// NodePublishVolume operation, incremented only on the inline code path.
-func ObserveInlineVolumeOperation(success bool) {
-	inlineVolumeOperationsTotal.WithLabelValues(strconv.FormatBool(success)).Inc()
 }
 
 // CSIMetricContext represents the context for CSI operation metrics
@@ -227,11 +206,10 @@ func (mc *CSIMetricContext) ObserveWithLabels(success bool, labelPairs ...string
 }
 
 // ObserveMountWithLabels records a mount command execution by incrementing
-// mountOperationsTotal. storage_account and file_share are high-cardinality. In
-// dynamic-provisioning clusters every PVC gets its own share, and a Prometheus
-// CounterVec never evicts series. Monitoring for unhealthy shares only needs
-// per-share attribution on failures, so account/share are recorded only when
-// success is false; successful mounts leave them blank.
+// mountOperationsTotal. storage_account and subscription_id are recorded only
+// when success is false, so the series set stays bounded to distinct failing
+// targets. file_share (roughly one per PVC) and resource_group are never
+// recorded.
 func (mc *CSIMetricContext) ObserveMountWithLabels(success bool, labelPairs ...string) {
 	if len(labelPairs)%2 == 0 {
 		for i := 0; i < len(labelPairs); i += 2 {
@@ -239,10 +217,10 @@ func (mc *CSIMetricContext) ObserveMountWithLabels(success bool, labelPairs ...s
 		}
 	}
 
-	var account, share string
+	var account, subscriptionID string
 	if !success {
 		account = strings.ToLower(mc.labels[StorageAccount])
-		share = strings.ToLower(mc.labels[FileShare])
+		subscriptionID = strings.ToLower(mc.labels[SubscriptionID])
 	}
 
 	mountOperationsTotal.WithLabelValues(
@@ -250,9 +228,7 @@ func (mc *CSIMetricContext) ObserveMountWithLabels(success bool, labelPairs ...s
 		strconv.FormatBool(success),
 		mc.labels[Protocol],
 		account,
-		share,
-		strings.ToLower(mc.labels[SubscriptionID]),
-		strings.ToLower(mc.labels[ResourceGroup]),
+		subscriptionID,
 		mc.labels[MountErrorReason],
 	).Inc()
 }
