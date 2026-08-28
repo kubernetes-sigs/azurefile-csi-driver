@@ -19,6 +19,8 @@ package azurefile
 import (
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -86,18 +88,9 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	mountPermissions := d.mountPermissions
 	context := req.GetVolumeContext()
 	if context != nil {
-		if !strings.EqualFold(getValueInMap(context, mountWithManagedIdentityField), trueValue) && getValueInMap(context, serviceAccountTokenField) != "" && getValueInMap(context, clientIDField) != "" {
-			klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with service account token, clientID: %s", volumeID, target, getValueInMap(context, clientIDField))
-			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
-				StagingTargetPath: target,
-				VolumeContext:     context,
-				VolumeCapability:  volCap,
-				VolumeId:          volumeID,
-			})
-			return &csi.NodePublishVolumeResponse{}, err
-		}
-
-		// ephemeral volume
+		// Run all ephemeral volume validation before any early-return path
+		// (e.g. service-account-token + clientID) to prevent bypassing
+		// security checks via alternate code paths.
 		if strings.EqualFold(context[ephemeralField], trueValue) {
 			// Reject case duplicate keys
 			if key, ok := caseCollidingKey(context); ok {
@@ -118,8 +111,12 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 			if err := validateInlineVolumeMountSource(getValueInMap(context, serverNameField), getValueInMap(context, shareNameField)); err != nil {
 				return nil, status.Error(codes.InvalidArgument, err.Error())
 			}
-			if opt, found := findLocalMountModeOption(getValueInMap(context, mountOptionsField)); found {
-				return nil, status.Errorf(codes.InvalidArgument, "mount option %q is not supported for ephemeral volumes", opt)
+			mountOptions := strings.TrimSpace(getValueInMap(context, mountOptionsField))
+			mountFlags := req.GetVolumeCapability().GetMount().GetMountFlags()
+			inlineMountOptions := append([]string(nil), mountFlags...)
+			inlineMountOptions = append(inlineMountOptions, mountOptions)
+			if err := validateInlineSMBMountOptions(inlineMountOptions); err != nil {
+				return nil, status.Error(codes.InvalidArgument, err.Error())
 			}
 			// When Managed Identity is used for ephemeral volumes then reject the request.
 			// Allowing access for inline volume with identity will open up risk of arbitrary pods accessing fileshares with node identity permissions.
@@ -136,6 +133,21 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 			if err := d.authorizeInlineVolumeSecret(ctx, context); err != nil {
 				return nil, err
 			}
+		}
+
+		if !strings.EqualFold(getValueInMap(context, mountWithManagedIdentityField), trueValue) && getValueInMap(context, serviceAccountTokenField) != "" && getValueInMap(context, clientIDField) != "" {
+			klog.V(2).Infof("NodePublishVolume: volume(%s) mount on %s with service account token, clientID: %s", volumeID, target, getValueInMap(context, clientIDField))
+			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
+				StagingTargetPath: target,
+				VolumeContext:     context,
+				VolumeCapability:  volCap,
+				VolumeId:          volumeID,
+			})
+			return &csi.NodePublishVolumeResponse{}, err
+		}
+
+		// ephemeral volume
+		if strings.EqualFold(context[ephemeralField], trueValue) {
 			klog.V(2).Infof("NodePublishVolume: ephemeral volume(%s) mount on %s", volumeID, target)
 			_, err := d.NodeStageVolume(ctx, &csi.NodeStageVolumeRequest{
 				StagingTargetPath: target,
@@ -410,8 +422,18 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 	defer d.volumeLocks.Release(lockKey)
 
-	if strings.TrimSpace(storageEndpointSuffix) == "" {
-		storageEndpointSuffix = d.getStorageEndPointSuffix()
+	trueStorageEndPointSuffix := d.getStorageEndPointSuffix()
+	if ephemeralVol {
+		requestedSuffix := strings.Trim(strings.TrimSpace(storageEndpointSuffix), ".")
+		trustedSuffix := strings.Trim(strings.TrimSpace(trueStorageEndPointSuffix), ".")
+		if requestedSuffix != "" && !strings.EqualFold(requestedSuffix, trustedSuffix) {
+			return nil, status.Errorf(codes.InvalidArgument, "storageEndpointSuffix %q does not match configured cloud suffix %q", storageEndpointSuffix, trueStorageEndPointSuffix)
+		}
+		// Use the configured suffix for every inline endpoint, including data-plane
+		// requests made by createFolderIfNotExists.
+		storageEndpointSuffix = trueStorageEndPointSuffix
+	} else if strings.TrimSpace(storageEndpointSuffix) == "" {
+		storageEndpointSuffix = trueStorageEndPointSuffix
 	}
 
 	// replace pv/pvc name namespace metadata in fileShareName
@@ -421,6 +443,12 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	if strings.TrimSpace(server) == "" {
 		// server address is "accountname.file.core.windows.net" by default
 		server = fmt.Sprintf("%s.file.%s", accountName, storageEndpointSuffix)
+	}
+	// Validate inline ephemeral volume server.
+	if ephemeralVol {
+		if err := validateInlineVolumeServer(server, accountName, trueStorageEndPointSuffix); err != nil {
+			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid server error: %s", err.Error()))
+		}
 	}
 	source := fmt.Sprintf("%s%s%s%s%s", osSeparator, osSeparator, server, osSeparator, fileShareName)
 	if protocol == nfs {
@@ -987,4 +1015,155 @@ func (d *Driver) authorizeInlineVolumeSecret(ctx context.Context, volumeContext 
 		return deny(fmt.Sprintf("service account %s is not authorized to get it", serviceAccountUser))
 	}
 	return nil
+}
+
+// deniedInlineSMBMountOptions is a set of mount options that are not allowed for ephemeral volumes with inline SMB mounts
+var deniedInlineSMBMountOptions = map[string]struct{}{
+	"bind":          {},
+	"rbind":         {},
+	"cred":          {},
+	"credentials":   {},
+	"addr":          {},
+	"ip":            {},
+	"unc":           {},
+	"target":        {},
+	"path":          {},
+	"sec":           {},
+	"cruid":         {},
+	"upcall_target": {},
+	"cifsacl":       {},
+	"modefromsid":   {},
+}
+
+func validateInlineSMBMountOptions(mountOptions []string) error {
+	for _, options := range mountOptions {
+		for _, option := range strings.Split(options, ",") {
+			key, _, _ := strings.Cut(strings.TrimSpace(option), "=")
+			key = strings.TrimSpace(key)
+			if key == "" {
+				continue
+			}
+			if _, denied := deniedInlineSMBMountOptions[strings.ToLower(key)]; denied {
+				return fmt.Errorf("mount option %q is not supported for ephemeral volumes", key)
+			}
+		}
+	}
+	return nil
+}
+
+func validateInlineVolumeServer(server, accountName, storageEndPointSuffix string) error {
+	account := strings.ToLower(strings.TrimSpace(accountName))
+	suffix := strings.ToLower(strings.Trim(strings.TrimSpace(storageEndPointSuffix), "."))
+	host, err := parseInlineVolumeServer(server)
+	if err != nil {
+		return err
+	}
+
+	if account == "" || suffix == "" {
+		return fmt.Errorf("invalid server configuration: account name or storage endpoint suffix is empty")
+	}
+	secondaryAccount := account + "-secondary"
+	// Allowed server formats:
+	allowedHosts := map[string]struct{}{
+		fmt.Sprintf("%s.file.%s", account, suffix):                      {},
+		fmt.Sprintf("%s.afs.%s", account, suffix):                       {},
+		fmt.Sprintf("%s.privatelink.file.%s", account, suffix):          {},
+		fmt.Sprintf("%s.privatelink.afs.%s", account, suffix):           {},
+		fmt.Sprintf("%s.file.%s", secondaryAccount, suffix):             {},
+		fmt.Sprintf("%s.afs.%s", secondaryAccount, suffix):              {},
+		fmt.Sprintf("%s.privatelink.file.%s", secondaryAccount, suffix): {},
+		fmt.Sprintf("%s.privatelink.afs.%s", secondaryAccount, suffix):  {},
+	}
+	if _, ok := allowedHosts[strings.TrimSuffix(strings.ToLower(server), ".")]; ok {
+		return nil
+	}
+	if suffix == defaultStorageEndPointSuffix && isAzureDNSZoneStorageHost(host, account) {
+		return nil
+	}
+	return fmt.Errorf("invalid server %q: hostname must match storage account %q in the configured Azure cloud", server, accountName)
+}
+
+// parseInlineVolumeServer extracts a normalized hostname from a server value
+// and rejects URL components that are unsafe for inline volumes.
+func parseInlineVolumeServer(server string) (string, error) {
+	if server == "" {
+		return "", fmt.Errorf("server must not be empty")
+	}
+	if strings.TrimSpace(server) != server {
+		return "", fmt.Errorf("server %q must not contain leading or trailing whitespace", server)
+	}
+
+	serverURL := "https://" + server
+	// Always use HTTPS scheme for inline volume server
+
+	parsed, err := url.Parse(serverURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid server %q: %w", server, err)
+	}
+	if !strings.EqualFold(parsed.Scheme, "https") {
+		return "", fmt.Errorf("invalid server %q: only HTTPS endpoints are allowed", server)
+	}
+	if parsed.User != nil {
+		return "", fmt.Errorf("invalid server %q: user information is not allowed", server)
+	}
+	if parsed.Port() != "" {
+		return "", fmt.Errorf("invalid server %q: explicit ports are not allowed", server)
+	}
+	if parsed.Path != "" && parsed.Path != "/" {
+		return "", fmt.Errorf("invalid server %q: paths are not allowed", server)
+	}
+	if parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", fmt.Errorf("invalid server %q: query strings and fragments are not allowed", server)
+	}
+
+	host := strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
+	if host == "" {
+		return "", fmt.Errorf("invalid server %q: hostname is required", server)
+	}
+	if net.ParseIP(host) != nil {
+		return "", fmt.Errorf("invalid server %q: IP addresses are not allowed", server)
+	}
+
+	return host, nil
+}
+
+// isAzureDNSZoneStorageHost validates the public Azure DNS-zone endpoint
+// format without requiring a storage management-plane lookup from the node.
+func isAzureDNSZoneStorageHost(host, account string) bool {
+	parts := strings.Split(host, ".")
+	if len(parts) != 6 && len(parts) != 7 {
+		return false
+	}
+	if parts[0] != account && parts[0] != account+"-secondary" {
+		return false
+	}
+	zone := parts[1]
+	zoneID, hasZonePrefix := strings.CutPrefix(zone, "z")
+	if !hasZonePrefix {
+		return false
+	}
+	if len(zoneID) == 1 &&
+		(zoneID[0] < '1' || zoneID[0] > '9') {
+		return false
+	}
+	if len(zoneID) == 2 &&
+		(zoneID[0] < '1' || zoneID[0] > '9' ||
+			zoneID[1] < '0' || zoneID[1] > '9') {
+		return false
+	}
+	if len(zoneID) < 1 || len(zoneID) > 2 {
+		return false
+	}
+
+	serviceIndex := 2
+	if len(parts) == 7 {
+		if parts[serviceIndex] != "privatelink" {
+			return false
+		}
+		serviceIndex++
+	}
+	if parts[serviceIndex] != "file" && parts[serviceIndex] != "afs" {
+		return false
+	}
+	return strings.Join(parts[serviceIndex+1:], ".") == "storage.azure.net"
 }
