@@ -25,6 +25,8 @@ require (
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/onsi/ginkgo/v2 v2.28.2
 	github.com/onsi/gomega v1.42.1
+	github.com/prometheus/client_model v0.6.2
+	github.com/prometheus/procfs v0.21.1
 	github.com/rubiojr/go-vhd v0.0.0-20200706105327-02e210299021
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/goleak v1.3.0
@@ -106,10 +108,8 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.24.1 // indirect
-	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.70.1 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
-	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/samber/lo v1.53.0 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
