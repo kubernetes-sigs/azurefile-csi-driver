@@ -181,6 +181,7 @@ spec:
               name: azcopy-dir
             - mountPath: /etc/kubernetes/
               name: azure-cred
+              readOnly: true
           resources:
             limits:
               memory: 800Mi
