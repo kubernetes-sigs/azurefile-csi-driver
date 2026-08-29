@@ -441,6 +441,7 @@ const (
 	wiServiceAccountNamespace   = "default"
 	wiFederatedCredentialName   = "azurefile-e2e-wi-fic"
 	wiStorageFileDataSMBMIAdmin = "a235d3ee-5935-4cfb-8cc5-a3303ad5995e" // Storage File Data SMB MI Admin role GUID
+	wiStorageAccountContributor = "17d1049b-9a84-46fb-8f53-869881c3d3ab" // Storage Account Contributor role GUID
 )
 
 // setupWorkloadIdentity configures workload identity for e2e tests:
@@ -524,6 +525,14 @@ func setupWorkloadIdentity(ctx context.Context, cs clientset.Interface, azureCli
 		return "", fmt.Errorf("failed to assign Storage File Data SMB MI Admin role: %v", err)
 	}
 	log.Printf("Assigned Storage File Data SMB MI Admin role to identity")
+
+	// Also assign Storage Account Contributor so account-key-mode WI tests
+	// (without mountWithWorkloadIdentityToken) can retrieve storage keys.
+	err = azureClient.AssignRoleToIdentity(ctx, creds.ResourceGroup, identityInfo.PrincipalID, wiStorageAccountContributor)
+	if err != nil {
+		return "", fmt.Errorf("failed to assign Storage Account Contributor role: %v", err)
+	}
+	log.Printf("Assigned Storage Account Contributor role to identity")
 
 	// Step 6: Verify OIDC JWKS endpoint is accessible
 	if err := waitForOIDCJWKS(oidcIssuerURL, 5*time.Minute); err != nil {

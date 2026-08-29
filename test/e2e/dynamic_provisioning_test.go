@@ -1996,6 +1996,57 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(ctx, cs, defaultNS)
 	})
 
+	ginkgo.It("should create a volume on demand with workload identity account key retrieval [file.csi.azure.com]", ginkgo.Serial, func(ctx ginkgo.SpecContext) {
+		skipIfUsingInTreeVolumePlugin()
+		skipIfTestingInWindowsCluster()
+		skipIfTestingInMigrationCluster()
+		if !isCapzTest {
+			ginkgo.Skip("test case is only available for capz test")
+		}
+
+		// Wait for background AAD OIDC cache warm-up to complete.
+		ginkgo.By("Waiting for AAD OIDC cache warm-up to complete")
+		<-wiReady
+
+		gomega.Expect(wiSetupSucceeded).To(gomega.BeTrue(), "Workload identity setup failed, cannot run WI account key mount test")
+		gomega.Expect(wiClientID).NotTo(gomega.BeEmpty(), "WI client ID not set after background warm-up")
+		gomega.Expect(errWISetup).NotTo(gomega.HaveOccurred(),
+			"background AAD OIDC warm-up failed; WI account key retrieval will not work")
+		clientID := wiClientID
+
+		pods := []testsuites.PodDetails{
+			{
+				Cmd: "echo 'hello world' > /mnt/test-1/data && grep 'hello world' /mnt/test-1/data",
+				Volumes: []testsuites.VolumeDetails{
+					{
+						ClaimSize: "100Gi",
+						VolumeMount: testsuites.VolumeMountDetails{
+							NameGenerate:      "test-volume-",
+							MountPathGenerate: "/mnt/test-",
+						},
+					},
+				},
+			},
+		}
+		// Account-key mode: WI is used to retrieve the storage account key,
+		// then the key is used for the actual SMB mount. No mountWithWorkloadIdentityToken.
+		// Requires Storage Account Contributor role on the managed identity.
+		scParameters := map[string]string{
+			"skuName":  "Premium_LRS",
+			"clientID": clientID,
+		}
+		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
+			CSIDriver:              testDriver,
+			Pods:                   pods,
+			StorageClassParameters: scParameters,
+			ServiceAccountName:     wiServiceAccountName,
+		}
+		// Use default namespace because the federated identity credential is bound to
+		// system:serviceaccount:default:<sa-name>, so the SA must be in default namespace.
+		defaultNS2 := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
+		test.Run(ctx, cs, defaultNS2)
+	})
+
 })
 
 func restClient(group string, version string) (restclientset.Interface, error) {
