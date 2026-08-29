@@ -255,6 +255,7 @@ spec:
               name: azcopy-dir
             - mountPath: /etc/kubernetes/
               name: azure-cred
+              readOnly: true
             {{- if eq .Values.linux.distro "fedora" }}
             - name: ssl
               mountPath: /etc/ssl/certs
