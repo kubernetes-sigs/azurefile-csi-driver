@@ -3,7 +3,7 @@ module sigs.k8s.io/azurefile-csi-driver
 go 1.26.0
 
 require (
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.22.0
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2 v2.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7 v7.3.0
@@ -26,7 +26,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.28.2
 	github.com/onsi/gomega v1.42.1
 	github.com/rubiojr/go-vhd v0.0.0-20200706105327-02e210299021
-	github.com/stretchr/testify v1.11.1
+	github.com/stretchr/testify v1.12.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/mock v0.6.0
 	golang.org/x/net v0.58.0
@@ -44,7 +44,7 @@ require (
 	k8s.io/mount-utils v0.35.0
 	k8s.io/pod-security-admission v0.35.0
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
-	sigs.k8s.io/cloud-provider-azure v1.29.1-0.20260818065303-3fafa12cf169
+	sigs.k8s.io/cloud-provider-azure v1.29.1-0.20260828115804-a25e25e0ffef
 	sigs.k8s.io/cloud-provider-azure/pkg/azclient v0.19.0
 	sigs.k8s.io/cloud-provider-azure/pkg/azclient/configloader v0.14.0
 	sigs.k8s.io/yaml v1.6.0
