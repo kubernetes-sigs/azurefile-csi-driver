@@ -18,6 +18,7 @@ package azurefile
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -156,6 +157,10 @@ const (
 	mountErrorOther        = "other"
 )
 
+// errCredentialCacheSetup marks a managed-identity credential-cache setup
+// failure that happens before the SMB mount is attempted.
+var errCredentialCacheSetup = errors.New("setCredentialCache failed")
+
 // classifyMountError buckets a mount command failure into a small, bounded set
 // of reasons so queries can separate failure modes. For dashboards the reasons
 // can be grouped like:
@@ -207,10 +212,12 @@ func classifyMountError(err error) string {
 	case strings.Contains(msg, "connection reset") ||
 		strings.Contains(msg, "host is down") ||
 		strings.Contains(msg, "no route to host") ||
+		strings.Contains(msg, "network is unreachable") ||
 		strings.Contains(msg, "connection refused") ||
 		strings.Contains(msg, "could not connect to") ||
 		strings.Contains(msg, "could not resolve address") ||
 		strings.Contains(msg, "unable to find suitable address") ||
+		strings.Contains(msg, "error(101)") ||
 		strings.Contains(msg, "error(111)") ||
 		strings.Contains(msg, "error(112)") ||
 		strings.Contains(msg, "error(113)") ||
@@ -218,7 +225,8 @@ func classifyMountError(err error) string {
 		// mount.cifs prints "mount error(<111|113|115>): could not connect to
 		// <ip>" (ECONNREFUSED/EHOSTUNREACH/EINPROGRESS) while cycling addresses,
 		// then "Unable to find suitable address." once exhausted; EHOSTDOWN(112)
-		// prints "mount error(112): Host is down". A getaddrinfo/DNS failure
+		// prints "mount error(112): Host is down"; ENETUNREACH(101) prints
+		// "mount error(101): Network is unreachable". A getaddrinfo/DNS failure
 		// prints "could not resolve address for <host>" (NXDOMAIN for a
 		// deleted/mistyped account, transient SERVFAIL, or DNS server
 		// unreachable). mount.nfs surfaces RPC-layer "Connection refused".

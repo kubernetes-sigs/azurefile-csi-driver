@@ -413,6 +413,11 @@ func TestClassifyMountError(t *testing.T) {
 			expected: mountErrorNetwork,
 		},
 		{
+			desc:     "cifs error(101) network is unreachable",
+			err:      errors.New("mount.cifs: mount error(101): Network is unreachable"),
+			expected: mountErrorNetwork,
+		},
+		{
 			desc:     "cifs could not connect / unable to find suitable address",
 			err:      errors.New("mount error(113): could not connect to 10.0.0.4\nUnable to find suitable address"),
 			expected: mountErrorNetwork,
