@@ -709,10 +709,11 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 				// extra ListKeys call on the next attempt.
 				//
 				// This intentionally also covers the Windows SMB path:
-				// SMBMount on Windows delegates to New-SmbGlobalMapping via
-				// the CSI proxy (see pkg/azurefile/azure_common_windows.go),
-				// which authenticates with the same cached account key, so
-				// the same stale-cache problem applies after key rotation.
+				// SMBMount on Windows also authenticates with the same
+				// cached account key (via New-SmbGlobalMapping when running
+				// inside a host-process container, which is the default
+				// deployment mode today), so the same stale-cache problem
+				// applies after key rotation.
 				usesAccountKey := protocol != nfs && !mountWithManagedIdentity && !mountWithWIToken && !mountWithOAuthToken && clientID == ""
 				if usesAccountKey && accountName != "" && d.accountCacheMap != nil {
 					if dErr := d.accountCacheMap.Delete(accountName); dErr != nil {
