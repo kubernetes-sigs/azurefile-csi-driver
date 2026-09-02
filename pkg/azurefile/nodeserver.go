@@ -685,6 +685,23 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 					csiMetrics.SubscriptionID, subsID, csiMetrics.MountErrorReason, classifyMountError(mountErr))
 			}
 			if mountErr != nil {
+				// Invalidate the cached account key so the next mount retry
+				// re-fetches a fresh key. When a customer rotates their
+				// storage account key, the driver's account key cache
+				// (default TTL 3min, and refreshed on every read) can keep
+				// handing back the stale key for the lifetime of the pod,
+				// because every kubelet retry re-reads and extends the
+				// entry. Dropping it here breaks that loop: the next
+				// NodeStageVolume goes through GetStorageAccesskey ->
+				// GetStorageAccesskeyWithSubsID and picks up the new key.
+				if accountName != "" && d.accountCacheMap != nil {
+					if dErr := d.accountCacheMap.Delete(accountName); dErr != nil {
+						klog.Warningf("NodeStageVolume: failed to invalidate account key cache for %s after mount failure: %v", accountName, dErr)
+					} else {
+						klog.V(2).Infof("NodeStageVolume: invalidated account key cache for %s after mount failure on volume %s", accountName, volumeID)
+					}
+				}
+
 				var helpLinkMsg string
 				if d.appendMountErrorHelpLink {
 					helpLinkMsg = "\nPlease refer to http://aka.ms/filemounterror for possible causes and solutions for mount errors."
