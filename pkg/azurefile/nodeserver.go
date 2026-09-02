@@ -539,6 +539,10 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		cifsMountPath = filepath.Join(filepath.Dir(targetPath), proxyMount)
 	}
 
+	if err := validateSMBCredentialValues(accountName, accountKey); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	var mountOptions, sensitiveMountOptions []string
 	if protocol == nfs {
 		mountOptions = util.JoinMountOptions(mountFlags, []string{"vers=4,minorversion=1,sec=sys"})
