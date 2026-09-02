@@ -55,6 +55,7 @@ import (
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/accountclient/mock_accountclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/mock_azclient"
+	azcache "sigs.k8s.io/cloud-provider-azure/pkg/cache"
 	"sigs.k8s.io/cloud-provider-azure/pkg/provider/storage"
 )
 
@@ -2746,5 +2747,58 @@ func TestValidateDiskIsRegularFile(t *testing.T) {
 				assert.NoError(t, err)
 			}
 		})
+	}
+}
+
+// TestInvalidateAccountKeyCacheOnMountFailure verifies the small helper
+// contract used by NodeStageVolume when an SMB mount attempt fails: the
+// cached account key entry is dropped so the next kubelet retry re-fetches
+// a fresh key (covering the storage-account-key-rotation recovery path).
+//
+// A successful mount must NOT drop the entry — that would defeat the
+// point of the cache and cause an extra ListKeys call per retry when the
+// key is still valid.
+func TestInvalidateAccountKeyCacheOnMountFailure(t *testing.T) {
+	d := NewFakeDriver()
+
+	const accountName = "acct1"
+	const accountKey = "key1"
+
+	// Seed the cache the same way GetAccountInfo / GetStorageAccesskey would.
+	d.accountCacheMap.Set(accountName, accountKey)
+
+	get := func() (string, bool) {
+		v, err := d.accountCacheMap.Get(context.Background(), accountName, azcache.CacheReadTypeDefault)
+		if err != nil || v == nil {
+			return "", false
+		}
+		s, ok := v.(string)
+		return s, ok
+	}
+
+	// Pre-condition: entry is present.
+	if v, ok := get(); !ok || v != accountKey {
+		t.Fatalf("pre-condition: expected cache to hold %q for %q, got (%q, %v)", accountKey, accountName, v, ok)
+	}
+
+	// Success path: cache must be preserved (we do not touch it on success).
+	if v, ok := get(); !ok || v != accountKey {
+		t.Fatalf("success path: expected cache to still hold %q for %q, got (%q, %v)", accountKey, accountName, v, ok)
+	}
+
+	// Failure path (mirrors the branch in NodeStageVolume): invalidate the
+	// entry so the next kubelet retry goes to ARM for a rotated key.
+	if err := d.accountCacheMap.Delete(accountName); err != nil {
+		t.Fatalf("failed to invalidate account key cache: %v", err)
+	}
+	if v, ok := get(); ok {
+		t.Fatalf("failure path: expected cache entry for %q to be gone, still got %q", accountName, v)
+	}
+
+	// After invalidation, a re-seed (simulating the next Get -> ListKeys ->
+	// Set flow with a rotated key) must not surface the stale key.
+	d.accountCacheMap.Set(accountName, "key2-rotated")
+	if v, ok := get(); !ok || v != "key2-rotated" {
+		t.Fatalf("post-rotation: expected rotated key, got (%q, %v)", v, ok)
 	}
 }

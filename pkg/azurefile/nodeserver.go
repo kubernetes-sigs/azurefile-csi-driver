@@ -695,11 +695,16 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 				// NodeStageVolume goes through GetStorageAccesskey ->
 				// GetStorageAccesskeyWithSubsID and picks up the new key.
 				//
-				// Only applies to SMB (CIFS) — NFS mounts don't use the
-				// account key at all (Kerberos / private endpoint /
-				// mount options), so invalidating the cache for NFS is a
-				// pointless extra ListKeys call on every failure.
-				if protocol != nfs && accountName != "" && d.accountCacheMap != nil {
+				// Only applies when the mount actually used the storage
+				// account key:
+				//   - NFS mounts (protocol == nfs) authenticate via
+				//     Kerberos / private endpoint / mount options.
+				//   - SMB with managed identity or workload-identity token
+				//     authenticate via Kerberos.
+				// Invalidating the cache in those cases is a pointless
+				// extra ListKeys call on every failure.
+				usesAccountKey := protocol != nfs && !mountWithManagedIdentity && !mountWithWIToken && clientID == ""
+				if usesAccountKey && accountName != "" && d.accountCacheMap != nil {
 					if dErr := d.accountCacheMap.Delete(accountName); dErr != nil {
 						klog.Warningf("NodeStageVolume: failed to invalidate account key cache for %s after mount failure: %v", accountName, dErr)
 					} else {
