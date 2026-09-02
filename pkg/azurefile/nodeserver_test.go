@@ -2758,6 +2758,15 @@ func TestValidateDiskIsRegularFile(t *testing.T) {
 //     (covers the storage-account-key-rotation recovery path);
 //   - a failed NFS mount (which does not use the account key) preserves
 //     the cache entry, avoiding a wasted ListKeys call.
+//
+// The tests intentionally do NOT pass Secrets on the CSI request. When
+// Secrets carries accountname/accountkey, GetAccountInfo bypasses the
+// cache read entirely and Set()s a fresh value at the end (see
+// azurefile.go: else branch of !hasStorageAccountCredentials), which
+// would make the seeded stale entry irrelevant to the mount attempt.
+// Instead, we drive account-key discovery through the cache path:
+// pre-populate accountCacheMap[accountName], and let GetAccountInfo
+// return that cached value to the SMB mount.
 func TestInvalidateAccountKeyCacheOnMountFailure(t *testing.T) {
 	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
 		t.Skip("skipped on windows/darwin")
@@ -2768,10 +2777,12 @@ func TestInvalidateAccountKeyCacheOnMountFailure(t *testing.T) {
 			Mount: &csi.VolumeCapability_MountVolume{},
 		},
 	}
-	secrets := map[string]string{
-		"accountname": "k8s",
-		"accountkey":  "testkey",
-	}
+
+	const accountName = "k8s"
+	const staleKey = "stale-key-before-rotation"
+	// volumeID format: <rg>#<accountName>#<shareName>#<diskName>#<namespace>#<subsID>
+	// GetFileShareInfo extracts accountName from segment[1].
+	const volumeID = "rg#k8s#test_sharename##"
 
 	get := func(d *Driver, name string) (string, bool) {
 		v, err := d.accountCacheMap.Get(context.Background(), name, azcache.CacheReadTypeDefault)
@@ -2804,68 +2815,80 @@ func TestInvalidateAccountKeyCacheOnMountFailure(t *testing.T) {
 		return d, ctrl
 	}
 
-	t.Run("failed SMB mount invalidates account key cache", func(t *testing.T) {
+	t.Run("failed SMB mount invalidates account key cache and next attempt does not see stale key", func(t *testing.T) {
 		d, ctrl := newDriver(t)
 		defer ctrl.Finish()
 
 		errorMountSensSource := testutil.GetWorkDirPath("error_mount_sens_source_smb_invalidate", t)
 		defer os.RemoveAll(errorMountSensSource)
 
-		d.accountCacheMap.Set("k8s", "testkey")
-		if v, ok := get(d, "k8s"); !ok || v != "testkey" {
+		// Seed the cache with the stale key. GetAccountInfo will read this
+		// via accountCacheMap.Get (no Secrets on the request, so the
+		// hasStorageAccountCredentials branch is not taken).
+		d.accountCacheMap.Set(accountName, staleKey)
+		if v, ok := get(d, accountName); !ok || v != staleKey {
 			t.Fatalf("pre-condition: expected cache to hold seeded key, got (%q, %v)", v, ok)
 		}
 
 		req := &csi.NodeStageVolumeRequest{
-			VolumeId:          "vol_smb_invalidate##",
+			VolumeId:          volumeID,
 			StagingTargetPath: errorMountSensSource,
 			VolumeCapability:  stdVolCap,
 			VolumeContext: map[string]string{
 				fsTypeField:           "smb",
-				diskNameField:         "test_disk.vhd",
 				shareNameField:        "test_sharename",
 				serverNameField:       "test_servername",
 				mountPermissionsField: "0755",
 			},
-			Secrets: secrets,
+			// intentionally no Secrets — force the cache read path.
 		}
 		if _, err := d.NodeStageVolume(context.Background(), req); err == nil {
 			t.Fatalf("expected SMB mount to fail (fake mounter returns error), got nil")
 		}
-		if v, ok := get(d, "k8s"); ok {
-			t.Fatalf("expected cache entry for account %q to be invalidated after SMB mount failure, still got %q", "k8s", v)
+
+		// The failure branch must have dropped the cached entry.
+		if v, ok := get(d, accountName); ok {
+			t.Fatalf("expected cache entry for account %q to be invalidated after SMB mount failure, still got %q", accountName, v)
+		}
+
+		// Simulate the storage-account-key-rotation recovery path: the
+		// next kubelet retry would re-populate the cache from ARM with
+		// the rotated key. Verify a subsequent read returns the rotated
+		// key, not the stale one.
+		const rotatedKey = "rotated-key-after-arm-refresh"
+		d.accountCacheMap.Set(accountName, rotatedKey)
+		if v, ok := get(d, accountName); !ok || v != rotatedKey {
+			t.Fatalf("post-rotation: expected cache to return rotated key, got (%q, %v)", v, ok)
 		}
 	})
 
-	t.Run("NFS mount does not invalidate account key cache", func(t *testing.T) {
+	t.Run("NFS mount preserves account key cache", func(t *testing.T) {
 		d, ctrl := newDriver(t)
 		defer ctrl.Finish()
 
 		stagingTargetPath := testutil.GetWorkDirPath("source_test_nfs_preserve", t)
 		defer os.RemoveAll(stagingTargetPath)
 
-		d.accountCacheMap.Set("k8s", "testkey")
+		d.accountCacheMap.Set(accountName, staleKey)
 
 		req := &csi.NodeStageVolumeRequest{
-			VolumeId:          "vol_nfs_preserve##",
+			VolumeId:          volumeID,
 			StagingTargetPath: stagingTargetPath,
 			VolumeCapability:  stdVolCap,
 			VolumeContext: map[string]string{
 				fsTypeField:           "nfs",
 				protocolField:         "nfs",
-				diskNameField:         "test_disk.vhd",
 				shareNameField:        "test_sharename",
 				serverNameField:       "test_servername",
 				mountPermissionsField: "0755",
 			},
-			Secrets: secrets,
 		}
-		// Ignore the mount outcome: whether the fake mount succeeds or
-		// fails, the NFS branch (protocol == nfs) must never invalidate
-		// the account key cache because the mount does not use it.
+		// Whether the fake NFS mount succeeds or fails, the NFS branch
+		// (protocol == nfs) must never touch the account key cache
+		// because NFS auth does not use the account key.
 		_, _ = d.NodeStageVolume(context.Background(), req)
-		if v, ok := get(d, "k8s"); !ok || v != "testkey" {
-			t.Fatalf("expected cache entry for account %q to be preserved for NFS mount, got (%q, %v)", "k8s", v, ok)
+		if v, ok := get(d, accountName); !ok || v != staleKey {
+			t.Fatalf("expected cache entry for account %q to be preserved for NFS mount, got (%q, %v)", accountName, v, ok)
 		}
 	})
 }

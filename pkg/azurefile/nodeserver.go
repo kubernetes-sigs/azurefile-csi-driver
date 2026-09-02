@@ -686,23 +686,33 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			}
 			if mountErr != nil {
 				// Invalidate the cached account key so the next mount retry
-				// re-fetches a fresh key. When a customer rotates their
-				// storage account key, the driver's account key cache
-				// (default TTL 3min, and refreshed on every read) can keep
-				// handing back the stale key for the lifetime of the pod,
-				// because every kubelet retry re-reads and extends the
-				// entry. Dropping it here breaks that loop: the next
-				// NodeStageVolume goes through GetStorageAccesskey ->
+				// re-fetches a fresh key from ARM. When a customer rotates
+				// their storage account key, the driver's account key cache
+				// (fixed TTL, default 3 minutes; reads do NOT extend the TTL,
+				// see TimedCache.Get in cloud-provider-azure) will keep
+				// serving the stale key until the entry naturally ages out.
+				// While the entry is still fresh, every kubelet retry mounts
+				// with the stale key and fails with `Permission denied`.
+				// Dropping the entry on failure shortens the recovery window
+				// from "up to TTL" to "one retry": the next NodeStageVolume
+				// goes through GetStorageAccesskey ->
 				// GetStorageAccesskeyWithSubsID and picks up the new key.
 				//
 				// Only applies when the mount actually used the storage
-				// account key:
+				// account key. Skipped for auth modes that do not read from
+				// the cache:
 				//   - NFS mounts (protocol == nfs) authenticate via
 				//     Kerberos / private endpoint / mount options.
 				//   - SMB with managed identity, workload-identity token,
 				//     or OAuth token authenticate via Kerberos.
 				// Invalidating the cache in those cases is a pointless
-				// extra ListKeys call on every failure.
+				// extra ListKeys call on the next attempt.
+				//
+				// This intentionally also covers the Windows SMB path:
+				// SMBMount on Windows delegates to New-SmbGlobalMapping via
+				// the CSI proxy (see pkg/azurefile/azure_common_windows.go),
+				// which authenticates with the same cached account key, so
+				// the same stale-cache problem applies after key rotation.
 				usesAccountKey := protocol != nfs && !mountWithManagedIdentity && !mountWithWIToken && !mountWithOAuthToken && clientID == ""
 				if usesAccountKey && accountName != "" && d.accountCacheMap != nil {
 					if dErr := d.accountCacheMap.Delete(accountName); dErr != nil {
