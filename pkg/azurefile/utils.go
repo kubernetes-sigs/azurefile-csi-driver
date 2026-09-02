@@ -415,3 +415,20 @@ func getDefaultBandwidth(requestGiB int, storageAccountType string) *int32 {
 	}
 	return &bandwidth
 }
+
+// containsMountOptionDelimiter reports whether s contains an option separator
+// or terminator.
+func containsMountOptionDelimiter(s string) bool {
+	return strings.ContainsAny(s, ",\n\r\x00")
+}
+
+// validateSMBCredentialValues rejects invalid storage credentials.
+func validateSMBCredentialValues(accountName, accountKey string) error {
+	if containsMountOptionDelimiter(accountName) {
+		return fmt.Errorf("invalid account name: must not contain comma, newline, carriage return or NUL characters")
+	}
+	if containsMountOptionDelimiter(accountKey) {
+		return fmt.Errorf("invalid account key: must not contain comma, newline, carriage return or NUL characters")
+	}
+	return nil
+}
