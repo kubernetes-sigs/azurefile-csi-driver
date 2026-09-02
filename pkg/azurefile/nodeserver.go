@@ -699,11 +699,11 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 				// account key:
 				//   - NFS mounts (protocol == nfs) authenticate via
 				//     Kerberos / private endpoint / mount options.
-				//   - SMB with managed identity or workload-identity token
-				//     authenticate via Kerberos.
+				//   - SMB with managed identity, workload-identity token,
+				//     or OAuth token authenticate via Kerberos.
 				// Invalidating the cache in those cases is a pointless
 				// extra ListKeys call on every failure.
-				usesAccountKey := protocol != nfs && !mountWithManagedIdentity && !mountWithWIToken && clientID == ""
+				usesAccountKey := protocol != nfs && !mountWithManagedIdentity && !mountWithWIToken && !mountWithOAuthToken && clientID == ""
 				if usesAccountKey && accountName != "" && d.accountCacheMap != nil {
 					if dErr := d.accountCacheMap.Delete(accountName); dErr != nil {
 						klog.Warningf("NodeStageVolume: failed to invalidate account key cache for %s after mount failure: %v", accountName, dErr)
