@@ -464,6 +464,23 @@ func validateInlineVolumeMountSource(server, shareName string) error {
 	return nil
 }
 
+// containsMountOptionDelimiter reports whether s contains an option separator
+// or terminator.
+func containsMountOptionDelimiter(s string) bool {
+	return strings.ContainsAny(s, ",\n\r\x00")
+}
+
+// validateSMBCredentialValues rejects invalid storage credentials.
+func validateSMBCredentialValues(accountName, accountKey string) error {
+	if containsMountOptionDelimiter(accountName) {
+		return fmt.Errorf("invalid account name: must not contain comma, newline, carriage return or NUL characters")
+	}
+	if containsMountOptionDelimiter(accountKey) {
+		return fmt.Errorf("invalid account key: must not contain comma, newline, carriage return or NUL characters")
+	}
+	return nil
+}
+
 // getSecretNamespace returns the namespace of the Secret referenced by the
 // volume context, preferring an explicit secretNamespace attribute and
 // falling back to PVC namespace, then to "default".

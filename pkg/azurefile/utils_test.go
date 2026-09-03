@@ -1484,3 +1484,50 @@ func TestValidateInlineVolumeMountSource(t *testing.T) {
 		})
 	}
 }
+
+func TestContainsMountOptionDelimiter(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{"", false},
+		{"abc123+/=", false},
+		{"validbase64key==", false},
+		{"key,extra", true},
+		{"abc,def", true},
+		{"line1\nline2", true},
+		{"line1\rline2", true},
+		{"has\x00nul", true},
+	}
+	for _, tc := range tests {
+		if got := containsMountOptionDelimiter(tc.input); got != tc.expected {
+			t.Errorf("containsMountOptionDelimiter(%q) = %v, want %v", tc.input, got, tc.expected)
+		}
+	}
+}
+
+func TestValidateSMBCredentialValues(t *testing.T) {
+	tests := []struct {
+		name        string
+		accountName string
+		accountKey  string
+		expectErr   bool
+	}{
+		{"valid empty (identity auth)", "", "", false},
+		{"valid account and base64 key", "myaccount", "ZmFrZS1rZXktdmFsdWU+Pj8/", false},
+		{"comma in key value", "myaccount", "abc,def", true},
+		{"comma in key value alt", "myaccount", "key,extra", true},
+		{"newline in key", "myaccount", "abc\ndef", true},
+		{"carriage return in key", "myaccount", "abc\rdef", true},
+		{"nul in key", "myaccount", "abc\x00def", true},
+		{"comma in account name", "my,account", "validkey", true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateSMBCredentialValues(tc.accountName, tc.accountKey)
+			if (err != nil) != tc.expectErr {
+				t.Errorf("validateSMBCredentialValues(%q, <key>) error = %v, expectErr %v", tc.accountName, err, tc.expectErr)
+			}
+		})
+	}
+}
