@@ -71,6 +71,15 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		mc.Observe(returnedErr == nil)
 	}()
 
+	// Track inline (ephemeral) volume usage independently of persistent
+	// volumes; the outcome is the NodePublishVolume result.
+	if strings.EqualFold(req.GetVolumeContext()[ephemeralField], trueValue) {
+		inlineMC := csiMetrics.NewCSIMetricContext("inline_mount")
+		defer func() {
+			inlineMC.Observe(returnedErr == nil)
+		}()
+	}
+
 	volCap := req.GetVolumeCapability()
 	if volCap == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
@@ -323,7 +332,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		mc.WithAdditionalVolumeInfo(VolumeID, volumeID).Observe(returnedErr == nil)
 	}()
 
-	_, accountName, accountKey, fileShareName, diskName, _, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), context)
+	rgName, accountName, accountKey, fileShareName, diskName, subsID, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), context)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("GetAccountInfo(%s) failed with error: %v", volumeID, err))
 	}
@@ -476,6 +485,10 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		cifsMountPath = filepath.Join(filepath.Dir(targetPath), proxyMount)
 	}
 
+	if err := validateSMBCredentialValues(accountName, accountKey); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	var mountOptions, sensitiveMountOptions []string
 	if protocol == nfs {
 		mountOptions = util.JoinMountOptions(mountFlags, []string{"vers=4,minorversion=1,sec=sys"})
@@ -548,8 +561,12 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}
 		if mountFsType == aznfs {
 			klog.V(2).Infof("encryptInTransit is enabled, mount by azurefile-proxy")
-			if err := d.mountWithProxy(ctx, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions); err != nil {
-				return nil, status.Errorf(codes.Internal, "mount with proxy failed for %s with error: %v", cifsMountPath, err)
+			mountMC := csiMetrics.NewCSIMetricContext("node_stage_volume_mount").WithBasicVolumeInfo(rgName, subsID, d.Name)
+			mountErr := d.mountWithProxy(ctx, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions)
+			mountMC.ObserveMountWithLabels(mountErr == nil, csiMetrics.Protocol, mountFsType, csiMetrics.StorageAccount, accountName,
+				csiMetrics.SubscriptionID, subsID, csiMetrics.MountErrorReason, classifyMountError(mountErr))
+			if mountErr != nil {
+				return nil, status.Errorf(codes.Internal, "mount with proxy failed for %s with error: %v", cifsMountPath, mountErr)
 			}
 			klog.V(2).Infof("mount with proxy succeeded for %s", cifsMountPath)
 		} else {
@@ -564,12 +581,16 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			timeoutFunc := func() error {
 				return fmt.Errorf("mount operation timed out after %d seconds: source=%s, target=%s", MountTimeoutInSec, source, cifsMountPath)
 			}
-			if err := volumehelper.WaitUntilTimeout(MountTimeoutInSec*time.Second, execFunc, timeoutFunc); err != nil {
+			mountMC := csiMetrics.NewCSIMetricContext("node_stage_volume_mount").WithBasicVolumeInfo(rgName, subsID, d.Name)
+			mountErr := volumehelper.WaitUntilTimeout(MountTimeoutInSec*time.Second, execFunc, timeoutFunc)
+			mountMC.ObserveMountWithLabels(mountErr == nil, csiMetrics.Protocol, mountFsType, csiMetrics.StorageAccount, accountName,
+				csiMetrics.SubscriptionID, subsID, csiMetrics.MountErrorReason, classifyMountError(mountErr))
+			if mountErr != nil {
 				var helpLinkMsg string
 				if d.appendMountErrorHelpLink {
 					helpLinkMsg = "\nPlease refer to http://aka.ms/filemounterror for possible causes and solutions for mount errors."
 				}
-				return nil, status.Error(codes.Internal, fmt.Sprintf("volume(%s) mount %s on %s failed with %v%s", volumeID, source, cifsMountPath, err, helpLinkMsg))
+				return nil, status.Error(codes.Internal, fmt.Sprintf("volume(%s) mount %s on %s failed with %v%s", volumeID, source, cifsMountPath, mountErr, helpLinkMsg))
 			}
 		}
 		if protocol == nfs {
@@ -644,7 +665,11 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 		klog.V(2).Infof("NodeStageVolume: volume %s formatting %s and mounting at %s with mount options(%s)", volumeID, targetPath, diskPath, options)
 		// FormatAndMount will format only if needed
-		if err := d.mounter.FormatAndMount(diskPath, targetPath, fsType, options); err != nil {
+		mountMC := csiMetrics.NewCSIMetricContext("node_stage_volume_mount").WithBasicVolumeInfo(rgName, subsID, d.Name)
+		mountErr := d.mounter.FormatAndMount(diskPath, targetPath, fsType, options)
+		mountMC.ObserveMountWithLabels(mountErr == nil, csiMetrics.Protocol, "disk", csiMetrics.StorageAccount, accountName,
+			csiMetrics.SubscriptionID, subsID, csiMetrics.MountErrorReason, classifyMountError(mountErr))
+		if mountErr != nil {
 			return nil, status.Error(codes.Internal, fmt.Sprintf("could not format %s and mount it at %s", targetPath, diskPath))
 		}
 		klog.V(2).Infof("NodeStageVolume: volume %s format %s and mounting at %s successfully", volumeID, targetPath, diskPath)

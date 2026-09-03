@@ -35,6 +35,7 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/volume"
+	mount "k8s.io/mount-utils"
 	azureconfig "sigs.k8s.io/cloud-provider-azure/pkg/provider/config"
 )
 
@@ -142,6 +143,99 @@ func isRetriableError(err error) bool {
 		}
 	}
 	return false
+}
+
+// Mount error reason classifications recorded on the mount_error_reason metric label.
+const (
+	mountErrorTimeout      = "timeout"
+	mountErrorENOENT       = "enoent"
+	mountErrorAccessDenied = "access_denied"
+	mountErrorNetwork      = "network"
+	mountErrorStale        = "stale"
+	mountErrorBusy         = "busy"
+	mountErrorOther        = "other"
+)
+
+// classifyMountError buckets a mount command failure into a small, bounded set
+// of reasons so queries can separate failure modes. For dashboards the reasons
+// can be grouped like:
+//   - retryable/transient: timeout, network, stale
+//   - ambiguous:           enoent (see note), busy (target/resource busy, often already mounted)
+//   - terminal:            access_denied
+//
+// Note on enoent: for SMB, kernel surfaces "mount error(2): No such file or
+// directory" for both an absent share (SMB2 maps STATUS_BAD_NETWORK_NAME to
+// -ENOENT, terminal; see fs/smb/client/smb2maperror.c) and a transient
+// tree-connect rejection when the share/account is overloaded (retryable).
+// mount.cifs prints the mapped errno, not the status name
+// (STATUS_BAD_NETWORK_NAME only reaches dmesg), so indistinguishable from mount
+// stderr alone.
+//
+// The string switch runs first (mount.cifs / mount.aznfs stderr and CIFS kernel
+// error codes); mount.IsCorruptedMnt is only a typed fallback so a wrapped
+// syscall error with text matching a bucket (e.g. EACCES -> "permission
+// denied", EHOSTDOWN -> "host is down") is classified rather than collapsed to
+// stale. Returns "" when err is nil.
+func classifyMountError(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "timed out") ||
+		strings.Contains(msg, "timeout") ||
+		strings.Contains(msg, "deadline exceeded"):
+		// mount.cifs/mount.nfs print "timed out", non-proxy path surfaces
+		// "mount operation timed out after N seconds", azurefile-proxy gRPC
+		// path surfaces "context deadline exceeded".
+		return mountErrorTimeout
+	case strings.Contains(msg, "permission denied") ||
+		strings.Contains(msg, "error(13)") ||
+		strings.Contains(msg, "access denied"):
+		// mount.cifs prints "mount error(13): Permission denied". mount.nfs
+		// prints "access denied by server while mounting ...".
+		// STATUS_LOGON_FAILURE / STATUS_ACCESS_DENIED (-EACCES) only appears in
+		// dmesg, not mount stderr.
+		return mountErrorAccessDenied
+	case strings.Contains(msg, "error(16)") ||
+		strings.Contains(msg, "device or resource busy") ||
+		strings.Contains(msg, "target is busy"):
+		return mountErrorBusy
+	case strings.Contains(msg, "no such file or directory") ||
+		strings.Contains(msg, "error(2)"):
+		return mountErrorENOENT
+	case strings.Contains(msg, "connection reset") ||
+		strings.Contains(msg, "host is down") ||
+		strings.Contains(msg, "no route to host") ||
+		strings.Contains(msg, "network is unreachable") ||
+		strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "could not connect to") ||
+		strings.Contains(msg, "could not resolve address") ||
+		strings.Contains(msg, "unable to find suitable address") ||
+		strings.Contains(msg, "error(101)") ||
+		strings.Contains(msg, "error(111)") ||
+		strings.Contains(msg, "error(112)") ||
+		strings.Contains(msg, "error(113)") ||
+		strings.Contains(msg, "error(115)"):
+		// mount.cifs prints "mount error(<111|113|115>): could not connect to
+		// <ip>" (ECONNREFUSED/EHOSTUNREACH/EINPROGRESS) while cycling addresses,
+		// then "Unable to find suitable address." once exhausted; EHOSTDOWN(112)
+		// prints "mount error(112): Host is down"; ENETUNREACH(101) prints
+		// "mount error(101): Network is unreachable". A getaddrinfo/DNS failure
+		// prints "could not resolve address for <host>" (NXDOMAIN for a
+		// deleted/mistyped account, transient SERVFAIL, or DNS server
+		// unreachable). mount.nfs surfaces RPC-layer "Connection refused".
+		// error(110)/"connection timed out" (ETIMEDOUT) is caught by the
+		// timeout case above.
+		return mountErrorNetwork
+	default:
+		// Typed fallback for stale/broken mounts (wrapped syscall.ESTALE /
+		// ENOTCONN / EIO from IsLikelyNotMountPoint on a dead mount).
+		if mount.IsCorruptedMnt(err) {
+			return mountErrorStale
+		}
+		return mountErrorOther
+	}
 }
 
 func isThrottlingError(err error) bool {
@@ -460,6 +554,23 @@ func validateInlineVolumeMountSource(server, shareName string) error {
 	}
 	if strings.ContainsAny(shareName, `/\`) || shareName == "." || shareName == ".." {
 		return fmt.Errorf("invalid shareName %q for ephemeral volume: must be a single share name", shareName)
+	}
+	return nil
+}
+
+// containsMountOptionDelimiter reports whether s contains an option separator
+// or terminator.
+func containsMountOptionDelimiter(s string) bool {
+	return strings.ContainsAny(s, ",\n\r\x00")
+}
+
+// validateSMBCredentialValues rejects invalid storage credentials.
+func validateSMBCredentialValues(accountName, accountKey string) error {
+	if containsMountOptionDelimiter(accountName) {
+		return fmt.Errorf("invalid account name: must not contain comma, newline, carriage return or NUL characters")
+	}
+	if containsMountOptionDelimiter(accountKey) {
+		return fmt.Errorf("invalid account key: must not contain comma, newline, carriage return or NUL characters")
 	}
 	return nil
 }

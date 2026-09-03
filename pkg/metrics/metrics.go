@@ -17,6 +17,7 @@ limitations under the License.
 package metrics
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,6 +32,13 @@ const (
 	// Label keys for metrics
 	Protocol           = "protocol"
 	StorageAccountType = "storage_account_type"
+	// MountErrorReason classifies why a mount command failed (timeout, enoent,
+	// access_denied, network, stale, busy, other). Empty on success.
+	MountErrorReason = "mount_error_reason"
+	// StorageAccount identifies the mount target's storage account (on failure).
+	StorageAccount = "storage_account"
+	// SubscriptionID identifies the subscription that owns the mount target (on failure).
+	SubscriptionID = "subscription_id"
 )
 
 var (
@@ -56,6 +64,20 @@ var (
 		[]string{"operation", "success", Protocol, StorageAccountType},
 	)
 
+	// mountOperationsTotal is a dedicated counter for mount-path operations. It
+	// carries the identity of the mount target plus an error reason so a
+	// single failing share can be tracked across nodes. storage_account and
+	// subscription_id are recorded only on failures to keep cardinality bounded.
+	mountOperationsTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem:      subSystem,
+			Name:           "mount_operations_total",
+			Help:           "Total number of mount command executions, labeled by target identity and error reason",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"operation", "success", Protocol, StorageAccount, SubscriptionID, MountErrorReason},
+	)
+
 	operationTotal = metrics.NewCounterVec(
 		&metrics.CounterOpts{
 			Subsystem:      subSystem,
@@ -71,6 +93,7 @@ func init() {
 	legacyregistry.MustRegister(operationDuration)
 	legacyregistry.MustRegister(operationDurationWithLabels)
 	legacyregistry.MustRegister(operationTotal)
+	legacyregistry.MustRegister(mountOperationsTotal)
 }
 
 // CSIMetricContext represents the context for CSI operation metrics
@@ -180,4 +203,32 @@ func (mc *CSIMetricContext) ObserveWithLabels(success bool, labelPairs ...string
 		mc.WithLabel(labelPairs[i], labelPairs[i+1])
 	}
 	mc.Observe(success)
+}
+
+// ObserveMountWithLabels records a mount command execution by incrementing
+// mountOperationsTotal. storage_account and subscription_id are recorded only
+// when success is false, so the series set stays bounded to distinct failing
+// targets. file_share (roughly one per PVC) and resource_group are never
+// recorded.
+func (mc *CSIMetricContext) ObserveMountWithLabels(success bool, labelPairs ...string) {
+	if len(labelPairs)%2 == 0 {
+		for i := 0; i < len(labelPairs); i += 2 {
+			mc.WithLabel(labelPairs[i], labelPairs[i+1])
+		}
+	}
+
+	var account, subscriptionID string
+	if !success {
+		account = strings.ToLower(mc.labels[StorageAccount])
+		subscriptionID = strings.ToLower(mc.labels[SubscriptionID])
+	}
+
+	mountOperationsTotal.WithLabelValues(
+		mc.operation,
+		strconv.FormatBool(success),
+		mc.labels[Protocol],
+		account,
+		subscriptionID,
+		mc.labels[MountErrorReason],
+	).Inc()
 }
