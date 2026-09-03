@@ -19,6 +19,7 @@ package azurefile
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -72,6 +73,15 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	defer func() {
 		mc.Observe(returnedErr == nil)
 	}()
+
+	// Track inline (ephemeral) volume usage independently of persistent
+	// volumes; the outcome is the NodePublishVolume result.
+	if strings.EqualFold(req.GetVolumeContext()[ephemeralField], trueValue) {
+		inlineMC := csiMetrics.NewCSIMetricContext("inline_mount")
+		defer func() {
+			inlineMC.Observe(returnedErr == nil)
+		}()
+	}
 
 	volCap := req.GetVolumeCapability()
 	if volCap == nil {
@@ -353,7 +363,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		mc.WithAdditionalVolumeInfo(VolumeID, volumeID).Observe(returnedErr == nil)
 	}()
 
-	_, accountName, accountKey, fileShareName, diskName, _, tenantID, tokenFilePath, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), context)
+	rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), context)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("GetAccountInfo(%s) failed with error: %v", volumeID, err))
 	}
@@ -633,12 +643,16 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}
 		if mountFsType == aznfs {
 			klog.V(2).Infof("either of encryptInTransit (%t) (or) useAZNFSForNFSMounts (%t) is enabled, mount by azurefile-proxy", encryptInTransit, d.useAZNFSForNFSMounts)
-			if err := d.mountWithProxy(ctx, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions); err != nil {
-				if strings.Contains(err.Error(), "no such file or directory") {
+			mountMC := csiMetrics.NewCSIMetricContext("node_stage_volume_mount").WithBasicVolumeInfo(rgName, subsID, d.Name)
+			mountErr := d.mountWithProxy(ctx, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions)
+			mountMC.ObserveMountWithLabels(mountErr == nil, csiMetrics.Protocol, mountFsType, csiMetrics.StorageAccount, accountName,
+				csiMetrics.SubscriptionID, subsID, csiMetrics.MountErrorReason, classifyMountError(mountErr))
+			if mountErr != nil {
+				if strings.Contains(mountErr.Error(), "no such file or directory") {
 					return nil, status.Errorf(codes.Internal, "mount with proxy failed for %s with error: %v. "+
-						"Encryption in Transit (EiT) does not support Ubuntu 20.04, please upgrade your node OS version.", cifsMountPath, err)
+						"Encryption in Transit (EiT) does not support Ubuntu 20.04, please upgrade your node OS version.", cifsMountPath, mountErr)
 				}
-				return nil, status.Errorf(codes.Internal, "mount with proxy failed for %s with error: %v", cifsMountPath, err)
+				return nil, status.Errorf(codes.Internal, "mount with proxy failed for %s with error: %v", cifsMountPath, mountErr)
 			}
 			klog.V(2).Infof("mount with proxy succeeded for %s", cifsMountPath)
 		} else {
@@ -648,7 +662,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 					// mount source below still uses `source` (which may be privatelink).
 					krbHost := getKerberosHost(server)
 					if out, err := setCredentialCache(krbHost, clientID, tenantID, tokenFilePath, "", d.getActiveDirectoryEndpoint(), d.getStorageResource()); err != nil {
-						return fmt.Errorf("setCredentialCache failed for %s with error: %v, output: %s", krbHost, err, out)
+						return fmt.Errorf("%w for %s with error: %v, output: %s", errCredentialCacheSetup, krbHost, err, out)
 					}
 				}
 				return SMBMount(d.mounter, source, cifsMountPath, mountFsType, mountOptions, sensitiveMountOptions)
@@ -656,12 +670,18 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			timeoutFunc := func() error {
 				return fmt.Errorf("mount operation timed out after %d seconds: source=%s, target=%s", MountTimeoutInSec, source, cifsMountPath)
 			}
-			if err := volumehelper.WaitUntilTimeout(MountTimeoutInSec*time.Second, execFunc, timeoutFunc); err != nil {
+			mountMC := csiMetrics.NewCSIMetricContext("node_stage_volume_mount").WithBasicVolumeInfo(rgName, subsID, d.Name)
+			mountErr := volumehelper.WaitUntilTimeout(MountTimeoutInSec*time.Second, execFunc, timeoutFunc)
+			if !errors.Is(mountErr, errCredentialCacheSetup) {
+				mountMC.ObserveMountWithLabels(mountErr == nil, csiMetrics.Protocol, mountFsType, csiMetrics.StorageAccount, accountName,
+					csiMetrics.SubscriptionID, subsID, csiMetrics.MountErrorReason, classifyMountError(mountErr))
+			}
+			if mountErr != nil {
 				var helpLinkMsg string
 				if d.appendMountErrorHelpLink {
 					helpLinkMsg = "\nPlease refer to http://aka.ms/filemounterror for possible causes and solutions for mount errors."
 				}
-				return nil, status.Error(codes.Internal, fmt.Sprintf("volume(%s) mount %s on %s failed with %v%s", volumeID, source, cifsMountPath, err, helpLinkMsg))
+				return nil, status.Error(codes.Internal, fmt.Sprintf("volume(%s) mount %s on %s failed with %v%s", volumeID, source, cifsMountPath, mountErr, helpLinkMsg))
 			}
 		}
 		if protocol == nfs {
@@ -736,7 +756,11 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 		klog.V(2).Infof("NodeStageVolume: volume %s formatting %s and mounting at %s with mount options(%s)", volumeID, targetPath, diskPath, options)
 		// FormatAndMount will format only if needed
-		if err := d.mounter.FormatAndMount(diskPath, targetPath, fsType, options); err != nil {
+		mountMC := csiMetrics.NewCSIMetricContext("node_stage_volume_mount").WithBasicVolumeInfo(rgName, subsID, d.Name)
+		mountErr := d.mounter.FormatAndMount(diskPath, targetPath, fsType, options)
+		mountMC.ObserveMountWithLabels(mountErr == nil, csiMetrics.Protocol, "disk", csiMetrics.StorageAccount, accountName,
+			csiMetrics.SubscriptionID, subsID, csiMetrics.MountErrorReason, classifyMountError(mountErr))
+		if mountErr != nil {
 			return nil, status.Error(codes.Internal, fmt.Sprintf("could not format %s and mount it at %s", targetPath, diskPath))
 		}
 		klog.V(2).Infof("NodeStageVolume: volume %s format %s and mounting at %s successfully", volumeID, targetPath, diskPath)
