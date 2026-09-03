@@ -326,6 +326,132 @@ func TestIsRetriableError(t *testing.T) {
 	}
 }
 
+func TestClassifyMountError(t *testing.T) {
+	tests := []struct {
+		desc     string
+		err      error
+		expected string
+	}{
+		{
+			desc:     "nil error",
+			err:      nil,
+			expected: "",
+		},
+		{
+			desc:     "timed out",
+			err:      errors.New("mount.cifs: mount error(110): Connection timed out"),
+			expected: mountErrorTimeout,
+		},
+		{
+			desc:     "generic timeout keyword",
+			err:      errors.New("context deadline exceeded: operation timeout"),
+			expected: mountErrorTimeout,
+		},
+		{
+			desc:     "proxy grpc deadline exceeded (no timeout keyword)",
+			err:      errors.New("rpc error: code = DeadlineExceeded desc = context deadline exceeded"),
+			expected: mountErrorTimeout,
+		},
+		{
+			desc:     "permission denied",
+			err:      errors.New("mount error: Permission denied"),
+			expected: mountErrorAccessDenied,
+		},
+		{
+			desc:     "cifs error(13)",
+			err:      errors.New("mount.cifs: mount error(13): Permission denied"),
+			expected: mountErrorAccessDenied,
+		},
+		{
+			desc:     "nfs access denied by server",
+			err:      errors.New("mount.nfs: access denied by server while mounting server:/share"),
+			expected: mountErrorAccessDenied,
+		},
+		{
+			desc:     "no such file or directory (transient SMB enoent)",
+			err:      errors.New("mount: no such file or directory"),
+			expected: mountErrorENOENT,
+		},
+		{
+			desc:     "cifs error(2)",
+			err:      errors.New("mount.cifs: mount error(2): No such file or directory"),
+			expected: mountErrorENOENT,
+		},
+		{
+			desc:     "device or resource busy",
+			err:      errors.New("mount.cifs: mount error(16): Device or resource busy"),
+			expected: mountErrorBusy,
+		},
+		{
+			desc:     "target is busy",
+			err:      errors.New("unmount failed: target is busy"),
+			expected: mountErrorBusy,
+		},
+		{
+			desc:     "connection reset",
+			err:      errors.New("read: connection reset by peer"),
+			expected: mountErrorNetwork,
+		},
+		{
+			desc:     "host is down",
+			err:      errors.New("mount.cifs: host is down"),
+			expected: mountErrorNetwork,
+		},
+		{
+			desc:     "no route to host",
+			err:      errors.New("connect: no route to host"),
+			expected: mountErrorNetwork,
+		},
+		{
+			desc:     "connection refused",
+			err:      errors.New("dial tcp: connection refused"),
+			expected: mountErrorNetwork,
+		},
+		{
+			desc:     "cifs error(111)",
+			err:      errors.New("mount.cifs: mount error(111): Connection refused"),
+			expected: mountErrorNetwork,
+		},
+		{
+			desc:     "cifs error(101) network is unreachable",
+			err:      errors.New("mount.cifs: mount error(101): Network is unreachable"),
+			expected: mountErrorNetwork,
+		},
+		{
+			desc:     "cifs could not connect / unable to find suitable address",
+			err:      errors.New("mount error(113): could not connect to 10.0.0.4\nUnable to find suitable address"),
+			expected: mountErrorNetwork,
+		},
+		{
+			desc:     "cifs error(115) EINPROGRESS during connect",
+			err:      errors.New("mount.cifs: mount error(115): Operation now in progress"),
+			expected: mountErrorNetwork,
+		},
+		{
+			desc:     "dns resolution failure (getaddrinfo)",
+			err:      errors.New("mount error: could not resolve address for nonexistentacct.file.core.windows.net: Unknown error"),
+			expected: mountErrorNetwork,
+		},
+		{
+			desc:     "status codes only in dmesg fall through to other",
+			err:      errors.New("cifs: STATUS_LOGON_FAILURE"),
+			expected: mountErrorOther,
+		},
+		{
+			desc:     "unclassified error",
+			err:      errors.New("some unexpected failure"),
+			expected: mountErrorOther,
+		},
+	}
+
+	for _, test := range tests {
+		if result := classifyMountError(test.err); result != test.expected {
+			t.Errorf("desc: (%s), input: err(%v), classifyMountError returned (%q), expected (%q)",
+				test.desc, test.err, result, test.expected)
+		}
+	}
+}
+
 func TestSleepIfThrottled(t *testing.T) {
 	start := time.Now()
 	sleepIfThrottled(errors.New("tooManyRequests"), 10)
