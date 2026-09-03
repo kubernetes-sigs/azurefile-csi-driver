@@ -18,7 +18,6 @@ package azurefile
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -156,10 +155,6 @@ const (
 	mountErrorBusy         = "busy"
 	mountErrorOther        = "other"
 )
-
-// errCredentialCacheSetup marks a managed-identity credential-cache setup
-// failure that happens before the SMB mount is attempted.
-var errCredentialCacheSetup = errors.New("setCredentialCache failed")
 
 // classifyMountError buckets a mount command failure into a small, bounded set
 // of reasons so queries can separate failure modes. For dashboards the reasons
