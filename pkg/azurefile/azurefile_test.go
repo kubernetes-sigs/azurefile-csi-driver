@@ -924,6 +924,92 @@ func TestGetAccountInfo(t *testing.T) {
 	}
 }
 
+func TestGetAccountInfoCacheWriteback(t *testing.T) {
+	t.Run("cache hit does not refresh cache entry timestamp", func(t *testing.T) {
+		d := NewFakeDriver()
+		d.cloud = &storage.AccountRepo{}
+
+		const (
+			accountName = "cacheaccount"
+			staleKey    = "stale-key"
+		)
+		reqContext := map[string]string{
+			resourceGroupField:  "rg",
+			storageAccountField: accountName,
+			shareNameField:      "share",
+		}
+
+		d.accountCacheMap.Set(accountName, staleKey)
+		entry, exists, err := d.accountCacheMap.GetStore().GetByKey(accountName)
+		assert.NoError(t, err)
+		if !assert.True(t, exists) {
+			return
+		}
+		cacheEntry := entry.(*cache.AzureCacheEntry)
+		oldCreatedOn := time.Now().UTC().Add(-2 * time.Minute)
+		cacheEntry.CreatedOn = oldCreatedOn
+
+		_, returnedAccountName, accountKey, fileShareName, _, _, _, _, err := d.GetAccountInfo(context.Background(), "invalid-volume-id", nil, reqContext)
+		assert.NoError(t, err)
+		assert.Equal(t, accountName, returnedAccountName)
+		assert.Equal(t, staleKey, accountKey)
+		assert.Equal(t, "share", fileShareName)
+
+		entry, exists, err = d.accountCacheMap.GetStore().GetByKey(accountName)
+		assert.NoError(t, err)
+		if !assert.True(t, exists) {
+			return
+		}
+		cacheEntry = entry.(*cache.AzureCacheEntry)
+		assert.Equal(t, staleKey, cacheEntry.Data)
+		assert.True(t, cacheEntry.CreatedOn.Equal(oldCreatedOn), "cache hit should not rewrite the same key back into cache")
+	})
+
+	t.Run("request secrets still update cache", func(t *testing.T) {
+		d := NewFakeDriver()
+		d.cloud = &storage.AccountRepo{}
+
+		const (
+			accountName = "secretaccount"
+			staleKey    = "stale-key"
+			freshKey    = "fresh-key"
+		)
+		reqContext := map[string]string{
+			resourceGroupField: "rg",
+			shareNameField:     "share",
+		}
+		secrets := map[string]string{
+			defaultSecretAccountName: accountName,
+			defaultSecretAccountKey:  freshKey,
+		}
+
+		d.accountCacheMap.Set(accountName, staleKey)
+		entry, exists, err := d.accountCacheMap.GetStore().GetByKey(accountName)
+		assert.NoError(t, err)
+		if !assert.True(t, exists) {
+			return
+		}
+		cacheEntry := entry.(*cache.AzureCacheEntry)
+		oldCreatedOn := time.Now().UTC().Add(-2 * time.Minute)
+		cacheEntry.CreatedOn = oldCreatedOn
+
+		_, returnedAccountName, accountKey, fileShareName, _, _, _, _, err := d.GetAccountInfo(context.Background(), "invalid-volume-id", secrets, reqContext)
+		assert.NoError(t, err)
+		assert.Equal(t, accountName, returnedAccountName)
+		assert.Equal(t, freshKey, accountKey)
+		assert.Equal(t, "share", fileShareName)
+
+		entry, exists, err = d.accountCacheMap.GetStore().GetByKey(accountName)
+		assert.NoError(t, err)
+		if !assert.True(t, exists) {
+			return
+		}
+		cacheEntry = entry.(*cache.AzureCacheEntry)
+		assert.Equal(t, freshKey, cacheEntry.Data)
+		assert.True(t, cacheEntry.CreatedOn.After(oldCreatedOn), "secret-derived key should still be written back into cache")
+	})
+}
+
 // TestGetAccountInfoWorkloadIdentityTokenFile covers the workload-identity
 // token-file behaviors: (1) the token cache filename must be unique per volume
 // so shared clientID/accountName do not race on one shared file. (2) when the
