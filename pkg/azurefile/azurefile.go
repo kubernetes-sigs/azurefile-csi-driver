@@ -894,6 +894,7 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 	var protocol, accountKey, secretName, pvcNamespace string
 	// getAccountKeyFromSecret indicates whether get account key only from k8s secret
 	var getAccountKeyFromSecret, getLatestAccountKey, mountWithManagedIdentity, mountWithOAuthToken, mountWithWIToken bool
+	var accountKeyFromCache bool
 	var clientID, tenantID, tokenFilePath string
 	serviceAccountToken := getServiceAccountTokens(secrets, reqContext)
 
@@ -1044,6 +1045,7 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 		}
 		if cache != nil {
 			accountKey = cache.(string)
+			accountKeyFromCache = true
 		} else {
 			if secretName == "" && accountName != "" {
 				secretName = fmt.Sprintf(secretNameTemplate, accountName)
@@ -1079,7 +1081,7 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 		}
 	}
 
-	if err == nil && accountKey != "" {
+	if err == nil && accountKey != "" && !accountKeyFromCache {
 		d.accountCacheMap.Set(accountName, accountKey)
 	}
 	return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, err
