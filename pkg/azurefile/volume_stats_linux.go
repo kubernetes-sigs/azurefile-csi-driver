@@ -29,7 +29,7 @@ var registerVolumeStatsCollector sync.Once
 func (d *Driver) registerVolumeStatsCollector() {
 	registerVolumeStatsCollector.Do(func() {
 		legacyregistry.CustomMustRegister(
-			azurefilestats.NewVolumeStatsCollector(volume.NewRemoteVolume(d.kubeClient)),
+			azurefilestats.NewVolumeStatsCollector(volume.NewLocalVolume()),
 		)
 	})
 }

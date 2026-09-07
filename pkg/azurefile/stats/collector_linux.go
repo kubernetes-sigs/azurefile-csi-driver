@@ -30,7 +30,7 @@ const collectionTimeout = 10 * time.Second
 var filesystemLabels = []string{"protocol", "storage_account", "file_share"}
 
 // VolumeStatsCollector exports kernel filesystem counters for Azure File CSI
-// persistent volumes through the driver's existing metrics registry.
+// volumes through the driver's existing metrics registry.
 type VolumeStatsCollector struct {
 	metrics.BaseStableCollector
 
@@ -45,8 +45,8 @@ type VolumeStatsCollector struct {
 	up         *metrics.Desc
 }
 
-// NewVolumeStatsCollector creates a collector that discovers Azure File PVs
-// at scrape time and filters CIFS and NFS kernel statistics against them.
+// NewVolumeStatsCollector creates a collector that discovers local Azure File
+// mounts at scrape time and filters CIFS and NFS kernel statistics against them.
 func NewVolumeStatsCollector(volumes volume.MetadataLister) *VolumeStatsCollector {
 	return &VolumeStatsCollector{
 		volumes:  volumes,
@@ -95,13 +95,13 @@ func (c *VolumeStatsCollector) CollectWithStability(ch chan<- metrics.Metric) {
 
 	volumes, err := c.volumes.List(ctx)
 	if err != nil {
-		klog.ErrorS(err, "Failed to discover Azure File persistent volumes for filesystem metrics")
-		c.emitUp(ch, "persistentvolumes", false)
+		klog.ErrorS(err, "Failed to discover Azure File mounts for filesystem metrics")
+		c.emitUp(ch, "mountinfo", false)
 		c.emitUp(ch, string(ProtocolSMB), false)
 		c.emitUp(ch, string(ProtocolNFS), false)
 		return
 	}
-	c.emitUp(ch, "persistentvolumes", true)
+	c.emitUp(ch, "mountinfo", true)
 
 	var cifsStats []CIFSStats
 	if cifsStats, err = c.readCIFS(c.cifsPath); err != nil {
@@ -119,7 +119,7 @@ func (c *VolumeStatsCollector) CollectWithStability(ch chan<- metrics.Metric) {
 		c.emitUp(ch, string(ProtocolNFS), true)
 	}
 
-	collection := NewStatsCollection(volumes, cifsStats, nfsStats)
+	collection := NewCollection(volumes, cifsStats, nfsStats)
 	for _, filesystem := range collection.Filesystems {
 		labels := []string{
 			string(filesystem.Protocol),

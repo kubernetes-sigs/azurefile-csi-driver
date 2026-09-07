@@ -18,21 +18,32 @@ package volume
 
 import "context"
 
-// Metadata identifies a persistent volume and its Azure File target.
+const (
+	// ProtocolSMB identifies a CIFS/SMB mount.
+	ProtocolSMB = "smb"
+	// ProtocolNFS identifies an NFS mount.
+	ProtocolNFS = "nfs"
+)
+
+// Metadata identifies a locally mounted Azure File target.
 type Metadata struct {
-	PVName                      string
-	PVCName                     string
-	PVCNamespace                string
-	ProvisionerName             string
-	StorageAccountName          string
-	ShareName                   string
-	StorageAccountResourceGroup string
+	Protocol           string
+	StorageAccountName string
+	ShareName          string
+	MountPoint         string
+	// FilesystemID is the mountinfo major:minor identity used to deduplicate
+	// bind mounts and mount-propagation replicas.
+	FilesystemID string
 }
 
-// MetadataList is a list of Azure File persistent volume identities.
+func (m Metadata) key() string {
+	return m.Protocol + "\x00" + m.StorageAccountName + "\x00" + m.ShareName + "\x00" + m.MountPoint
+}
+
+// MetadataList is a list of locally mounted Azure File targets.
 type MetadataList []Metadata
 
-// MetadataLister discovers Azure File persistent volume identities.
+// MetadataLister discovers locally mounted Azure File targets.
 type MetadataLister interface {
 	List(ctx context.Context) (MetadataList, error)
 }

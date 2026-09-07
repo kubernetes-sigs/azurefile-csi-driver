@@ -142,6 +142,10 @@ func ProcessCIFSStats(cifsStatsPath string) ([]CIFSStats, error) {
 
 	file, err := os.Open(cifsStatsPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			klog.Warningf("cifs stats file %s does not exist", cifsStatsPath)
+			return nil, nil
+		}
 		return nil, fmt.Errorf("failed to open cifs stats file %s: %v", cifsStatsPath, err)
 	}
 	defer func() {
@@ -161,11 +165,11 @@ func ProcessCIFSStats(cifsStatsPath string) ([]CIFSStats, error) {
 			continue
 		}
 
-		if Device, ok := parseShareLine(line); ok {
+		if device, ok := parseShareLine(line); ok {
 			if current != nil {
 				stats = append(stats, *current)
 			}
-			current = &CIFSStats{Device: Device}
+			current = &CIFSStats{Device: device}
 			continue
 		}
 
@@ -178,16 +182,19 @@ func ProcessCIFSStats(cifsStatsPath string) ([]CIFSStats, error) {
 		switch {
 		case strings.HasPrefix(line, "Bytes read:"):
 			if _, err := fmt.Sscanf(line, "Bytes read: %d Bytes written: %d", &current.BytesRead, &current.BytesWritten); err != nil {
-				return nil, parseError(cifsStatsPath, lineNumber, line, err)
+				klog.Warningf("%v", parseError(cifsStatsPath, lineNumber, line, err))
+				continue
 			}
 		case strings.HasPrefix(line, "Open files:"):
 			if _, err := fmt.Sscanf(line, "Open files: %d total (local), %d open on server", &current.OpenFilesLocal, &current.OpenFilesServer); err != nil {
-				return nil, parseError(cifsStatsPath, lineNumber, line, err)
+				klog.Warningf("%v", parseError(cifsStatsPath, lineNumber, line, err))
+				continue
 			}
 		default:
 			total, failed, operation, matched, err := parseOperationLine(line)
 			if err != nil {
-				return nil, parseError(cifsStatsPath, lineNumber, line, err)
+				klog.Warningf("%v", parseError(cifsStatsPath, lineNumber, line, err))
+				continue
 			}
 			if !matched {
 				continue
@@ -244,8 +251,8 @@ func parseShareLine(line string) (string, bool) {
 		return "", false
 	}
 
-	Device := strings.TrimSpace(line[separator+1:])
-	return Device, Device != ""
+	device := strings.TrimSpace(line[separator+1:])
+	return device, device != ""
 }
 
 func parseOperationLine(line string) (uint64, uint64, string, bool, error) {

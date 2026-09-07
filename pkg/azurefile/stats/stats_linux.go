@@ -63,38 +63,47 @@ type FilesystemStats struct {
 	Operations map[string]OperationStats
 }
 
-// StatsCollection accumulates protocol-neutral statistics from CIFS and NFS.
-type StatsCollection struct {
+// Collection accumulates protocol-neutral statistics from CIFS and NFS.
+type Collection struct {
 	Filesystems []FilesystemStats
 }
 
-// NewStatsCollection projects only kernel statistics that match a persistent
-// volume owned by file.csi.azure.com. CIFS records are matched by storage
-// account and share. NFS records must also be the driver's canonical
-// globalmount, which excludes duplicate pod bind mounts.
-func NewStatsCollection(volumes volume.MetadataList, cifsStats []CIFSStats, nfsStats []NFSStats) *StatsCollection {
-	collection := &StatsCollection{
+// NewCollection projects only kernel statistics that match a locally
+// mounted volume owned by file.csi.azure.com.
+func NewCollection(volumes volume.MetadataList, cifsStats []CIFSStats, nfsStats []NFSStats) *Collection {
+	collection := &Collection{
 		Filesystems: make([]FilesystemStats, 0, len(cifsStats)+len(nfsStats)),
 	}
 	filesystemIndexes := make(map[string]int)
 
 	volumeTargets := newVolumeTargetSet(volumes)
 	for _, stat := range cifsStats {
-		account, share, ok := parseCIFSTarget(stat.Device)
-		if ok && volumeTargets.contains(account, share) {
+		account, share, ok := volume.ParseCIFSTarget(stat.Device)
+		if ok && volumeTargets.containsCIFS(account, share) {
 			collection.add(projectCIFSStats(stat, account, share), filesystemIndexes)
 		}
 	}
+	seenNFSMounts := make(map[string]struct{})
 	for _, stat := range nfsStats {
-		account, share, ok := parseNFSTarget(stat.Device)
-		if isAzureFileCSIGlobalMount(stat.MountPoint) && ok && volumeTargets.contains(account, share) {
-			collection.add(projectNFSStats(stat, account, share), filesystemIndexes)
+		account, share, ok := volume.ParseNFSTarget(stat.Device)
+		filesystemID, matched := volumeTargets.nfsFilesystem(account, share, stat.MountPoint)
+		if !ok || !matched {
+			continue
 		}
+		mountKey := filesystemID
+		if mountKey == "" {
+			mountKey = strings.ToLower(strings.TrimSpace(stat.Device))
+		}
+		if _, seen := seenNFSMounts[mountKey]; seen {
+			continue
+		}
+		seenNFSMounts[mountKey] = struct{}{}
+		collection.add(projectNFSStats(stat, account, share), filesystemIndexes)
 	}
 	return collection
 }
 
-func (c *StatsCollection) add(filesystem FilesystemStats, indexes map[string]int) {
+func (c *Collection) add(filesystem FilesystemStats, indexes map[string]int) {
 	key := string(filesystem.Protocol) + "\x00" + filesystem.StorageAccount + "\x00" + filesystem.FileShare
 	if index, ok := indexes[key]; ok {
 		existing := &c.Filesystems[index]
@@ -112,68 +121,41 @@ func (c *StatsCollection) add(filesystem FilesystemStats, indexes map[string]int
 	c.Filesystems = append(c.Filesystems, filesystem)
 }
 
-type volumeTargetSet map[string]struct{}
+type volumeTargetSet struct {
+	cifs map[string]struct{}
+	nfs  map[string]string
+}
 
 func newVolumeTargetSet(volumes volume.MetadataList) volumeTargetSet {
-	targets := make(volumeTargetSet, len(volumes))
+	targets := volumeTargetSet{
+		cifs: make(map[string]struct{}),
+		nfs:  make(map[string]string),
+	}
 	for _, metadata := range volumes {
 		account := strings.ToLower(strings.TrimSpace(metadata.StorageAccountName))
 		share := strings.ToLower(strings.Trim(strings.TrimSpace(metadata.ShareName), `/\`))
 		if account == "" || share == "" {
 			continue
 		}
-		targets[account+"/"+share] = struct{}{}
+		target := account + "/" + share
+		switch metadata.Protocol {
+		case volume.ProtocolSMB:
+			targets.cifs[target] = struct{}{}
+		case volume.ProtocolNFS:
+			targets.nfs[target+"\x00"+filepath.Clean(metadata.MountPoint)] = metadata.FilesystemID
+		}
 	}
 	return targets
 }
 
-func parseCIFSTarget(device string) (string, string, bool) {
-	normalized := strings.ReplaceAll(strings.TrimSpace(device), `\`, "/")
-	parts := strings.Split(strings.Trim(normalized, "/"), "/")
-	if len(parts) < 2 {
-		return "", "", false
-	}
-
-	return normalizeTarget(parts[0], parts[1])
-}
-
-func parseNFSTarget(device string) (string, string, bool) {
-	server, export, ok := strings.Cut(strings.TrimSpace(device), ":")
-	if !ok {
-		return "", "", false
-	}
-
-	parts := strings.Split(strings.Trim(export, "/"), "/")
-	if len(parts) < 2 {
-		return "", "", false
-	}
-
-	// Azure Files NFS exports use /<storage-account>/<share>.
-	return normalizeTarget(server, parts[len(parts)-1])
-}
-
-func normalizeTarget(server, share string) (string, string, bool) {
-	server = strings.ToLower(strings.TrimSpace(server))
-	share = strings.ToLower(strings.Trim(strings.TrimSpace(share), `/\`))
-	if server == "" || share == "" {
-		return "", "", false
-	}
-
-	account := strings.SplitN(server, ".", 2)[0]
-	return account, share, true
-}
-
-func (s volumeTargetSet) contains(account, share string) bool {
-	_, ok := s[account+"/"+share]
+func (s volumeTargetSet) containsCIFS(account, share string) bool {
+	_, ok := s.cifs[account+"/"+share]
 	return ok
 }
 
-func isAzureFileCSIGlobalMount(mountPoint string) bool {
-	const driverMountPath = "/plugins/kubernetes.io/csi/file.csi.azure.com/"
-
-	clean := filepath.ToSlash(filepath.Clean(mountPoint))
-	return strings.Contains(clean, driverMountPath) &&
-		strings.HasSuffix(clean, "/globalmount")
+func (s volumeTargetSet) nfsFilesystem(account, share, mountPoint string) (string, bool) {
+	filesystemID, ok := s.nfs[account+"/"+share+"\x00"+filepath.Clean(mountPoint)]
+	return filesystemID, ok
 }
 
 func projectCIFSStats(stat CIFSStats, account, share string) FilesystemStats {

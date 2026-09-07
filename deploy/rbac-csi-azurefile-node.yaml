@@ -14,9 +14,6 @@ rules:
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["get"]
-  - apiGroups: [""]
-    resources: ["persistentvolumes"]
-    verbs: ["list"]
 
 ---
 kind: ClusterRoleBinding

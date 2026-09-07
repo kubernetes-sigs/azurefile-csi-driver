@@ -43,10 +43,19 @@ func (l fakeVolumeLister) List(context.Context) (volume.MetadataList, error) {
 
 func TestVolumeStatsCollector(t *testing.T) {
 	collector := NewVolumeStatsCollector(fakeVolumeLister{
-		volumes: volume.MetadataList{{
-			StorageAccountName: "account",
-			ShareName:          "share",
-		}},
+		volumes: volume.MetadataList{
+			{
+				Protocol:           volume.ProtocolSMB,
+				StorageAccountName: "account",
+				ShareName:          "share",
+			},
+			{
+				Protocol:           volume.ProtocolNFS,
+				StorageAccountName: "account",
+				ShareName:          "share",
+				MountPoint:         "/var/lib/kubelet/plugins/kubernetes.io/csi/file.csi.azure.com/id/globalmount",
+			},
+		},
 	})
 	collector.readCIFS = func(string) ([]CIFSStats, error) {
 		return []CIFSStats{{
@@ -104,7 +113,7 @@ func TestVolumeStatsCollector(t *testing.T) {
 	}
 
 	up := metricFamily(t, families, "azurefile_csi_driver_volume_stats_collector_up")
-	for _, source := range []string{"persistentvolumes", "smb", "nfs"} {
+	for _, source := range []string{"mountinfo", "smb", "nfs"} {
 		if got := metricValue(t, up, map[string]string{"source": source}); got != 1 {
 			t.Errorf("%s collector up = %v, want 1", source, got)
 		}
@@ -114,8 +123,10 @@ func TestVolumeStatsCollector(t *testing.T) {
 func TestVolumeStatsCollectorContinuesWhenCIFSFails(t *testing.T) {
 	collector := NewVolumeStatsCollector(fakeVolumeLister{
 		volumes: volume.MetadataList{{
+			Protocol:           volume.ProtocolNFS,
 			StorageAccountName: "account",
 			ShareName:          "share",
+			MountPoint:         "/var/lib/kubelet/plugins/kubernetes.io/csi/file.csi.azure.com/id/globalmount",
 		}},
 	})
 	collector.readCIFS = func(string) ([]CIFSStats, error) {
@@ -154,6 +165,7 @@ func TestVolumeStatsCollectorContinuesWhenCIFSFails(t *testing.T) {
 func TestVolumeStatsCollectorMetricsEndpoint(t *testing.T) {
 	collector := NewVolumeStatsCollector(fakeVolumeLister{
 		volumes: volume.MetadataList{{
+			Protocol:           volume.ProtocolSMB,
 			StorageAccountName: "account",
 			ShareName:          "share",
 		}},
@@ -196,7 +208,7 @@ func TestVolumeStatsCollectorMetricsEndpoint(t *testing.T) {
 	assertMetricLine(t, body, "azurefile_csi_driver_volume_written_bytes_total", "smb", 456)
 	assertMetricLine(t, body, "azurefile_csi_driver_volume_operation_requests_total", "smb", 7)
 	assertMetricLine(t, body, "azurefile_csi_driver_volume_operation_errors_total", "smb", 2)
-	assertMetricLine(t, body, "azurefile_csi_driver_volume_stats_collector_up", "persistentvolumes", 1)
+	assertMetricLine(t, body, "azurefile_csi_driver_volume_stats_collector_up", "mountinfo", 1)
 }
 
 func assertMetricLine(t *testing.T, body, name, labelValue string, value float64) {

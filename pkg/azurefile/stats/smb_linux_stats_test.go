@@ -117,9 +117,26 @@ func TestProcessCIFSStatsNoShares(t *testing.T) {
 }
 
 func TestProcessCIFSStatsMalformedKnownField(t *testing.T) {
-	path := writeCIFSStatsFile(t, "1) \\\\server\\share\nReads: invalid total 0 failed\n")
-	if _, err := ProcessCIFSStats(path); err == nil {
-		t.Fatal("ProcessCIFSStats() error = nil, want parse error")
+	const input = `1) \\server\share
+Bytes read: invalid Bytes written: 1
+Bytes read: 2 Bytes written: 3
+Open files: invalid total (local), 1 open on server
+Open files: 4 total (local), 5 open on server
+Reads: invalid total 0 failed
+Reads: 6 total 1 failed
+`
+	path := writeCIFSStatsFile(t, input)
+	stats, err := ProcessCIFSStats(path)
+	if err != nil {
+		t.Fatalf("ProcessCIFSStats() error = %v", err)
+	}
+	if len(stats) != 1 {
+		t.Fatalf("ProcessCIFSStats() returned %d records, want 1", len(stats))
+	}
+	if stats[0].BytesRead != 2 || stats[0].BytesWritten != 3 ||
+		stats[0].OpenFilesLocal != 4 || stats[0].OpenFilesServer != 5 ||
+		stats[0].ReadsTotal != 6 || stats[0].ReadsFailed != 1 {
+		t.Errorf("valid lines after malformed fields were not parsed: %+v", stats[0])
 	}
 }
 
@@ -127,8 +144,8 @@ func TestProcessCIFSStatsErrors(t *testing.T) {
 	if _, err := ProcessCIFSStats(" "); err == nil {
 		t.Fatal("ProcessCIFSStats() with empty path error = nil")
 	}
-	if _, err := ProcessCIFSStats(filepath.Join(t.TempDir(), "missing")); err == nil {
-		t.Fatal("ProcessCIFSStats() with missing file error = nil")
+	if _, err := ProcessCIFSStats(filepath.Join(t.TempDir(), "missing")); err != nil {
+		t.Fatal("ProcessCIFSStats() with missing file error should be nil")
 	}
 }
 

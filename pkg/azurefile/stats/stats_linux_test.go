@@ -49,11 +49,20 @@ func TestNewStatsCollection(t *testing.T) {
 		},
 	}
 
-	volumes := volume.MetadataList{{
-		StorageAccountName: "account",
-		ShareName:          "share",
-	}}
-	collection := NewStatsCollection(volumes, []CIFSStats{cifs}, []NFSStats{nfs})
+	volumes := volume.MetadataList{
+		{
+			Protocol:           volume.ProtocolSMB,
+			StorageAccountName: "account",
+			ShareName:          "share",
+		},
+		{
+			Protocol:           volume.ProtocolNFS,
+			StorageAccountName: "account",
+			ShareName:          "share",
+			MountPoint:         nfs.MountPoint,
+		},
+	}
+	collection := NewCollection(volumes, []CIFSStats{cifs}, []NFSStats{nfs})
 	if len(collection.Filesystems) != 2 {
 		t.Fatalf("filesystem count = %d, want 2", len(collection.Filesystems))
 	}
@@ -84,13 +93,22 @@ func TestNewStatsCollection(t *testing.T) {
 }
 
 func TestNewStatsCollectionFiltersNonAzureFileVolumes(t *testing.T) {
-	volumes := volume.MetadataList{{
-		StorageAccountName: "account",
-		ShareName:          "owned-share",
-	}}
+	volumes := volume.MetadataList{
+		{
+			Protocol:           volume.ProtocolSMB,
+			StorageAccountName: "account",
+			ShareName:          "owned-share",
+		},
+		{
+			Protocol:           volume.ProtocolNFS,
+			StorageAccountName: "account",
+			ShareName:          "owned-share",
+			MountPoint:         "/var/lib/kubelet/plugins/kubernetes.io/csi/file.csi.azure.com/id/globalmount",
+		},
+	}
 	cifsStats := []CIFSStats{
 		{Device: `\\account.file.core.windows.net\owned-share`},
-		{Device: `\\account.file.core.windows.net\other-share`},
+		{Device: `\\account.file.core.windows.net\different-share`},
 		{Device: `\\other.file.core.windows.net\owned-share`},
 	}
 	nfsStats := []NFSStats{
@@ -108,7 +126,7 @@ func TestNewStatsCollectionFiltersNonAzureFileVolumes(t *testing.T) {
 		},
 	}
 
-	collection := NewStatsCollection(volumes, cifsStats, nfsStats)
+	collection := NewCollection(volumes, cifsStats, nfsStats)
 	if len(collection.Filesystems) != 2 {
 		t.Fatalf("filesystem count = %d, want 2: %+v", len(collection.Filesystems), collection.Filesystems)
 	}
@@ -119,8 +137,8 @@ func TestNewStatsCollectionFiltersNonAzureFileVolumes(t *testing.T) {
 }
 
 func TestNewStatsCollectionRequiresVolumeIdentity(t *testing.T) {
-	collection := NewStatsCollection(
-		volume.MetadataList{{PVName: "pv-without-account-or-share"}},
+	collection := NewCollection(
+		volume.MetadataList{{Protocol: volume.ProtocolSMB}},
 		[]CIFSStats{{Device: `\\account.file.core.windows.net\share`}},
 		[]NFSStats{{
 			Device:     "account.file.core.windows.net:/account/share",
@@ -133,8 +151,9 @@ func TestNewStatsCollectionRequiresVolumeIdentity(t *testing.T) {
 }
 
 func TestNewStatsCollectionAggregatesDuplicateTargets(t *testing.T) {
-	collection := NewStatsCollection(
+	collection := NewCollection(
 		volume.MetadataList{{
+			Protocol:           volume.ProtocolSMB,
 			StorageAccountName: "account",
 			ShareName:          "share",
 		}},
@@ -164,5 +183,53 @@ func TestNewStatsCollectionAggregatesDuplicateTargets(t *testing.T) {
 	}
 	if got := filesystem.Operations["read"]; got != (OperationStats{Requests: 30, Errors: 3}) {
 		t.Errorf("read operation = %+v, want 30 requests and 3 errors", got)
+	}
+}
+
+func TestNewStatsCollectionDeduplicatesSharedNFSExport(t *testing.T) {
+	const (
+		globalMount = "/var/lib/kubelet/plugins/kubernetes.io/csi/file.csi.azure.com/id/globalmount"
+		inlineMount = "/var/lib/kubelet/pods/pod/volumes/kubernetes.io~csi/inline/mount"
+	)
+	nfs := NFSStats{
+		Device:     "account.file.core.windows.net:/account/share",
+		MountPoint: globalMount,
+		MountStats: procfs.MountStatsNFS{
+			Bytes: procfs.NFSBytesStats{ReadTotal: 100},
+		},
+	}
+	collection := NewCollection(
+		volume.MetadataList{
+			{
+				Protocol:           volume.ProtocolNFS,
+				StorageAccountName: "account",
+				ShareName:          "share",
+				MountPoint:         globalMount,
+				FilesystemID:       "0:100",
+			},
+			{
+				Protocol:           volume.ProtocolNFS,
+				StorageAccountName: "account",
+				ShareName:          "share",
+				MountPoint:         inlineMount,
+				FilesystemID:       "0:100",
+			},
+		},
+		nil,
+		[]NFSStats{
+			nfs,
+			{
+				Device:     nfs.Device,
+				MountPoint: inlineMount,
+				MountStats: nfs.MountStats,
+			},
+		},
+	)
+
+	if len(collection.Filesystems) != 1 {
+		t.Fatalf("filesystem count = %d, want 1", len(collection.Filesystems))
+	}
+	if got := collection.Filesystems[0].BytesRead; got != 100 {
+		t.Errorf("read bytes = %d, want 100", got)
 	}
 }
