@@ -113,9 +113,27 @@ func TestVolumeStatsCollector(t *testing.T) {
 	}
 
 	up := metricFamily(t, families, "azurefile_csi_driver_volume_stats_collector_up")
-	for _, source := range []string{"mountinfo", "smb", "nfs"} {
+	for _, source := range []string{"persistentvolumes", "smb", "nfs"} {
 		if got := metricValue(t, up, map[string]string{"source": source}); got != 1 {
 			t.Errorf("%s collector up = %v, want 1", source, got)
+		}
+	}
+}
+
+func TestVolumeStatsCollectorDiscoveryFailure(t *testing.T) {
+	collector := NewVolumeStatsCollector(fakeVolumeLister{err: errors.New("discovery unavailable")})
+
+	registry := metrics.NewKubeRegistry()
+	registry.CustomMustRegister(collector)
+	families, err := registry.Gather()
+	if err != nil {
+		t.Fatalf("failed to gather metrics: %v", err)
+	}
+
+	up := metricFamily(t, families, "azurefile_csi_driver_volume_stats_collector_up")
+	for _, source := range []string{"persistentvolumes", "smb", "nfs"} {
+		if got := metricValue(t, up, map[string]string{"source": source}); got != 0 {
+			t.Errorf("%s collector up = %v, want 0", source, got)
 		}
 	}
 }
@@ -208,7 +226,7 @@ func TestVolumeStatsCollectorMetricsEndpoint(t *testing.T) {
 	assertMetricLine(t, body, "azurefile_csi_driver_volume_written_bytes_total", "smb", 456)
 	assertMetricLine(t, body, "azurefile_csi_driver_volume_operation_requests_total", "smb", 7)
 	assertMetricLine(t, body, "azurefile_csi_driver_volume_operation_errors_total", "smb", 2)
-	assertMetricLine(t, body, "azurefile_csi_driver_volume_stats_collector_up", "mountinfo", 1)
+	assertMetricLine(t, body, "azurefile_csi_driver_volume_stats_collector_up", "persistentvolumes", 1)
 }
 
 func assertMetricLine(t *testing.T, body, name, labelValue string, value float64) {

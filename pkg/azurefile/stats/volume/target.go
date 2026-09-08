@@ -31,7 +31,7 @@ func ParseCIFSTarget(device string) (string, string, bool) {
 
 // ParseNFSTarget extracts an Azure storage account and file share from an NFS export.
 func ParseNFSTarget(device string) (string, string, bool) {
-	server, export, ok := strings.Cut(strings.TrimSpace(device), ":")
+	server, export, ok := strings.Cut(strings.TrimSpace(device), ":/")
 	if !ok || strings.TrimSpace(server) == "" {
 		return "", "", false
 	}
@@ -47,7 +47,8 @@ func ParseNFSTarget(device string) (string, string, bool) {
 
 func normalizeTarget(server, share string) (string, string, bool) {
 	server = strings.ToLower(strings.TrimSpace(server))
-	return normalizeAccountAndShare(strings.SplitN(server, ".", 2)[0], share)
+	account := strings.TrimSuffix(strings.SplitN(server, ".", 2)[0], "-secondary")
+	return normalizeAccountAndShare(account, share)
 }
 
 func normalizeAccountAndShare(account, share string) (string, string, bool) {

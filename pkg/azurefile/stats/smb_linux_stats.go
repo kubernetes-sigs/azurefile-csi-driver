@@ -30,8 +30,7 @@ import (
 const CIFSStatsPath = "/proc/fs/cifs/Stats"
 
 /*
-
-cat /proc/fs/cifs/Stats will looks like below
+cat /proc/fs/cifs/Stats looks like the following
 
 Max requests in flight: 582
 1) \\f389ac36a70ed4cb5bc601e.file.core.windows.net\pvc-100d6de7-1305-4216-ad39-8788b96a409c
