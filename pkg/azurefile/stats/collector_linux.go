@@ -18,14 +18,13 @@ package stats
 
 import (
 	"context"
-	"time"
 
 	"k8s.io/component-base/metrics"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile/stats/volume"
 )
 
-const collectionTimeout = 10 * time.Second
+const volumeDiscoverySource = "persistentvolumes"
 
 var filesystemLabels = []string{"protocol", "storage_account", "file_share"}
 
@@ -90,18 +89,15 @@ func (c *VolumeStatsCollector) DescribeWithStability(ch chan<- *metrics.Desc) {
 }
 
 func (c *VolumeStatsCollector) CollectWithStability(ch chan<- metrics.Metric) {
-	ctx, cancel := context.WithTimeout(context.Background(), collectionTimeout)
-	defer cancel()
-
-	volumes, err := c.volumes.List(ctx)
+	volumes, err := c.volumes.List(context.Background())
 	if err != nil {
 		klog.ErrorS(err, "Failed to discover Azure File mounts for filesystem metrics")
-		c.emitUp(ch, "mountinfo", false)
+		c.emitUp(ch, volumeDiscoverySource, false)
 		c.emitUp(ch, string(ProtocolSMB), false)
 		c.emitUp(ch, string(ProtocolNFS), false)
 		return
 	}
-	c.emitUp(ch, "mountinfo", true)
+	c.emitUp(ch, volumeDiscoverySource, true)
 
 	var cifsStats []CIFSStats
 	if cifsStats, err = c.readCIFS(c.cifsPath); err != nil {
