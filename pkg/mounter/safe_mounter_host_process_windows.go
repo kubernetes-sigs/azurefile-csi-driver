@@ -85,13 +85,21 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 		return fmt.Errorf("remote path is empty")
 	}
 
-	isMapped, err := mounter.smbAPI.IsSmbMapped(remotePath)
+	mappingStatus, err := mounter.smbAPI.GetSmbGlobalMappingStatus(remotePath)
 	if err != nil {
-		klog.Errorf("IsSmbMapped(%s) failed with %v", remotePath, err)
-		isMapped = false
+		klog.Errorf("GetSmbGlobalMappingStatus(%s) failed with %v", remotePath, err)
+		mappingStatus = smb.SMBGlobalMappingStatusNotFound
 	}
 
-	if isMapped {
+	isMapped := mappingStatus != smb.SMBGlobalMappingStatusNotFound
+	if mappingStatus == smb.SMBGlobalMappingStatusDisconnected {
+		klog.Warningf("RemotePath %s has a disconnected SMB global mapping, removing stale mapping before remount", remotePath)
+		if err := mounter.smbAPI.RemoveSmbGlobalMapping(remotePath); err != nil {
+			klog.Errorf("RemoveSmbGlobalMapping(%s) failed with %v", remotePath, err)
+			return err
+		}
+		isMapped = false
+	} else if isMapped {
 		valid, err := filesystem.PathValid(context.Background(), remotePath)
 		if err != nil {
 			klog.Warningf("PathValid(%s) failed with %v, ignore error", remotePath, err)

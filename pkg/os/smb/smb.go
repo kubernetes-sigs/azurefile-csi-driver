@@ -38,23 +38,43 @@ func NewPowerShellSMBAPI() *powerShellSMBAPI {
 }
 
 type SMBAPI interface {
-	IsSmbMapped(remotePath string) (bool, error)
+	GetSmbGlobalMappingStatus(remotePath string) (SMBGlobalMappingStatus, error)
 	NewSmbGlobalMapping(remotePath, username, password string) error
 	RemoveSmbGlobalMapping(remotePath string) error
 }
 
-func (*powerShellSMBAPI) IsSmbMapped(remotePath string) (bool, error) {
-	cmdLine := `$(Get-SmbGlobalMapping -RemotePath $Env:smbremotepath -ErrorAction Stop).Status`
+type SMBGlobalMappingStatus string
+
+const (
+	SMBGlobalMappingStatusNotFound     SMBGlobalMappingStatus = "NotFound"
+	SMBGlobalMappingStatusOK           SMBGlobalMappingStatus = "OK"
+	SMBGlobalMappingStatusDisconnected SMBGlobalMappingStatus = "Disconnected"
+	SMBGlobalMappingStatusOther        SMBGlobalMappingStatus = "Other"
+)
+
+func parseSMBGlobalMappingStatus(out string) SMBGlobalMappingStatus {
+	switch strings.ToLower(strings.TrimSpace(out)) {
+	case "":
+		return SMBGlobalMappingStatusNotFound
+	case strings.ToLower(string(SMBGlobalMappingStatusOK)):
+		return SMBGlobalMappingStatusOK
+	case strings.ToLower(string(SMBGlobalMappingStatusDisconnected)):
+		return SMBGlobalMappingStatusDisconnected
+	case strings.ToLower(string(SMBGlobalMappingStatusNotFound)):
+		return SMBGlobalMappingStatusNotFound
+	default:
+		return SMBGlobalMappingStatusOther
+	}
+}
+
+func (*powerShellSMBAPI) GetSmbGlobalMappingStatus(remotePath string) (SMBGlobalMappingStatus, error) {
+	cmdLine := `$mapping = Get-SmbGlobalMapping -RemotePath $Env:smbremotepath -ErrorAction SilentlyContinue; if ($null -eq $mapping) { 'NotFound' } else { $mapping.Status }`
 	cmdEnv := fmt.Sprintf("smbremotepath=%s", remotePath)
 	out, err := util.RunPowershellCmd(cmdLine, cmdEnv)
 	if err != nil {
-		return false, fmt.Errorf("error checking smb mapping. cmd %s, output: %s, err: %v", remotePath, string(out), err)
+		return SMBGlobalMappingStatusNotFound, fmt.Errorf("error checking smb mapping. cmd %s, output: %s, err: %v", remotePath, string(out), err)
 	}
-
-	if len(out) == 0 || !strings.EqualFold(strings.TrimSpace(string(out)), "OK") {
-		return false, nil
-	}
-	return true, nil
+	return parseSMBGlobalMappingStatus(string(out)), nil
 }
 
 func (*powerShellSMBAPI) NewSmbGlobalMapping(remotePath, username, password string) error {
