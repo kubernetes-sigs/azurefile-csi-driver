@@ -68,7 +68,7 @@ func parseSMBGlobalMappingStatus(out string) SMBGlobalMappingStatus {
 }
 
 func (*powerShellSMBAPI) GetSmbGlobalMappingStatus(remotePath string) (SMBGlobalMappingStatus, error) {
-	cmdLine := `$mapping = Get-SmbGlobalMapping -RemotePath $Env:smbremotepath -ErrorAction SilentlyContinue; if ($null -eq $mapping) { 'NotFound' } else { $mapping.Status }`
+	cmdLine := `$mapping = Get-SmbGlobalMapping -ErrorAction Stop | Where-Object { $_.RemotePath -eq $Env:smbremotepath } | Select-Object -First 1; if ($null -eq $mapping) { 'NotFound' } else { $mapping.Status }`
 	cmdEnv := fmt.Sprintf("smbremotepath=%s", remotePath)
 	out, err := util.RunPowershellCmd(cmdLine, cmdEnv)
 	if err != nil {

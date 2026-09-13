@@ -25,6 +25,7 @@ import (
 	"os"
 	filepath "path/filepath"
 	"strings"
+	"sync"
 
 	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
@@ -37,8 +38,37 @@ var driverGlobalMountPath = "C:\\var\\lib\\kubelet\\plugins\\kubernetes.io\\csi\
 
 var _ CSIProxyMounter = &winMounter{}
 
+type remotePathLockMap struct {
+	sync.Mutex
+	mutexMap map[string]*sync.Mutex
+}
+
+func newRemotePathLockMap() *remotePathLockMap {
+	return &remotePathLockMap{mutexMap: make(map[string]*sync.Mutex)}
+}
+
+func (lm *remotePathLockMap) LockEntry(entry string) {
+	lm.Lock()
+	if _, exists := lm.mutexMap[entry]; !exists {
+		lm.mutexMap[entry] = &sync.Mutex{}
+	}
+	mtx := lm.mutexMap[entry]
+	lm.Unlock()
+	mtx.Lock()
+}
+
+func (lm *remotePathLockMap) UnlockEntry(entry string) {
+	lm.Lock()
+	mtx, exists := lm.mutexMap[entry]
+	lm.Unlock()
+	if exists {
+		mtx.Unlock()
+	}
+}
+
 type winMounter struct {
-	smbAPI smb.SMBAPI
+	smbAPI          smb.SMBAPI
+	remotePathLocks *remotePathLockMap
 }
 
 func NewWinMounter(useWinCIMAPI bool) *winMounter {
@@ -49,7 +79,8 @@ func NewWinMounter(useWinCIMAPI bool) *winMounter {
 		smbAPI = smb.NewPowerShellSMBAPI()
 	}
 	return &winMounter{
-		smbAPI: smbAPI,
+		smbAPI:          smbAPI,
+		remotePathLocks: newRemotePathLockMap(),
 	}
 }
 
@@ -84,6 +115,10 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 	if remotePath == "" {
 		return fmt.Errorf("remote path is empty")
 	}
+
+	remotePathLockKey := strings.ToLower(strings.TrimSuffix(remotePath, `\\`))
+	mounter.remotePathLocks.LockEntry(remotePathLockKey)
+	defer mounter.remotePathLocks.UnlockEntry(remotePathLockKey)
 
 	mappingStatus, err := mounter.smbAPI.GetSmbGlobalMappingStatus(remotePath)
 	if err != nil {
