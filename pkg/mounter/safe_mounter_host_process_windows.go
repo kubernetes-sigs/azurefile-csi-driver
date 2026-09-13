@@ -25,10 +25,10 @@ import (
 	"os"
 	filepath "path/filepath"
 	"strings"
-	"sync"
 
 	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
+	"k8s.io/utils/keymutex"
 
 	"sigs.k8s.io/azurefile-csi-driver/pkg/os/filesystem"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/os/smb"
@@ -38,37 +38,9 @@ var driverGlobalMountPath = "C:\\var\\lib\\kubelet\\plugins\\kubernetes.io\\csi\
 
 var _ CSIProxyMounter = &winMounter{}
 
-type remotePathLockMap struct {
-	sync.Mutex
-	mutexMap map[string]*sync.Mutex
-}
-
-func newRemotePathLockMap() *remotePathLockMap {
-	return &remotePathLockMap{mutexMap: make(map[string]*sync.Mutex)}
-}
-
-func (lm *remotePathLockMap) LockEntry(entry string) {
-	lm.Lock()
-	if _, exists := lm.mutexMap[entry]; !exists {
-		lm.mutexMap[entry] = &sync.Mutex{}
-	}
-	mtx := lm.mutexMap[entry]
-	lm.Unlock()
-	mtx.Lock()
-}
-
-func (lm *remotePathLockMap) UnlockEntry(entry string) {
-	lm.Lock()
-	mtx, exists := lm.mutexMap[entry]
-	lm.Unlock()
-	if exists {
-		mtx.Unlock()
-	}
-}
-
 type winMounter struct {
 	smbAPI          smb.SMBAPI
-	remotePathLocks *remotePathLockMap
+	remotePathLocks keymutex.KeyMutex
 }
 
 func NewWinMounter(useWinCIMAPI bool) *winMounter {
@@ -80,8 +52,12 @@ func NewWinMounter(useWinCIMAPI bool) *winMounter {
 	}
 	return &winMounter{
 		smbAPI:          smbAPI,
-		remotePathLocks: newRemotePathLockMap(),
+		remotePathLocks: keymutex.NewHashed(0),
 	}
+}
+
+func getRemotePathLockKey(remotePath string) string {
+	return strings.ToLower(strings.TrimSuffix(remotePath, `\\`))
 }
 
 func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions, sensitiveMountOptions []string) error {
@@ -116,9 +92,11 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 		return fmt.Errorf("remote path is empty")
 	}
 
-	remotePathLockKey := strings.ToLower(strings.TrimSuffix(remotePath, `\\`))
-	mounter.remotePathLocks.LockEntry(remotePathLockKey)
-	defer mounter.remotePathLocks.UnlockEntry(remotePathLockKey)
+	remotePathLockKey := getRemotePathLockKey(remotePath)
+	mounter.remotePathLocks.LockKey(remotePathLockKey)
+	defer func() {
+		_ = mounter.remotePathLocks.UnlockKey(remotePathLockKey)
+	}()
 
 	mappingStatus, err := mounter.smbAPI.GetSmbGlobalMappingStatus(remotePath)
 	if err != nil {
@@ -187,6 +165,12 @@ func (mounter *winMounter) Unmount(target string) error {
 	target = normalizeWindowsPath(target)
 	remoteServer, err := smb.GetRemoteServerFromTarget(target)
 	if err == nil {
+		remotePathLockKey := getRemotePathLockKey(remoteServer)
+		mounter.remotePathLocks.LockKey(remotePathLockKey)
+		defer func() {
+			_ = mounter.remotePathLocks.UnlockKey(remotePathLockKey)
+		}()
+
 		klog.V(2).Infof("remote server path: %s, local path: %s", remoteServer, target)
 		if hasDupSMBMount, err := smb.CheckForDuplicateSMBMounts(driverGlobalMountPath, target, remoteServer); err == nil {
 			if !hasDupSMBMount {
