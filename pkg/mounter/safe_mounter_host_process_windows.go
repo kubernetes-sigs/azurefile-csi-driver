@@ -92,6 +92,29 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 		return fmt.Errorf("remote path is empty")
 	}
 
+	username := mountOptions[0]
+	password := sensitiveMountOptions[0]
+	if err := mounter.ensureSMBGlobalMapping(remotePath, username, password, func(path string) (bool, error) {
+		return filesystem.PathValid(context.Background(), path)
+	}); err != nil {
+		return err
+	}
+
+	if len(localPath) != 0 {
+		if err := filesystem.ValidatePathWindows(localPath); err != nil {
+			return err
+		}
+		if err := os.Symlink(remotePath, localPath); err != nil {
+			return fmt.Errorf("os.Symlink(%s, %s) failed with %v", remotePath, localPath, err)
+		}
+	}
+	klog.V(2).Infof("mount %s on %s successfully", source, normalizedTarget)
+	return nil
+}
+
+// ensureSMBGlobalMapping reconciles the hostprocess SMB global mapping state
+// for a remote UNC path before the local symlink is created.
+func (mounter *winMounter) ensureSMBGlobalMapping(remotePath, username, password string, pathValidFn func(string) (bool, error)) error {
 	remotePathLockKey := getRemotePathLockKey(remotePath)
 	mounter.remotePathLocks.LockKey(remotePathLockKey)
 	defer func() {
@@ -104,49 +127,34 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 		mappingStatus = smb.SMBGlobalMappingStatusNotFound
 	}
 
-	isMapped := mappingStatus != smb.SMBGlobalMappingStatusNotFound
-	if mappingStatus == smb.SMBGlobalMappingStatusDisconnected {
+	switch mappingStatus {
+	case smb.SMBGlobalMappingStatusDisconnected:
 		klog.Warningf("RemotePath %s has a disconnected SMB global mapping, removing stale mapping before remount", remotePath)
 		if err := mounter.smbAPI.RemoveSmbGlobalMapping(remotePath); err != nil {
 			klog.Errorf("RemoveSmbGlobalMapping(%s) failed with %v", remotePath, err)
 			return err
 		}
-		isMapped = false
-	} else if isMapped {
-		valid, err := filesystem.PathValid(context.Background(), remotePath)
+	case smb.SMBGlobalMappingStatusOK:
+		valid, err := pathValidFn(remotePath)
 		if err != nil {
 			klog.Warningf("PathValid(%s) failed with %v, ignore error", remotePath, err)
 		}
 
-		if !valid {
-			klog.Warningf("RemotePath %s is not valid, removing now", remotePath)
-			if err := mounter.smbAPI.RemoveSmbGlobalMapping(remotePath); err != nil {
-				klog.Errorf("RemoveSmbGlobalMapping(%s) failed with %v", remotePath, err)
-				return err
-			}
-			isMapped = false
+		if valid {
+			return nil
 		}
-	}
-
-	if !isMapped {
-		klog.V(2).Infof("Remote %s not mapped. Mapping now!", remotePath)
-		username := mountOptions[0]
-		password := sensitiveMountOptions[0]
-		if err := mounter.smbAPI.NewSmbGlobalMapping(remotePath, username, password); err != nil {
-			klog.Errorf("NewSmbGlobalMapping(%s) failed with %v", remotePath, err)
+		klog.Warningf("RemotePath %s is not valid, removing now", remotePath)
+		if err := mounter.smbAPI.RemoveSmbGlobalMapping(remotePath); err != nil {
+			klog.Errorf("RemoveSmbGlobalMapping(%s) failed with %v", remotePath, err)
 			return err
 		}
 	}
 
-	if len(localPath) != 0 {
-		if err := filesystem.ValidatePathWindows(localPath); err != nil {
-			return err
-		}
-		if err := os.Symlink(remotePath, localPath); err != nil {
-			return fmt.Errorf("os.Symlink(%s, %s) failed with %v", remotePath, localPath, err)
-		}
+	klog.V(2).Infof("Remote %s not mapped. Mapping now!", remotePath)
+	if err := mounter.smbAPI.NewSmbGlobalMapping(remotePath, username, password); err != nil {
+		klog.Errorf("NewSmbGlobalMapping(%s) failed with %v", remotePath, err)
+		return err
 	}
-	klog.V(2).Infof("mount %s on %s successfully", source, normalizedTarget)
 	return nil
 }
 
