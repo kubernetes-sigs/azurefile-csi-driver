@@ -57,7 +57,7 @@ func NewWinMounter(useWinCIMAPI bool) *winMounter {
 }
 
 func getRemotePathLockKey(remotePath string) string {
-	return strings.ToLower(strings.TrimSuffix(remotePath, `\\`))
+	return strings.ToLower(strings.TrimRight(remotePath, `\`))
 }
 
 func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions, sensitiveMountOptions []string) error {
