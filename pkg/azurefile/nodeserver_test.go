@@ -336,7 +336,7 @@ func TestNodePublishVolume(t *testing.T) {
 			},
 		},
 		{
-			desc: "[Error] Ephemeral volume with protocol=nfs should fail",
+			desc: "[Error] Ephemeral NFS volume still enforces inline server validation",
 			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
 				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e440",
 				TargetPath: targetTest,
@@ -349,8 +349,8 @@ func TestNodePublishVolume(t *testing.T) {
 				},
 			},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.InvalidArgument, "NFS protocol is not supported for ephemeral volumes"),
-				WindowsError: status.Error(codes.InvalidArgument, "NFS protocol is not supported for ephemeral volumes"),
+				DefaultError: status.Error(codes.InvalidArgument, "invalid server error: invalid server \"192.0.2.60\": IP addresses are not allowed"),
+				WindowsError: status.Error(codes.InvalidArgument, "invalid server error: invalid server \"192.0.2.60\": IP addresses are not allowed"),
 			},
 		},
 		{
@@ -556,6 +556,22 @@ func TestNodePublishVolume(t *testing.T) {
 					storageAccountField: "teststorageaccount",
 					shareNameField:      "testshare",
 					clientIDField:       "test-client-id-1234",
+				},
+			},
+			expectedErr: testutil.TestError{},
+		},
+		{
+			desc: "[Success] Ephemeral NFS inline volume is allowed",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "csi-ephemeral-nfs-inline-already-mounted",
+				TargetPath:        alreadyMountedTarget,
+				StagingTargetPath: sourceTest,
+				Readonly:          true,
+				VolumeContext: map[string]string{
+					ephemeralField:      "true",
+					protocolField:       "nfs",
+					storageAccountField: "teststorageaccount",
+					shareNameField:      "testshare",
 				},
 			},
 			expectedErr: testutil.TestError{},
