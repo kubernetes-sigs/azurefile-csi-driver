@@ -92,9 +92,15 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 		return fmt.Errorf("remote path is empty")
 	}
 
+	remotePathLockKey := getRemotePathLockKey(remotePath)
+	mounter.remotePathLocks.LockKey(remotePathLockKey)
+	defer func() {
+		_ = mounter.remotePathLocks.UnlockKey(remotePathLockKey)
+	}()
+
 	username := mountOptions[0]
 	password := sensitiveMountOptions[0]
-	if err := mounter.ensureSMBGlobalMapping(remotePath, username, password, func(path string) (bool, error) {
+	if err := mounter.ensureSMBGlobalMappingLocked(remotePath, username, password, func(path string) (bool, error) {
 		return filesystem.PathValid(context.Background(), path)
 	}); err != nil {
 		return err
@@ -112,15 +118,10 @@ func (mounter *winMounter) SMBMount(source, target, fsType string, mountOptions,
 	return nil
 }
 
-// ensureSMBGlobalMapping reconciles the hostprocess SMB global mapping state
-// for a remote UNC path before the local symlink is created.
-func (mounter *winMounter) ensureSMBGlobalMapping(remotePath, username, password string, pathValidFn func(string) (bool, error)) error {
-	remotePathLockKey := getRemotePathLockKey(remotePath)
-	mounter.remotePathLocks.LockKey(remotePathLockKey)
-	defer func() {
-		_ = mounter.remotePathLocks.UnlockKey(remotePathLockKey)
-	}()
-
+// ensureSMBGlobalMappingLocked reconciles the hostprocess SMB global mapping
+// state for a remote UNC path. The caller must already hold the per-remote-path
+// lock through both mapping reconciliation and local symlink publication.
+func (mounter *winMounter) ensureSMBGlobalMappingLocked(remotePath, username, password string, pathValidFn func(string) (bool, error)) error {
 	mappingStatus, err := mounter.smbAPI.GetSmbGlobalMappingStatus(remotePath)
 	if err != nil {
 		klog.Errorf("GetSmbGlobalMappingStatus(%s) failed with %v", remotePath, err)
