@@ -79,7 +79,7 @@ func TestEnsureSMBGlobalMapping_RecreatesDisconnectedMapping(t *testing.T) {
 	mounter := &winMounter{smbAPI: api, remotePathLocks: keymutex.NewHashed(0)}
 	pathValidCalled := false
 
-	err := mounter.ensureSMBGlobalMapping(`\\server\share`, "user", "pass", func(string) (bool, error) {
+	err := mounter.ensureSMBGlobalMappingLocked(`\\server\share`, "user", "pass", func(string) (bool, error) {
 		pathValidCalled = true
 		return true, nil
 	})
@@ -100,7 +100,7 @@ func TestEnsureSMBGlobalMapping_DisconnectedRemoveFailureStopsRecreate(t *testin
 	api := &fakeSMBAPI{status: smb.SMBGlobalMappingStatusDisconnected, removeErr: removeErr}
 	mounter := &winMounter{smbAPI: api, remotePathLocks: keymutex.NewHashed(0)}
 
-	err := mounter.ensureSMBGlobalMapping(`\\server\share`, "user", "pass", func(string) (bool, error) {
+	err := mounter.ensureSMBGlobalMappingLocked(`\\server\share`, "user", "pass", func(string) (bool, error) {
 		return true, nil
 	})
 	if !errors.Is(err, removeErr) {
@@ -117,7 +117,7 @@ func TestEnsureSMBGlobalMapping_OtherStatusFallsBackToRemap(t *testing.T) {
 	mounter := &winMounter{smbAPI: api, remotePathLocks: keymutex.NewHashed(0)}
 	pathValidCalled := false
 
-	err := mounter.ensureSMBGlobalMapping(`\\server\share`, "user", "pass", func(string) (bool, error) {
+	err := mounter.ensureSMBGlobalMappingLocked(`\\server\share`, "user", "pass", func(string) (bool, error) {
 		pathValidCalled = true
 		return true, nil
 	})
