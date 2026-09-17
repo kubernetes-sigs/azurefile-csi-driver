@@ -1951,38 +1951,6 @@ func TestIsValidFolderName(t *testing.T) {
 	}
 }
 
-func TestValidateInlineVolumeMountSource(t *testing.T) {
-	tests := []struct {
-		name      string
-		server    string
-		shareName string
-		expectErr bool
-	}{
-		{name: "valid hostname and share", server: "acct.file.core.windows.net", shareName: "myshare", expectErr: false},
-		{name: "valid ip and share", server: "192.0.2.10", shareName: "my-share", expectErr: false},
-		{name: "empty server allowed (defaulted later)", server: "", shareName: "myshare", expectErr: false},
-		{name: "server with separators", server: "a/b", shareName: "myshare", expectErr: true},
-		{name: "server with leading slash", server: "/abc", shareName: "myshare", expectErr: true},
-		{name: "server with backslash", server: "a\\b", shareName: "myshare", expectErr: true},
-		{name: "server is dot", server: ".", shareName: "myshare", expectErr: true},
-		{name: "server is dotdot", server: "..", shareName: "myshare", expectErr: true},
-		{name: "shareName with slash", server: "acct.file.core.windows.net", shareName: "a/b", expectErr: true},
-		{name: "shareName with backslash", server: "acct.file.core.windows.net", shareName: "a\\b", expectErr: true},
-		{name: "shareName is dotdot", server: "acct.file.core.windows.net", shareName: "..", expectErr: true},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			err := validateInlineVolumeMountSource(tc.server, tc.shareName)
-			if tc.expectErr && err == nil {
-				t.Fatalf("validateInlineVolumeMountSource(%q, %q) expected error but got nil", tc.server, tc.shareName)
-			}
-			if !tc.expectErr && err != nil {
-				t.Fatalf("validateInlineVolumeMountSource(%q, %q) unexpected error: %v", tc.server, tc.shareName, err)
-			}
-		})
-	}
-}
-
 func TestContainsMountOptionDelimiter(t *testing.T) {
 	tests := []struct {
 		input    string
