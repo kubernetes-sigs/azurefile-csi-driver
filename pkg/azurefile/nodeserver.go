@@ -110,10 +110,6 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 			if strings.EqualFold(getValueInMap(context, protocolField), nfs) {
 				return nil, status.Error(codes.InvalidArgument, "NFS protocol is not supported for ephemeral volumes")
 			}
-			// Inline volumes do not support the VHD disk feature.
-			if getValueInMap(context, diskNameField) != "" || isDiskFsType(getValueInMap(context, fsTypeField)) {
-				return nil, status.Error(codes.InvalidArgument, "VHD disk feature (diskName or disk fsType) is not supported for ephemeral volumes")
-			}
 			// Inline volumes must describe a remote Azure Files mount only.
 			// Reject server / shareName that could become a local path,
 			// and reject local bind mount modes in mountOptions.
