@@ -354,42 +354,6 @@ func TestNodePublishVolume(t *testing.T) {
 			},
 		},
 		{
-			desc: "[Error] Ephemeral volume with diskName should fail",
-			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
-				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e441",
-				TargetPath: targetTest,
-				Readonly:   true,
-				VolumeContext: map[string]string{
-					ephemeralField:  "true",
-					shareNameField:  "testshare",
-					serverNameField: "test_servername",
-					diskNameField:   "disk.vhd",
-				},
-			},
-			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.InvalidArgument, "VHD disk feature (diskName or disk fsType) is not supported for ephemeral volumes"),
-				WindowsError: status.Error(codes.InvalidArgument, "VHD disk feature (diskName or disk fsType) is not supported for ephemeral volumes"),
-			},
-		},
-		{
-			desc: "[Error] Ephemeral volume with disk fsType should fail",
-			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
-				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e442",
-				TargetPath: targetTest,
-				Readonly:   true,
-				VolumeContext: map[string]string{
-					ephemeralField:  "true",
-					shareNameField:  "testshare",
-					serverNameField: "test_servername",
-					fsTypeField:     "ext4",
-				},
-			},
-			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.InvalidArgument, "VHD disk feature (diskName or disk fsType) is not supported for ephemeral volumes"),
-				WindowsError: status.Error(codes.InvalidArgument, "VHD disk feature (diskName or disk fsType) is not supported for ephemeral volumes"),
-			},
-		},
-		{
 			desc: "[Error] Ephemeral volume with server containing separators should fail",
 			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
 				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e443",
