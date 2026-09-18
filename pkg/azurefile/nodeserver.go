@@ -19,8 +19,6 @@ package azurefile
 import (
 	"encoding/json"
 	"fmt"
-	"net"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -415,18 +413,8 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 	defer d.volumeLocks.Release(lockKey)
 
-	trueStorageEndPointSuffix := d.getStorageEndPointSuffix()
-	if ephemeralVol {
-		requestedSuffix := strings.Trim(strings.TrimSpace(storageEndpointSuffix), ".")
-		trustedSuffix := strings.Trim(strings.TrimSpace(trueStorageEndPointSuffix), ".")
-		if requestedSuffix != "" && !strings.EqualFold(requestedSuffix, trustedSuffix) {
-			return nil, status.Errorf(codes.InvalidArgument, "storageEndpointSuffix %q does not match configured cloud suffix %q", storageEndpointSuffix, trueStorageEndPointSuffix)
-		}
-		// Use the configured suffix for every inline endpoint, including data-plane
-		// requests made by createFolderIfNotExists.
-		storageEndpointSuffix = trueStorageEndPointSuffix
-	} else if strings.TrimSpace(storageEndpointSuffix) == "" {
-		storageEndpointSuffix = trueStorageEndPointSuffix
+	if strings.TrimSpace(storageEndpointSuffix) == "" {
+		storageEndpointSuffix = d.getStorageEndPointSuffix()
 	}
 
 	// replace pv/pvc name namespace metadata in fileShareName
@@ -436,12 +424,6 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	if strings.TrimSpace(server) == "" {
 		// server address is "accountname.file.core.windows.net" by default
 		server = fmt.Sprintf("%s.file.%s", accountName, storageEndpointSuffix)
-	}
-	// Validate inline ephemeral volume server.
-	if ephemeralVol {
-		if err := validateInlineVolumeServer(server, accountName, trueStorageEndPointSuffix); err != nil {
-			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid server error: %s", err.Error()))
-		}
 	}
 	source := fmt.Sprintf("%s%s%s%s%s", osSeparator, osSeparator, server, osSeparator, fileShareName)
 	if protocol == nfs {
@@ -1052,121 +1034,4 @@ func validateInlineSMBMountOptions(mountOptions []string) error {
 		}
 	}
 	return nil
-}
-
-func validateInlineVolumeServer(server, accountName, storageEndPointSuffix string) error {
-	account := strings.ToLower(strings.TrimSpace(accountName))
-	suffix := strings.ToLower(strings.Trim(strings.TrimSpace(storageEndPointSuffix), "."))
-	host, err := parseInlineVolumeServer(server)
-	if err != nil {
-		return err
-	}
-
-	if account == "" || suffix == "" {
-		return fmt.Errorf("invalid server configuration: account name or storage endpoint suffix is empty")
-	}
-	secondaryAccount := account + "-secondary"
-	// Allowed server formats:
-	allowedHosts := map[string]struct{}{
-		fmt.Sprintf("%s.file.%s", account, suffix):                      {},
-		fmt.Sprintf("%s.afs.%s", account, suffix):                       {},
-		fmt.Sprintf("%s.privatelink.file.%s", account, suffix):          {},
-		fmt.Sprintf("%s.privatelink.afs.%s", account, suffix):           {},
-		fmt.Sprintf("%s.file.%s", secondaryAccount, suffix):             {},
-		fmt.Sprintf("%s.afs.%s", secondaryAccount, suffix):              {},
-		fmt.Sprintf("%s.privatelink.file.%s", secondaryAccount, suffix): {},
-		fmt.Sprintf("%s.privatelink.afs.%s", secondaryAccount, suffix):  {},
-	}
-	if _, ok := allowedHosts[strings.TrimSuffix(strings.ToLower(server), ".")]; ok {
-		return nil
-	}
-	if suffix == defaultStorageEndPointSuffix && isAzureDNSZoneStorageHost(host, account) {
-		return nil
-	}
-	return fmt.Errorf("invalid server %q: hostname must match storage account %q in the configured Azure cloud", server, accountName)
-}
-
-// parseInlineVolumeServer extracts a normalized hostname from a server value
-// and rejects URL components that are unsafe for inline volumes.
-func parseInlineVolumeServer(server string) (string, error) {
-	if server == "" {
-		return "", fmt.Errorf("server must not be empty")
-	}
-	if strings.TrimSpace(server) != server {
-		return "", fmt.Errorf("server %q must not contain leading or trailing whitespace", server)
-	}
-
-	serverURL := "https://" + server
-	// Always use HTTPS scheme for inline volume server
-
-	parsed, err := url.Parse(serverURL)
-	if err != nil {
-		return "", fmt.Errorf("invalid server %q: %w", server, err)
-	}
-	if !strings.EqualFold(parsed.Scheme, "https") {
-		return "", fmt.Errorf("invalid server %q: only HTTPS endpoints are allowed", server)
-	}
-	if parsed.User != nil {
-		return "", fmt.Errorf("invalid server %q: user information is not allowed", server)
-	}
-	if parsed.Port() != "" {
-		return "", fmt.Errorf("invalid server %q: explicit ports are not allowed", server)
-	}
-	if parsed.Path != "" && parsed.Path != "/" {
-		return "", fmt.Errorf("invalid server %q: paths are not allowed", server)
-	}
-	if parsed.RawQuery != "" || parsed.Fragment != "" {
-		return "", fmt.Errorf("invalid server %q: query strings and fragments are not allowed", server)
-	}
-
-	host := strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
-	if host == "" {
-		return "", fmt.Errorf("invalid server %q: hostname is required", server)
-	}
-	if net.ParseIP(host) != nil {
-		return "", fmt.Errorf("invalid server %q: IP addresses are not allowed", server)
-	}
-
-	return host, nil
-}
-
-// isAzureDNSZoneStorageHost validates the public Azure DNS-zone endpoint
-// format without requiring a storage management-plane lookup from the node.
-func isAzureDNSZoneStorageHost(host, account string) bool {
-	parts := strings.Split(host, ".")
-	if len(parts) != 6 && len(parts) != 7 {
-		return false
-	}
-	if parts[0] != account && parts[0] != account+"-secondary" {
-		return false
-	}
-	zone := parts[1]
-	zoneID, hasZonePrefix := strings.CutPrefix(zone, "z")
-	if !hasZonePrefix {
-		return false
-	}
-	if len(zoneID) == 1 &&
-		(zoneID[0] < '1' || zoneID[0] > '9') {
-		return false
-	}
-	if len(zoneID) == 2 &&
-		(zoneID[0] < '1' || zoneID[0] > '9' ||
-			zoneID[1] < '0' || zoneID[1] > '9') {
-		return false
-	}
-	if len(zoneID) < 1 || len(zoneID) > 2 {
-		return false
-	}
-
-	serviceIndex := 2
-	if len(parts) == 7 {
-		if parts[serviceIndex] != "privatelink" {
-			return false
-		}
-		serviceIndex++
-	}
-	if parts[serviceIndex] != "file" && parts[serviceIndex] != "afs" {
-		return false
-	}
-	return strings.Join(parts[serviceIndex+1:], ".") == "storage.azure.net"
 }
