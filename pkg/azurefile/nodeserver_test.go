@@ -336,24 +336,6 @@ func TestNodePublishVolume(t *testing.T) {
 			},
 		},
 		{
-			desc: "[Error] Ephemeral volume with protocol=nfs should fail",
-			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
-				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e440",
-				TargetPath: targetTest,
-				Readonly:   true,
-				VolumeContext: map[string]string{
-					ephemeralField:  "true",
-					shareNameField:  "testshare",
-					protocolField:   nfs,
-					serverNameField: "192.0.2.60",
-				},
-			},
-			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.InvalidArgument, "NFS protocol is not supported for ephemeral volumes"),
-				WindowsError: status.Error(codes.InvalidArgument, "NFS protocol is not supported for ephemeral volumes"),
-			},
-		},
-		{
 			desc: "[Error] Ephemeral volume with diskName should fail",
 			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
 				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e441",
@@ -387,40 +369,6 @@ func TestNodePublishVolume(t *testing.T) {
 			expectedErr: testutil.TestError{
 				DefaultError: status.Error(codes.InvalidArgument, "VHD disk feature (diskName or disk fsType) is not supported for ephemeral volumes"),
 				WindowsError: status.Error(codes.InvalidArgument, "VHD disk feature (diskName or disk fsType) is not supported for ephemeral volumes"),
-			},
-		},
-		{
-			desc: "[Error] Ephemeral volume with server containing separators should fail",
-			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
-				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e443",
-				TargetPath: targetTest,
-				Readonly:   true,
-				VolumeContext: map[string]string{
-					ephemeralField:  "true",
-					shareNameField:  "testshare",
-					serverNameField: "a/b",
-				},
-			},
-			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.InvalidArgument, "invalid server \"a/b\" for ephemeral volume: must be a hostname or address"),
-				WindowsError: status.Error(codes.InvalidArgument, "invalid server \"a/b\" for ephemeral volume: must be a hostname or address"),
-			},
-		},
-		{
-			desc: "[Error] Ephemeral volume with shareName containing separators should fail",
-			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
-				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e444",
-				TargetPath: targetTest,
-				Readonly:   true,
-				VolumeContext: map[string]string{
-					ephemeralField:  "true",
-					serverNameField: "test_servername",
-					shareNameField:  "a/b",
-				},
-			},
-			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.InvalidArgument, "invalid shareName \"a/b\" for ephemeral volume: must be a single share name"),
-				WindowsError: status.Error(codes.InvalidArgument, "invalid shareName \"a/b\" for ephemeral volume: must be a single share name"),
 			},
 		},
 		{

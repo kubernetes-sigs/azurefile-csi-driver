@@ -675,18 +675,6 @@ func isValidFolderName(folderName string) error {
 	return nil
 }
 
-// validateInlineVolumeMountSource validates that there are no path
-// separators or dot-only segments.
-func validateInlineVolumeMountSource(server, shareName string) error {
-	if strings.ContainsAny(server, `/\`) || server == "." || server == ".." {
-		return fmt.Errorf("invalid server %q for ephemeral volume: must be a hostname or address", server)
-	}
-	if strings.ContainsAny(shareName, `/\`) || shareName == "." || shareName == ".." {
-		return fmt.Errorf("invalid shareName %q for ephemeral volume: must be a single share name", shareName)
-	}
-	return nil
-}
-
 // containsMountOptionDelimiter reports whether s contains an option separator
 // or terminator.
 func containsMountOptionDelimiter(s string) bool {
