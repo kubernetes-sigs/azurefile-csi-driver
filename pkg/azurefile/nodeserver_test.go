@@ -2141,6 +2141,68 @@ func TestNodeUnstageVolume(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestGetKerberosMountServer(t *testing.T) {
+	stagingTargetPath := "/var/lib/kubelet/plugins/kubernetes.io/csi/pv/test/globalmount"
+	proxyTargetPath := filepath.Join(filepath.Dir(stagingTargetPath), proxyMount)
+	tests := []struct {
+		desc           string
+		mountPoints    []mount.MountPoint
+		expectedServer string
+	}{
+		{
+			desc: "managed identity mount",
+			mountPoints: []mount.MountPoint{{
+				Device: "//account.file.core.windows.net/share",
+				Path:   stagingTargetPath,
+				Type:   cifs,
+				Opts:   []string{"rw", "sec=krb5,cruid=0,upcall_target=mount"},
+			}},
+			expectedServer: "account.file.core.windows.net",
+		},
+		{
+			desc: "private endpoint VHD proxy mount",
+			mountPoints: []mount.MountPoint{{
+				Device: "//account.privatelink.file.core.windows.net/share/disk.vhd",
+				Path:   proxyTargetPath,
+				Type:   cifs,
+				Opts:   []string{"rw", "sec=krb5", "cruid=0"},
+			}},
+			expectedServer: "account.file.core.windows.net",
+		},
+		{
+			desc: "account key mount",
+			mountPoints: []mount.MountPoint{{
+				Device: "//account.file.core.windows.net/share",
+				Path:   stagingTargetPath,
+				Type:   cifs,
+				Opts:   []string{"rw", "username=account"},
+			}},
+		},
+		{
+			desc: "unrelated kerberos mount",
+			mountPoints: []mount.MountPoint{{
+				Device: "//account.file.core.windows.net/share",
+				Path:   "/other/path",
+				Type:   cifs,
+				Opts:   []string{"rw", "sec=krb5"},
+			}},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			d := NewFakeDriver()
+			d.mounter = &mount.SafeFormatAndMount{
+				Interface: mount.NewFakeMounter(test.mountPoints),
+			}
+
+			server, err := d.getKerberosMountServer(stagingTargetPath)
+			assert.NoError(t, err)
+			assert.Equal(t, test.expectedServer, server)
+		})
+	}
+}
+
 func TestNodeGetVolumeStats(t *testing.T) {
 	nonexistedPath := "/not/a/real/directory"
 	fakePath := "/tmp/fake-volume-path"
