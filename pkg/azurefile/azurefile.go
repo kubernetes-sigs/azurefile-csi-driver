@@ -179,6 +179,9 @@ const (
 	defaultConfidentialContainerLabel = "kubernetes.azure.com/kata-cc-isolation"
 	runtimeClassHandlerField          = "runtimeclasshandler"
 	defaultRuntimeClassHandler        = "kata-cc"
+	// RuntimeClass annotation that opts a pod into Kata direct-volume (guest SMB) mounts.
+	kataMountAnnotationKey            = "azure.csi.file/kata-mount"
+	kataMountDirectVolumeValue        = "direct-volume"
 	mountWithManagedIdentityField     = "mountwithmanagedidentity"
 	mountWithOAuthTokenField          = "mountwithoauthtoken"
 	mountWithWITokenField             = "mountwithworkloadidentitytoken"
@@ -292,6 +295,7 @@ type Driver struct {
 	appendActimeoOption                    bool
 	printVolumeStatsCallLogs               bool
 	enableKataCCMount                      bool
+	enableKataSMBMount                     bool
 	useWinCIMAPI                           bool
 	mounter                                *mount.SafeFormatAndMount
 	server                                 *grpc.Server
@@ -340,6 +344,7 @@ type Driver struct {
 	resolver              Resolver
 	directVolume          DirectVolume
 	isKataNode            bool
+	isKataSMBNode         bool
 	requiredAzCopyToTrust bool
 	// Flag that indicates to use aznfs utility to mount nfs volumes instead of vanilla nfs utility.
 	useAZNFSForNFSMounts bool
@@ -365,6 +370,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.enableVolumeMountGroup = options.EnableVolumeMountGroup
 	driver.enableGetVolumeStats = options.EnableGetVolumeStats
 	driver.enableKataCCMount = options.EnableKataCCMount
+	driver.enableKataSMBMount = options.EnableKataSMBMount
 	driver.appendMountErrorHelpLink = options.AppendMountErrorHelpLink
 	driver.mountPermissions = options.MountPermissions
 	driver.fsGroupChangePolicy = options.FSGroupChangePolicy
@@ -388,6 +394,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.resolver = new(NetResolver)
 	driver.directVolume = new(directVolume)
 	driver.isKataNode = false
+	driver.isKataSMBNode = false
 	driver.useWinCIMAPI = options.UseWinCIMAPI
 	driver.useAZNFSForNFSMounts = options.UseAZNFSForNFSMounts
 	var err error
@@ -521,6 +528,7 @@ func (d *Driver) Run(ctx context.Context) error {
 	csi.RegisterNodeServer(server, d)
 	d.server = server
 	d.isKataNode = isKataNode(ctx, d.NodeID, defaultConfidentialContainerLabel, d.kubeClient)
+	d.isKataSMBNode = isKataSMBNode(ctx, d.NodeID, d.kubeClient)
 
 	listener, err := csicommon.ListenEndpoint(ctx, d.endpoint)
 	if err != nil {
@@ -1634,6 +1642,31 @@ func isKataNode(ctx context.Context, nodeID, confidentialContainerLabel string, 
 		return false
 	}
 	klog.V(4).Infof("node(%s) is a kata node with labels: %v", nodeID, node.Labels)
+	return true
+}
+
+// isKataSMBNode reports whether the node opts into Kata guest SMB direct-volume
+// mounts via the azure.csi.file/kata-mount=direct-volume node annotation.
+func isKataSMBNode(ctx context.Context, nodeID string, kubeClient clientset.Interface) bool {
+	if nodeID == "" {
+		return false
+	}
+
+	if kubeClient == nil || kubeClient.CoreV1() == nil {
+		klog.Warningf("kubeClient is nil, cannot check if node(%s) is a kata smb node", nodeID)
+		return false
+	}
+
+	node, err := kubeClient.CoreV1().Nodes().Get(ctx, nodeID, metav1.GetOptions{})
+	if err != nil {
+		klog.Warningf("failed to get node(%s): %v", nodeID, err)
+		return false
+	}
+
+	if node == nil || node.Annotations[kataMountAnnotationKey] != kataMountDirectVolumeValue {
+		return false
+	}
+	klog.V(4).Infof("====++====node(%s) is a kata smb node (annotation %s=%s)", nodeID, kataMountAnnotationKey, kataMountDirectVolumeValue)
 	return true
 }
 
