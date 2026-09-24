@@ -503,6 +503,24 @@ func isConfidentialRuntimeClass(ctx context.Context, kubeClient clientset.Interf
 	return runtimeClass.Handler == runtimeClassHandler, nil
 }
 
+// isKataDirectVolumeRuntimeClass reports whether the pod's RuntimeClass opts into
+// Kata direct-volume (guest SMB) mounts via the azure.csi.file/kata-mount annotation.
+func isKataDirectVolumeRuntimeClass(ctx context.Context, kubeClient clientset.Interface, runtimeClassName string) (bool, error) {
+	if runtimeClassName == "" {
+		return false, nil
+	}
+	if kubeClient == nil {
+		return false, fmt.Errorf("kubeClient is nil")
+	}
+	runtimeClassClient := kubeClient.NodeV1().RuntimeClasses()
+	runtimeClass, err := runtimeClassClient.Get(ctx, runtimeClassName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	klog.V(4).Infof("====++====runtimeClass %s annotation %s: %s", runtimeClassName, kataMountAnnotationKey, runtimeClass.Annotations[kataMountAnnotationKey])
+	return runtimeClass.Annotations[kataMountAnnotationKey] == kataMountDirectVolumeValue, nil
+}
+
 // getBackOff returns a backoff object based on the config
 func getBackOff(config azureconfig.Config) wait.Backoff {
 	steps := config.CloudProviderBackoffRetries

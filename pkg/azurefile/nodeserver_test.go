@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -147,6 +148,10 @@ func mockIsConfidentialRuntimeClass(_ context.Context, _ clientset.Interface, _ 
 	return true, nil
 }
 
+func mockIsKataDirectVolumeRuntimeClass(_ context.Context, _ clientset.Interface, _ string) (bool, error) {
+	return true, nil
+}
+
 func TestNodePublishVolume(t *testing.T) {
 	d := NewFakeDriver()
 	d.cloud = &storage.AccountRepo{}
@@ -165,6 +170,7 @@ func TestNodePublishVolume(t *testing.T) {
 	mockDirectVolume := NewMockDirectVolume(ctrl)
 	getRuntimeClassForPodFunc = mockGetRuntimeClassForPod
 	isConfidentialRuntimeClassFunc = mockIsConfidentialRuntimeClass
+	isKataDirectVolumeRuntimeClassFunc = mockIsKataDirectVolumeRuntimeClass
 	d.isKataNode = false
 
 	tests := []struct {
@@ -642,12 +648,14 @@ func TestNodePublishVolume(t *testing.T) {
 				VolumeContext:     map[string]string{mountPermissionsField: "0755", podNameField: "testPod", podNamespaceField: "testNamespace"},
 			},
 			setup: func() {
+				assert.NoError(t, makeDir(sourceTest, 0755))
 				d.isKataNode = true
 				d.directVolume = mockDirectVolume
 				mockDirectVolume.EXPECT().VolumeMountInfo(sourceTest).Return(&volume.MountInfo{}, nil)
 				mockDirectVolume.EXPECT().Add(targetTest, gomock.Any()).Return(nil)
 			},
 			cleanup: func() {
+				assert.NoDirExists(t, sourceTest)
 			},
 		},
 		{
@@ -1639,21 +1647,35 @@ func TestNodeStageVolume(t *testing.T) {
 				d.resolver = mockResolver
 				d.directVolume = mockDirectVolume
 				if runtime.GOOS != "windows" {
-					d.isKataNode = true
+					d.isKataNode = false
+					d.kubeClient = fake.NewSimpleClientset(&corev1.Node{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:   fakeNodeID,
+							Labels: map[string]string{"test-kata-label": "true"},
+						},
+					})
 					mockIPAddr := &net.IPAddr{IP: net.ParseIP("192.168.1.1")}
 					mockDirectVolume.EXPECT().VolumeMountInfo(sourceTest).Return(nil, nil)
 					mockResolver.EXPECT().ResolveIPAddr("ip", "test_servername").Return(mockIPAddr, nil)
-					mockDirectVolume.EXPECT().Add(sourceTest, gomock.Any()).Return(nil)
+					mockDirectVolume.EXPECT().Add(sourceTest, gomock.Any()).DoAndReturn(func(_ string, data string) error {
+						var mountInfo volume.MountInfo
+						assert.NoError(t, json.Unmarshal([]byte(data), &mountInfo))
+						assert.Equal(t, "//test_servername/test_sharename", mountInfo.Device)
+						assert.Equal(t, cifs, mountInfo.FsType)
+						assert.Equal(t, "username=k8s,password=testkey", mountInfo.Metadata["sensitiveMountOptions"])
+						return nil
+					})
 				}
 			},
 			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,
 				VolumeCapability: &stdVolCap,
 				VolumeContext: map[string]string{
-					fsTypeField:           "smb",
-					diskNameField:         "test_disk.vhd",
-					shareNameField:        "test_sharename",
-					serverNameField:       "test_servername",
-					mountPermissionsField: "0755",
+					fsTypeField:                     "smb",
+					diskNameField:                   "test_disk.vhd",
+					shareNameField:                  "test_sharename",
+					serverNameField:                 "test_servername",
+					mountPermissionsField:           "0755",
+					confidentialContainerLabelField: "test-kata-label",
 				},
 				Secrets: secrets},
 			skipOnWindows: true,

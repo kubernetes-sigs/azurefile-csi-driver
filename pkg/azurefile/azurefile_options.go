@@ -35,6 +35,7 @@ type DriverOptions struct {
 	EnableVolumeMountGroup                 bool
 	EnableGetVolumeStats                   bool
 	EnableKataCCMount                      bool
+	EnableKataSMBMount                     bool
 	AppendMountErrorHelpLink               bool
 	MountPermissions                       uint64
 	FSGroupChangePolicy                    string
@@ -78,6 +79,7 @@ func (o *DriverOptions) AddFlags() *flag.FlagSet {
 	fs.BoolVar(&o.EnableVolumeMountGroup, "enable-volume-mount-group", true, "indicates whether enabling VOLUME_MOUNT_GROUP")
 	fs.BoolVar(&o.EnableGetVolumeStats, "enable-get-volume-stats", true, "allow GET_VOLUME_STATS on agent node")
 	fs.BoolVar(&o.EnableKataCCMount, "enable-kata-cc-mount", false, "enable Kata Confidential Containers mount")
+	fs.BoolVar(&o.EnableKataSMBMount, "enable-kata-smb-mount", false, "enable Kata guest SMB direct-volume mount (opt-in per pod via the azure.csi.file/kata-mount RuntimeClass annotation)")
 	fs.BoolVar(&o.AppendMountErrorHelpLink, "append-mount-error-help-link", true, "Whether to include a link for help with mount errors when a mount error occurs.")
 	fs.Uint64Var(&o.MountPermissions, "mount-permissions", 0777, "mounted folder permissions")
 	fs.StringVar(&o.FSGroupChangePolicy, "fsgroup-change-policy", "", "indicates how the volume's ownership will be changed by the driver, OnRootMismatch is the default value")
