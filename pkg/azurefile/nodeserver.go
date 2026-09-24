@@ -718,15 +718,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		klog.V(2).Infof("volume(%s) mount %s on %s succeeded", volumeID, source, cifsMountPath)
 	}
 
-	// Save mountInfo.json so the Kata guest can mount the share directly.
-	// CC path detects the node via the confidentialContainerLabel; the SMB path
-	// uses the enableKataSMBMount flag and a Kata node label (no SC parameter needed).
-	if d.enableKataCCMount && !d.isKataNode {
-		confidentialContainerLabel := getValueInMap(context, confidentialContainerLabelField)
-		if confidentialContainerLabel != "" {
-			d.isKataNode = isKataNode(ctx, d.NodeID, confidentialContainerLabel, d.kubeClient)
-		}
-	}
+	// If runtime OS is not windows and protocol is not nfs, save mountInfo.json
 	if (d.enableKataCCMount && d.isKataNode) || (d.enableKataSMBMount && d.isKataSMBNode) {
 		if runtime.GOOS != "windows" && protocol != nfs {
 			// Check if mountInfo.json is already present at the targetPath
