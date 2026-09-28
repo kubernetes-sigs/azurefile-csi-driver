@@ -213,7 +213,7 @@ spec:
               mountPath: /var/log/
           resources:
             limits:
-              memory: 100Mi
+              memory: 256Mi
             requests:
               cpu: 10m
               memory: 20Mi
