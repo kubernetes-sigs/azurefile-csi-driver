@@ -722,7 +722,13 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	if ptr.Deref(createPrivateEndpoint, false) {
-		setKeyValueInMap(parameters, serverNameField, fmt.Sprintf("%s.privatelink.file.%s", accountName, storageEndpointSuffix))
+		server := fmt.Sprintf("%s.privatelink.file.%s", accountName, storageEndpointSuffix)
+		if mountWithManagedIdentity || mountWithWIToken || mountWithOAuthToken {
+			// Kerberos-based SMB auth must mount against the canonical Azure Files FQDN.
+			// Private DNS still routes <account>.file.<suffix> to the private endpoint IP.
+			server = fmt.Sprintf("%s.file.%s", accountName, storageEndpointSuffix)
+		}
+		setKeyValueInMap(parameters, serverNameField, server)
 	}
 
 	accountOptions.Name = accountName
