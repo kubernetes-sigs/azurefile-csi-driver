@@ -1057,13 +1057,16 @@ func validateMountWithOAuthToken(protocol, fsType string, volumeContext map[stri
 
 // getKerberosHost strips the ".privatelink" label from an Azure Files FQDN so
 // the Kerberos SPN matches the canonical <account>.file.<suffix> that Azure AD
-// (Entra) issues tickets for. The CIFS mount source is not changed; the
-// canonical name still resolves (via the privatelink private DNS zone) to the
-// private endpoint IP, so traffic keeps going through the private link.
+// (Entra) issues tickets for.
 //
-// Callers should use this helper for anything passed to Kerberos (setCredentialCache,
-// SPN lookups) but keep the original server value for the CIFS mount source and
-// volume context.
+// For static volumes or user-provided server values we preserve the original
+// server in the volume context and CIFS mount source, and only canonicalize the
+// hostname for Kerberos operations (setCredentialCache, SPN lookups). For
+// dynamically provisioned private-endpoint SMB volumes that use Kerberos-based
+// auth, the controller now publishes the canonical <account>.file.<suffix>
+// directly in volume context, so both Kerberos operations and the CIFS mount
+// source already use the canonical hostname. In both cases, private DNS still
+// routes the canonical name to the private endpoint IP.
 func getKerberosHost(server string) string {
 	return strings.Replace(server, ".privatelink.file.", ".file.", 1)
 }
