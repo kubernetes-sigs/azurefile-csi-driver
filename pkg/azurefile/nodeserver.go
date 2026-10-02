@@ -810,6 +810,15 @@ func (d *Driver) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolume
 		mc.WithAdditionalVolumeInfo(VolumeID, volumeID).Observe(isOperationSucceeded)
 	}()
 
+	var kerberosServer string
+	if runtime.GOOS != "windows" {
+		var err error
+		kerberosServer, err = d.getKerberosMountServer(stagingTargetPath)
+		if err != nil {
+			klog.Warningf("NodeUnstageVolume: failed to inspect mount information for volume %s: %v", volumeID, err)
+		}
+	}
+
 	klog.V(2).Infof("NodeUnstageVolume: unmount volume %s on %s", volumeID, stagingTargetPath)
 	if err := SMBUnmount(d.mounter, stagingTargetPath, true /*extensiveMountPointCheck*/, d.removeSMBMountOnWindows); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to unmount staging target %s: %v", stagingTargetPath, err)
@@ -832,6 +841,26 @@ func (d *Driver) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolume
 
 	klog.V(2).Infof("NodeUnstageVolume: unmount volume %s on %s successfully", volumeID, stagingTargetPath)
 
+	if kerberosServer != "" {
+		inUse, err := d.isKerberosServerMounted(kerberosServer)
+		if err != nil {
+			klog.Warningf("NodeUnstageVolume: failed to check remaining Kerberos mounts for volume %s server %s: %v", volumeID, kerberosServer, err)
+		} else if inUse {
+			klog.V(2).Infof("NodeUnstageVolume: retaining Kerberos credential for server %s because another mount is using it", kerberosServer)
+		} else if output, err := clearCredentialCache(kerberosServer); err != nil {
+			klog.Warningf("NodeUnstageVolume: failed to clear Kerberos credential for volume %s server %s: %v, output: %s", volumeID, kerberosServer, err, output)
+		} else {
+			d.oauthTokenSHAMap.Range(func(key, _ interface{}) bool {
+				server, ok := key.(string)
+				if ok && strings.EqualFold(getKerberosHost(server), kerberosServer) {
+					d.oauthTokenSHAMap.Delete(key)
+				}
+				return true
+			})
+			klog.V(2).Infof("NodeUnstageVolume: cleared Kerberos credential for volume %s server %s", volumeID, kerberosServer)
+		}
+	}
+
 	// Best effort removal of any per-volume workload-identity token cache file
 	// written by GetAccountInfo for this volume.
 	if runtime.GOOS != "windows" {
@@ -849,6 +878,66 @@ func (d *Driver) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolume
 
 	isOperationSucceeded = true
 	return &csi.NodeUnstageVolumeResponse{}, nil
+}
+
+func (d *Driver) getKerberosMountServer(stagingTargetPath string) (string, error) {
+	mountPoints, err := d.mounter.List()
+	if err != nil {
+		return "", err
+	}
+
+	stagingTargetPath = filepath.Clean(stagingTargetPath)
+	proxyTargetPath := filepath.Join(filepath.Dir(stagingTargetPath), proxyMount)
+	for _, mountPoint := range mountPoints {
+		mountPath := filepath.Clean(mountPoint.Path)
+		if mountPath != stagingTargetPath && mountPath != proxyTargetPath {
+			continue
+		}
+		if mountPoint.Type != cifs || !mountOptionsContain(mountPoint.Opts, "sec=krb5") {
+			continue
+		}
+
+		if server := getSMBMountServer(mountPoint.Device); server != "" {
+			return getKerberosHost(server), nil
+		}
+	}
+	return "", nil
+}
+
+func (d *Driver) isKerberosServerMounted(kerberosServer string) (bool, error) {
+	mountPoints, err := d.mounter.List()
+	if err != nil {
+		return false, err
+	}
+
+	for _, mountPoint := range mountPoints {
+		if mountPoint.Type == cifs &&
+			mountOptionsContain(mountPoint.Opts, "sec=krb5") &&
+			strings.EqualFold(getKerberosHost(getSMBMountServer(mountPoint.Device)), kerberosServer) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func getSMBMountServer(device string) string {
+	device = strings.TrimPrefix(device, "//")
+	server, _, found := strings.Cut(device, "/")
+	if !found {
+		return ""
+	}
+	return server
+}
+
+func mountOptionsContain(options []string, expected string) bool {
+	for _, optionGroup := range options {
+		for _, option := range strings.Split(optionGroup, ",") {
+			if strings.TrimSpace(option) == expected {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // NodeGetCapabilities return the capabilities of the Node plugin
