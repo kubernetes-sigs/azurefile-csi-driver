@@ -66,7 +66,7 @@ func NewFakeDriver() *Driver {
 		KubeConfig:                  "",
 		Endpoint:                    "tcp://127.0.0.1:0",
 		WaitForAzCopyTimeoutMinutes: 1,
-		EnableKataCCMount:           true,
+		EnableKataMount:             true,
 	}
 	driver := NewDriver(&driverOptions)
 	driver.Name = fakeDriverName
@@ -1898,7 +1898,7 @@ func TestIsKataNode(t *testing.T) {
 	testCases := []struct {
 		name        string
 		nodeName    string
-		labels      map[string]string
+		annotations map[string]string
 		setupClient bool
 		expected    bool
 	}{
@@ -1921,31 +1921,29 @@ func TestIsKataNode(t *testing.T) {
 			expected:    false,
 		},
 		{
-			name:        "Node exists but has no kata labels",
+			name:        "Node exists but has no kata annotation",
 			nodeName:    "test-node",
 			setupClient: true,
-			labels: map[string]string{
-				"some-other-label": "value",
+			annotations: map[string]string{
+				"some-other-annotation": "value",
 			},
 			expected: false,
 		},
 		{
-			name:        "Node has kata labels",
+			name:        "Node has kata-mount annotation with wrong value",
 			nodeName:    "test-node",
 			setupClient: true,
-			labels: map[string]string{
-				defaultConfidentialContainerLabel: "",
+			annotations: map[string]string{
+				kataMountAnnotationKey: "other",
 			},
-			expected: true,
+			expected: false,
 		},
 		{
-			name:        "Node has kata labels",
+			name:        "Node has kata-mount=direct-volume annotation",
 			nodeName:    "test-node",
 			setupClient: true,
-			labels: map[string]string{
-				defaultConfidentialContainerLabel:             "test",
-				"kubernetes.azure.com/kata-mshv-vm-isolation": "true",
-				"katacontainers.io/kata-runtime":              "true",
+			annotations: map[string]string{
+				kataMountAnnotationKey: kataMountDirectVolumeValue,
 			},
 			expected: true,
 		},
@@ -1960,17 +1958,17 @@ func TestIsKataNode(t *testing.T) {
 				clientset = fake.NewSimpleClientset()
 			}
 
-			if tc.labels != nil && tc.setupClient {
+			if tc.annotations != nil && tc.setupClient {
 				node := &v1api.Node{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:   tc.nodeName,
-						Labels: tc.labels,
+						Name:        tc.nodeName,
+						Annotations: tc.annotations,
 					},
 				}
 				_, err := clientset.CoreV1().Nodes().Create(ctx, node, metav1.CreateOptions{})
 				assert.NoError(t, err)
 			}
-			result := isKataNode(ctx, tc.nodeName, defaultConfidentialContainerLabel, clientset)
+			result := isKataNode(ctx, tc.nodeName, clientset)
 			assert.Equal(t, tc.expected, result)
 		})
 	}

@@ -1227,9 +1227,7 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 					clientIDField:                   "client-id",
 					provisionedBandwidthField:       "100",
 					provisionedIopsField:            "800",
-					runtimeClassHandlerField:        "runtime-handler",
 					createFolderIfNotExistField:     "true",
-					confidentialContainerLabelField: "confidential-container-label",
 					mountWithManagedIdentityField:   "true",
 					mountWithWITokenField:           "false",
 				}

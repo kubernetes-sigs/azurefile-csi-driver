@@ -1157,62 +1157,69 @@ func TestIsReadOnlyFromCapability(t *testing.T) {
 	}
 }
 
-func TestIsConfidentialRuntimeClass(t *testing.T) {
+func TestIsKataDirectVolumeRuntimeClass(t *testing.T) {
 	ctx := context.TODO()
 
 	// Test the case where kubeClient is nil
-	_, err := isConfidentialRuntimeClass(ctx, nil, "test-runtime-class", defaultRuntimeClassHandler)
+	_, err := isKataDirectVolumeRuntimeClass(ctx, nil, "test-runtime-class")
 	if err == nil || err.Error() != "kubeClient is nil" {
 		t.Fatalf("expected error 'kubeClient is nil', got %v", err)
 	}
 
 	// Create a fake clientset
 	clientset := fake.NewSimpleClientset()
+	// Empty runtimeClassName returns false without error
+	isDirectVolume, err := isKataDirectVolumeRuntimeClass(ctx, clientset, "")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if isDirectVolume {
+		t.Fatalf("expected false for empty runtime class name, got %v", isDirectVolume)
+	}
 
-	// Test the case where the runtime class exists and has the confidential handler
-	runtimeClass := &nodev1.RuntimeClass{
+	// RuntimeClass carrying the azure.csi.file/kata-mount=direct-volume annotation
+	directVolumeRuntimeClass := &nodev1.RuntimeClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-runtime-class",
+			Name:        "test-runtime-class",
+			Annotations: map[string]string{kataMountAnnotationKey: kataMountDirectVolumeValue},
 		},
-		Handler: defaultRuntimeClassHandler,
+		Handler: "kata",
 	}
-	_, err = clientset.NodeV1().RuntimeClasses().Create(ctx, runtimeClass, metav1.CreateOptions{})
+	_, err = clientset.NodeV1().RuntimeClasses().Create(ctx, directVolumeRuntimeClass, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	isConfidential, err := isConfidentialRuntimeClass(ctx, clientset, "test-runtime-class", defaultRuntimeClassHandler)
+	isDirectVolume, err = isKataDirectVolumeRuntimeClass(ctx, clientset, "test-runtime-class")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-
-	if !isConfidential {
-		t.Fatalf("expected runtime class to be confidential, got %v", isConfidential)
+	if !isDirectVolume {
+		t.Fatalf("expected runtime class to be direct-volume, got %v", isDirectVolume)
 	}
 
-	// Test the case where the runtime class exists but does not have the confidential handler
-	nonConfidentialRuntimeClass := &nodev1.RuntimeClass{
+	// RuntimeClass without the kata-mount annotation
+	nonDirectVolumeRuntimeClass := &nodev1.RuntimeClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-runtime-class-non-confidential",
+			Name: "test-runtime-class-non-direct-volume",
 		},
-		Handler: "non-confidential-handler",
+		Handler: "kata",
 	}
-	_, err = clientset.NodeV1().RuntimeClasses().Create(ctx, nonConfidentialRuntimeClass, metav1.CreateOptions{})
+	_, err = clientset.NodeV1().RuntimeClasses().Create(ctx, nonDirectVolumeRuntimeClass, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	isConfidential, err = isConfidentialRuntimeClass(ctx, clientset, "test-runtime-class-non-confidential", defaultRuntimeClassHandler)
+	isDirectVolume, err = isKataDirectVolumeRuntimeClass(ctx, clientset, "test-runtime-class-non-direct-volume")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-
-	if isConfidential {
-		t.Fatalf("expected runtime class to not be confidential, got %v", isConfidential)
+	if isDirectVolume {
+		t.Fatalf("expected runtime class to not be direct-volume, got %v", isDirectVolume)
 	}
 
 	// Test the case where the runtime class does not exist
-	_, err = isConfidentialRuntimeClass(ctx, clientset, "nonexistent-runtime-class", defaultRuntimeClassHandler)
+	_, err = isKataDirectVolumeRuntimeClass(ctx, clientset, "nonexistent-runtime-class")
 	if err == nil {
 		t.Fatalf("expected an error, got nil")
 	}

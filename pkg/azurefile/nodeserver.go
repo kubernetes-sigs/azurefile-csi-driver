@@ -55,7 +55,6 @@ import (
 )
 
 var getRuntimeClassForPodFunc = getRuntimeClassForPod
-var isConfidentialRuntimeClassFunc = isConfidentialRuntimeClass
 var isKataDirectVolumeRuntimeClassFunc = isKataDirectVolumeRuntimeClass
 
 type MountClient struct {
@@ -190,35 +189,19 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 			}
 		}
 
-		if (d.enableKataCCMount || d.enableKataSMBMount) && context[podNameField] != "" && context[podNamespaceField] != "" {
-			if d.enableKataCCMount && !d.isKataNode {
-				confidentialContainerLabel := getValueInMap(context, confidentialContainerLabelField)
-				if confidentialContainerLabel != "" {
-					klog.V(2).Infof("====++====NodePublishVolume: checking if node %s is a kata node with confidential container label %s", d.NodeID, confidentialContainerLabel)
-					d.isKataNode = isKataNode(ctx, d.NodeID, confidentialContainerLabel, d.kubeClient)
-				}
-			}
-
-			if (d.enableKataCCMount && d.isKataNode) || (d.enableKataSMBMount && d.isKataSMBNode) {
+		if d.enableKataMount && context[podNameField] != "" && context[podNamespaceField] != "" {
+			if d.isKataNode {
 				runtimeClass, err := getRuntimeClassForPodFunc(ctx, d.kubeClient, context[podNameField], context[podNamespaceField])
 				if err != nil {
 					return nil, status.Errorf(codes.Internal, "failed to get runtime class for pod %s/%s: %v", context[podNamespaceField], context[podNameField], err)
 				}
 				klog.V(2).Infof("====++====NodePublishVolume: volume(%s) mount on %s with runtimeClass %s", volumeID, target, runtimeClass)
-				runtimeClassHandler := getValueInMap(context, runtimeClassHandlerField)
-				if runtimeClassHandler == "" {
-					runtimeClassHandler = defaultRuntimeClassHandler
-				}
-				isConfidentialRuntimeClass, err := isConfidentialRuntimeClassFunc(ctx, d.kubeClient, runtimeClass, runtimeClassHandler)
-				if err != nil {
-					return nil, status.Errorf(codes.Internal, "failed to check if runtime class %s is confidential: %v", runtimeClass, err)
-				}
 				// Pods whose RuntimeClass carries the kata-mount annotation take the direct-volume path.
 				isKataDirectVolume, err := isKataDirectVolumeRuntimeClassFunc(ctx, d.kubeClient, runtimeClass)
 				if err != nil {
 					return nil, status.Errorf(codes.Internal, "failed to check kata-mount annotation on runtime class %s: %v", runtimeClass, err)
 				}
-				if isConfidentialRuntimeClass || isKataDirectVolume {
+				if isKataDirectVolume {
 					klog.V(2).Infof("====++====NodePublishVolume: volume(%s) uses direct volume mount, runtimeClass %s", volumeID, runtimeClass)
 					source := req.GetStagingTargetPath()
 					if len(source) == 0 {
@@ -327,7 +310,7 @@ func (d *Driver) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVo
 		return nil, status.Errorf(codes.Internal, "failed to unmount target %s: %v", targetPath, err)
 	}
 
-	if (d.enableKataCCMount && d.isKataNode) || (d.enableKataSMBMount && d.isKataSMBNode) {
+	if d.enableKataMount && d.isKataNode {
 		klog.V(2).Infof("====++====NodeUnpublishVolume: remove direct volume mount info %s from %s", volumeID, targetPath)
 		// Remove deletes the direct volume path including all the files inside it.
 		// if there is no kata-cc mountinfo present on this path, it will return nil.
@@ -719,7 +702,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 
 	// If runtime OS is not windows and protocol is not nfs, save mountInfo.json
-	if (d.enableKataCCMount && d.isKataNode) || (d.enableKataSMBMount && d.isKataSMBNode) {
+	if d.enableKataMount && d.isKataNode {
 		if runtime.GOOS != "windows" && protocol != nfs {
 			// Check if mountInfo.json is already present at the targetPath
 			isMountInfoPresent, err := d.directVolume.VolumeMountInfo(cifsMountPath)
@@ -847,7 +830,7 @@ func (d *Driver) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolume
 		}
 	}
 
-	if (d.enableKataCCMount && d.isKataNode) || (d.enableKataSMBMount && d.isKataSMBNode) {
+	if d.enableKataMount && d.isKataNode {
 		klog.V(2).Infof("====++====NodeUnstageVolume: remove direct volume mount info %s from %s", volumeID, stagingTargetPath)
 		if err := d.directVolume.Remove(stagingTargetPath); err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to remove mount info %s: %v", stagingTargetPath, err)
