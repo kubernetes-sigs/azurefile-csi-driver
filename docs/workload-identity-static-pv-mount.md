@@ -5,6 +5,7 @@
 ## Limitations
 
 - This feature is **not supported for NFS mounts** since NFS does not require credentials.
+- **One identity per node and storage account.** For SMB mounts, the Kerberos credentials used to authenticate to a storage account are cached per node in a single node-level credential cache that can hold only one identity per storage account at a time. A given node can therefore use only **one** identity (workload identity or managed identity) to mount SMB file shares from a particular storage account. Every file share mounted from that storage account on the same node must use the **same** identity. Different nodes may use different identities, and one identity may mount shares from multiple storage accounts. See [Troubleshooting](#troubleshooting) if two identities for the same storage account land on the same node.
 - By default, this feature retrieves the storage account key using federated identity credentials. Alternatively, you can mount with a **workload identity token only** by:
   - Setting `mountWithWorkloadIdentityToken: "true"` in the `parameters` of the StorageClass or PersistentVolume
   - Granting the `Storage File Data SMB MI Admin` role (instead of `Storage Account Contributor`) to the managed identity
@@ -308,3 +309,33 @@ Verify the following:
 1. **The managed identity has the correct role assignment.** Ensure the managed identity is assigned the **`Storage File Data SMB MI Admin`** role on the storage account (or the resource group for dynamic provisioning). Other roles such as `Storage File Data SMB Share Contributor` or `Storage File Data SMB Share Elevated Contributor` are **not sufficient** for managed identity mount.
 
 2. **The SMBOauth property is enabled on the storage account.** Without this, the storage account does not support Kerberos ticket acquisition for managed identity authentication.
+
+### Using two different workload identities for the same storage account on one node
+
+When **two or more different workload identities mount SMB file shares from the same storage account onto the same node**, the mounts can intermittently fail or go stale. This is a known limitation (see [Limitations](#limitations)): all identities on a node share a single node-level Kerberos credential cache per storage account, which can only represent one identity at a time, so one of the mounts ends up without its own valid credential in the shared cache and is denied access to its share.
+
+> This only applies when **≥ 2 distinct identities** are used for the **same storage account** on the **same node**. A single identity per storage account is unaffected, regardless of how many file shares or pods use it. If you are already using a single identity per storage account, these symptoms have a different root cause.
+
+**Symptoms you may observe:** intermittent SMB mount failures, stale mounts (existing mounts start returning `permission denied`), or pods stuck unmounting. The node's `/var/log/syslog` or kernel log shows generic CIFS/Kerberos errors such as:
+
+```
+CIFS: VFS: \\accountname.file.core.windows.net reconnect tcon failed rc = -13
+CIFS: VFS: \\accountname.file.core.windows.net SessSetup = -126
+```
+
+and the CSI driver node pod logs `umount` failures such as `target is busy`. (`rc = -13` is `EACCES`, `SessSetup = -126` is `EKEYREJECTED`, `target is busy` is `EBUSY` on unmount. These codes are generic and also occur for unrelated reasons (expired tickets, missing role assignments, storage firewall / private endpoint blocks, clock skew, or transient network drops) so treat them as this limitation only when the two-identity condition above is met.)
+
+The fix is to use a single identity per storage account per node:
+
+- **One identity per storage account (recommended).** Grant a single workload identity access to all shares on that storage account and use it for every workload that mounts the account.
+- **Separate storage accounts per identity.** Give each identity its own storage account so that each account is only ever mounted by one identity.
+- **Keep identities off the same node.** Use node affinity / anti-affinity or separate node pools so pods that require different identities for the same storage account are never scheduled onto the same node.
+
+**Recover a stuck mount.** Recreating the affected pod often re-establishes the mount on its own. If the mount is pinned and cannot be cleared in place (the stale CIFS session is still referenced), restart the node:
+
+```bash
+kubectl cordon <node>
+kubectl drain <node> --ignore-daemonsets --delete-emptydir-data
+# restart or reimage the node, then:
+kubectl uncordon <node>
+```
