@@ -7,7 +7,7 @@ cyphar.com/go-pathrs
 cyphar.com/go-pathrs/internal/fdutils
 cyphar.com/go-pathrs/internal/libpathrs
 cyphar.com/go-pathrs/procfs
-# github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.1
+# github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.2
 ## explicit; go 1.25.0
 github.com/Azure/azure-sdk-for-go/sdk/azcore
 github.com/Azure/azure-sdk-for-go/sdk/azcore/arm
@@ -81,7 +81,7 @@ github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets
 # github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.2.0
 ## explicit; go 1.23.0
 github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal
-# github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.1
+# github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.2
 ## explicit; go 1.25.0
 github.com/Azure/azure-sdk-for-go/sdk/storage/azblob
 github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/appendblob
@@ -109,6 +109,9 @@ github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/internal/shared
 github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/sas
 github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/service
 github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share
+# github.com/Azure/azure-sdk-for-go/sdk/storage/internal v0.1.0
+## explicit; go 1.25.0
+github.com/Azure/azure-sdk-for-go/sdk/storage/internal/sasurl
 # github.com/Azure/msi-dataplane v0.4.3
 ## explicit; go 1.22
 github.com/Azure/msi-dataplane/pkg/dataplane
