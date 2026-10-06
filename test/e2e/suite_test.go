@@ -73,6 +73,7 @@ var (
 	isTestingMigration             = os.Getenv(testMigrationEnvVar) != ""
 	isWindowsCluster               = os.Getenv(testWindowsEnvVar) != ""
 	isCapzTest                     = os.Getenv("NODE_MACHINE_TYPE") != ""
+	skipDriverInstall              = os.Getenv("SKIP_DRIVER_INSTALL") != ""
 	winServerVer                   = os.Getenv(testWinServerVerEnvVar)
 	bringKeyStorageClassParameters = map[string]string{
 		"csi.storage.k8s.io/provisioner-secret-namespace": "default",
@@ -199,31 +200,35 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 			}
 		}
 
-		// Install Azure File CSI Driver on cluster from project root
-		e2eBootstrap := testCmd{
-			command:  "make",
-			args:     []string{"e2e-bootstrap"},
-			startLog: "Installing Azure File CSI Driver...",
-			endLog:   "Azure File CSI Driver installed",
-		}
-
-		createMetricsSVC := testCmd{
-			command:  "make",
-			args:     []string{"create-metrics-svc"},
-			startLog: "create metrics service ...",
-			endLog:   "metrics service created",
-		}
-		execTestCmd([]testCmd{e2eBootstrap, createMetricsSVC})
-
-		if !isTestingMigration {
-			// Install SMB provisioner on cluster
-			installSMBProvisioner := testCmd{
+		// Install Azure File CSI Driver on cluster from project root.
+		// SKIP_DRIVER_INSTALL lets an external harness run the suite against a
+		// pre-deployed driver.
+		if !skipDriverInstall {
+			e2eBootstrap := testCmd{
 				command:  "make",
-				args:     []string{"install-smb-provisioner"},
-				startLog: "Installing SMB provisioner...",
-				endLog:   "SMB provisioner installed",
+				args:     []string{"e2e-bootstrap"},
+				startLog: "Installing Azure File CSI Driver...",
+				endLog:   "Azure File CSI Driver installed",
 			}
-			execTestCmd([]testCmd{installSMBProvisioner})
+
+			createMetricsSVC := testCmd{
+				command:  "make",
+				args:     []string{"create-metrics-svc"},
+				startLog: "create metrics service ...",
+				endLog:   "metrics service created",
+			}
+			execTestCmd([]testCmd{e2eBootstrap, createMetricsSVC})
+
+			if !isTestingMigration {
+				// Install SMB provisioner on cluster
+				installSMBProvisioner := testCmd{
+					command:  "make",
+					args:     []string{"install-smb-provisioner"},
+					startLog: "Installing SMB provisioner...",
+					endLog:   "SMB provisioner installed",
+				}
+				execTestCmd([]testCmd{installSMBProvisioner})
+			}
 		}
 
 		kubeconfig := os.Getenv(kubeconfigEnvVar)
@@ -256,62 +261,66 @@ var _ = ginkgo.AfterSuite(func(ctx ginkgo.SpecContext) {
 		execTestCmd([]testCmd{cmLog})
 	}
 	if isTestingMigration || !isUsingInTreeVolumePlugin {
-		checkPodsRestart := testCmd{
-			command:  "bash",
-			args:     []string{"test/utils/check_driver_pods_restart.sh", "log"},
-			startLog: "Check driver pods if restarts ...",
-			endLog:   "Check successfully",
-		}
-		execTestCmd([]testCmd{checkPodsRestart})
-
-		os := "linux"
-		if isWindowsCluster {
-			os = "windows"
-			if winServerVer == "windows-2022" {
-				os = winServerVer
-			}
-		}
-		createExampleDeployment := testCmd{
-			command:  "bash",
-			args:     []string{"hack/verify-examples.sh", os},
-			startLog: "create example deployments",
-			endLog:   "example deployments created",
-		}
-		execTestCmd([]testCmd{createExampleDeployment})
-
-		azurefileLog := testCmd{
-			command:     "bash",
-			args:        []string{"test/utils/azurefile_log.sh"},
-			startLog:    "===================azurefile log===================",
-			endLog:      "===================================================",
-			ignoreError: true,
-		}
-		e2eTeardown := testCmd{
-			command:  "make",
-			args:     []string{"e2e-teardown"},
-			startLog: "Uninstalling Azure File CSI Driver...",
-			endLog:   "Azure File CSI Driver uninstalled",
-		}
-		execTestCmd([]testCmd{azurefileLog, e2eTeardown})
-
-		if !isTestingMigration {
-			// install CSI Driver deployment scripts test
-			installDriver := testCmd{
+		// When SKIP_DRIVER_INSTALL is set the suite did not install the driver,
+		// so skip steps that assume a suite-managed source install.
+		if !skipDriverInstall {
+			checkPodsRestart := testCmd{
 				command:  "bash",
-				args:     []string{"deploy/install-driver.sh", "master", "windows,local"},
-				startLog: "===================install CSI Driver deployment scripts test===================",
-				endLog:   "===================================================",
+				args:     []string{"test/utils/check_driver_pods_restart.sh", "log"},
+				startLog: "Check driver pods if restarts ...",
+				endLog:   "Check successfully",
 			}
+			execTestCmd([]testCmd{checkPodsRestart})
 
+			os := "linux"
+			if isWindowsCluster {
+				os = "windows"
+				if winServerVer == "windows-2022" {
+					os = winServerVer
+				}
+			}
 			createExampleDeployment := testCmd{
 				command:  "bash",
 				args:     []string{"hack/verify-examples.sh", os},
-				startLog: "create example deployments#2",
-				endLog:   "example deployments#2 created",
+				startLog: "create example deployments",
+				endLog:   "example deployments created",
 			}
 			execTestCmd([]testCmd{createExampleDeployment})
 
-			execTestCmd([]testCmd{installDriver})
+			azurefileLog := testCmd{
+				command:     "bash",
+				args:        []string{"test/utils/azurefile_log.sh"},
+				startLog:    "===================azurefile log===================",
+				endLog:      "===================================================",
+				ignoreError: true,
+			}
+			e2eTeardown := testCmd{
+				command:  "make",
+				args:     []string{"e2e-teardown"},
+				startLog: "Uninstalling Azure File CSI Driver...",
+				endLog:   "Azure File CSI Driver uninstalled",
+			}
+			execTestCmd([]testCmd{azurefileLog, e2eTeardown})
+
+			if !isTestingMigration {
+				// install CSI Driver deployment scripts test
+				installDriver := testCmd{
+					command:  "bash",
+					args:     []string{"deploy/install-driver.sh", "master", "windows,local"},
+					startLog: "===================install CSI Driver deployment scripts test===================",
+					endLog:   "===================================================",
+				}
+
+				createExampleDeployment := testCmd{
+					command:  "bash",
+					args:     []string{"hack/verify-examples.sh", os},
+					startLog: "create example deployments#2",
+					endLog:   "example deployments#2 created",
+				}
+				execTestCmd([]testCmd{createExampleDeployment})
+
+				execTestCmd([]testCmd{installDriver})
+			}
 		}
 
 		checkAccountCreationLeak(ctx)
