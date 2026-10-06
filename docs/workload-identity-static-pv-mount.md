@@ -5,13 +5,13 @@
 ## Limitations
 
 - This feature is **not supported for NFS mounts** since NFS does not require credentials.
-- **One identity per node and storage account.** For SMB mounts, the Kerberos credentials used to authenticate to a storage account are cached per node in a single node-level credential cache that can hold only one identity per storage account at a time. A given node can therefore use only **one** identity (workload identity or managed identity) to mount SMB file shares from a particular storage account. Every file share mounted from that storage account on the same node must use the **same** identity. Different nodes may use different identities, and one identity may mount shares from multiple storage accounts. See [Troubleshooting](#troubleshooting) if two identities for the same storage account land on the same node.
 - By default, this feature retrieves the storage account key using federated identity credentials. Alternatively, you can mount with a **workload identity token only** by:
   - Setting `mountWithWorkloadIdentityToken: "true"` in the `parameters` of the StorageClass or PersistentVolume
   - Granting the `Storage File Data SMB MI Admin` role (instead of `Storage Account Contributor`) to the managed identity
 
   > [!NOTE]
   > Mounting with workload identity token only is supported from **v1.35.0**.
+- **One identity per node and storage account in token-only SMB mounts.** This applies only when mounting with **workload identity token only** (`mountWithWorkloadIdentityToken: "true"`), which authenticates via Kerberos/SMB OAuth. The default flow gets the storage account key using federated identity credentials, and then uses key-based SMB (unaffected). For token-only mounts, the Kerberos credentials used to authenticate to a storage account are cached per node in a single node-level credential cache that can hold only one identity per storage account at a time. A given node can therefore use only **one** identity to mount SMB file shares from a particular storage account with a workload identity token. Every token-only share mounted from that storage account on the same node must use the **same** identity. Different nodes may use different identities, and one identity may mount shares from multiple storage accounts. See [Troubleshooting](#troubleshooting) if two identities for the same storage account land on the same node.
 
 ## Prerequisites
 
@@ -312,9 +312,11 @@ Verify the following:
 
 ### Using two different workload identities for the same storage account on one node
 
-When **two or more different workload identities mount SMB file shares from the same storage account onto the same node**, the mounts can intermittently fail or go stale. This is a known limitation (see [Limitations](#limitations)): all identities on a node share a single node-level Kerberos credential cache per storage account, which can only represent one identity at a time, so one of the mounts ends up without its own valid credential in the shared cache and is denied access to its share.
+When **two or more different identities mount SMB file shares from the same storage account onto the same node using token only** (`mountWithWorkloadIdentityToken: "true"`), the mounts can intermittently fail or go stale. This is a known limitation (see [Limitations](#limitations)): all token-only identities on a node share a single node-level Kerberos credential cache per storage account, which can only represent one identity at a time, so one of the mounts ends up without its own valid credential in the shared cache and is denied access to its share.
 
-> This only applies when **≥ 2 distinct identities** are used for the **same storage account** on the **same node**. A single identity per storage account is unaffected, regardless of how many file shares or pods use it. If you are already using a single identity per storage account, these symptoms have a different root cause.
+> This applies only to **token-only** mounts (`mountWithWorkloadIdentityToken: "true"`). Mounts that use the storage account key (the default workload identity flow) do not use Kerberos and are **not** affected.
+>
+> It also applies only when **≥ 2 distinct identities** are used for the **same storage account** on the **same node**. A single identity per storage account is unaffected, regardless of how many file shares or pods use it. If you are already using a single identity per storage account, or you mount with the account key, these symptoms have a different root cause.
 
 **Symptoms you may observe:** intermittent SMB mount failures, stale mounts (existing mounts start returning `permission denied`), or pods stuck unmounting. The node's `/var/log/syslog` or kernel log shows generic CIFS/Kerberos errors such as:
 
