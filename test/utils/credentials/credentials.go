@@ -57,6 +57,11 @@ const (
 	resourceGroupEnvVar   = "AZURE_RESOURCE_GROUP"
 	locationEnvVar        = "AZURE_LOCATION"
 	federatedTokenFileVar = "AZURE_FEDERATED_TOKEN_FILE"
+	// useManagedIdentityEnvVar makes the test harness authenticate to ARM using
+	// an IMDS-based managed identity (the node's UAMI given by AZURE_CLIENT_ID)
+	// instead of a client secret / federated workload-identity token. Required
+	// in environments where the cluster OIDC issuer is not reachable by AAD.
+	useManagedIdentityEnvVar = "AZURE_USE_MANAGED_IDENTITY"
 
 	tenantIDChinaEnvVar        = "AZURE_TENANT_ID_CHINA"
 	subscriptionIDChinaEnvVar  = "AZURE_SUBSCRIPTION_ID_CHINA"
@@ -93,6 +98,7 @@ type Credentials struct {
 	ResourceGroup                string
 	Location                     string
 	AADFederatedTokenFile        string
+	UseManagedIdentity           bool
 	CloudProviderBackoff         bool
 	CloudProviderBackoffRetries  int
 	CloudProviderBackoffDuration int
@@ -136,7 +142,14 @@ func CreateAzureCredentialFile(isAzureChinaCloud bool) (*Credentials, error) {
 	}
 
 	if tenantID != "" && subscriptionID != "" && aadClientID != "" && (aadClientSecret != "" || aadFederatedTokenFile != "") {
-		return parseAndExecuteTemplate(cloud, tenantID, subscriptionID, aadClientID, aadClientSecret, aadFederatedTokenFile, resourceGroup, location)
+		return parseAndExecuteTemplate(cloud, tenantID, subscriptionID, aadClientID, aadClientSecret, aadFederatedTokenFile, resourceGroup, location, false)
+	}
+
+	// Managed-identity (IMDS) mode: the harness authenticates to ARM with the
+	// node's user-assigned identity. Only a subscription and the identity's
+	// client ID (AZURE_CLIENT_ID) are required.
+	if os.Getenv(useManagedIdentityEnvVar) != "" && subscriptionID != "" && aadClientID != "" {
+		return parseAndExecuteTemplate(cloud, tenantID, subscriptionID, aadClientID, aadClientSecret, aadFederatedTokenFile, resourceGroup, location, true)
 	}
 
 	return nil, fmt.Errorf("If you are running tests locally, you will need to set the following env vars: $%s, $%s, $%s, $%s, $%s, $%s",
@@ -153,7 +166,7 @@ func DeleteAzureCredentialFile() error {
 }
 
 // parseAndExecuteTemplate replaces credential placeholders in azureCredentialFileTemplate with actual credentials
-func parseAndExecuteTemplate(cloud, tenantID, subscriptionID, aadClientID, aadClientSecret, aadFederatedTokenFile, resourceGroup, location string) (*Credentials, error) {
+func parseAndExecuteTemplate(cloud, tenantID, subscriptionID, aadClientID, aadClientSecret, aadFederatedTokenFile, resourceGroup, location string, useManagedIdentity bool) (*Credentials, error) {
 	t := template.New("AzureCredentialFileTemplate")
 	t, err := t.Parse(azureCredentialFileTemplate)
 	if err != nil {
@@ -175,6 +188,7 @@ func parseAndExecuteTemplate(cloud, tenantID, subscriptionID, aadClientID, aadCl
 		resourceGroup,
 		location,
 		aadFederatedTokenFile,
+		useManagedIdentity,
 		defaultCloudProviderBackoff,
 		defaultCloudProviderBackoffRetries,
 		defaultCloudProviderBackoffDuration,
