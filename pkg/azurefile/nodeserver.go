@@ -120,15 +120,20 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 			if strings.EqualFold(getValueInMap(context, mountWithManagedIdentityField), trueValue) {
 				return nil, status.Error(codes.InvalidArgument, "mountWithManagedIdentity cannot be used for ephemeral volumes, please use secret based authentication")
 			}
-			if !d.allowInlineVolumeKeyAccessWithIdentity {
+			// isWorkloadIdentity reports whether this inline volume authenticates
+			// with workload identity, i.e. via a non-empty clientID.
+			isWorkloadIdentity := shouldUseServiceAccountToken(context)
+			if !d.allowInlineVolumeKeyAccessWithIdentity && !isWorkloadIdentity {
 				// only get storage account from secret
 				setKeyValueInMap(context, getAccountKeyFromSecretField, trueValue)
 				setKeyValueInMap(context, storageAccountField, "")
 			}
 			// For secret-based inline volumes, confirm the mounting pod's own ServiceAccount
 			// is authorized to read the referenced Secret before mounting.
-			if err := d.authorizeInlineVolumeSecret(ctx, context); err != nil {
-				return nil, err
+			if !isWorkloadIdentity {
+				if err := d.authorizeInlineVolumeSecret(ctx, context); err != nil {
+					return nil, err
+				}
 			}
 		}
 
@@ -1000,6 +1005,11 @@ func (d *Driver) authorizeInlineVolumeSecret(ctx context.Context, volumeContext 
 		return deny(fmt.Sprintf("service account %s is not authorized to get it", serviceAccountUser))
 	}
 	return nil
+}
+
+// shouldUseServiceAccountToken determines whether a service account token should be used for authentication based on the volume context attributes.
+func shouldUseServiceAccountToken(attrib map[string]string) bool {
+	return getValueInMap(attrib, clientIDField) != "" && !strings.EqualFold(getValueInMap(attrib, mountWithManagedIdentityField), trueValue)
 }
 
 // deniedInlineSMBMountOptions is a set of mount options that are not allowed for ephemeral volumes with inline SMB mounts
