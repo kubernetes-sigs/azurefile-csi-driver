@@ -110,7 +110,10 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 				return nil, status.Error(codes.InvalidArgument, "VHD disk feature (diskName or disk fsType) is not supported for ephemeral volumes")
 			}
 			mountOptions := strings.TrimSpace(getValueInMap(context, mountOptionsField))
-			useWIToken := strings.EqualFold(getValueInMap(context, mountWithWITokenField), trueValue)
+			// isWorkloadIdentity reports whether this inline volume authenticates
+			// with workload identity (either token-based via mountWithWorkloadIdentityToken
+			// or key-based via a non-empty clientID).
+			isWorkloadIdentity := strings.EqualFold(getValueInMap(context, mountWithWITokenField), trueValue) || shouldUseServiceAccountToken(context)
 			mountFlags := req.GetVolumeCapability().GetMount().GetMountFlags()
 			inlineMountOptions := append([]string(nil), mountFlags...)
 			inlineMountOptions = append(inlineMountOptions, mountOptions)
@@ -130,14 +133,14 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 				klog.V(2).Infof("NodePublishVolume: ephemeral volume(%s) already mounted on %s, skipping NodeStageVolume (no time-bound credential to refresh)", volumeID, target)
 				return &csi.NodePublishVolumeResponse{}, nil
 			}
-			if !d.allowInlineVolumeKeyAccessWithIdentity && !useWIToken {
+			if !d.allowInlineVolumeKeyAccessWithIdentity && !isWorkloadIdentity {
 				// only get storage account from secret when not using managed identity or workload identity
 				setKeyValueInMap(context, getAccountKeyFromSecretField, trueValue)
 				setKeyValueInMap(context, storageAccountField, "")
 			}
 			// For secret-based inline volumes, confirm the mounting pod's own ServiceAccount
 			// is authorized to read the referenced Secret before mounting.
-			if !useWIToken {
+			if !isWorkloadIdentity {
 				if err := d.authorizeInlineVolumeSecret(ctx, context); err != nil {
 					return nil, err
 				}

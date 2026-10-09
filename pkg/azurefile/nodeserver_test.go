@@ -453,6 +453,57 @@ func TestNodePublishVolume(t *testing.T) {
 			},
 		},
 		{
+			// Regression guard for the inline clientID workload-identity mount: an ephemeral
+			// volume authenticating with workload identity via clientID (without
+			// mountWithWorkloadIdentityToken=true) must be classified as workload identity so
+			// its storageAccount is NOT blanked.
+			desc: "[Error] Ephemeral volume with clientID workload identity skips secret authz and preserves storageAccount",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "csi-inline-clientid-wi",
+				TargetPath:        targetTest,
+				StagingTargetPath: sourceTest,
+				Readonly:          true,
+				VolumeContext: map[string]string{
+					ephemeralField:           "true",
+					storageAccountField:      "teststorageaccount",
+					shareNameField:           "testshare",
+					clientIDField:            "test-client-id-1234",
+					serviceAccountTokenField: "fake-token",
+					secretNameField:          "test-secret",
+				},
+			},
+			setup:   func() { d.inlineVolumeSecretAuthz = inlineVolumeSecretAuthzEnforce },
+			cleanup: func() { d.inlineVolumeSecretAuthz = inlineVolumeSecretAuthzOff },
+			expectedErr: testutil.TestError{
+				DefaultError: status.Errorf(codes.InvalidArgument, "GetAccountInfo(csi-inline-clientid-wi) failed with error: failed to create client assertion credential, error: invalid tenantID. You can locate your tenantID by following the instructions listed here: https://learn.microsoft.com/partner-center/find-ids-and-domain-names"),
+				WindowsError: status.Errorf(codes.InvalidArgument, "GetAccountInfo(csi-inline-clientid-wi) failed with error: failed to create client assertion credential, error: invalid tenantID. You can locate your tenantID by following the instructions listed here: https://learn.microsoft.com/partner-center/find-ids-and-domain-names"),
+			},
+		},
+		{
+			// Complements the clientID case above: an ephemeral volume WITHOUT clientID is still
+			// key-based, so its storageAccount is blanked and the inline-Secret SAR must still be
+			// enforced. This guards against over-broadening the workload-identity classification.
+			desc: "[Error] Ephemeral secret-based volume (no clientID) still enforces inline secret authz",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "csi-inline-secret-based",
+				TargetPath:        targetTest,
+				StagingTargetPath: sourceTest,
+				Readonly:          true,
+				VolumeContext: map[string]string{
+					ephemeralField:      "true",
+					storageAccountField: "teststorageaccount",
+					shareNameField:      "testshare",
+					secretNameField:     "test-secret",
+				},
+			},
+			setup:   func() { d.inlineVolumeSecretAuthz = inlineVolumeSecretAuthzEnforce },
+			cleanup: func() { d.inlineVolumeSecretAuthz = inlineVolumeSecretAuthzOff },
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.PermissionDenied, "inline volume Secret default/test-secret: kube client or pod identity (podInfoOnMount) unavailable"),
+				WindowsError: status.Error(codes.PermissionDenied, "inline volume Secret default/test-secret: kube client or pod identity (podInfoOnMount) unavailable"),
+			},
+		},
+		{
 			desc: "[Success] Republish for clientID-only mount already mounted skips NodeStageVolume",
 			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
 				VolumeId:          "csi-clientid-republish-already-mounted",
