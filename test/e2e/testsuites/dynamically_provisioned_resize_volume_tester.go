@@ -117,7 +117,7 @@ func (t *DynamicallyProvisionedResizeVolumeTest) Run(ctx context.Context, client
 
 		creds, err := credentials.CreateAzureCredentialFile(false)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret, creds.AADFederatedTokenFile)
+		azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret, creds.AADFederatedTokenFile, creds.UseManagedIdentity)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		var resourceGroup string
