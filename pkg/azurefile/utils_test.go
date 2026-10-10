@@ -21,7 +21,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -1834,6 +1836,29 @@ func TestSetCredentialCache(t *testing.T) {
 			// Other errors (e.g., azfilesauthmanager not found) are expected in test environment
 		}
 	}
+}
+
+func TestClearCredentialCache(t *testing.T) {
+	_, err := clearCredentialCache("")
+	assert.EqualError(t, err, "server must be provided")
+
+	if runtime.GOOS == "windows" {
+		return
+	}
+
+	tempDir := t.TempDir()
+	argsFile := filepath.Join(tempDir, "args")
+	executable := filepath.Join(tempDir, "azfilesauthmanager")
+	err = os.WriteFile(executable, []byte("#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$AZFILES_ARGS\"\n"), 0755)
+	assert.NoError(t, err)
+	t.Setenv("PATH", tempDir)
+	t.Setenv("AZFILES_ARGS", argsFile)
+
+	output, err := clearCredentialCache("account.privatelink.file.core.windows.net")
+	assert.NoError(t, err, string(output))
+	args, err := os.ReadFile(argsFile)
+	assert.NoError(t, err)
+	assert.Equal(t, "clear\nhttps://account.file.core.windows.net\n", string(args))
 }
 
 func int32Ptr(i int32) *int32 {

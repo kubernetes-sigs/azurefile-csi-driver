@@ -627,6 +627,18 @@ func setCredentialCache(server, clientID, tenantID, tokenFile, token, authorityH
 	return cmd.CombinedOutput()
 }
 
+func clearCredentialCache(server string) ([]byte, error) {
+	if server == "" {
+		return nil, fmt.Errorf("server must be provided")
+	}
+
+	serverURL := "https://" + getKerberosHost(server)
+	cmd := exec.Command("azfilesauthmanager", "clear", serverURL)
+	cmd.Env = append(os.Environ(), cmd.Env...)
+	klog.V(2).Infof("Executing command: %q", cmd.String())
+	return cmd.CombinedOutput()
+}
+
 // invalidFolderNameChars contains characters not allowed in Azure file share folder names
 var invalidFolderNameChars = regexp.MustCompile(`[\\:*?"<>|]`)
 
