@@ -121,7 +121,7 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 	if isTestingMigration || !isUsingInTreeVolumePlugin {
 		creds, err := credentials.CreateAzureCredentialFile(false)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret, creds.AADFederatedTokenFile)
+		azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret, creds.AADFederatedTokenFile, creds.UseManagedIdentity)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		suiteCreds = creds
 		suiteAzureClient = azureClient
@@ -381,7 +381,7 @@ func execTestCmd(cmds []testCmd) {
 func checkAccountCreationLeak(_ context.Context) {
 	creds, err := credentials.CreateAzureCredentialFile(false)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret, creds.AADFederatedTokenFile)
+	azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret, creds.AADFederatedTokenFile, creds.UseManagedIdentity)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	accountNum, err := azureClient.GetAccountNumByResourceGroup(context.Background(), creds.ResourceGroup)
