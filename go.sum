@@ -49,8 +49,8 @@ github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.2.0 h1:nCYfg
 github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.2.0/go.mod h1:ucUjca2JtSZboY8IoUqyQyuuXvwbMBVwFOm0vdQPNhA=
 github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.2 h1:tQJdgQjbKKffEiMOKJmcQPkY01eFHRqWIZVefqP44nI=
 github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.2/go.mod h1:kTkpJchXAdO7LGkKZP97a+Ou8TgaF4NT6MHwOIy5uSQ=
-github.com/Azure/azure-sdk-for-go/sdk/storage/azfile v1.7.0 h1:cuiKf1UVyWHu+XSQghPZR/qEF43JIcuk2CDqMlPiT6M=
-github.com/Azure/azure-sdk-for-go/sdk/storage/azfile v1.7.0/go.mod h1:9JSyvgXLPAOC4jfhgZg58XeU2FJHsGmxuYSclCFQ4ZY=
+github.com/Azure/azure-sdk-for-go/sdk/storage/azfile v1.7.1 h1:wVjjPrYK/VEgn+eXC467LgERhfYyWmVZUG++hBUBbY0=
+github.com/Azure/azure-sdk-for-go/sdk/storage/azfile v1.7.1/go.mod h1:ggeAiETASegm/u4VtXg5hz69btKLACb4h03QDj+9IdU=
 github.com/Azure/azure-sdk-for-go/sdk/storage/internal v0.1.0 h1:X/bTwe0qpvmvPPutc+LWo7T4cKMqDP9JHP4k+Co9ZB4=
 github.com/Azure/azure-sdk-for-go/sdk/storage/internal v0.1.0/go.mod h1:+kX7ahyFelQ42F3RScM2CFgHJljp0phc/FieKLYVpFI=
 github.com/Azure/msi-dataplane v0.4.3 h1:dWPWzY4b54tLIR9T1Q014Xxd/1DxOsMIp6EjRFAJlQY=
