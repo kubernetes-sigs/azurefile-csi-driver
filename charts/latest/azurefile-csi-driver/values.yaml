@@ -2,7 +2,7 @@ image:
   baseRepo: mcr.microsoft.com
   azurefile:
     repository: /oss/v2/kubernetes-csi/azurefile-csi
-    tag: v1.35.10
+    tag: v1.35.11
     pullPolicy: IfNotPresent
   csiProvisioner:
     repository: /oss/v2/kubernetes-csi/csi-provisioner
