@@ -52,7 +52,7 @@ type Client struct {
 	ficClient        *armmsi.FederatedIdentityCredentialsClient
 }
 
-func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aadFederatedTokenFile string) (*Client, error) {
+func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aadFederatedTokenFile string, useManagedIdentity bool) (*Client, error) {
 	armConfig := &azclient.ARMClientConfig{
 		Cloud:     cloud,
 		TenantID:  tenantID,
@@ -62,16 +62,23 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 	if err != nil {
 		return nil, err
 	}
-	useFederatedWorkloadIdentityExtension := false
-	if aadFederatedTokenFile != "" {
-		useFederatedWorkloadIdentityExtension = true
+	authConfig := &azclient.AzureAuthConfig{}
+	if useManagedIdentity {
+		// Authenticate via IMDS using the node's user-assigned managed identity.
+		// clientID is the user-assigned identity's client ID.
+		authConfig.UseManagedIdentityExtension = true
+		authConfig.UserAssignedIdentityID = clientID
+	} else {
+		useFederatedWorkloadIdentityExtension := false
+		if aadFederatedTokenFile != "" {
+			useFederatedWorkloadIdentityExtension = true
+		}
+		authConfig.AADClientID = clientID
+		authConfig.AADClientSecret = clientSecret
+		authConfig.AADFederatedTokenFile = aadFederatedTokenFile
+		authConfig.UseFederatedWorkloadIdentityExtension = useFederatedWorkloadIdentityExtension
 	}
-	credProvider, err := azclient.NewAuthProvider(armConfig, &azclient.AzureAuthConfig{
-		AADClientID:                           clientID,
-		AADClientSecret:                       clientSecret,
-		AADFederatedTokenFile:                 aadFederatedTokenFile,
-		UseFederatedWorkloadIdentityExtension: useFederatedWorkloadIdentityExtension,
-	})
+	credProvider, err := azclient.NewAuthProvider(armConfig, authConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -129,6 +136,14 @@ func (az *Client) EnsureResourceGroup(ctx context.Context, name, location string
 		tags = group.Tags
 	} else {
 		tags = make(map[string]*string)
+	}
+	// Preserve the existing managedBy when the caller does not request a change.
+	// AKS-managed node resource groups (MC_*) carry a managedBy pointing at the
+	// managed cluster; issuing a CreateOrUpdate that nulls it out is rejected
+	// with ResourceGroupManagedByMismatch, so keep the current value to stay
+	// idempotent against pre-existing managed groups.
+	if managedBy == nil && err == nil && group.ManagedBy != nil {
+		managedBy = group.ManagedBy
 	}
 	// Tags for correlating resource groups with prow jobs on testgrid
 	tags["buildID"] = stringPointer(os.Getenv("BUILD_ID"))
