@@ -175,10 +175,9 @@ const (
 	premium                           = "premium"
 	selectRandomMatchingAccountField  = "selectrandommatchingaccount"
 	accountQuotaField                 = "accountquota"
-	confidentialContainerLabelField   = "confidentialcontainerlabel"
-	defaultConfidentialContainerLabel = "kubernetes.azure.com/kata-cc-isolation"
-	runtimeClassHandlerField          = "runtimeclasshandler"
-	defaultRuntimeClassHandler        = "kata-cc"
+	// Node and RuntimeClass annotation that opts into Kata direct-volume mounts.
+	kataMountAnnotationKey            = "azure.csi.file/kata-mount"
+	kataMountDirectVolumeValue        = "direct-volume"
 	mountWithManagedIdentityField     = "mountwithmanagedidentity"
 	mountWithOAuthTokenField          = "mountwithoauthtoken"
 	mountWithWITokenField             = "mountwithworkloadidentitytoken"
@@ -291,7 +290,7 @@ type Driver struct {
 	appendNoResvPortOption                 bool
 	appendActimeoOption                    bool
 	printVolumeStatsCallLogs               bool
-	enableKataCCMount                      bool
+	enableKataMount                        bool
 	useWinCIMAPI                           bool
 	mounter                                *mount.SafeFormatAndMount
 	server                                 *grpc.Server
@@ -364,7 +363,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	driver.enableVHDDiskFeature = options.EnableVHDDiskFeature
 	driver.enableVolumeMountGroup = options.EnableVolumeMountGroup
 	driver.enableGetVolumeStats = options.EnableGetVolumeStats
-	driver.enableKataCCMount = options.EnableKataCCMount
+	driver.enableKataMount = options.EnableKataMount
 	driver.appendMountErrorHelpLink = options.AppendMountErrorHelpLink
 	driver.mountPermissions = options.MountPermissions
 	driver.fsGroupChangePolicy = options.FSGroupChangePolicy
@@ -520,7 +519,7 @@ func (d *Driver) Run(ctx context.Context) error {
 	csi.RegisterControllerServer(server, d)
 	csi.RegisterNodeServer(server, d)
 	d.server = server
-	d.isKataNode = isKataNode(ctx, d.NodeID, defaultConfidentialContainerLabel, d.kubeClient)
+	d.isKataNode = isKataNode(ctx, d.NodeID, d.kubeClient)
 
 	listener, err := csicommon.ListenEndpoint(ctx, d.endpoint)
 	if err != nil {
@@ -1609,7 +1608,9 @@ func (d *Driver) getFileShareClientForSub(subscriptionID string) (fileshareclien
 	return d.cloud.ComputeClientFactory.GetFileShareClientForSub(subscriptionID)
 }
 
-func isKataNode(ctx context.Context, nodeID, confidentialContainerLabel string, kubeClient clientset.Interface) bool {
+// isKataNode reports whether the node opts into Kata direct-volume mounts via the
+// azure.csi.file/kata-mount=direct-volume node annotation.
+func isKataNode(ctx context.Context, nodeID string, kubeClient clientset.Interface) bool {
 	if nodeID == "" {
 		return false
 	}
@@ -1625,15 +1626,10 @@ func isKataNode(ctx context.Context, nodeID, confidentialContainerLabel string, 
 		return false
 	}
 
-	if node == nil || len(node.Labels) == 0 {
+	if node == nil || node.Annotations[kataMountAnnotationKey] != kataMountDirectVolumeValue {
 		return false
 	}
-
-	// Check for the kata isolation labels
-	if _, ok := node.Labels[confidentialContainerLabel]; !ok {
-		return false
-	}
-	klog.V(4).Infof("node(%s) is a kata node with labels: %v", nodeID, node.Labels)
+	klog.V(4).Infof("====++====node(%s) is a kata node (annotation %s=%s)", nodeID, kataMountAnnotationKey, kataMountDirectVolumeValue)
 	return true
 }
 
