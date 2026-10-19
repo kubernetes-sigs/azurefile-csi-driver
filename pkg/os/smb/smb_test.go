@@ -22,7 +22,53 @@ package smb
 import (
 	"fmt"
 	"testing"
+
+	wmi "sigs.k8s.io/azurefile-csi-driver/pkg/os/wmi"
 )
+
+func TestParseSMBGlobalMappingStatus(t *testing.T) {
+	tests := []struct {
+		name string
+		out  string
+		want SMBGlobalMappingStatus
+	}{
+		{name: "ok", out: "OK", want: SMBGlobalMappingStatusOK},
+		{name: "ok trimmed case-insensitive", out: "  ok\r\n", want: SMBGlobalMappingStatusOK},
+		{name: "disconnected", out: "Disconnected", want: SMBGlobalMappingStatusDisconnected},
+		{name: "not found", out: "NotFound", want: SMBGlobalMappingStatusNotFound},
+		{name: "empty means not found", out: "", want: SMBGlobalMappingStatusNotFound},
+		{name: "other status", out: "Reconnecting", want: SMBGlobalMappingStatusOther},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := parseSMBGlobalMappingStatus(tt.out); got != tt.want {
+				t.Fatalf("parseSMBGlobalMappingStatus(%q) = %q, want %q", tt.out, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetSMBGlobalMappingStatusFromWMI(t *testing.T) {
+	tests := []struct {
+		name   string
+		status uint32
+		want   SMBGlobalMappingStatus
+	}{
+		{name: "ok", status: wmi.SmbMappingStatusOK, want: SMBGlobalMappingStatusOK},
+		{name: "disconnected", status: wmi.SmbMappingStatusDisconnected, want: SMBGlobalMappingStatusDisconnected},
+		{name: "reconnecting treated as other", status: wmi.SmbMappingStatusReconnecting, want: SMBGlobalMappingStatusOther},
+		{name: "network error treated as other", status: wmi.SmbMappingStatusNetworkError, want: SMBGlobalMappingStatusOther},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getSMBGlobalMappingStatusFromWMI(tt.status); got != tt.want {
+				t.Fatalf("getSMBGlobalMappingStatusFromWMI(%d) = %q, want %q", tt.status, got, tt.want)
+			}
+		})
+	}
+}
 
 func TestCheckForDuplicateSMBMounts(t *testing.T) {
 	tests := []struct {

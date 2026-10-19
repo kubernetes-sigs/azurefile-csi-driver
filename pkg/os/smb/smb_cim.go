@@ -34,12 +34,27 @@ func NewCimSMBAPI() *cimSMBAPI {
 	return &cimSMBAPI{}
 }
 
-func (*cimSMBAPI) IsSmbMapped(remotePath string) (bool, error) {
-	var isMapped bool
+func getSMBGlobalMappingStatusFromWMI(status uint32) SMBGlobalMappingStatus {
+	switch status {
+	case wmi.SmbMappingStatusOK:
+		return SMBGlobalMappingStatusOK
+	case wmi.SmbMappingStatusDisconnected:
+		return SMBGlobalMappingStatusDisconnected
+	default:
+		return SMBGlobalMappingStatusOther
+	}
+}
+
+func (*cimSMBAPI) GetSmbGlobalMappingStatus(remotePath string) (SMBGlobalMappingStatus, error) {
+	mappingStatus := SMBGlobalMappingStatusNotFound
 	err := wmi.WithCOMThread(func() error {
 		return wmi.WithScope(func(scope *wmi.Scope) error {
 			inst, err := wmi.QuerySmbGlobalMappingByRemotePath(scope, remotePath)
 			if err != nil {
+				if wmi.IgnoreNotFound(err) == nil {
+					mappingStatus = SMBGlobalMappingStatusNotFound
+					return nil
+				}
 				klog.V(6).Infof("error querying smb mapping for remote path %s. err: %v", remotePath, err)
 				return err
 			}
@@ -50,11 +65,14 @@ func (*cimSMBAPI) IsSmbMapped(remotePath string) (bool, error) {
 				return err
 			}
 
-			isMapped = status == wmi.SmbMappingStatusOK
+			mappingStatus = getSMBGlobalMappingStatusFromWMI(status)
 			return nil
 		})
 	})
-	return isMapped, wmi.IgnoreNotFound(err)
+	if err != nil {
+		return SMBGlobalMappingStatusNotFound, err
+	}
+	return mappingStatus, nil
 }
 
 func (*cimSMBAPI) NewSmbGlobalMapping(remotePath, username, password string) error {

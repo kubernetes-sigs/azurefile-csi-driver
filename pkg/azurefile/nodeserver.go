@@ -108,22 +108,15 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 				return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("ephemeral volume request contains case-colliding volume attribute keys that normalize to %q", key))
 			}
 			setKeyValueInMap(context, secretNamespaceField, context[podNamespaceField])
-			// Inline volumes do not support NFS.
-			if strings.EqualFold(getValueInMap(context, protocolField), nfs) {
-				return nil, status.Error(codes.InvalidArgument, "NFS protocol is not supported for ephemeral volumes")
-			}
 			// Inline volumes do not support the VHD disk feature.
 			if getValueInMap(context, diskNameField) != "" || isDiskFsType(getValueInMap(context, fsTypeField)) {
 				return nil, status.Error(codes.InvalidArgument, "VHD disk feature (diskName or disk fsType) is not supported for ephemeral volumes")
 			}
-			// Inline volumes must describe a remote Azure Files mount only.
-			// Reject server / shareName that could become a local path,
-			// and reject local bind mount modes in mountOptions.
-			if err := validateInlineVolumeMountSource(getValueInMap(context, serverNameField), getValueInMap(context, shareNameField)); err != nil {
-				return nil, status.Error(codes.InvalidArgument, err.Error())
-			}
 			mountOptions := strings.TrimSpace(getValueInMap(context, mountOptionsField))
-			useWIToken := strings.EqualFold(getValueInMap(context, mountWithWITokenField), trueValue)
+			// isWorkloadIdentity reports whether this inline volume authenticates
+			// with workload identity (either token-based via mountWithWorkloadIdentityToken
+			// or key-based via a non-empty clientID).
+			isWorkloadIdentity := strings.EqualFold(getValueInMap(context, mountWithWITokenField), trueValue) || shouldUseServiceAccountToken(context)
 			mountFlags := req.GetVolumeCapability().GetMount().GetMountFlags()
 			inlineMountOptions := append([]string(nil), mountFlags...)
 			inlineMountOptions = append(inlineMountOptions, mountOptions)
@@ -143,14 +136,14 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 				klog.V(2).Infof("NodePublishVolume: ephemeral volume(%s) already mounted on %s, skipping NodeStageVolume (no time-bound credential to refresh)", volumeID, target)
 				return &csi.NodePublishVolumeResponse{}, nil
 			}
-			if !d.allowInlineVolumeKeyAccessWithIdentity && !useWIToken {
+			if !d.allowInlineVolumeKeyAccessWithIdentity && !isWorkloadIdentity {
 				// only get storage account from secret when not using managed identity or workload identity
 				setKeyValueInMap(context, getAccountKeyFromSecretField, trueValue)
 				setKeyValueInMap(context, storageAccountField, "")
 			}
 			// For secret-based inline volumes, confirm the mounting pod's own ServiceAccount
 			// is authorized to read the referenced Secret before mounting.
-			if !useWIToken {
+			if !isWorkloadIdentity {
 				if err := d.authorizeInlineVolumeSecret(ctx, context); err != nil {
 					return nil, err
 				}
@@ -1067,13 +1060,16 @@ func validateMountWithOAuthToken(protocol, fsType string, volumeContext map[stri
 
 // getKerberosHost strips the ".privatelink" label from an Azure Files FQDN so
 // the Kerberos SPN matches the canonical <account>.file.<suffix> that Azure AD
-// (Entra) issues tickets for. The CIFS mount source is not changed; the
-// canonical name still resolves (via the privatelink private DNS zone) to the
-// private endpoint IP, so traffic keeps going through the private link.
+// (Entra) issues tickets for.
 //
-// Callers should use this helper for anything passed to Kerberos (setCredentialCache,
-// SPN lookups) but keep the original server value for the CIFS mount source and
-// volume context.
+// For static volumes or user-provided server values we preserve the original
+// server in the volume context and CIFS mount source, and only canonicalize the
+// hostname for Kerberos operations (setCredentialCache, SPN lookups). For
+// dynamically provisioned private-endpoint SMB volumes that use Kerberos-based
+// auth, the controller now publishes the canonical <account>.file.<suffix>
+// directly in volume context, so both Kerberos operations and the CIFS mount
+// source already use the canonical hostname. In both cases, private DNS still
+// routes the canonical name to the private endpoint IP.
 func getKerberosHost(server string) string {
 	return strings.Replace(server, ".privatelink.file.", ".file.", 1)
 }

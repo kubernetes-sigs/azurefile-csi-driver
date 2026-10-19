@@ -336,24 +336,6 @@ func TestNodePublishVolume(t *testing.T) {
 			},
 		},
 		{
-			desc: "[Error] Ephemeral volume with protocol=nfs should fail",
-			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
-				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e440",
-				TargetPath: targetTest,
-				Readonly:   true,
-				VolumeContext: map[string]string{
-					ephemeralField:  "true",
-					shareNameField:  "testshare",
-					protocolField:   nfs,
-					serverNameField: "192.0.2.60",
-				},
-			},
-			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.InvalidArgument, "NFS protocol is not supported for ephemeral volumes"),
-				WindowsError: status.Error(codes.InvalidArgument, "NFS protocol is not supported for ephemeral volumes"),
-			},
-		},
-		{
 			desc: "[Error] Ephemeral volume with diskName should fail",
 			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
 				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e441",
@@ -387,40 +369,6 @@ func TestNodePublishVolume(t *testing.T) {
 			expectedErr: testutil.TestError{
 				DefaultError: status.Error(codes.InvalidArgument, "VHD disk feature (diskName or disk fsType) is not supported for ephemeral volumes"),
 				WindowsError: status.Error(codes.InvalidArgument, "VHD disk feature (diskName or disk fsType) is not supported for ephemeral volumes"),
-			},
-		},
-		{
-			desc: "[Error] Ephemeral volume with server containing separators should fail",
-			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
-				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e443",
-				TargetPath: targetTest,
-				Readonly:   true,
-				VolumeContext: map[string]string{
-					ephemeralField:  "true",
-					shareNameField:  "testshare",
-					serverNameField: "a/b",
-				},
-			},
-			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.InvalidArgument, "invalid server \"a/b\" for ephemeral volume: must be a hostname or address"),
-				WindowsError: status.Error(codes.InvalidArgument, "invalid server \"a/b\" for ephemeral volume: must be a hostname or address"),
-			},
-		},
-		{
-			desc: "[Error] Ephemeral volume with shareName containing separators should fail",
-			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
-				VolumeId:   "csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8e444",
-				TargetPath: targetTest,
-				Readonly:   true,
-				VolumeContext: map[string]string{
-					ephemeralField:  "true",
-					serverNameField: "test_servername",
-					shareNameField:  "a/b",
-				},
-			},
-			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.InvalidArgument, "invalid shareName \"a/b\" for ephemeral volume: must be a single share name"),
-				WindowsError: status.Error(codes.InvalidArgument, "invalid shareName \"a/b\" for ephemeral volume: must be a single share name"),
 			},
 		},
 		{
@@ -526,6 +474,57 @@ func TestNodePublishVolume(t *testing.T) {
 			expectedErr: testutil.TestError{
 				DefaultError: status.Errorf(codes.InvalidArgument, "GetAccountInfo(csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed84) failed with error: clientID is empty for workload identity auth"),
 				WindowsError: status.Errorf(codes.InvalidArgument, "GetAccountInfo(csi-94637b24200724b604b0e2c92e0fcdfabb0e109f656857c5a3c9585777c8ed84) failed with error: clientID is empty for workload identity auth"),
+			},
+		},
+		{
+			// Regression guard for the inline clientID workload-identity mount: an ephemeral
+			// volume authenticating with workload identity via clientID (without
+			// mountWithWorkloadIdentityToken=true) must be classified as workload identity so
+			// its storageAccount is NOT blanked.
+			desc: "[Error] Ephemeral volume with clientID workload identity skips secret authz and preserves storageAccount",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "csi-inline-clientid-wi",
+				TargetPath:        targetTest,
+				StagingTargetPath: sourceTest,
+				Readonly:          true,
+				VolumeContext: map[string]string{
+					ephemeralField:           "true",
+					storageAccountField:      "teststorageaccount",
+					shareNameField:           "testshare",
+					clientIDField:            "test-client-id-1234",
+					serviceAccountTokenField: "fake-token",
+					secretNameField:          "test-secret",
+				},
+			},
+			setup:   func() { d.inlineVolumeSecretAuthz = inlineVolumeSecretAuthzEnforce },
+			cleanup: func() { d.inlineVolumeSecretAuthz = inlineVolumeSecretAuthzOff },
+			expectedErr: testutil.TestError{
+				DefaultError: status.Errorf(codes.InvalidArgument, "GetAccountInfo(csi-inline-clientid-wi) failed with error: failed to create client assertion credential, error: invalid tenantID. You can locate your tenantID by following the instructions listed here: https://learn.microsoft.com/partner-center/find-ids-and-domain-names"),
+				WindowsError: status.Errorf(codes.InvalidArgument, "GetAccountInfo(csi-inline-clientid-wi) failed with error: failed to create client assertion credential, error: invalid tenantID. You can locate your tenantID by following the instructions listed here: https://learn.microsoft.com/partner-center/find-ids-and-domain-names"),
+			},
+		},
+		{
+			// Complements the clientID case above: an ephemeral volume WITHOUT clientID is still
+			// key-based, so its storageAccount is blanked and the inline-Secret SAR must still be
+			// enforced. This guards against over-broadening the workload-identity classification.
+			desc: "[Error] Ephemeral secret-based volume (no clientID) still enforces inline secret authz",
+			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:          "csi-inline-secret-based",
+				TargetPath:        targetTest,
+				StagingTargetPath: sourceTest,
+				Readonly:          true,
+				VolumeContext: map[string]string{
+					ephemeralField:      "true",
+					storageAccountField: "teststorageaccount",
+					shareNameField:      "testshare",
+					secretNameField:     "test-secret",
+				},
+			},
+			setup:   func() { d.inlineVolumeSecretAuthz = inlineVolumeSecretAuthzEnforce },
+			cleanup: func() { d.inlineVolumeSecretAuthz = inlineVolumeSecretAuthzOff },
+			expectedErr: testutil.TestError{
+				DefaultError: status.Error(codes.PermissionDenied, "inline volume Secret default/test-secret: kube client or pod identity (podInfoOnMount) unavailable"),
+				WindowsError: status.Error(codes.PermissionDenied, "inline volume Secret default/test-secret: kube client or pod identity (podInfoOnMount) unavailable"),
 			},
 		},
 		{

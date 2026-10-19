@@ -842,6 +842,121 @@ var _ = ginkgo.Describe("TestCreateVolume", func() {
 			gomega.Expect(err.Error()).To(gomega.ContainSubstring("failed to ensure storage account"))
 		})
 	})
+	ginkgo.When("networkEndpointType is privateEndpoint on an SMB volume with identity-based auth", func() {
+		ginkgo.It("should use the canonical server in volume context", func(ctx context.Context) {
+			name := "baz"
+			SKU := "SKU"
+			kind := "StorageV2"
+			location := "centralus"
+			value := "foo bar"
+			accounts := []*armstorage.Account{
+				{Name: &name, SKU: &armstorage.SKU{Name: to.Ptr(armstorage.SKUName(SKU))}, Kind: to.Ptr(armstorage.Kind(kind)), Location: &location},
+			}
+			keys := []*armstorage.AccountKey{{Value: &value}}
+
+			mockStorageAccountsClient := d.cloud.ComputeClientFactory.GetAccountClient().(*mock_accountclient.MockInterface)
+			mockFileClient.EXPECT().Create(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
+			mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
+			mockStorageAccountsClient.EXPECT().List(gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
+			mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+			mockFileClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
+
+			tests := []struct {
+				name   string
+				params map[string]string
+			}{
+				{
+					name: "managed identity",
+					params: map[string]string{
+						skuNameField:                  "premium",
+						locationField:                 "loc",
+						storageAccountField:           "stoacc",
+						resourceGroupField:            "rg",
+						secretNamespaceField:          "default",
+						storageEndpointSuffixField:    "core.windows.net",
+						networkEndpointTypeField:      "privateEndpoint",
+						mountWithManagedIdentityField: "true",
+					},
+				},
+				{
+					name: "workload identity token",
+					params: map[string]string{
+						skuNameField:               "premium",
+						locationField:              "loc",
+						storageAccountField:        "stoacc",
+						resourceGroupField:         "rg",
+						secretNamespaceField:       "default",
+						storageEndpointSuffixField: "core.windows.net",
+						networkEndpointTypeField:   "privateEndpoint",
+						mountWithWITokenField:      "true",
+					},
+				},
+				{
+					name: "oauth token",
+					params: map[string]string{
+						skuNameField:               "premium",
+						locationField:              "loc",
+						storageAccountField:        "stoacc",
+						resourceGroupField:         "rg",
+						secretNamespaceField:       "default",
+						secretNameField:            "oauth-secret",
+						storageEndpointSuffixField: "core.windows.net",
+						networkEndpointTypeField:   "privateEndpoint",
+						mountWithOAuthTokenField:   "true",
+					},
+				},
+			}
+
+			for _, test := range tests {
+				resp, err := d.CreateVolume(ctx, &csi.CreateVolumeRequest{
+					Name:               "vol-private-endpoint-" + strings.ReplaceAll(test.name, " ", "-"),
+					VolumeCapabilities: stdVolCap,
+					CapacityRange:      lessThanPremCapRange,
+					Parameters:         test.params,
+				})
+				gomega.Expect(err).NotTo(gomega.HaveOccurred(), test.name)
+				gomega.Expect(resp.GetVolume().VolumeContext[serverNameField]).To(gomega.Equal("stoacc.file.core.windows.net"), test.name)
+			}
+		})
+
+		ginkgo.It("should keep the privatelink server for shared-key auth", func(ctx context.Context) {
+			name := "baz"
+			SKU := "SKU"
+			kind := "StorageV2"
+			location := "centralus"
+			value := "foo bar"
+			accounts := []*armstorage.Account{
+				{Name: &name, SKU: &armstorage.SKU{Name: to.Ptr(armstorage.SKUName(SKU))}, Kind: to.Ptr(armstorage.Kind(kind)), Location: &location},
+			}
+			keys := []*armstorage.AccountKey{{Value: &value}}
+
+			params := map[string]string{
+				skuNameField:               "premium",
+				locationField:              "loc",
+				storageAccountField:        "stoacc",
+				resourceGroupField:         "rg",
+				secretNamespaceField:       "default",
+				storageEndpointSuffixField: "core.windows.net",
+				networkEndpointTypeField:   "privateEndpoint",
+			}
+
+			mockStorageAccountsClient := d.cloud.ComputeClientFactory.GetAccountClient().(*mock_accountclient.MockInterface)
+			mockFileClient.EXPECT().Create(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: nil}}, nil).AnyTimes()
+			mockStorageAccountsClient.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(keys, nil).AnyTimes()
+			mockStorageAccountsClient.EXPECT().List(gomock.Any(), gomock.Any()).Return(accounts, nil).AnyTimes()
+			mockStorageAccountsClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+			mockFileClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&armstorage.FileShare{FileShareProperties: &armstorage.FileShareProperties{ShareQuota: &fakeShareQuota}}, nil).AnyTimes()
+
+			resp, err := d.CreateVolume(ctx, &csi.CreateVolumeRequest{
+				Name:               "vol-private-endpoint-shared-key",
+				VolumeCapabilities: stdVolCap,
+				CapacityRange:      lessThanPremCapRange,
+				Parameters:         params,
+			})
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(resp.GetVolume().VolumeContext[serverNameField]).To(gomega.Equal("stoacc.privatelink.file.core.windows.net"))
+		})
+	})
 	ginkgo.When("Failed with storeAccountKey is not supported for account with shared access key disabled", func() {
 		ginkgo.It("should fail", func(ctx context.Context) {
 			allParam := map[string]string{
