@@ -134,6 +134,7 @@ type CIFSStats struct {
 	OplockBreaksFailed uint64
 }
 
+// ProcessCIFSStats reads per-tree-connection counters from a Linux CIFS stats file.
 func ProcessCIFSStats(cifsStatsPath string) ([]CIFSStats, error) {
 	if strings.TrimSpace(cifsStatsPath) == "" {
 		return nil, fmt.Errorf("cifsStatsPath is empty")
@@ -141,11 +142,7 @@ func ProcessCIFSStats(cifsStatsPath string) ([]CIFSStats, error) {
 
 	file, err := os.Open(cifsStatsPath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			klog.Warningf("cifs stats file %s does not exist", cifsStatsPath)
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to open cifs stats file %s: %v", cifsStatsPath, err)
+		return nil, fmt.Errorf("failed to open cifs stats file %s: %w", cifsStatsPath, err)
 	}
 	defer func() {
 		if cerr := file.Close(); cerr != nil {
@@ -251,6 +248,7 @@ func parseShareLine(line string) (string, bool) {
 	}
 
 	device := strings.TrimSpace(line[separator+1:])
+	device = strings.TrimSpace(strings.TrimSuffix(device, "\tDISCONNECTED"))
 	return device, device != ""
 }
 

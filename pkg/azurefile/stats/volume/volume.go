@@ -30,14 +30,16 @@ type Metadata struct {
 	Protocol           string
 	StorageAccountName string
 	ShareName          string
-	MountPoint         string
+	// Server is the full SMB endpoint used to match kernel statistics.
+	Server     string
+	MountPoint string
 	// FilesystemID is the mountinfo major:minor identity used to deduplicate
 	// bind mounts and mount-propagation replicas.
 	FilesystemID string
 }
 
 func (m Metadata) key() string {
-	return m.Protocol + "\x00" + m.StorageAccountName + "\x00" + m.ShareName + "\x00" + m.MountPoint
+	return m.Protocol + "\x00" + m.Server + "\x00" + m.StorageAccountName + "\x00" + m.ShareName + "\x00" + m.MountPoint
 }
 
 // MetadataList is a list of locally mounted Azure File targets.

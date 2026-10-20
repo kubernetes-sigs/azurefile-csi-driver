@@ -54,6 +54,7 @@ func TestNewStatsCollection(t *testing.T) {
 			Protocol:           volume.ProtocolSMB,
 			StorageAccountName: "account",
 			ShareName:          "share",
+			Server:             "account.file.core.windows.net",
 		},
 		{
 			Protocol:           volume.ProtocolNFS,
@@ -98,6 +99,7 @@ func TestNewStatsCollectionFiltersNonAzureFileVolumes(t *testing.T) {
 			Protocol:           volume.ProtocolSMB,
 			StorageAccountName: "account",
 			ShareName:          "owned-share",
+			Server:             "account.file.core.windows.net",
 		},
 		{
 			Protocol:           volume.ProtocolNFS,
@@ -110,6 +112,8 @@ func TestNewStatsCollectionFiltersNonAzureFileVolumes(t *testing.T) {
 		{Device: `\\account.file.core.windows.net\owned-share`},
 		{Device: `\\account.file.core.windows.net\different-share`},
 		{Device: `\\other.file.core.windows.net\owned-share`},
+		{Device: `\\account.privatelink.file.core.windows.net\owned-share`},
+		{Device: `\\account.file.core.chinacloudapi.cn\owned-share`},
 	}
 	nfsStats := []NFSStats{
 		{
@@ -156,6 +160,7 @@ func TestNewStatsCollectionAggregatesDuplicateTargets(t *testing.T) {
 			Protocol:           volume.ProtocolSMB,
 			StorageAccountName: "account",
 			ShareName:          "share",
+			Server:             "account.file.core.windows.net",
 		}},
 		[]CIFSStats{
 			{

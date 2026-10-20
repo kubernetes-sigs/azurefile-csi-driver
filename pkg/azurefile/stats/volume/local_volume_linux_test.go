@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/prometheus/procfs"
@@ -108,6 +109,7 @@ func TestLocalVolumeList(t *testing.T) {
 		),
 	}
 	lister := &LocalVolume{
+		driverName: "file.csi.azure.com",
 		getMounts: func() ([]*procfs.MountInfo, error) {
 			return mounts, nil
 		},
@@ -143,6 +145,216 @@ func TestLocalVolumeList(t *testing.T) {
 	}
 	if metadata := got["nfs/inlineaccount/inlinenfs"]; metadata.MountPoint != inlineNFS {
 		t.Errorf("unexpected inline NFS metadata: %+v", metadata)
+	}
+}
+
+func TestLocalVolumeSMBEndpointMetadata(t *testing.T) {
+	const globalMount = "/var/lib/kubelet/plugins/kubernetes.io/csi/file.csi.azure.com/id/globalmount"
+	const podMount = "/var/lib/kubelet/pods/pod/volumes/kubernetes.io~csi/pvc/mount"
+	tests := []struct {
+		name       string
+		server     string
+		mountPoint string
+		data       string
+		account    string
+	}{
+		{
+			name: "first IP", server: "10.10.24.244", mountPoint: globalMount,
+			data: `{"driverName":"file.csi.azure.com","volumeHandle":"rg#firstaccount#share###"}`, account: "firstaccount",
+		},
+		{
+			name: "second IP", server: "10.20.30.40", mountPoint: globalMount,
+			data: `{"driverName":"file.csi.azure.com","volumeHandle":"rg#secondaccount#share###"}`, account: "secondaccount",
+		},
+		{
+			name: "custom hostname", server: "files.example.com", mountPoint: globalMount,
+			data: `{"driverName":"file.csi.azure.com","volumeHandle":"rg#actualaccount#share/subdir###"}`, account: "actualaccount",
+		},
+		{
+			name: "pod mount", server: "10.10.24.244", mountPoint: podMount,
+			data: `{"driverName":"file.csi.azure.com","volumeHandle":"rg#firstaccount#share###"}`, account: "firstaccount",
+		},
+		{
+			name: "canonical without metadata", server: "account.file.core.windows.net", mountPoint: globalMount,
+			account: "account",
+		},
+		{name: "missing metadata", server: "10.10.24.244", mountPoint: globalMount},
+		{
+			name: "unknown handle", server: "10.10.24.244", mountPoint: globalMount,
+			data: `{"driverName":"file.csi.azure.com","volumeHandle":"opaque-id"}`,
+		},
+		{
+			name: "other driver", server: "10.10.24.244", mountPoint: globalMount,
+			data: `{"driverName":"other.csi.example.com","volumeHandle":"rg#account#share###"}`,
+		},
+		{
+			name: "wrong share", server: "10.10.24.244", mountPoint: globalMount,
+			data: `{"driverName":"file.csi.azure.com","volumeHandle":"rg#account#other-share###"}`,
+		},
+		{
+			name: "empty account", server: "10.10.24.244", mountPoint: globalMount,
+			data: `{"driverName":"file.csi.azure.com","volumeHandle":"rg##share###"}`,
+		},
+		{name: "malformed metadata", server: "10.10.24.244", mountPoint: globalMount, data: "{"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			reads := 0
+			lister := &LocalVolume{
+				driverName: "file.csi.azure.com",
+				getMounts: func() ([]*procfs.MountInfo, error) {
+					return []*procfs.MountInfo{{
+						MountPoint: test.mountPoint,
+						FSType:     "cifs",
+						Source:     "//" + test.server + "/share",
+					}}, nil
+				},
+				readFile: func(path string) ([]byte, error) {
+					reads++
+					if want := filepath.Join(filepath.Dir(test.mountPoint), volumeDataFileName); path != want {
+						t.Errorf("metadata path = %q, want %q", path, want)
+					}
+					if test.data == "" {
+						return nil, errors.New("metadata unavailable")
+					}
+					return []byte(test.data), nil
+				},
+			}
+			volumes, err := lister.List(context.Background())
+			if err != nil {
+				t.Fatalf("List() error = %v", err)
+			}
+			wantReads := 1
+			if test.name == "canonical without metadata" {
+				wantReads = 0
+			}
+			if reads != wantReads {
+				t.Errorf("metadata reads = %d, want %d", reads, wantReads)
+			}
+			if test.account == "" {
+				if len(volumes) != 0 {
+					t.Fatalf("List() returned unresolved volumes: %+v", volumes)
+				}
+				return
+			}
+			if len(volumes) != 1 {
+				t.Fatalf("List() returned %d volumes, want 1", len(volumes))
+			}
+			if got := volumes[0]; got.Server != test.server || got.StorageAccountName != test.account || got.ShareName != "share" {
+				t.Errorf("unexpected SMB metadata: %+v", got)
+			}
+		})
+	}
+}
+
+func TestReadVolumeDataRetriesReadErrors(t *testing.T) {
+	reads := 0
+	lister := &LocalVolume{
+		driverName: "file.csi.azure.com",
+		readFile: func(string) ([]byte, error) {
+			reads++
+			if reads == 1 {
+				return nil, errors.New("metadata temporarily unavailable")
+			}
+			return []byte(`{"driverName":"file.csi.azure.com","volumeHandle":"rg#account#share###"}`), nil
+		},
+	}
+	cache := make(map[string]volumeDataResult)
+	if _, ok := lister.readVolumeData("/volume/mount", cache); ok {
+		t.Fatal("readVolumeData() succeeded despite read error")
+	}
+	for range 2 {
+		data, ok := lister.readVolumeData("/volume/mount", cache)
+		if !ok || data.VolumeHandle != "rg#account#share###" {
+			t.Fatalf("readVolumeData() = (%+v, %t), want valid metadata", data, ok)
+		}
+	}
+	if reads != 2 {
+		t.Errorf("metadata reads = %d, want 2", reads)
+	}
+}
+
+func TestLocalVolumeMetadataCacheRefreshes(t *testing.T) {
+	const globalMount = "/var/lib/kubelet/plugins/kubernetes.io/csi/file.csi.azure.com/id/globalmount"
+	mount := &procfs.MountInfo{
+		MountPoint: globalMount, FSType: "cifs",
+		Source: "//10.10.24.244/share", MajorMinorVer: "0:100",
+	}
+	podMount := *mount
+	podMount.MountPoint = "/var/lib/kubelet/pods/pod/volumes/kubernetes.io~csi/pvc/mount"
+	reads := 0
+	account := "firstaccount"
+	lister := &LocalVolume{
+		driverName: "file.csi.azure.com",
+		getMounts: func() ([]*procfs.MountInfo, error) {
+			return []*procfs.MountInfo{mount, mount, &podMount}, nil
+		},
+		readFile: func(path string) ([]byte, error) {
+			reads++
+			if want := filepath.Join(filepath.Dir(globalMount), volumeDataFileName); path != want {
+				t.Errorf("metadata path = %q, want %q", path, want)
+			}
+			return []byte(fmt.Sprintf(`{"driverName":"file.csi.azure.com","volumeHandle":"rg#%s#share###"}`, account)), nil
+		},
+	}
+	for i, name := range []string{"firstaccount", "secondaccount"} {
+		account = name
+		volumes, err := lister.List(context.Background())
+		if err != nil {
+			t.Fatalf("List() error = %v", err)
+		}
+		if len(volumes) != 1 || volumes[0].StorageAccountName != account {
+			t.Fatalf("List() = %+v, want one volume for %s", volumes, account)
+		}
+		if reads != i+1 {
+			t.Errorf("metadata reads = %d, want %d", reads, i+1)
+		}
+	}
+}
+
+func TestLocalVolumeListCancellation(t *testing.T) {
+	for _, phase := range []string{"before discovery", "mountinfo", "global metadata", "pod metadata"} {
+		t.Run(phase, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			reads := 0
+			lister := &LocalVolume{
+				driverName: "file.csi.azure.com",
+				getMounts: func() ([]*procfs.MountInfo, error) {
+					if phase == "before discovery" {
+						t.Error("mountinfo read after cancellation")
+					}
+					if phase == "mountinfo" {
+						cancel()
+					}
+					mountPoint := "/var/lib/kubelet/plugins/kubernetes.io/csi/file.csi.azure.com/id/globalmount"
+					if phase == "pod metadata" {
+						mountPoint = "/var/lib/kubelet/pods/pod/volumes/kubernetes.io~csi/pvc/mount"
+					}
+					mount := &procfs.MountInfo{MountPoint: mountPoint, FSType: "cifs", Source: "//10.10.24.244/share"}
+					return []*procfs.MountInfo{mount, mount}, nil
+				},
+				readFile: func(string) ([]byte, error) {
+					reads++
+					cancel()
+					return []byte(`{"driverName":"file.csi.azure.com","volumeHandle":"rg#account#share###"}`), nil
+				},
+			}
+			if phase == "before discovery" {
+				cancel()
+			}
+			volumes, err := lister.List(ctx)
+			if !errors.Is(err, context.Canceled) || volumes != nil {
+				t.Fatalf("List() = (%+v, %v), want (nil, context.Canceled)", volumes, err)
+			}
+			wantReads := 0
+			if phase == "global metadata" || phase == "pod metadata" {
+				wantReads = 1
+			}
+			if reads != wantReads {
+				t.Errorf("metadata reads = %d, want %d", reads, wantReads)
+			}
+		})
 	}
 }
 

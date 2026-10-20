@@ -78,8 +78,9 @@ func NewCollection(volumes volume.MetadataList, cifsStats []CIFSStats, nfsStats 
 
 	volumeTargets := newVolumeTargetSet(volumes)
 	for _, stat := range cifsStats {
-		account, share, ok := volume.ParseCIFSTarget(stat.Device)
-		if ok && volumeTargets.containsCIFS(account, share) {
+		server, share, ok := volume.ParseCIFSTarget(stat.Device)
+		account, matched := volumeTargets.cifsAccount(server, share)
+		if ok && matched {
 			collection.add(projectCIFSStats(stat, account, share), filesystemIndexes)
 		}
 	}
@@ -122,13 +123,13 @@ func (c *Collection) add(filesystem FilesystemStats, indexes map[string]int) {
 }
 
 type volumeTargetSet struct {
-	cifs map[string]struct{}
+	cifs map[string]string
 	nfs  map[string]string
 }
 
 func newVolumeTargetSet(volumes volume.MetadataList) volumeTargetSet {
 	targets := volumeTargetSet{
-		cifs: make(map[string]struct{}),
+		cifs: make(map[string]string),
 		nfs:  make(map[string]string),
 	}
 	for _, metadata := range volumes {
@@ -140,7 +141,10 @@ func newVolumeTargetSet(volumes volume.MetadataList) volumeTargetSet {
 		target := account + "/" + share
 		switch metadata.Protocol {
 		case volume.ProtocolSMB:
-			targets.cifs[target] = struct{}{}
+			server := strings.ToLower(strings.TrimSpace(metadata.Server))
+			if server != "" {
+				targets.cifs[server+"/"+share] = account
+			}
 		case volume.ProtocolNFS:
 			targets.nfs[target+"\x00"+filepath.Clean(metadata.MountPoint)] = metadata.FilesystemID
 		}
@@ -148,9 +152,9 @@ func newVolumeTargetSet(volumes volume.MetadataList) volumeTargetSet {
 	return targets
 }
 
-func (s volumeTargetSet) containsCIFS(account, share string) bool {
-	_, ok := s.cifs[account+"/"+share]
-	return ok
+func (s volumeTargetSet) cifsAccount(server, share string) (string, bool) {
+	account, ok := s.cifs[server+"/"+share]
+	return account, ok
 }
 
 func (s volumeTargetSet) nfsFilesystem(account, share, mountPoint string) (string, bool) {

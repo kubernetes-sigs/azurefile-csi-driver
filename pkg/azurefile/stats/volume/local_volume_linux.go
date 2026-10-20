@@ -29,35 +29,40 @@ import (
 )
 
 const (
-	azureFileCSIDriverName = "file.csi.azure.com"
-	volumeDataFileName     = "vol_data.json"
+	volumeDataFileName = "vol_data.json"
 )
 
 type volumeData struct {
-	DriverName string `json:"driverName"`
+	DriverName   string `json:"driverName"`
+	VolumeHandle string `json:"volumeHandle"`
 }
 
-// Volume discovers Azure File CSI volumes from the node mount table.
+type volumeDataResult struct {
+	data  volumeData
+	valid bool
+}
+
+// LocalVolume discovers Azure File CSI volumes from the node mount table by using helper functions.
 type LocalVolume struct {
-	getMounts func() ([]*procfs.MountInfo, error)
-	readFile  func(string) ([]byte, error)
+	driverName string
+	getMounts  func() ([]*procfs.MountInfo, error)
+	readFile   func(string) ([]byte, error)
 }
 
 // NewLocalVolume creates a node-local Azure File CSI volume discoverer.
-func NewLocalVolume() *LocalVolume {
+func NewLocalVolume(driverName string) *LocalVolume {
 	return &LocalVolume{
+		driverName: driverName,
 		getMounts: func() ([]*procfs.MountInfo, error) {
-			proc, err := procfs.Self()
-			if err != nil {
-				return nil, fmt.Errorf("failed to open self procfs entry: %w", err)
-			}
-			return proc.MountInfo()
+			return procfs.GetMounts()
 		},
 		readFile: os.ReadFile,
 	}
 }
 
 // List returns Azure File CSI filesystem targets mounted on this node.
+// Metadata reads are cached only for this call so later scrapes see mount changes.
+// Cancellation is checked between synchronous filesystem operations.
 func (l *LocalVolume) List(ctx context.Context) (MetadataList, error) {
 	if l == nil || l.getMounts == nil || l.readFile == nil {
 		return nil, fmt.Errorf("local volume discoverer is not initialized")
@@ -71,11 +76,18 @@ func (l *LocalVolume) List(ctx context.Context) (MetadataList, error) {
 		return nil, fmt.Errorf("failed to read mount information: %w", err)
 	}
 
+	metadataCache := make(map[string]volumeDataResult)
 	globalFilesystems := make(map[string]struct{})
 	volumes := make(map[string]Metadata)
 	for _, mount := range mounts {
-		metadata, ok := l.metadataForMount(mount)
-		if !ok || !l.isGlobalMount(mount.MountPoint) {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if mount == nil || !l.isGlobalMount(mount.MountPoint) {
+			continue
+		}
+		metadata, ok := l.metadataForMount(mount, metadataCache)
+		if !ok {
 			continue
 		}
 		globalFilesystems[mount.MajorMinorVer] = struct{}{}
@@ -83,17 +95,20 @@ func (l *LocalVolume) List(ctx context.Context) (MetadataList, error) {
 	}
 
 	for _, mount := range mounts {
-		if !l.isPodMount(mount.MountPoint) {
-			continue
+		if err := ctx.Err(); err != nil {
+			return nil, err
 		}
-		metadata, ok := l.metadataForMount(mount)
-		if !ok {
+		if mount == nil || !l.isPodMount(mount.MountPoint) {
 			continue
 		}
 		if _, staged := globalFilesystems[mount.MajorMinorVer]; staged {
 			continue
 		}
-		if !l.isAzureFilePodVolume(mount.MountPoint) {
+		metadata, ok := l.metadataForMount(mount, metadataCache)
+		if !ok {
+			continue
+		}
+		if _, ok := l.readVolumeData(mount.MountPoint, metadataCache); !ok {
 			continue
 		}
 		volumes[metadata.key()] = metadata
@@ -101,22 +116,51 @@ func (l *LocalVolume) List(ctx context.Context) (MetadataList, error) {
 
 	result := make(MetadataList, 0, len(volumes))
 	for _, metadata := range volumes {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		result = append(result, metadata)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
 
-func (l *LocalVolume) metadataForMount(mount *procfs.MountInfo) (Metadata, bool) {
+func (l *LocalVolume) metadataForMount(mount *procfs.MountInfo, cache map[string]volumeDataResult) (Metadata, bool) {
 	if mount == nil {
 		return Metadata{}, false
 	}
 
-	var protocol, account, share string
+	var protocol, account, share, server string
 	var ok bool
 	switch strings.ToLower(mount.FSType) {
 	case "cifs":
 		protocol = ProtocolSMB
-		account, share, ok = ParseCIFSTarget(mount.Source)
+		server, share, ok = ParseCIFSTarget(mount.Source)
+		if !ok {
+			return Metadata{}, false
+		}
+		account = storageAccountFromServer(server)
+		if account == "" {
+			data, valid := l.readVolumeData(mount.MountPoint, cache)
+			if !valid {
+				return Metadata{}, false
+			}
+			// Kubelet persists the CSI volume handle alongside the mount.
+			// Azure File handles use resource-group#account#share#... .
+			parts := strings.Split(data.VolumeHandle, "#")
+			if len(parts) < 3 {
+				klog.Warningf("Cannot resolve storage account from CSI metadata for SMB mount %s", mount.MountPoint)
+				return Metadata{}, false
+			}
+			var metadataShare string
+			account, metadataShare, ok = normalizeAccountAndShare(parts[1], strings.SplitN(parts[2], "/", 2)[0])
+			if !ok || metadataShare != share {
+				klog.Warningf("CSI metadata does not identify SMB mount %s", mount.MountPoint)
+				return Metadata{}, false
+			}
+		}
 	case "nfs", "nfs4":
 		protocol = ProtocolNFS
 		account, share, ok = ParseNFSTarget(mount.Source)
@@ -131,6 +175,7 @@ func (l *LocalVolume) metadataForMount(mount *procfs.MountInfo) (Metadata, bool)
 		Protocol:           protocol,
 		StorageAccountName: account,
 		ShareName:          share,
+		Server:             server,
 		MountPoint:         filepath.Clean(mount.MountPoint),
 		FilesystemID:       mount.MajorMinorVer,
 	}, true
@@ -145,8 +190,8 @@ func (l *LocalVolume) isGlobalMount(mountPoint string) bool {
 	return tail[0] == "plugins" &&
 		tail[1] == "kubernetes.io" &&
 		tail[2] == "csi" &&
-		tail[3] == azureFileCSIDriverName &&
-		tail[5] == "globalmount"
+		tail[3] == l.driverName &&
+		(tail[5] == "globalmount" || tail[5] == "proxy-mount")
 }
 
 func (l *LocalVolume) isPodMount(mountPoint string) bool {
@@ -169,18 +214,24 @@ func mountParts(mountPoint string) []string {
 	return strings.Split(clean, "/")
 }
 
-func (l *LocalVolume) isAzureFilePodVolume(mountPoint string) bool {
+func (l *LocalVolume) readVolumeData(mountPoint string, cache map[string]volumeDataResult) (volumeData, bool) {
 	dataPath := filepath.Join(filepath.Dir(filepath.Clean(mountPoint)), volumeDataFileName)
+	if result, ok := cache[dataPath]; ok {
+		return result.data, result.valid
+	}
 	data, err := l.readFile(dataPath)
 	if err != nil {
 		klog.V(4).InfoS("Failed to read CSI volume metadata", "path", dataPath, "err", err)
-		return false
+		return volumeData{}, false
 	}
+	cache[dataPath] = volumeDataResult{}
 
 	var metadata volumeData
 	if err := json.Unmarshal(data, &metadata); err != nil {
 		klog.V(4).InfoS("Failed to parse CSI volume metadata", "path", dataPath, "err", err)
-		return false
+		return volumeData{}, false
 	}
-	return metadata.DriverName == azureFileCSIDriverName
+	valid := metadata.DriverName == l.driverName
+	cache[dataPath] = volumeDataResult{data: metadata, valid: valid}
+	return metadata, valid
 }

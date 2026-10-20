@@ -16,9 +16,16 @@ limitations under the License.
 
 package volume
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
 
-// ParseCIFSTarget extracts an Azure storage account and file share from a UNC path.
+var azureFileServerPattern = regexp.MustCompile(`^([a-z0-9]{3,24})(?:-secondary)?\.(?:` +
+	`(?:privatelink\.)?file\.core\.(?:windows\.net|chinacloudapi\.cn|usgovcloudapi\.net|cloudapi\.de)|` +
+	`z[1-9][0-9]?\.(?:privatelink\.)?(?:file|afs)\.storage\.azure\.net)$`)
+
+// ParseCIFSTarget extracts the full server identity and file share from a UNC path.
 func ParseCIFSTarget(device string) (string, string, bool) {
 	normalized := strings.ReplaceAll(strings.TrimSpace(device), `\`, "/")
 	parts := strings.Split(strings.Trim(normalized, "/"), "/")
@@ -26,7 +33,7 @@ func ParseCIFSTarget(device string) (string, string, bool) {
 		return "", "", false
 	}
 
-	return normalizeTarget(parts[0], parts[1])
+	return normalizeAccountAndShare(parts[0], parts[1])
 }
 
 // ParseNFSTarget extracts an Azure storage account and file share from an NFS export.
@@ -45,10 +52,12 @@ func ParseNFSTarget(device string) (string, string, bool) {
 	return normalizeAccountAndShare(parts[0], parts[1])
 }
 
-func normalizeTarget(server, share string) (string, string, bool) {
-	server = strings.ToLower(strings.TrimSpace(server))
-	account := strings.TrimSuffix(strings.SplitN(server, ".", 2)[0], "-secondary")
-	return normalizeAccountAndShare(account, share)
+func storageAccountFromServer(server string) string {
+	matches := azureFileServerPattern.FindStringSubmatch(strings.TrimSuffix(server, "."))
+	if len(matches) == 0 {
+		return ""
+	}
+	return matches[1]
 }
 
 func normalizeAccountAndShare(account, share string) (string, string, bool) {

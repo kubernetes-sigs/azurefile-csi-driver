@@ -18,17 +18,21 @@ package stats
 
 import (
 	"context"
+	"time"
 
 	"k8s.io/component-base/metrics"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile/stats/volume"
 )
 
-const volumeDiscoverySource = "persistentvolumes"
+const (
+	volumeDiscoverySource  = "persistentvolumes"
+	volumeDiscoveryTimeout = 10 * time.Second
+)
 
 var filesystemLabels = []string{"protocol", "storage_account", "file_share"}
 
-// VolumeStatsCollector exports kernel filesystem counters for Azure File CSI
+// VolumeStatsCollector exports current kernel filesystem totals for Azure File CSI
 // volumes through the driver's existing metrics registry.
 type VolumeStatsCollector struct {
 	metrics.BaseStableCollector
@@ -53,23 +57,23 @@ func NewVolumeStatsCollector(volumes volume.MetadataLister) *VolumeStatsCollecto
 		readCIFS: ProcessCIFSStats,
 		readNFS:  ProcessNFSStats,
 		readBytes: metrics.NewDesc(
-			"azurefile_csi_driver_volume_read_bytes_total",
-			"Total bytes read from the remote filesystem.",
+			"azurefile_csi_driver_volume_read_bytes",
+			"Sum of bytes-read counters for currently mounted remote filesystem sources; may decrease when sources disappear or reset.",
 			filesystemLabels, nil, metrics.ALPHA, "",
 		),
 		writeBytes: metrics.NewDesc(
-			"azurefile_csi_driver_volume_written_bytes_total",
-			"Total bytes written to the remote filesystem.",
+			"azurefile_csi_driver_volume_written_bytes",
+			"Sum of bytes-written counters for currently mounted remote filesystem sources; may decrease when sources disappear or reset.",
 			filesystemLabels, nil, metrics.ALPHA, "",
 		),
 		requests: metrics.NewDesc(
-			"azurefile_csi_driver_volume_operation_requests_total",
-			"Total remote filesystem operation requests.",
+			"azurefile_csi_driver_volume_operation_requests",
+			"Sum of operation-request counters for currently mounted remote filesystem sources; may decrease when sources disappear or reset.",
 			append(filesystemLabels, "operation"), nil, metrics.ALPHA, "",
 		),
 		errors: metrics.NewDesc(
-			"azurefile_csi_driver_volume_operation_errors_total",
-			"Total failed remote filesystem operations.",
+			"azurefile_csi_driver_volume_operation_errors",
+			"Sum of failed-operation counters for currently mounted remote filesystem sources; may decrease when sources disappear or reset.",
 			append(filesystemLabels, "operation"), nil, metrics.ALPHA, "",
 		),
 		up: metrics.NewDesc(
@@ -80,6 +84,7 @@ func NewVolumeStatsCollector(volumes volume.MetadataLister) *VolumeStatsCollecto
 	}
 }
 
+// DescribeWithStability sends the filesystem metric descriptors to ch.
 func (c *VolumeStatsCollector) DescribeWithStability(ch chan<- *metrics.Desc) {
 	ch <- c.readBytes
 	ch <- c.writeBytes
@@ -88,8 +93,12 @@ func (c *VolumeStatsCollector) DescribeWithStability(ch chan<- *metrics.Desc) {
 	ch <- c.up
 }
 
+// CollectWithStability discovers local volumes and emits current filesystem totals
+// and source health. Volume discovery observes a cooperative timeout.
 func (c *VolumeStatsCollector) CollectWithStability(ch chan<- metrics.Metric) {
-	volumes, err := c.volumes.List(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), volumeDiscoveryTimeout)
+	defer cancel()
+	volumes, err := c.volumes.List(ctx)
 	if err != nil {
 		klog.ErrorS(err, "Failed to discover Azure File mounts for filesystem metrics")
 		c.emitUp(ch, volumeDiscoverySource, false)
@@ -122,12 +131,12 @@ func (c *VolumeStatsCollector) CollectWithStability(ch chan<- metrics.Metric) {
 			filesystem.StorageAccount,
 			filesystem.FileShare,
 		}
-		ch <- metrics.NewLazyConstMetric(c.readBytes, metrics.CounterValue, float64(filesystem.BytesRead), labels...)
-		ch <- metrics.NewLazyConstMetric(c.writeBytes, metrics.CounterValue, float64(filesystem.BytesWritten), labels...)
+		ch <- metrics.NewLazyConstMetric(c.readBytes, metrics.GaugeValue, float64(filesystem.BytesRead), labels...)
+		ch <- metrics.NewLazyConstMetric(c.writeBytes, metrics.GaugeValue, float64(filesystem.BytesWritten), labels...)
 		for operation, operationStats := range filesystem.Operations {
 			operationLabels := append(labels, operation)
-			ch <- metrics.NewLazyConstMetric(c.requests, metrics.CounterValue, float64(operationStats.Requests), operationLabels...)
-			ch <- metrics.NewLazyConstMetric(c.errors, metrics.CounterValue, float64(operationStats.Errors), operationLabels...)
+			ch <- metrics.NewLazyConstMetric(c.requests, metrics.GaugeValue, float64(operationStats.Requests), operationLabels...)
+			ch <- metrics.NewLazyConstMetric(c.errors, metrics.GaugeValue, float64(operationStats.Errors), operationLabels...)
 		}
 	}
 }
