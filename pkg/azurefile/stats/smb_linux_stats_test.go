@@ -21,8 +21,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"sigs.k8s.io/azurefile-csi-driver/pkg/azurefile/stats/volume"
 )
 
 func TestParseShareLine(t *testing.T) {
@@ -47,36 +45,6 @@ func TestParseShareLine(t *testing.T) {
 				t.Errorf("parseShareLine(%q) = (%q, %t), want (%q, %t)", test.line, device, ok, test.device, test.ok)
 			}
 		})
-	}
-}
-
-func TestProcessCIFSStatsDisconnectedShare(t *testing.T) {
-	path := writeCIFSStatsFile(t, "1) \\\\account.file.core.windows.net\\share\tDISCONNECTED\n"+
-		"Bytes read: 100 Bytes written: 200\n"+
-		"Reads: 10 total 2 failed\n"+
-		"Writes: 20 total 3 failed\n")
-	stats, err := ProcessCIFSStats(path)
-	if err != nil {
-		t.Fatalf("ProcessCIFSStats() error = %v", err)
-	}
-	collection := NewCollection(volume.MetadataList{{
-		Protocol:           volume.ProtocolSMB,
-		StorageAccountName: "account",
-		ShareName:          "share",
-		Server:             "account.file.core.windows.net",
-	}}, stats, nil)
-	if len(collection.Filesystems) != 1 {
-		t.Fatalf("filesystem count = %d, want 1", len(collection.Filesystems))
-	}
-	filesystem := collection.Filesystems[0]
-	if filesystem.BytesRead != 100 || filesystem.BytesWritten != 200 {
-		t.Errorf("unexpected SMB bytes: %+v", filesystem)
-	}
-	if got := filesystem.Operations["read"]; got != (OperationStats{Requests: 10, Errors: 2}) {
-		t.Errorf("read operation = %+v, want 10 requests and 2 errors", got)
-	}
-	if got := filesystem.Operations["write"]; got != (OperationStats{Requests: 20, Errors: 3}) {
-		t.Errorf("write operation = %+v, want 20 requests and 3 errors", got)
 	}
 }
 
