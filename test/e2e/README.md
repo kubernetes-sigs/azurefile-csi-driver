@@ -1,6 +1,26 @@
 ## End to End Test
 
 ## Run E2E tests Locally
+
+### Authentication coverage
+
+`[auth-mount-matrix]` selects the V1 authentication scenarios and the supported
+entry/controller-API completion cases. The scenario identifiers are stable:
+N01-N19 are V1 identifiers across releases. This release adds M01-M04 and M09;
+WI-token and OAuth-token mounting cases require 1.35 and are not registered here.
+
+Identity fixtures currently require the CAPZ suite setup, an available worker
+UAMI, successful OIDC/FIC initialization for workload identity, and permission
+to create/assign/detach test identities. Configured-identity cases deliberately
+omit `clientID`; the configured WI FIC uses the suite's default-namespace
+ServiceAccount. Distinct explicit-identity cases remain separate.
+
+M09 requires a dedicated lane already configured with
+`--allow-inline-volume-key-access-with-identity=true`; the test does not change
+the DaemonSet. Default inline WI regression cases require that option disabled.
+Run these incompatible configurations in separate lanes and report skips.
+Compilation and Ginkgo dry-run discovery are not native mount execution.
+
 ### Prerequisite
  - Make sure a kubernetes cluster(with version >= 1.13) is set up and kubeconfig is under `$HOME/.kube/config`
  - Copy out `/etc/kubernetes/azure.json` under one agent node to local machine

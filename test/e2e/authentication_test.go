@@ -74,6 +74,11 @@ var authenticationScenarios = []authenticationScenario{
 	{"N15", "dynamic", "oauth", nodeAccountKey},
 	{"N16", "dynamic", "oauth", workloadKey},
 	{"N17", "dynamic", "oauth", managedToken},
+	{"M01", "static", "", nodeAccountKey},
+	{"M02", "dynamic", "true", configuredManagedToken},
+	{"M03", "dynamic", "oauth", configuredManagedToken},
+	{"M04", "static", "", configuredManagedToken},
+	{"M09", "inline", "", nodeAccountKey},
 }
 
 var _ = ginkgo.Describe("Authentication and mounting", ginkgo.Serial, func() {
