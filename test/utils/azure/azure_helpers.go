@@ -48,6 +48,8 @@ type Client struct {
 	filesharesClient fileshareclient.Interface
 	vmssClient       *armcompute.VirtualMachineScaleSetsClient
 	vmClient         *armcompute.VirtualMachinesClient
+	vmssVMClient     *armcompute.VirtualMachineScaleSetVMsClient
+	identitiesClient *armmsi.UserAssignedIdentitiesClient
 	roleClient       *armauthorization.RoleAssignmentsClient
 	ficClient        *armmsi.FederatedIdentityCredentialsClient
 }
@@ -105,6 +107,14 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 	if err != nil {
 		return nil, fmt.Errorf("failed to create federated identity credentials client: %v", err)
 	}
+	identitiesClient, err := armmsi.NewUserAssignedIdentitiesClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create managed identities client: %w", err)
+	}
+	vmssVMClient, err := armcompute.NewVirtualMachineScaleSetVMsClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create VMSS instance client: %w", err)
+	}
 
 	return &Client{
 		subscriptionID:   subscriptionID,
@@ -113,6 +123,8 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 		filesharesClient: factory.GetFileShareClient(),
 		vmssClient:       vmssClient,
 		vmClient:         vmClient,
+		vmssVMClient:     vmssVMClient,
+		identitiesClient: identitiesClient,
 		roleClient:       roleClient,
 		ficClient:        ficClient,
 	}, nil
