@@ -44,11 +44,13 @@ import (
 type mountAuthentication string
 
 const (
-	nodeAccountKey mountAuthentication = "node ListKeys"
-	workloadKey    mountAuthentication = "workload identity account key"
-	managedToken   mountAuthentication = "explicit managed identity Kerberos"
-	workloadToken  mountAuthentication = "explicit workload identity Kerberos"
-	oauthToken     mountAuthentication = "OAuth-token Secret Kerberos"
+	nodeAccountKey          mountAuthentication = "node ListKeys"
+	workloadKey             mountAuthentication = "workload identity account key"
+	managedToken            mountAuthentication = "explicit managed identity Kerberos"
+	workloadToken           mountAuthentication = "explicit workload identity Kerberos"
+	oauthToken              mountAuthentication = "OAuth-token Secret Kerberos"
+	configuredManagedToken  mountAuthentication = "configured managed identity Kerberos"
+	configuredWorkloadToken mountAuthentication = "configured workload identity Kerberos"
 )
 
 type authenticationScenario struct {
@@ -111,6 +113,11 @@ func runAuthenticationScenario(ctx ginkgo.SpecContext, f *framework.Framework, s
 	}
 	gomega.Expect(suiteCreds).NotTo(gomega.BeNil())
 	gomega.Expect(suiteAzureClient).NotTo(gomega.BeNil())
+	namespace := f.Namespace
+	if scenario.auth == configuredWorkloadToken {
+		// The suite's configured-identity FIC is bound to this ServiceAccount.
+		namespace = &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: wiServiceAccountNamespace}}
+	}
 
 	ginkgo.By("selecting a Linux worker for the authentication and remount checks")
 	nodes, err := e2enode.GetReadySchedulableNodes(ctx, f.ClientSet)
@@ -140,11 +147,30 @@ func runAuthenticationScenario(ctx ginkgo.SpecContext, f *framework.Framework, s
 		"resourceGroup":   suiteCreds.ResourceGroup,
 		"storageAccount":  account,
 		"shareName":       share,
-		"secretNamespace": f.Namespace.Name,
+		"secretNamespace": namespace.Name,
 	}
 
 	ginkgo.By(fmt.Sprintf("configuring %s authentication", scenario.auth))
 	serviceAccount := configureMountAuthentication(ctx, f, scenario.auth, node, attributes, account)
+	if scenario.entryPoint == "inline" && scenario.auth == nodeAccountKey {
+		ginkgo.By("requiring the separately configured inline node-identity lane")
+		ds, err := f.ClientSet.AppsV1().DaemonSets("kube-system").Get(ctx, "csi-azurefile-node", metav1.GetOptions{})
+		framework.ExpectNoError(err)
+		enabled := false
+		for _, container := range ds.Spec.Template.Spec.Containers {
+			for _, arg := range container.Args {
+				switch arg {
+				case "--allow-inline-volume-key-access-with-identity", "--allow-inline-volume-key-access-with-identity=true":
+					enabled = true
+				case "--allow-inline-volume-key-access-with-identity=false":
+					enabled = false
+				}
+			}
+		}
+		if !enabled {
+			ginkgo.Skip("requires the opt-in --allow-inline-volume-key-access-with-identity=true lane; the test does not change driver flags")
+		}
+	}
 	if scenario.entryPoint == "inline" && scenario.auth == workloadKey {
 		ginkgo.By("checking that the default inline identity key-access guard is enabled")
 		ds, err := f.ClientSet.AppsV1().DaemonSets("kube-system").Get(ctx, "csi-azurefile-node", metav1.GetOptions{})
@@ -184,7 +210,8 @@ func runAuthenticationScenario(ctx ginkgo.SpecContext, f *framework.Framework, s
 	_, env, err := azclient.GetAzureCloudConfigAndEnvConfig(&azclient.ARMClientConfig{Cloud: suiteCreds.Cloud, TenantID: suiteCreds.TenantID})
 	framework.ExpectNoError(err)
 	security := "ntlmssp"
-	if scenario.auth == managedToken || scenario.auth == workloadToken || scenario.auth == oauthToken {
+	if scenario.auth == managedToken || scenario.auth == workloadToken || scenario.auth == oauthToken ||
+		scenario.auth == configuredManagedToken || scenario.auth == configuredWorkloadToken {
 		security = "krb5"
 	}
 	username := ""
@@ -193,6 +220,11 @@ func runAuthenticationScenario(ctx ginkgo.SpecContext, f *framework.Framework, s
 	}
 	if scenario.auth == managedToken {
 		username = "username=" + attributes["clientID"]
+	}
+	if scenario.auth == configuredManagedToken {
+		identity, err := suiteAzureClient.GetNodeIdentityInfo(ctx, suiteCreds.ResourceGroup)
+		framework.ExpectNoError(err)
+		username = "username=" + identity.ClientID
 	}
 	test := testsuites.AuthenticationMountTest{
 		CSIDriver:             driver.InitAzureFileDriver(),
@@ -206,12 +238,29 @@ func runAuthenticationScenario(ctx ginkgo.SpecContext, f *framework.Framework, s
 		ServiceAccountName:    serviceAccount,
 		NodeName:              node.Labels[testsuites.HostNameLabel],
 	}
-	test.Run(ctx, f.ClientSet, f.Namespace)
+	test.Run(ctx, f.ClientSet, namespace)
 }
 
 func configureMountAuthentication(ctx ginkgo.SpecContext, f *framework.Framework, auth mountAuthentication, node *v1.Node, attributes map[string]string, account string) string {
 	if auth == nodeAccountKey {
 		return ""
+	}
+	if auth == configuredManagedToken {
+		gomega.Expect(miRoleSetupSucceeded).To(gomega.BeTrue(), "configured node identity role setup must succeed")
+		attributes["mountWithManagedIdentity"] = "true"
+		return ""
+	}
+	if auth == configuredWorkloadToken {
+		select {
+		case <-wiReady:
+		case <-ctx.Done():
+			framework.Failf("waiting for configured workload identity setup: %v", ctx.Err())
+		}
+		framework.ExpectNoError(errWISetup)
+		gomega.Expect(wiSetupSucceeded).To(gomega.BeTrue())
+		gomega.Expect(wiClientID).NotTo(gomega.BeEmpty())
+		attributes["mountWithWorkloadIdentityToken"] = "true"
+		return wiServiceAccountName
 	}
 	ginkgo.By("creating a dedicated identity distinct from the controller and default node identities")
 	identityName := "azurefile-auth-" + uuid.NewString()
