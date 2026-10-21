@@ -65,6 +65,8 @@ var (
 	supportSnapshotwithNFS         bool
 	supportEncryptInTransitwithNFS bool
 	miRoleSetupSucceeded           bool
+	suiteCreds                     *credentials.Credentials
+	suiteAzureClient               *azure.Client
 )
 
 type testCmd struct {
@@ -95,6 +97,8 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret, creds.AADFederatedTokenFile)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		suiteCreds = creds
+		suiteAzureClient = azureClient
 		_, err = azureClient.EnsureResourceGroup(ctx, creds.ResourceGroup, creds.Location, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
