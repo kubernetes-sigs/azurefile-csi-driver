@@ -18,11 +18,17 @@ package azure
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
+	"net/http"
 	"strings"
+	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	armauthorization "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	armcompute "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	armmsi "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	storage "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v2"
@@ -30,6 +36,11 @@ import (
 )
 
 func (az *Client) CreateSMBOAuthAccount(ctx context.Context, resourceGroup, name, location string, tags map[string]*string) error {
+	return az.CreateSMBOAuthAccountWithSharedKeyPolicy(ctx, resourceGroup, name, location, tags, nil)
+}
+
+// CreateSMBOAuthAccountWithSharedKeyPolicy sets the service policy, not a CSI volume parameter.
+func (az *Client) CreateSMBOAuthAccountWithSharedKeyPolicy(ctx context.Context, resourceGroup, name, location string, tags map[string]*string, allowSharedKey *bool) error {
 	_, err := az.accountsClient.Create(ctx, resourceGroup, name, &storage.AccountCreateParameters{
 		Location: to.Ptr(location),
 		Kind:     to.Ptr(storage.KindFileStorage),
@@ -37,6 +48,7 @@ func (az *Client) CreateSMBOAuthAccount(ctx context.Context, resourceGroup, name
 		Tags:     tags,
 		Properties: &storage.AccountPropertiesCreateParameters{
 			EnableHTTPSTrafficOnly: to.Ptr(true),
+			AllowSharedKeyAccess:   allowSharedKey,
 			AzureFilesIdentityBasedAuthentication: &storage.AzureFilesIdentityBasedAuthentication{
 				DirectoryServiceOptions: to.Ptr(storage.DirectoryServiceOptionsNone),
 				SmbOAuthSettings:        &storage.SmbOAuthSettings{IsSmbOAuthEnabled: to.Ptr(true)},
@@ -44,6 +56,48 @@ func (az *Client) CreateSMBOAuthAccount(ctx context.Context, resourceGroup, name
 		},
 	})
 	return err
+}
+
+func (az *Client) StorageAccountScope(resourceGroup, account string) string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s", az.subscriptionID, resourceGroup, account)
+}
+
+// AssignOwnedRoleAtScope creates a unique assignment and returns its exact ID for cleanup.
+// It does not adopt or delete assignments created by another fixture.
+func (az *Client) AssignOwnedRoleAtScope(ctx context.Context, scope, principalID, roleDefinitionID string) (string, error) {
+	id, err := arm.ParseResourceID(scope)
+	if err != nil || !strings.EqualFold(id.SubscriptionID, az.subscriptionID) {
+		return "", fmt.Errorf("role scope must be a resource in the test subscription")
+	}
+	assignment := uuid.NewString()
+	_, err = az.roleClient.Create(ctx, scope, assignment, armauthorization.RoleAssignmentCreateParameters{
+		Properties: &armauthorization.RoleAssignmentProperties{
+			PrincipalID: to.Ptr(principalID), PrincipalType: to.Ptr(armauthorization.PrincipalTypeServicePrincipal),
+			RoleDefinitionID: to.Ptr(fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s", az.subscriptionID, roleDefinitionID)),
+		},
+	}, nil)
+	if err != nil {
+		return "", err
+	}
+	return assignment, nil
+}
+
+func (az *Client) DeleteOwnedRoleAtScope(ctx context.Context, scope, assignment string) error {
+	_, err := az.roleClient.Delete(ctx, scope, assignment, nil)
+	return err
+}
+
+func (az *Client) GetAuthenticationAccountKey(ctx context.Context, resourceGroup, account string) (string, error) {
+	result, err := az.accountsClient.ListKeys(ctx, resourceGroup, account)
+	if err != nil {
+		return "", err
+	}
+	for _, key := range result {
+		if key != nil && key.Value != nil && *key.Value != "" {
+			return *key.Value, nil
+		}
+	}
+	return "", fmt.Errorf("account %s returned no usable account key", account)
 }
 
 func (az *Client) DeleteStorageAccount(ctx context.Context, resourceGroup, name string) error {
@@ -87,37 +141,86 @@ func (az *Client) SetNodeUserAssignedIdentity(ctx context.Context, providerID, i
 	if !strings.EqualFold(id.SubscriptionID, az.subscriptionID) {
 		return fmt.Errorf("node subscription %s does not match test subscription %s", id.SubscriptionID, az.subscriptionID)
 	}
+	var update func(context.Context) error
 	switch strings.ToLower(id.ResourceType.String()) {
 	case "microsoft.compute/virtualmachines":
-		vm, err := az.vmClient.Get(ctx, id.ResourceGroupName, id.Name, nil)
-		if err != nil {
+		update = func(ctx context.Context) error {
+			vm, err := az.vmClient.Get(ctx, id.ResourceGroupName, id.Name, nil)
+			if err != nil {
+				return err
+			}
+			poller, err := az.vmClient.BeginUpdate(ctx, id.ResourceGroupName, id.Name, armcompute.VirtualMachineUpdate{
+				Identity: updatedVMIdentity(vm.Identity, identityID, attach),
+			}, &armcompute.VirtualMachinesClientBeginUpdateOptions{IfMatch: vm.Etag})
+			if err != nil {
+				return err
+			}
+			_, err = poller.PollUntilDone(ctx, nil)
 			return err
 		}
-		poller, err := az.vmClient.BeginUpdate(ctx, id.ResourceGroupName, id.Name, armcompute.VirtualMachineUpdate{
-			Identity: updatedVMIdentity(vm.Identity, identityID, attach),
-		}, &armcompute.VirtualMachinesClientBeginUpdateOptions{IfMatch: vm.Etag})
-		if err != nil {
-			return err
-		}
-		_, err = poller.PollUntilDone(ctx, nil)
-		return err
 	case "microsoft.compute/virtualmachinescalesets/virtualmachines":
-		vm, err := az.vmssVMClient.Get(ctx, id.ResourceGroupName, id.Parent.Name, id.Name, nil)
-		if err != nil {
+		update = func(ctx context.Context) error {
+			vm, err := az.vmssVMClient.Get(ctx, id.ResourceGroupName, id.Parent.Name, id.Name, nil)
+			if err != nil {
+				return err
+			}
+			poller, err := az.vmssVMClient.BeginUpdate(ctx, id.ResourceGroupName, id.Parent.Name, id.Name, armcompute.VirtualMachineScaleSetVM{
+				Location: vm.Location,
+				Identity: updatedVMIdentity(vm.Identity, identityID, attach),
+			}, &armcompute.VirtualMachineScaleSetVMsClientBeginUpdateOptions{IfMatch: vm.Etag})
+			if err != nil {
+				return err
+			}
+			_, err = poller.PollUntilDone(ctx, nil)
 			return err
 		}
-		poller, err := az.vmssVMClient.BeginUpdate(ctx, id.ResourceGroupName, id.Parent.Name, id.Name, armcompute.VirtualMachineScaleSetVM{
-			Location: vm.Location,
-			Identity: updatedVMIdentity(vm.Identity, identityID, attach),
-		}, &armcompute.VirtualMachineScaleSetVMsClientBeginUpdateOptions{IfMatch: vm.Etag})
-		if err != nil {
-			return err
-		}
-		_, err = poller.PollUntilDone(ctx, nil)
-		return err
 	default:
 		return fmt.Errorf("unsupported node provider resource type %s", id.ResourceType.String())
 	}
+	return retryIdentityUpdate(ctx, identityID, update)
+}
+
+// identityUpdateRetryDelay is the first backoff between conflicting identity updates.
+var identityUpdateRetryDelay = 2 * time.Second
+
+// retryIdentityUpdate lets concurrent tests patch the same node. Each attempt
+// re-reads the node, so a retry never overwrites another test's identity.
+func retryIdentityUpdate(ctx context.Context, identityID string, update func(context.Context) error) error {
+	delay := identityUpdateRetryDelay
+	for attempt := 1; ; attempt++ {
+		err := update(ctx)
+		if err == nil || attempt == 10 || !retryableIdentityUpdateError(err, identityID) {
+			return err
+		}
+		log.Printf("retrying identity update for %s after concurrent node change (attempt %d)", identityID, attempt)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+		}
+		delay = min(2*delay, 30*time.Second)
+	}
+}
+
+func retryableIdentityUpdateError(err error, identityID string) bool {
+	var responseErr *azcore.ResponseError
+	if !errors.As(err, &responseErr) {
+		return false
+	}
+	switch responseErr.StatusCode {
+	case http.StatusConflict, http.StatusPreconditionFailed, http.StatusTooManyRequests:
+		return true
+	}
+	switch responseErr.ErrorCode {
+	case "OperationPreempted", "RetryableError":
+		return true
+	case "FailedIdentityOperation":
+		// Identities are validated before If-Match, so a stale read that still lists
+		// a peer's since-deleted identity fails here instead of with 412.
+		message := strings.ToLower(err.Error())
+		return strings.Contains(message, "was not found") && !strings.Contains(message, strings.ToLower(identityID))
+	}
+	return false
 }
 
 func updatedVMIdentity(current *armcompute.VirtualMachineIdentity, identityID string, attach bool) *armcompute.VirtualMachineIdentity {

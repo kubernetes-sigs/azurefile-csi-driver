@@ -105,6 +105,21 @@ var _ = ginkgo.Describe("Authentication and mounting", ginkgo.Serial, func() {
 })
 
 func runAuthenticationScenario(ctx ginkgo.SpecContext, f *framework.Framework, scenario authenticationScenario) {
+	runAuthenticationScenarioWithOptions(ctx, f, scenario, authenticationFixtureOptions{})
+}
+
+type authenticationFixtureOptions struct {
+	explicitAccount bool
+	allowSharedKey  *bool
+	preparedAccount string
+	configureTest   func(*testsuites.AuthenticationMountTest)
+	run             func(context.Context, *testsuites.AuthenticationMountTest, *framework.Framework, *v1.Namespace)
+	shareScoped     bool
+	tokenSource     *authenticationTokenSource
+	selectedNode    **v1.Node
+}
+
+func runAuthenticationScenarioWithOptions(ctx ginkgo.SpecContext, f *framework.Framework, scenario authenticationScenario, options authenticationFixtureOptions) {
 	skipIfUsingInTreeVolumePlugin()
 	skipIfTestingInWindowsCluster()
 	skipIfTestingInMigrationCluster()
@@ -117,6 +132,31 @@ func runAuthenticationScenario(ctx ginkgo.SpecContext, f *framework.Framework, s
 	if scenario.auth == configuredWorkloadToken {
 		// The suite's configured-identity FIC is bound to this ServiceAccount.
 		namespace = &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: wiServiceAccountNamespace}}
+	}
+	if scenario.entryPoint == "inline" && (scenario.auth == nodeAccountKey || scenario.auth == workloadKey) {
+		ginkgo.By("checking the separately configured inline identity key-access lane")
+		ds, err := f.ClientSet.AppsV1().DaemonSets("kube-system").Get(ctx, "csi-azurefile-node", metav1.GetOptions{})
+		framework.ExpectNoError(err)
+		enabled := false
+		for _, container := range ds.Spec.Template.Spec.Containers {
+			if container.Name != "azurefile" {
+				continue
+			}
+			for _, arg := range container.Args {
+				switch arg {
+				case "--allow-inline-volume-key-access-with-identity", "--allow-inline-volume-key-access-with-identity=true":
+					enabled = true
+				case "--allow-inline-volume-key-access-with-identity=false":
+					enabled = false
+				}
+			}
+		}
+		if scenario.auth == nodeAccountKey && !enabled {
+			ginkgo.Skip("requires the opt-in --allow-inline-volume-key-access-with-identity=true lane; the test does not change driver flags")
+		}
+		if scenario.auth == workloadKey {
+			gomega.Expect(enabled).To(gomega.BeFalse(), "the inline WI-key regression must run with the default inline key-access guard enabled")
+		}
 	}
 
 	ginkgo.By("selecting a Linux worker for the authentication and remount checks")
@@ -138,66 +178,28 @@ func runAuthenticationScenario(ctx ginkgo.SpecContext, f *framework.Framework, s
 	ginkgo.By("creating an isolated storage account")
 	account := "afauth" + strings.ReplaceAll(uuid.NewString(), "-", "")[:18]
 	share := "auth-" + uuid.NewString()
-	framework.ExpectNoError(suiteAzureClient.CreateSMBOAuthAccount(ctx, suiteCreds.ResourceGroup, account, suiteCreds.Location,
-		map[string]*string{"csi-e2e-auth": to.Ptr(account), "k8s-azure-created-by": to.Ptr("azure")}))
-	ginkgo.DeferCleanup(func(ctx context.Context) error {
-		return suiteAzureClient.DeleteStorageAccount(ctx, suiteCreds.ResourceGroup, account)
-	})
+	if options.preparedAccount == "" {
+		framework.ExpectNoError(suiteAzureClient.CreateSMBOAuthAccountWithSharedKeyPolicy(ctx, suiteCreds.ResourceGroup, account, suiteCreds.Location,
+			map[string]*string{"csi-e2e-auth": to.Ptr(account), "k8s-azure-created-by": to.Ptr("azure")}, options.allowSharedKey))
+		ginkgo.DeferCleanup(func(ctx context.Context) error {
+			return suiteAzureClient.DeleteStorageAccount(ctx, suiteCreds.ResourceGroup, account)
+		})
+	} else {
+		account = options.preparedAccount
+	}
+	if options.allowSharedKey != nil {
+		properties, err := suiteAzureClient.GetStorageAccount(ctx, suiteCreds.ResourceGroup, account)
+		framework.ExpectNoError(err)
+		gomega.Expect(properties.Properties).NotTo(gomega.BeNil())
+		gomega.Expect(properties.Properties.AllowSharedKeyAccess).To(gomega.Equal(options.allowSharedKey), "verify the actual Azure account policy")
+	}
 	attributes := map[string]string{
 		"resourceGroup":   suiteCreds.ResourceGroup,
 		"storageAccount":  account,
 		"shareName":       share,
 		"secretNamespace": namespace.Name,
 	}
-
-	ginkgo.By(fmt.Sprintf("configuring %s authentication", scenario.auth))
-	serviceAccount := configureMountAuthentication(ctx, f, scenario.auth, node, attributes, account)
-	if scenario.entryPoint == "inline" && scenario.auth == nodeAccountKey {
-		ginkgo.By("requiring the separately configured inline node-identity lane")
-		ds, err := f.ClientSet.AppsV1().DaemonSets("kube-system").Get(ctx, "csi-azurefile-node", metav1.GetOptions{})
-		framework.ExpectNoError(err)
-		enabled := false
-		for _, container := range ds.Spec.Template.Spec.Containers {
-			for _, arg := range container.Args {
-				switch arg {
-				case "--allow-inline-volume-key-access-with-identity", "--allow-inline-volume-key-access-with-identity=true":
-					enabled = true
-				case "--allow-inline-volume-key-access-with-identity=false":
-					enabled = false
-				}
-			}
-		}
-		if !enabled {
-			ginkgo.Skip("requires the opt-in --allow-inline-volume-key-access-with-identity=true lane; the test does not change driver flags")
-		}
-	}
-	if scenario.entryPoint == "inline" && scenario.auth == workloadKey {
-		ginkgo.By("checking that the default inline identity key-access guard is enabled")
-		ds, err := f.ClientSet.AppsV1().DaemonSets("kube-system").Get(ctx, "csi-azurefile-node", metav1.GetOptions{})
-		framework.ExpectNoError(err)
-		for _, container := range ds.Spec.Template.Spec.Containers {
-			for _, arg := range container.Args {
-				gomega.Expect(arg).NotTo(gomega.BeElementOf(
-					"--allow-inline-volume-key-access-with-identity",
-					"--allow-inline-volume-key-access-with-identity=true",
-				), "the inline WI-key regression must run with the default inline key-access guard enabled")
-			}
-		}
-	}
-
-	if scenario.entryPoint == "dynamic" {
-		// Preserve normal EnsureStorageAccount/ListKeys bootstrap while matching only this fixture.
-		delete(attributes, "storageAccount")
-		attributes["matchTags"] = "true"
-		attributes["tags"] = "csi-e2e-auth=" + account
-		attributes["skuName"] = "Premium_LRS"
-		if scenario.auth != workloadKey || scenario.controllerAPI != "" {
-			attributes["storeAccountKey"] = "false"
-		}
-		if scenario.controllerAPI != "" {
-			attributes["useDataPlaneAPI"] = scenario.controllerAPI
-		}
-	} else {
+	if scenario.entryPoint != "dynamic" {
 		ginkgo.By("creating the pre-provisioned file share")
 		filesClient, err := suiteAzureClient.GetAzureFilesClient()
 		framework.ExpectNoError(err)
@@ -205,6 +207,44 @@ func runAuthenticationScenario(ctx ginkgo.SpecContext, f *framework.Framework, s
 			FileShareProperties: &armstorage.FileShareProperties{ShareQuota: to.Ptr(int32(100))},
 		}, nil)
 		framework.ExpectNoError(err)
+		if options.preparedAccount != "" {
+			ginkgo.DeferCleanup(func(ctx context.Context) error {
+				return filesClient.Delete(ctx, suiteCreds.ResourceGroup, account, share, nil)
+			})
+		}
+	}
+
+	ginkgo.By(fmt.Sprintf("configuring %s authentication", scenario.auth))
+	scope := ""
+	if options.shareScoped {
+		scope = suiteAzureClient.StorageAccountScope(suiteCreds.ResourceGroup, account)
+		if scenario.auth != workloadKey {
+			scope += "/fileServices/default/shares/" + share
+		}
+	}
+	serviceAccount := ""
+	if scope == "" && options.tokenSource == nil {
+		serviceAccount = configureMountAuthentication(ctx, f, scenario.auth, node, attributes, account)
+	} else {
+		serviceAccount = configureMountIdentity(ctx, f, scenario.auth, node, attributes, account, scope, options.tokenSource)
+	}
+	if options.selectedNode != nil {
+		*options.selectedNode = node
+	}
+	if scenario.entryPoint == "dynamic" {
+		// Preserve normal EnsureStorageAccount/ListKeys bootstrap while matching only this fixture.
+		if !options.explicitAccount {
+			delete(attributes, "storageAccount")
+			attributes["matchTags"] = "true"
+			attributes["tags"] = "csi-e2e-auth=" + account
+		}
+		attributes["skuName"] = "Premium_LRS"
+		if scenario.auth != workloadKey || scenario.controllerAPI != "" {
+			attributes["storeAccountKey"] = "false"
+		}
+		if scenario.controllerAPI != "" {
+			attributes["useDataPlaneAPI"] = scenario.controllerAPI
+		}
 	}
 
 	_, env, err := azclient.GetAzureCloudConfigAndEnvConfig(&azclient.ARMClientConfig{Cloud: suiteCreds.Cloud, TenantID: suiteCreds.TenantID})
@@ -238,10 +278,33 @@ func runAuthenticationScenario(ctx ginkgo.SpecContext, f *framework.Framework, s
 		ServiceAccountName:    serviceAccount,
 		NodeName:              node.Labels[testsuites.HostNameLabel],
 	}
-	test.Run(ctx, f.ClientSet, namespace)
+	if options.configureTest != nil {
+		options.configureTest(&test)
+	}
+	if scenario.entryPoint == "dynamic" && scenario.controllerAPI == "oauth" {
+		afterProvision, since := test.AfterProvision, time.Now()
+		test.AfterProvision = func(ctx context.Context, pvc *v1.PersistentVolumeClaim) {
+			testsuites.AuthenticationLogObserved(ctx, f.ClientSet, "controller", "", since,
+				"created azure file client with oauth, accountName: "+account)
+			if afterProvision != nil {
+				afterProvision(ctx, pvc)
+			}
+		}
+	}
+	if options.run != nil {
+		options.run(ctx, &test, f, namespace)
+	} else {
+		test.Run(ctx, f.ClientSet, namespace)
+	}
 }
 
 func configureMountAuthentication(ctx ginkgo.SpecContext, f *framework.Framework, auth mountAuthentication, node *v1.Node, attributes map[string]string, account string) string {
+	return configureMountIdentity(ctx, f, auth, node, attributes, account, "", nil)
+}
+
+type authenticationTokenSource func(context.Context) (azcore.AccessToken, error)
+
+func configureMountIdentity(ctx ginkgo.SpecContext, f *framework.Framework, auth mountAuthentication, node *v1.Node, attributes map[string]string, account, roleScope string, tokenSource *authenticationTokenSource) string {
 	if auth == nodeAccountKey {
 		return ""
 	}
@@ -285,10 +348,18 @@ func configureMountAuthentication(ctx ginkgo.SpecContext, f *framework.Framework
 		role = wiStorageAccountContributor
 	}
 	ginkgo.By("assigning the authentication-specific storage role")
-	framework.ExpectNoError(suiteAzureClient.AssignRoleToIdentity(ctx, suiteCreds.ResourceGroup, identity.PrincipalID, role))
-	ginkgo.DeferCleanup(func(ctx context.Context) error {
-		return suiteAzureClient.RemoveRoleFromIdentity(ctx, suiteCreds.ResourceGroup, identity.PrincipalID, role)
-	})
+	if roleScope == "" {
+		framework.ExpectNoError(suiteAzureClient.AssignRoleToIdentity(ctx, suiteCreds.ResourceGroup, identity.PrincipalID, role))
+		ginkgo.DeferCleanup(func(ctx context.Context) error {
+			return suiteAzureClient.RemoveRoleFromIdentity(ctx, suiteCreds.ResourceGroup, identity.PrincipalID, role)
+		})
+	} else {
+		assignment, err := suiteAzureClient.AssignOwnedRoleAtScope(ctx, roleScope, identity.PrincipalID, role)
+		framework.ExpectNoError(err)
+		ginkgo.DeferCleanup(func(ctx context.Context) error {
+			return suiteAzureClient.DeleteOwnedRoleAtScope(ctx, roleScope, assignment)
+		})
+	}
 	if auth == managedToken {
 		ginkgo.By("attaching the dedicated managed identity to the selected worker")
 		providerID = node.Spec.ProviderID
@@ -309,7 +380,7 @@ func configureMountAuthentication(ctx ginkgo.SpecContext, f *framework.Framework
 	issuer, err := discoverOIDCIssuer(ctx, f.ClientSet)
 	framework.ExpectNoError(err)
 	ginkgo.By("creating a namespace-local service account and federated identity credential")
-	saName := "auth"
+	saName := "auth-" + uuid.NewString()
 	_, err = f.ClientSet.CoreV1().ServiceAccounts(f.Namespace.Name).Create(ctx, &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: saName,
@@ -350,7 +421,7 @@ func configureMountAuthentication(ctx ginkgo.SpecContext, f *framework.Framework
 	}, 10*time.Minute, 10*time.Second).Should(gomega.Succeed(), "new federated identity must exchange its service account token")
 	if auth == oauthToken {
 		ginkgo.By("creating an OAuth-token Secret without an account key")
-		secretName := "auth-oauth-token"
+		secretName := "auth-oauth-" + uuid.NewString()
 		_, err = f.ClientSet.CoreV1().Secrets(f.Namespace.Name).Create(ctx, &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{Name: secretName},
 			StringData: map[string]string{"azurestorageaccountname": account, "oauthtoken": accessToken.Token},
@@ -358,6 +429,24 @@ func configureMountAuthentication(ctx ginkgo.SpecContext, f *framework.Framework
 		framework.ExpectNoError(err)
 		attributes["mountWithOAuthToken"] = "true"
 		attributes["secretName"] = secretName
+		if tokenSource != nil {
+			// A new credential instance avoids the SDK access-token cache on renewal.
+			*tokenSource = func(ctx context.Context) (azcore.AccessToken, error) {
+				fresh, err := azidentity.NewClientAssertionCredential(suiteCreds.TenantID, identity.ClientID, func(ctx context.Context) (string, error) {
+					token, err := f.ClientSet.CoreV1().ServiceAccounts(f.Namespace.Name).CreateToken(ctx, saName, &authv1.TokenRequest{
+						Spec: authv1.TokenRequestSpec{Audiences: []string{"api://AzureADTokenExchange"}, ExpirationSeconds: to.Ptr(int64(3600))},
+					}, metav1.CreateOptions{})
+					if err != nil {
+						return "", err
+					}
+					return token.Status.Token, nil
+				}, &azidentity.ClientAssertionCredentialOptions{ClientOptions: azcore.ClientOptions{Cloud: cloudConfig}})
+				if err != nil {
+					return azcore.AccessToken{}, err
+				}
+				return fresh.GetToken(ctx, policy.TokenRequestOptions{Scopes: []string{scope}})
+			}
+		}
 		return ""
 	}
 	attributes["clientID"] = identity.ClientID
