@@ -50,6 +50,7 @@ type Client struct {
 	vmClient         *armcompute.VirtualMachinesClient
 	roleClient       *armauthorization.RoleAssignmentsClient
 	ficClient        *armmsi.FederatedIdentityCredentialsClient
+	uamiClient       *armmsi.UserAssignedIdentitiesClient
 }
 
 func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aadFederatedTokenFile string) (*Client, error) {
@@ -101,6 +102,10 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 	if err != nil {
 		return nil, fmt.Errorf("failed to create role assignments client: %v", err)
 	}
+	uamiClient, err := armmsi.NewUserAssignedIdentitiesClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user assigned identities client: %v", err)
+	}
 	ficClient, err := armmsi.NewFederatedIdentityCredentialsClient(subscriptionID, cred, armClientOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create federated identity credentials client: %v", err)
@@ -115,6 +120,7 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 		vmClient:         vmClient,
 		roleClient:       roleClient,
 		ficClient:        ficClient,
+		uamiClient:       uamiClient,
 	}, nil
 }
 
@@ -129,6 +135,10 @@ func (az *Client) EnsureResourceGroup(ctx context.Context, name, location string
 		tags = group.Tags
 	} else {
 		tags = make(map[string]*string)
+	}
+	// Clearing managedBy on an AKS node resource group fails with ResourceGroupManagedByMismatch.
+	if managedBy == nil && err == nil && group.ManagedBy != nil {
+		managedBy = group.ManagedBy
 	}
 	// Tags for correlating resource groups with prow jobs on testgrid
 	tags["buildID"] = stringPointer(os.Getenv("BUILD_ID"))
@@ -417,4 +427,21 @@ func (az *Client) CreateFederatedIdentityCredential(ctx context.Context, identit
 		return fmt.Errorf("failed to create/update federated identity credential %s: %v", ficName, err)
 	}
 	return nil
+}
+
+// EnsureUserAssignedIdentity creates (or updates) a user-assigned identity and
+// returns its principal ID, client ID and resource ID.
+func (az *Client) EnsureUserAssignedIdentity(ctx context.Context, resourceGroup, name, location string) (*NodeIdentityInfo, error) {
+	resp, err := az.uamiClient.CreateOrUpdate(ctx, resourceGroup, name, armmsi.Identity{Location: to.Ptr(location)}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create/update user assigned identity %s: %v", name, err)
+	}
+	if resp.Properties == nil || resp.Properties.PrincipalID == nil || resp.Properties.ClientID == nil || resp.ID == nil {
+		return nil, fmt.Errorf("user assigned identity %s is missing principalID/clientID/id", name)
+	}
+	return &NodeIdentityInfo{
+		PrincipalID: *resp.Properties.PrincipalID,
+		ClientID:    *resp.Properties.ClientID,
+		ResourceID:  *resp.ID,
+	}, nil
 }
