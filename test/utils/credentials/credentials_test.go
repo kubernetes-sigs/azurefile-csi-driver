@@ -18,7 +18,9 @@ package credentials
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
+	"sync"
 	"testing"
 	"text/template"
 
@@ -105,4 +107,47 @@ func withEnvironmentVariables(t *testing.T, isAzureChinaCloud bool) {
 	})
 	assert.NoError(t, err)
 	assert.JSONEq(t, buf.String(), string(azureCredentialFileContent))
+}
+
+func TestCreateAzureCredentialFileConcurrentReadersSeeCompleteFile(t *testing.T) {
+	t.Setenv(tenantIDEnvVar, "test-tenant-id")
+	t.Setenv(subscriptionIDEnvVar, "test-subscription-id")
+	t.Setenv(aadClientIDEnvVar, "test-aad-client-id")
+	t.Setenv(aadClientSecretEnvVar, "test-aad-client-secret")
+	t.Setenv(resourceGroupEnvVar, "test-resource-group")
+	t.Setenv(locationEnvVar, "test-location")
+	_, err := CreateAzureCredentialFile(false)
+	assert.NoError(t, err)
+	defer func() {
+		assert.NoError(t, DeleteAzureCredentialFile())
+	}()
+
+	var writers sync.WaitGroup
+	done := make(chan struct{})
+	for range 4 {
+		writers.Add(1)
+		go func() {
+			defer writers.Done()
+			for range 200 {
+				_, err := CreateAzureCredentialFile(false)
+				assert.NoError(t, err)
+			}
+		}()
+	}
+	go func() {
+		writers.Wait()
+		close(done)
+	}()
+	for {
+		select {
+		case <-done:
+			return
+		default:
+		}
+		content, err := os.ReadFile(TempAzureCredentialFilePath)
+		if !assert.NoError(t, err) || !assert.True(t, json.Valid(content), "partial credential file: %q", content) {
+			<-done
+			return
+		}
+	}
 }
