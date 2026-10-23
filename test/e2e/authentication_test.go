@@ -81,7 +81,7 @@ var authenticationScenarios = []authenticationScenario{
 	{"M09", "inline", "", nodeAccountKey},
 }
 
-var _ = ginkgo.Describe("Authentication and mounting", ginkgo.Serial, func() {
+var _ = ginkgo.Describe("Authentication and mounting", func() {
 	f := framework.NewDefaultFramework("azurefile-auth")
 	f.NamespacePodSecurityEnforceLevel = admissionapi.LevelPrivileged
 

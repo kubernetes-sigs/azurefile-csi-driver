@@ -37,6 +37,10 @@ ifdef EXTERNAL_E2E_TEST_NFS
 E2E_HELM_OPTIONS += --set feature.enableVolumeMountGroup=false --set feature.fsGroupPolicy=File
 endif
 GINKGO_FLAGS = -ginkgo.v --ginkgo.timeout=180m
+# Linux CSI e2e lanes run Ginkgo specs in parallel by default; Windows, migration
+# and in-tree lanes stay serial. Set E2E_PROCS=1 to force a serial run.
+E2E_PROCS ?=
+GINKGO_VERSION = $(shell awk '$$1 == "github.com/onsi/ginkgo/v2" {print $$2}' go.mod)
 GO111MODULE = on
 GOPATH ?= $(shell go env GOPATH)
 GOBIN ?= $(GOPATH)/bin
@@ -88,7 +92,20 @@ e2e-test:
 		bash ./test/external-e2e/run.sh;\
 	else \
 		bash ./hack/parse-prow-creds.sh;\
-		go test -v -timeout=180m ./test/e2e ${GINKGO_FLAGS};\
+		procs="$(E2E_PROCS)";\
+		if [ -z "$$procs" ]; then \
+			if [ -n "$$TEST_WINDOWS" ] || [ -n "$$TEST_MIGRATION" ] || [ -n "$$runInTreeVolumeTestsOnly" ] || [ "$$AZURE_STORAGE_DRIVER" = "kubernetes.io/azure-file" ]; then \
+				procs=1;\
+			else \
+				procs=4;\
+			fi;\
+		fi;\
+		if [ "$$procs" = "1" ]; then \
+			go test -v -timeout=180m ./test/e2e ${GINKGO_FLAGS};\
+		else \
+			GOBIN=$(CURDIR)/_output/tools go install github.com/onsi/ginkgo/v2/ginkgo@$(GINKGO_VERSION) && \
+			$(CURDIR)/_output/tools/ginkgo run --procs=$$procs $(subst -ginkgo.,-,$(subst --ginkgo.,--,${GINKGO_FLAGS})) ./test/e2e;\
+		fi;\
 	fi
 
 .PHONY: e2e-bootstrap
