@@ -104,6 +104,73 @@ func (az *Client) DeleteStorageAccount(ctx context.Context, resourceGroup, name 
 	return az.accountsClient.Delete(ctx, resourceGroup, name)
 }
 
+// GetApprovedPrivateEndpoint returns the ID and private IPv4 address of the
+// account's approved private endpoint.
+func (az *Client) GetApprovedPrivateEndpoint(ctx context.Context, resourceGroup, account string) (string, string, error) {
+	properties, err := az.accountsClient.GetProperties(ctx, resourceGroup, account, nil)
+	if err != nil {
+		return "", "", err
+	}
+	if properties.Properties == nil {
+		return "", "", fmt.Errorf("account %s returned no properties", account)
+	}
+	for _, connection := range properties.Properties.PrivateEndpointConnections {
+		if connection == nil || connection.Properties == nil || connection.Properties.PrivateEndpoint == nil ||
+			connection.Properties.PrivateEndpoint.ID == nil || connection.Properties.PrivateLinkServiceConnectionState == nil ||
+			connection.Properties.PrivateLinkServiceConnectionState.Status == nil ||
+			*connection.Properties.PrivateLinkServiceConnectionState.Status != storage.PrivateEndpointServiceConnectionStatusApproved {
+			continue
+		}
+		endpointID := *connection.Properties.PrivateEndpoint.ID
+		endpointResource, err := arm.ParseResourceID(endpointID)
+		if err != nil {
+			return "", "", err
+		}
+		endpoint, err := az.endpointsClient.Get(ctx, endpointResource.ResourceGroupName, endpointResource.Name, nil)
+		if err != nil {
+			return "", "", err
+		}
+		if endpoint.Properties == nil {
+			continue
+		}
+		for _, nic := range endpoint.Properties.NetworkInterfaces {
+			if nic == nil || nic.ID == nil {
+				continue
+			}
+			nicResource, err := arm.ParseResourceID(*nic.ID)
+			if err != nil {
+				return "", "", err
+			}
+			networkInterface, err := az.interfacesClient.Get(ctx, nicResource.ResourceGroupName, nicResource.Name, nil)
+			if err != nil {
+				return "", "", err
+			}
+			if networkInterface.Properties == nil {
+				continue
+			}
+			for _, config := range networkInterface.Properties.IPConfigurations {
+				if config != nil && config.Properties != nil && config.Properties.PrivateIPAddress != nil {
+					return endpointID, *config.Properties.PrivateIPAddress, nil
+				}
+			}
+		}
+	}
+	return "", "", fmt.Errorf("account %s has no approved private endpoint with a private IP address", account)
+}
+
+func (az *Client) DeletePrivateEndpoint(ctx context.Context, endpointID string) error {
+	endpointResource, err := arm.ParseResourceID(endpointID)
+	if err != nil {
+		return err
+	}
+	poller, err := az.endpointsClient.BeginDelete(ctx, endpointResource.ResourceGroupName, endpointResource.Name, nil)
+	if err != nil {
+		return err
+	}
+	_, err = poller.PollUntilDone(ctx, nil)
+	return err
+}
+
 func (az *Client) CreateUserAssignedIdentity(ctx context.Context, resourceGroup, name, location string) (*NodeIdentityInfo, error) {
 	response, err := az.identitiesClient.CreateOrUpdate(ctx, resourceGroup, name, armmsi.Identity{Location: to.Ptr(location)}, nil)
 	if err != nil {

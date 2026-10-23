@@ -84,24 +84,25 @@ access is allowed, and G12/G15 do not claim zero ARM ListKeys calls.
   worker, preserving its original identities and checking the VM ETag. A
   stale ETag or in-progress update is re-read and retried, so concurrent MI
   fixtures on one worker do not overwrite each other's identities.
-* For G02-G04, supply `AZUREFILE_AUTH_PRIVATE_ACCOUNT` (in the suite resource
-  group) and `AZUREFILE_AUTH_PRIVATE_IP` (a private IPv4 address). The account
-  must already have SMB OAuth enabled, **publicNetworkAccess=Disabled**, and an
+* G02 runs without extra configuration: it provisions one driver-created
+  account (`networkEndpointType=privateEndpoint`, `publicNetworkAccess=Disabled`,
+  SMB OAuth enabled by the identity mount parameter), with the driver's private
+  endpoint, private DNS zone and VNet link, then deletes its private endpoint
+  and account after the case. The DNS zone and link are shared with other
+  private-endpoint specs and are left to the cluster resource group teardown.
+  To use an existing fixture instead, supply both
+  `AZUREFILE_AUTH_PRIVATE_ACCOUNT` (in the suite resource group) and
+  `AZUREFILE_AUTH_PRIVATE_IP` (a private IPv4 address); that account must
+  already have SMB OAuth enabled, **publicNetworkAccess=Disabled**, and an
   approved file private endpoint with canonical private DNS reachable from the
-  worker. The harness creates/deletes only its unique share and identities;
-  it never modifies/deletes the shared endpoint, DNS zone, subnet or account.
-  Missing fixture variables produce a visible capability skip; a supplied but
-  incorrect/public fixture fails. This does not validate dynamically emitted
-  private-link aliases on 1.34.
-* G22 requires `AZUREFILE_AUTH_DISRUPTIVE=true` on a dedicated
-  isolated CAPZ cluster. The 1.35-only G05-G07 additionally require
-  permission to update `CSIDriver` renewal fields, node-plugin pod exec access,
-  and sufficient wall-clock budget (OAuth tokens can live over an hour).
-  Renewal temporarily sets `requiresRepublish=true` and the token-exchange
-  audience TTL to 600 seconds, preserves other audiences/fields, and restores
-  the original values with conflict checks. If the cluster forbids those
-  updates, the test fails rather than deleting/recreating the shared object.
-  Restart tests delete only the selected node-plugin pod, not the DaemonSet.
+  worker, and the harness never modifies/deletes it. Supplying only one
+  variable, or an incorrect/public fixture, fails. This does not validate
+  dynamically emitted private-link aliases on 1.34.
+* G22 requires `AZUREFILE_AUTH_DISRUPTIVE=true` on a dedicated isolated CAPZ
+  cluster. `make e2e-test` sets it by default because each CI job creates its
+  own cluster; set `AZUREFILE_AUTH_DISRUPTIVE=false` to skip it. The restart
+  test deletes only the selected node-plugin pod, not the DaemonSet. The
+  1.35-only G05-G07 renewal cases are not present on 1.34.
 * G25 SAS evidence requires the standard `app=csi-azurefile-controller` pod
   label, `azurefile` container, verbosity at least **2**, and log read access.
 
