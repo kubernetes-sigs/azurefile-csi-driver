@@ -375,15 +375,15 @@ func SetVolumeOwnership(path, gid, policy string) error {
 }
 
 // setKeyValueInMap set key/value pair in map
-// key in the map is case insensitive, if key already exists, overwrite existing value
+// Replace all case-insensitive aliases with the supplied key so downstream
+// parsers using strings.ToLower observe the same value.
 func setKeyValueInMap(m map[string]string, key, value string) {
 	if m == nil {
 		return
 	}
 	for k := range m {
 		if strings.EqualFold(k, key) {
-			m[k] = value
-			return
+			delete(m, k)
 		}
 	}
 	m[key] = value
