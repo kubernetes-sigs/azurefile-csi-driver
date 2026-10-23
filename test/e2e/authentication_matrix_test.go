@@ -37,7 +37,7 @@ var authenticationMatrixScenarios = []authenticationScenario{
 	{"G01", "dynamic", "", workloadToken},
 }
 
-var _ = ginkgo.Describe("Authentication matrix completion", ginkgo.Serial, func() {
+var _ = ginkgo.Describe("Authentication matrix completion", func() {
 	f := framework.NewDefaultFramework("azurefile-auth-matrix")
 	f.NamespacePodSecurityEnforceLevel = admissionapi.LevelPrivileged
 

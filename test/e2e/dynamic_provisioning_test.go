@@ -1676,7 +1676,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(ctx, cs, ns)
 	})
 
-	ginkgo.It("smb volume mount is still valid after driver restart [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+	ginkgo.It("smb volume mount is still valid after driver restart [file.csi.azure.com]", ginkgo.Serial, func(ctx ginkgo.SpecContext) {
 		skipIfUsingInTreeVolumePlugin()
 
 		// print azure file driver logs before driver restart
@@ -1732,7 +1732,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(ctx, cs, ns)
 	})
 
-	ginkgo.It("nfs volume mount is still valid after driver restart [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+	ginkgo.It("nfs volume mount is still valid after driver restart [file.csi.azure.com]", ginkgo.Serial, func(ctx ginkgo.SpecContext) {
 		skipIfUsingInTreeVolumePlugin()
 		skipIfTestingInWindowsCluster()
 
@@ -1996,7 +1996,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(ctx, cs, defaultNS)
 	})
 
-	ginkgo.It("should create a volume on demand with workload identity account key retrieval [N02] [auth-mount-matrix] [file.csi.azure.com]", ginkgo.Serial, func(ctx ginkgo.SpecContext) {
+	ginkgo.It("should create a volume on demand with workload identity account key retrieval [N02] [auth-mount-matrix] [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
 		runAuthenticationScenario(ctx, f, authenticationScenario{"N02", "dynamic", "", workloadKey})
 	})
 

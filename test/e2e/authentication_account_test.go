@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/testsuites"
 )
 
-var _ = ginkgo.Describe("Authentication account policy and operation credentials", ginkgo.Serial, func() {
+var _ = ginkgo.Describe("Authentication account policy and operation credentials", func() {
 	f := framework.NewDefaultFramework("azurefile-auth-account")
 	f.NamespacePodSecurityEnforceLevel = admissionapi.LevelPrivileged
 

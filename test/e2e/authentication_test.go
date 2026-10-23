@@ -81,7 +81,7 @@ var authenticationScenarios = []authenticationScenario{
 	{"N19", "dynamic", "oauth", oauthToken},
 }
 
-var _ = ginkgo.Describe("Authentication and mounting", ginkgo.Serial, func() {
+var _ = ginkgo.Describe("Authentication and mounting", func() {
 	f := framework.NewDefaultFramework("azurefile-auth")
 	f.NamespacePodSecurityEnforceLevel = admissionapi.LevelPrivileged
 
@@ -277,6 +277,10 @@ func runAuthenticationScenarioWithOptions(ctx ginkgo.SpecContext, f *framework.F
 		Username:              username,
 		ServiceAccountName:    serviceAccount,
 		NodeName:              node.Labels[testsuites.HostNameLabel],
+	}
+	if namespace.Name == wiServiceAccountNamespace {
+		// Configured-WI cases share this namespace with each other in parallel runs.
+		test.Name = "auth-" + strings.ToLower(scenario.id)
 	}
 	if options.configureTest != nil {
 		options.configureTest(&test)
