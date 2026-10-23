@@ -149,7 +149,27 @@ make e2e-test
 export TEST_MIGRATION="true"
 export AZURE_STORAGE_DRIVER="kubernetes.io/azure-file"
 make e2e-test
+
+# Force a serial run, or change the parallel process count
+make e2e-test E2E_PROCS=1
+make e2e-test E2E_PROCS=8
 ```
+
+ - On Linux CSI clusters, `make e2e-test` runs specs on 4 parallel Ginkgo
+   processes by default, using the Ginkgo CLI version pinned in `go.mod`
+   (installed under `_output/tools`). Windows, migration and in-tree runs stay
+   serial. `GINKGO_FLAGS` keeps the `-ginkgo.` test-binary syntax; the prefix is
+   dropped for the Ginkgo CLI. Driver install, workload identity setup and
+   teardown run once; each process starts its own in-process driver.
+ - Specs that change cluster-wide state are marked `Serial` and run on one
+   process after all parallel specs: the smb/nfs driver restart cases, the
+   suite workload identity token case, G05-G07 renewal and G22-G24 node plugin
+   restart. G02-G04 share one private-endpoint account and run as an `Ordered`
+   group. Pre-Provisioned specs are also `Serial`: their in-process driver could
+   otherwise select another process's default account before it finishes
+   provisioning. Other specs use their own accounts, identities, namespaces or claim
+   names; configured-WI cases share the `default` namespace with per-case claim
+   names.
 
  - resize e2e test needs more environment setting, export following environment variables from `azure.json`
 ```console
