@@ -33,7 +33,9 @@ import (
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/testsuites"
 )
 
-var _ = ginkgo.Describe("Authentication private connectivity", ginkgo.Serial, func() {
+// The private-endpoint cases share one preconfigured account, which supports one
+// Kerberos identity per node, so they never run concurrently.
+var _ = ginkgo.Describe("Authentication private connectivity", ginkgo.Ordered, ginkgo.ContinueOnFailure, func() {
 	f := framework.NewDefaultFramework("azurefile-auth-private")
 	f.NamespacePodSecurityEnforceLevel = admissionapi.LevelPrivileged
 
@@ -108,7 +110,7 @@ var _ = ginkgo.Describe("Authentication private connectivity", ginkgo.Serial, fu
 	}
 })
 
-var _ = ginkgo.Describe("Authentication principal sharing", ginkgo.Serial, func() {
+var _ = ginkgo.Describe("Authentication principal sharing", func() {
 	f := framework.NewDefaultFramework("azurefile-auth-sharing")
 	f.NamespacePodSecurityEnforceLevel = admissionapi.LevelPrivileged
 
