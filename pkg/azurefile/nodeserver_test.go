@@ -35,7 +35,13 @@ import (
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	authorizationv1 "k8s.io/api/authorization/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	clientset "k8s.io/client-go/kubernetes"
+	fake "k8s.io/client-go/kubernetes/fake"
+	testingclient "k8s.io/client-go/testing"
 	mount "k8s.io/mount-utils"
 	"k8s.io/utils/exec"
 	testingexec "k8s.io/utils/exec/testing"
@@ -470,6 +476,285 @@ func TestNodePublishVolume(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(alreadyMountedTarget)
 	assert.NoError(t, err)
+}
+
+func TestNodePublishVolumeInlineSecretNamespace(t *testing.T) {
+	for _, key := range []string{"", secretNamespaceField, "SecretNamespace", "\u017fecretNamespace"} {
+		for _, mode := range []string{inlineVolumeSecretAuthzOff, inlineVolumeSecretAuthzEnforce} {
+			t.Run(key+"/"+mode, func(t *testing.T) {
+				const podNS = "app-ns"
+				const secretName = "azure-secret"
+				d := NewFakeDriver()
+				d.cloud = &storage.AccountRepo{}
+				d.mounter = &mount.SafeFormatAndMount{Interface: mount.NewFakeMounter(nil)}
+				d.inlineVolumeSecretAuthz = mode
+				client := fake.NewSimpleClientset(&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{Name: "app-pod", Namespace: podNS},
+					Spec:       corev1.PodSpec{ServiceAccountName: "app-sa"},
+				})
+				client.PrependReactor("create", "subjectaccessreviews", func(action testingclient.Action) (bool, k8sruntime.Object, error) {
+					sar := action.(testingclient.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
+					assert.Equal(t, podNS, sar.Spec.ResourceAttributes.Namespace)
+					assert.Equal(t, secretName, sar.Spec.ResourceAttributes.Name)
+					sar.Status.Allowed = true
+					return true, sar, nil
+				})
+				d.kubeClient = client
+				volumeContext := map[string]string{
+					ephemeralField:    trueValue,
+					podNameField:      "app-pod",
+					podNamespaceField: podNS,
+					pvcNamespaceKey:   "other-ns",
+					secretNameField:   secretName,
+				}
+				if key != "" {
+					volumeContext[key] = "other-ns"
+				}
+				_, err := d.NodePublishVolume(context.Background(), &csi.NodePublishVolumeRequest{
+					VolumeId:      "inline-volume",
+					TargetPath:    filepath.Join(t.TempDir(), "mount"),
+					VolumeContext: volumeContext,
+					VolumeCapability: &csi.VolumeCapability{
+						AccessType: &csi.VolumeCapability_Mount{Mount: &csi.VolumeCapability_MountVolume{}},
+						AccessMode: &csi.VolumeCapability_AccessMode{Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER},
+					},
+				})
+				// A missing Secret stops the request before any filesystem mount.
+				assert.Equal(t, codes.InvalidArgument, status.Code(err))
+				if assert.Error(t, err) {
+					assert.Contains(t, err.Error(), "not found")
+				}
+				var secretReads int
+				for _, action := range client.Actions() {
+					if action.Matches("get", "secrets") {
+						secretReads++
+						assert.Equal(t, podNS, action.GetNamespace())
+						assert.Equal(t, secretName, action.(testingclient.GetAction).GetName())
+					}
+				}
+				assert.Equal(t, 1, secretReads)
+				assert.Equal(t, podNS, volumeContext[secretNamespaceField])
+			})
+		}
+	}
+}
+
+func TestAuthorizeInlineVolumeSecret(t *testing.T) {
+	const (
+		podNS       = "app-ns"
+		podName     = "app-pod"
+		saName      = "app-sa"
+		secretName  = "azure-secret"
+		accountName = "testaccount"
+	)
+
+	newPod := func(sa string) *corev1.Pod {
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: podName, Namespace: podNS},
+			Spec:       corev1.PodSpec{ServiceAccountName: sa},
+		}
+	}
+	baseContext := func() map[string]string {
+		return map[string]string{
+			podNameField:         podName,
+			podNamespaceField:    podNS,
+			secretNamespaceField: podNS,
+			secretNameField:      secretName,
+		}
+	}
+
+	tests := []struct {
+		desc       string
+		mode       string
+		context    map[string]string
+		nilClient  bool
+		pod        *corev1.Pod
+		allowed    bool
+		sarErr     error
+		expectDeny bool
+	}{
+		{
+			desc:       "off mode is a no-op even when unauthorized",
+			mode:       inlineVolumeSecretAuthzOff,
+			context:    baseContext(),
+			pod:        newPod(saName),
+			allowed:    false,
+			expectDeny: false,
+		},
+		{
+			desc:       "enforce allows when SA is authorized",
+			mode:       inlineVolumeSecretAuthzEnforce,
+			context:    baseContext(),
+			pod:        newPod(saName),
+			allowed:    true,
+			expectDeny: false,
+		},
+		{
+			desc:       "enforce denies when SA is not authorized",
+			mode:       inlineVolumeSecretAuthzEnforce,
+			context:    baseContext(),
+			pod:        newPod(saName),
+			allowed:    false,
+			expectDeny: true,
+		},
+		{
+			desc:       "warn allows even when SA is not authorized",
+			mode:       inlineVolumeSecretAuthzWarn,
+			context:    baseContext(),
+			pod:        newPod(saName),
+			allowed:    false,
+			expectDeny: false,
+		},
+		{
+			desc:       "enforce denies when kube client is nil",
+			mode:       inlineVolumeSecretAuthzEnforce,
+			context:    baseContext(),
+			nilClient:  true,
+			expectDeny: true,
+		},
+		{
+			desc: "enforce denies when pod identity is missing",
+			mode: inlineVolumeSecretAuthzEnforce,
+			context: map[string]string{
+				secretNamespaceField: podNS,
+				secretNameField:      secretName,
+			},
+			pod:        newPod(saName),
+			expectDeny: true,
+		},
+		{
+			desc: "enforce denies when secret but no secret namespace",
+			mode: inlineVolumeSecretAuthzEnforce,
+			context: map[string]string{
+				secretNameField: secretName,
+			},
+			pod:        newPod(saName),
+			expectDeny: true,
+		},
+		{
+			desc: "no resolvable secret reference is a no-op",
+			mode: inlineVolumeSecretAuthzEnforce,
+			context: map[string]string{
+				podNameField:      podName,
+				podNamespaceField: podNS,
+			},
+			pod:        newPod(saName),
+			allowed:    false,
+			expectDeny: false,
+		},
+		{
+			desc:       "empty pod service account defaults to 'default'",
+			mode:       inlineVolumeSecretAuthzEnforce,
+			context:    baseContext(),
+			pod:        newPod(""),
+			allowed:    true,
+			expectDeny: false,
+		},
+	}
+
+	for _, test := range tests {
+		d := NewFakeDriver()
+		d.inlineVolumeSecretAuthz = test.mode
+		if test.nilClient {
+			d.kubeClient = nil
+		} else {
+			objs := []k8sruntime.Object{}
+			if test.pod != nil {
+				objs = append(objs, test.pod)
+			}
+			client := fake.NewSimpleClientset(objs...)
+			allowed := test.allowed
+			sarErr := test.sarErr
+			client.PrependReactor("create", "subjectaccessreviews", func(action testingclient.Action) (bool, k8sruntime.Object, error) {
+				if sarErr != nil {
+					return true, nil, sarErr
+				}
+				sar := action.(testingclient.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
+				sar.Status.Allowed = allowed
+				return true, sar, nil
+			})
+			d.kubeClient = client
+		}
+
+		err := d.authorizeInlineVolumeSecret(context.Background(), test.context)
+		if test.expectDeny {
+			if err == nil {
+				t.Errorf("test %q: expected PermissionDenied, got nil", test.desc)
+			} else if status.Code(err) != codes.PermissionDenied {
+				t.Errorf("test %q: expected PermissionDenied, got %v", test.desc, err)
+			}
+		} else if err != nil {
+			t.Errorf("test %q: expected no error, got %v", test.desc, err)
+		}
+	}
+}
+
+func TestAuthorizeInlineVolumeSecretInvalidMode(t *testing.T) {
+	d := NewFakeDriver()
+	d.inlineVolumeSecretAuthz = "bogus"
+	d.kubeClient = fake.NewSimpleClientset()
+	err := d.authorizeInlineVolumeSecret(context.Background(), map[string]string{
+		podNameField:      "app-pod",
+		podNamespaceField: "app-ns",
+		secretNameField:   "azure-secret",
+	})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Errorf("expected InvalidArgument for unknown mode, got %v", err)
+	}
+}
+
+func TestAuthorizeInlineVolumeSecretSubject(t *testing.T) {
+	const (
+		podNS      = "app-ns"
+		podName    = "app-pod"
+		saName     = "app-sa"
+		secretName = "azure-secret"
+	)
+	d := NewFakeDriver()
+	d.inlineVolumeSecretAuthz = inlineVolumeSecretAuthzEnforce
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: podName, Namespace: podNS},
+		Spec:       corev1.PodSpec{ServiceAccountName: saName},
+	}
+	client := fake.NewSimpleClientset(pod)
+	var captured *authorizationv1.SubjectAccessReview
+	client.PrependReactor("create", "subjectaccessreviews", func(action testingclient.Action) (bool, k8sruntime.Object, error) {
+		captured = action.(testingclient.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
+		captured.Status.Allowed = true
+		return true, captured, nil
+	})
+	d.kubeClient = client
+
+	ctx := map[string]string{
+		podNameField:         podName,
+		podNamespaceField:    podNS,
+		secretNamespaceField: podNS,
+		secretNameField:      secretName,
+	}
+	if err := d.authorizeInlineVolumeSecret(context.Background(), ctx); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if captured == nil {
+		t.Fatal("expected a SubjectAccessReview to be created")
+	}
+	if got, want := captured.Spec.User, "system:serviceaccount:app-ns:app-sa"; got != want {
+		t.Errorf("User = %q, want %q", got, want)
+	}
+	wantGroups := map[string]bool{
+		"system:serviceaccounts":        true,
+		"system:serviceaccounts:app-ns": true,
+		"system:authenticated":          true,
+	}
+	for _, g := range captured.Spec.Groups {
+		delete(wantGroups, g)
+	}
+	if len(wantGroups) != 0 {
+		t.Errorf("missing expected groups in SAR: %v (got %v)", wantGroups, captured.Spec.Groups)
+	}
+	ra := captured.Spec.ResourceAttributes
+	if ra == nil || ra.Verb != "get" || ra.Resource != "secrets" || ra.Namespace != podNS || ra.Name != secretName || ra.Group != "" {
+		t.Errorf("unexpected ResourceAttributes: %+v", ra)
+	}
 }
 
 func TestNodeUnpublishVolume(t *testing.T) {
