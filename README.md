@@ -96,6 +96,11 @@ Install the driver on a Kubernetes cluster:
 - [Mount with workload identity](./docs/workload-identity-static-pv-mount.md)
 - [Mount with managed identity](./docs/managed-identity-mount.md)
 
+## Metrics
+
+See [filesystem metrics](./docs/metrics.md) for gauge semantics, query examples,
+and dashboard migration guidance.
+
 ## Troubleshooting
 
 - [CSI driver troubleshooting guide](./docs/csi-debug.md)
