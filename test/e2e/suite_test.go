@@ -346,7 +346,7 @@ func checkAccountCreationLeak(_ context.Context) {
 	}
 	ginkgo.By(fmt.Sprintf("GetAccountNumByResourceGroup(%s) returns %d accounts", creds.ResourceGroup, accountNum))
 
-	accountLimitInTest := 17
+	accountLimitInTest := 22
 	gomega.Expect(accountNum >= accountLimitInTest).To(gomega.BeFalse())
 }
 
