@@ -45,6 +45,7 @@ import (
 	"github.com/google/uuid"
 	grpcprom "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	"github.com/rubiojr/go-vhd/vhd"
+	"golang.org/x/sync/singleflight"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -304,8 +305,9 @@ type Driver struct {
 	volumeLocks *volumeLocks
 	// a map storing all volumes created by this driver <volumeName, accountName>
 	volMap sync.Map
-	// a timed cache storing all account name and keys retrieved by this driver <accountName, accountkey>
-	accountCacheMap azcache.Resource
+	// Only keys obtained using the driver's ARM identity belong in this cache.
+	accountCacheMap    azcache.Resource
+	accountKeyRequests singleflight.Group
 	// a map storing all secret names created by this driver <secretCacheKey, "">
 	secretCacheMap azcache.Resource
 	// a map storing all volumes using data plane API <volumeID, value>
@@ -401,14 +403,14 @@ func NewDriver(options *DriverOptions) *Driver {
 		klog.Fatalf("%v", err)
 	}
 
+	if driver.accountCacheMap, err = azcache.NewTimedCache(3*time.Minute, getter, false); err != nil {
+		klog.Fatalf("%v", err)
+	}
+
 	if options.SkipMatchingTagCacheExpireInMinutes <= 0 {
 		options.SkipMatchingTagCacheExpireInMinutes = 30 // default expire in 30 minutes
 	}
 	if driver.skipMatchingTagCache, err = azcache.NewTimedCache(time.Duration(options.SkipMatchingTagCacheExpireInMinutes)*time.Minute, getter, false); err != nil {
-		klog.Fatalf("%v", err)
-	}
-
-	if driver.accountCacheMap, err = azcache.NewTimedCache(3*time.Minute, getter, false); err != nil {
 		klog.Fatalf("%v", err)
 	}
 
@@ -894,7 +896,6 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 	var protocol, accountKey, secretName, pvcNamespace string
 	// getAccountKeyFromSecret indicates whether get account key only from k8s secret
 	var getAccountKeyFromSecret, getLatestAccountKey, mountWithManagedIdentity, mountWithOAuthToken, mountWithWIToken bool
-	var accountKeyFromCache bool
 	var clientID, tenantID, tokenFilePath string
 	serviceAccountToken := getServiceAccountTokens(secrets, reqContext)
 
@@ -1037,35 +1038,24 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 	}
 
 	if !hasStorageAccountCredentials(secrets) {
-		// if request context does not contain storage account credentials, get secrets in the following order:
-		// 1. get account key from cache first
-		cache, errCache := d.accountCacheMap.Get(ctx, accountName, azcache.CacheReadTypeDefault)
-		if errCache != nil {
-			return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, errCache
+		// Resolve credentials for this request; an account name alone does not
+		// authorize reuse of credentials obtained for another request.
+		if secretName == "" && accountName != "" {
+			secretName = fmt.Sprintf(secretNameTemplate, accountName)
 		}
-		if cache != nil {
-			accountKey = cache.(string)
-			accountKeyFromCache = true
-		} else {
-			if secretName == "" && accountName != "" {
-				secretName = fmt.Sprintf(secretNameTemplate, accountName)
+		if secretName != "" {
+			var name string
+			name, accountKey, _, err = d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
+			if name != "" {
+				accountName = name
 			}
-			if secretName != "" {
-				var name string
-				// 2. if not found in cache, get account key from kubernetes secret
-				name, accountKey, _, err = d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
-				if name != "" {
-					accountName = name
-				}
-				if err != nil {
-					// 3. if failed to get account key from kubernetes secret, use cluster identity to get account key
-					klog.Warningf("GetStorageAccountFromSecret(%s, %s) failed with error: %v", secretName, secretNamespace, err)
-					if !getAccountKeyFromSecret && accountName != "" {
-						klog.V(2).Infof("use cluster identity to get account key from (%s, %s, %s)", subsID, rgName, accountName)
-						accountKey, err = d.GetStorageAccesskeyWithSubsID(ctx, subsID, accountName, rgName, getLatestAccountKey)
-						if err != nil {
-							klog.Errorf("GetStorageAccesskey(%s, %s, %s) failed with error: %v", subsID, rgName, accountName, err)
-						}
+			if err != nil {
+				klog.Warningf("GetStorageAccountFromSecret(%s, %s) failed with error: %v", secretName, secretNamespace, err)
+				if !getAccountKeyFromSecret && accountName != "" {
+					klog.V(2).Infof("use cluster identity to get account key from (%s, %s, %s)", subsID, rgName, accountName)
+					accountKey, err = d.GetStorageAccesskeyWithSubsID(ctx, subsID, accountName, rgName, getLatestAccountKey)
+					if err != nil {
+						klog.Errorf("GetStorageAccesskey(%s, %s, %s) failed with error: %v", subsID, rgName, accountName, err)
 					}
 				}
 			}
@@ -1081,9 +1071,6 @@ func (d *Driver) GetAccountInfo(ctx context.Context, volumeID string, secrets, r
 		}
 	}
 
-	if err == nil && accountKey != "" && !accountKeyFromCache {
-		d.accountCacheMap.Set(accountName, accountKey)
-	}
 	return rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, err
 }
 
@@ -1449,15 +1436,6 @@ func (d *Driver) GetStorageAccesskey(ctx context.Context, accountOptions *storag
 	}
 
 	accountName := accountOptions.Name
-	// read account key from cache first
-	cache, err := d.accountCacheMap.Get(ctx, accountName, azcache.CacheReadTypeDefault)
-	if err != nil {
-		return "", err
-	}
-	if cache != nil {
-		return cache.(string), nil
-	}
-
 	// read from k8s secret first
 	if secretName == "" {
 		secretName = fmt.Sprintf(secretNameTemplate, accountName)
@@ -1468,22 +1446,48 @@ func (d *Driver) GetStorageAccesskey(ctx context.Context, accountOptions *storag
 		accountKey, err = d.GetStorageAccesskeyWithSubsID(ctx, accountOptions.SubscriptionID, accountOptions.Name, accountOptions.ResourceGroup, accountOptions.GetLatestAccountKey)
 	}
 
-	if err == nil && accountKey != "" {
-		d.accountCacheMap.Set(accountName, accountKey)
-	}
 	return accountKey, err
 }
 
-// GetStorageAccesskeyWithSubsID get Azure storage account key from storage account directly
+// accountKeyCacheKey scopes ARM credentials to the storage resource and key
+// selection policy within a driver instance. It must not be used for Secret credentials.
+func accountKeyCacheKey(subsID, account, resourceGroup string, getLatestAccountKey bool) string {
+	return fmt.Sprintf("%q/%q/%q/%t",
+		strings.ToLower(subsID), strings.ToLower(resourceGroup), strings.ToLower(account), getLatestAccountKey)
+}
+
+// GetStorageAccesskeyWithSubsID gets an account key using the driver's ARM identity.
+// Callers must establish that identity-based authentication is allowed before calling.
 func (d *Driver) GetStorageAccesskeyWithSubsID(ctx context.Context, subsID, account, resourceGroup string, getLatestAccountKey bool) (string, error) {
 	if d.cloud == nil || d.cloud.ComputeClientFactory == nil {
 		return "", fmt.Errorf("could not get account key: cloud or ComputeClientFactory is nil")
 	}
-	accountClient, err := d.cloud.ComputeClientFactory.GetAccountClientForSub(subsID)
+	cacheKey := accountKeyCacheKey(subsID, account, resourceGroup, getLatestAccountKey)
+	key, err, _ := d.accountKeyRequests.Do(cacheKey, func() (interface{}, error) {
+		cached, err := d.accountCacheMap.Get(ctx, cacheKey, azcache.CacheReadTypeDefault)
+		if err != nil {
+			return nil, err
+		}
+		if cached != nil {
+			return cached, nil
+		}
+		accountClient, err := d.cloud.ComputeClientFactory.GetAccountClientForSub(subsID)
+		if err != nil {
+			return nil, err
+		}
+		accountKey, err := d.cloud.GetStorageAccesskey(ctx, accountClient, account, resourceGroup, getLatestAccountKey)
+		if err != nil {
+			return nil, err
+		}
+		if accountKey != "" {
+			d.accountCacheMap.Set(cacheKey, accountKey)
+		}
+		return accountKey, nil
+	})
 	if err != nil {
 		return "", err
 	}
-	return d.cloud.GetStorageAccesskey(ctx, accountClient, account, resourceGroup, getLatestAccountKey)
+	return key.(string), nil
 }
 
 // GetStorageAccountFromSecret get storage account key and OAuth token from k8s secret

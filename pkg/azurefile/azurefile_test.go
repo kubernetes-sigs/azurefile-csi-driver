@@ -28,6 +28,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -932,6 +933,7 @@ func TestGetAccountInfoExplicitSecretNamespace(t *testing.T) {
 			defaultSecretAccountName: []byte("testaccount"),
 			defaultSecretAccountKey:  []byte("testkey"),
 		},
+<<<<<<< HEAD
 	})
 	d.kubeClient = client
 	reqContext := map[string]string{
@@ -992,51 +994,212 @@ func TestGetAccountInfoCacheWriteback(t *testing.T) {
 		cacheEntry = entry.(*cache.AzureCacheEntry)
 		assert.Equal(t, staleKey, cacheEntry.Data)
 		assert.True(t, cacheEntry.CreatedOn.Equal(oldCreatedOn), "cache hit should not rewrite the same key back into cache")
+=======
+>>>>>>> e9d2732b0 (fix: storage credential isolation by removing account-key cache)
 	})
+	d.kubeClient = client
+	reqContext := map[string]string{
+		"SecretNamespace":            "secret-ns",
+		pvcNamespaceKey:              "pvc-ns",
+		secretNameField:              "azure-secret",
+		getAccountKeyFromSecretField: trueValue,
+	}
+	setKeyValueInMap(reqContext, secretNamespaceField, "secret-ns")
 
-	t.Run("request secrets still update cache", func(t *testing.T) {
-		d := NewFakeDriver()
-		d.cloud = &storage.AccountRepo{}
+	_, accountName, accountKey, _, _, _, _, _, err := d.GetAccountInfo(context.Background(), "pv-volume", nil, reqContext) //nolint:dogsled // Only account credentials are relevant to this test.
+	assert.NoError(t, err)
+	assert.Equal(t, "testaccount", accountName)
+	assert.Equal(t, "testkey", accountKey)
+	actions := client.Actions()
+	if assert.Len(t, actions, 1) {
+		assert.True(t, actions[0].Matches("get", "secrets"))
+		assert.Equal(t, "secret-ns", actions[0].GetNamespace())
+	}
+}
 
-		const (
-			accountName = "secretaccount"
-			staleKey    = "stale-key"
-			freshKey    = "fresh-key"
-		)
-		reqContext := map[string]string{
-			resourceGroupField: "rg",
-			shareNameField:     "share",
+func TestStorageCredentialsIsolation(t *testing.T) {
+	const accountName = "testaccount"
+	ctx := context.Background()
+	readers := []struct {
+		name string
+		read func(*Driver, map[string]string, string, string) (string, error)
+	}{
+		{
+			name: "GetAccountInfo",
+			read: func(d *Driver, secrets map[string]string, name, namespace string) (string, error) {
+				_, _, key, _, _, _, _, _, err := d.GetAccountInfo(ctx, "inline-volume", secrets, map[string]string{
+					storageAccountField:          accountName,
+					shareNameField:               "share",
+					secretNameField:              name,
+					secretNamespaceField:         namespace,
+					getAccountKeyFromSecretField: trueValue,
+				})
+				return key, err
+			},
+		},
+		{
+			name: "GetStorageAccesskey",
+			read: func(d *Driver, secrets map[string]string, name, namespace string) (string, error) {
+				return d.GetStorageAccesskey(ctx, &storage.AccountOptions{Name: accountName}, secrets, name, namespace)
+			},
+		},
+	}
+	for _, reader := range readers {
+		for _, source := range []string{"request", "kubernetes"} {
+			t.Run(reader.name+"/"+source, func(t *testing.T) {
+				d := NewFakeDriver()
+				newSecret := func(name, namespace, key string) *v1api.Secret {
+					return &v1api.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+						Data: map[string][]byte{
+							defaultSecretAccountName: []byte(accountName),
+							defaultSecretAccountKey:  []byte(key),
+						},
+					}
+				}
+				client := fake.NewSimpleClientset(
+					newSecret("credentials", "first-ns", "first-key"),
+					newSecret("credentials", "second-ns", "second-key"),
+					newSecret("other-credentials", "first-ns", "other-key"),
+				)
+				d.kubeClient = client
+				var secrets map[string]string
+				if source == "request" {
+					secrets = map[string]string{
+						defaultSecretAccountName: accountName,
+						defaultSecretAccountKey:  "first-key",
+					}
+				}
+				key, err := reader.read(d, secrets, "credentials", "first-ns")
+				assert.NoError(t, err)
+				assert.Equal(t, "first-key", key)
+
+				for _, ref := range []struct {
+					name, namespace, expectedKey string
+				}{
+					{"credentials", "second-ns", "second-key"},
+					{"other-credentials", "first-ns", "other-key"},
+				} {
+					key, err = reader.read(d, nil, ref.name, ref.namespace)
+					assert.NoError(t, err)
+					assert.Equal(t, ref.expectedKey, key)
+				}
+
+				key, err = reader.read(d, nil, "missing", "first-ns")
+				assert.Error(t, err)
+				assert.Empty(t, key)
+				key, err = reader.read(d, nil, "credentials", "missing-ns")
+				assert.Error(t, err)
+				assert.Empty(t, key)
+				key, err = reader.read(d, nil, "", "missing-ns")
+				assert.Error(t, err)
+				assert.Empty(t, key)
+				key, err = reader.read(d, map[string]string{defaultSecretAccountKey: "incomplete-key"}, "credentials", "first-ns")
+				assert.Error(t, err)
+				assert.Empty(t, key)
+
+				_, err = client.CoreV1().Secrets("first-ns").Update(ctx, newSecret("credentials", "first-ns", "rotated-key"), metav1.UpdateOptions{})
+				if !assert.NoError(t, err) {
+					return
+				}
+				key, err = reader.read(d, nil, "credentials", "first-ns")
+				assert.NoError(t, err)
+				assert.Equal(t, "rotated-key", key)
+
+				err = client.CoreV1().Secrets("first-ns").Delete(ctx, "credentials", metav1.DeleteOptions{})
+				if !assert.NoError(t, err) {
+					return
+				}
+				key, err = reader.read(d, nil, "credentials", "first-ns")
+				assert.Error(t, err)
+				assert.Empty(t, key)
+			})
 		}
-		secrets := map[string]string{
-			defaultSecretAccountName: accountName,
-			defaultSecretAccountKey:  freshKey,
-		}
+	}
+}
 
-		d.accountCacheMap.Set(accountName, staleKey)
-		entry, exists, err := d.accountCacheMap.GetStore().GetByKey(accountName)
-		assert.NoError(t, err)
-		if !assert.True(t, exists) {
-			return
-		}
-		cacheEntry := entry.(*cache.AzureCacheEntry)
-		oldCreatedOn := time.Now().UTC().Add(-2 * time.Minute)
-		cacheEntry.CreatedOn = oldCreatedOn
+func TestStorageCredentialsIdentityFallback(t *testing.T) {
+	const accountName = "testaccount"
+	ctx := context.Background()
+	for _, reader := range []string{"GetAccountInfo", "GetStorageAccesskey"} {
+		t.Run(reader, func(t *testing.T) {
+			d := NewFakeDriver()
+			d.kubeClient = fake.NewSimpleClientset()
+			ctrl := gomock.NewController(t)
+			factory := mock_azclient.NewMockClientFactory(ctrl)
+			accounts := mock_accountclient.NewMockInterface(ctrl)
+			d.cloud.ComputeClientFactory = factory
+			factory.EXPECT().GetAccountClientForSub("test-sub").Return(accounts, nil).Times(1)
+			accounts.EXPECT().ListKeys(gomock.Any(), "test-rg", accountName).Return(
+				[]*armstorage.AccountKey{{Value: to.Ptr("identity-key")}}, nil,
+			).Times(1)
 
-		_, returnedAccountName, accountKey, fileShareName, _, _, _, _, err := d.GetAccountInfo(context.Background(), "invalid-volume-id", secrets, reqContext)
-		assert.NoError(t, err)
-		assert.Equal(t, accountName, returnedAccountName)
-		assert.Equal(t, freshKey, accountKey)
-		assert.Equal(t, "share", fileShareName)
+			key, err := d.GetStorageAccesskey(ctx, &storage.AccountOptions{Name: accountName}, map[string]string{
+				defaultSecretAccountName: accountName,
+				defaultSecretAccountKey:  "request-key",
+			}, "", "")
+			assert.NoError(t, err)
+			assert.Equal(t, "request-key", key)
 
-		entry, exists, err = d.accountCacheMap.GetStore().GetByKey(accountName)
-		assert.NoError(t, err)
-		if !assert.True(t, exists) {
-			return
-		}
-		cacheEntry = entry.(*cache.AzureCacheEntry)
-		assert.Equal(t, freshKey, cacheEntry.Data)
-		assert.True(t, cacheEntry.CreatedOn.After(oldCreatedOn), "secret-derived key should still be written back into cache")
-	})
+			for i := 0; i < 2; i++ {
+				var key string
+				var err error
+				if reader == "GetAccountInfo" {
+					_, _, key, _, _, _, _, _, err = d.GetAccountInfo(ctx, "volume", nil, map[string]string{
+						storageAccountField:  accountName,
+						subscriptionIDField:  "test-sub",
+						resourceGroupField:   "test-rg",
+						secretNameField:      "missing",
+						secretNamespaceField: "test-ns",
+					})
+				} else {
+					key, err = d.GetStorageAccesskey(ctx, &storage.AccountOptions{
+						Name: accountName, SubscriptionID: "test-sub", ResourceGroup: "test-rg",
+					}, nil, "missing", "test-ns")
+				}
+				assert.NoError(t, err)
+				assert.Equal(t, "identity-key", key)
+			}
+
+			// Secret-only requests must not inherit authority from identity lookups.
+			_, _, key, _, _, _, _, _, err = d.GetAccountInfo(ctx, "inline-volume", nil, map[string]string{
+				storageAccountField:          accountName,
+				subscriptionIDField:          "test-sub",
+				resourceGroupField:           "test-rg",
+				secretNameField:              "missing",
+				secretNamespaceField:         "test-ns",
+				getAccountKeyFromSecretField: trueValue,
+			})
+			assert.Error(t, err)
+			assert.Empty(t, key)
+
+			_, err = d.kubeClient.CoreV1().Secrets("test-ns").Create(ctx, &v1api.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "credentials", Namespace: "test-ns"},
+				Data: map[string][]byte{
+					defaultSecretAccountName: []byte(accountName),
+					defaultSecretAccountKey:  []byte("secret-key"),
+				},
+			}, metav1.CreateOptions{})
+			if !assert.NoError(t, err) {
+				return
+			}
+			key, err = d.GetStorageAccesskey(ctx, &storage.AccountOptions{
+				Name: accountName, SubscriptionID: "test-sub", ResourceGroup: "test-rg",
+			}, nil, "credentials", "test-ns")
+			assert.NoError(t, err)
+			assert.Equal(t, "secret-key", key)
+			_, _, key, _, _, _, _, _, err = d.GetAccountInfo(ctx, "inline-volume", nil, map[string]string{
+				storageAccountField:          accountName,
+				subscriptionIDField:          "test-sub",
+				resourceGroupField:           "test-rg",
+				secretNameField:              "credentials",
+				secretNamespaceField:         "test-ns",
+				getAccountKeyFromSecretField: trueValue,
+			})
+			assert.NoError(t, err)
+			assert.Equal(t, "secret-key", key)
+		})
+	}
 }
 
 // TestGetAccountInfoWorkloadIdentityTokenFile covers the workload-identity
@@ -1867,7 +2030,7 @@ func TestGetStorageAccesskey(t *testing.T) {
 		expectedError error
 	}{
 		{
-			name:          "error is not nil", // test case should run first to avoid cache hit
+			name:          "error is not nil",
 			secrets:       make(map[string]string),
 			secretName:    "foobar",
 			expectedError: errors.New(""),
@@ -1972,6 +2135,107 @@ func TestGetStorageAccesskeyWithSubsID(t *testing.T) {
 		}
 		_, err := d.GetStorageAccesskeyWithSubsID(context.TODO(), "test-subID", "test-rg", "test-sa", true)
 		assert.Equal(t, tc.expectedError, err)
+	}
+}
+
+func TestAccountKeyCacheConcurrentRequests(t *testing.T) {
+	d := NewFakeDriver()
+	ctrl := gomock.NewController(t)
+	factory := mock_azclient.NewMockClientFactory(ctrl)
+	accounts := mock_accountclient.NewMockInterface(ctrl)
+	d.cloud.ComputeClientFactory = factory
+	factory.EXPECT().GetAccountClientForSub("sub").Return(accounts, nil).Times(1)
+	accounts.EXPECT().ListKeys(gomock.Any(), "rg", "account").Return(
+		[]*armstorage.AccountKey{{Value: to.Ptr("identity-key")}}, nil,
+	).Times(1)
+
+	const requests = 1000
+	keys := make([]string, requests)
+	errs := make([]error, requests)
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := range keys {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			keys[i], errs[i] = d.GetStorageAccesskeyWithSubsID(context.Background(), "sub", "account", "rg", false)
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	for i := range keys {
+		assert.NoError(t, errs[i])
+		assert.Equal(t, "identity-key", keys[i])
+	}
+}
+
+func TestAccountKeyCacheScopeAndExpiration(t *testing.T) {
+	d := NewFakeDriver()
+	ctrl := gomock.NewController(t)
+	factory := mock_azclient.NewMockClientFactory(ctrl)
+	accounts := mock_accountclient.NewMockInterface(ctrl)
+	d.cloud.ComputeClientFactory = factory
+	created := time.Now()
+	factory.EXPECT().GetAccountClientForSub(gomock.Any()).Return(accounts, nil).Times(6)
+	accounts.EXPECT().ListKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return([]*armstorage.AccountKey{
+		{Value: to.Ptr("first-key"), CreationTime: to.Ptr(created)},
+		{Value: to.Ptr("latest-key"), CreationTime: to.Ptr(created.Add(time.Hour))},
+	}, nil).Times(6)
+
+	for _, scope := range []struct {
+		subscription, account, resourceGroup string
+		latest                               bool
+	}{
+		{"sub", "account", "rg", false},
+		{"other-sub", "account", "rg", false},
+		{"sub", "other-account", "rg", false},
+		{"sub", "account", "other-rg", false},
+		{"sub", "account", "rg", true},
+	} {
+		for i := 0; i < 2; i++ {
+			key, err := d.GetStorageAccesskeyWithSubsID(context.Background(), scope.subscription, scope.account, scope.resourceGroup, scope.latest)
+			assert.NoError(t, err)
+			expected := "first-key"
+			if scope.latest {
+				expected = "latest-key"
+			}
+			assert.Equal(t, expected, key)
+		}
+	}
+
+	cacheKey := accountKeyCacheKey("sub", "account", "rg", false)
+	entry, exists, err := d.accountCacheMap.GetStore().GetByKey(cacheKey)
+	assert.NoError(t, err)
+	if !assert.True(t, exists) {
+		return
+	}
+	entry.(*cache.AzureCacheEntry).CreatedOn = time.Now().Add(-4 * time.Minute)
+	key, err := d.GetStorageAccesskeyWithSubsID(context.Background(), "sub", "account", "rg", false)
+	assert.NoError(t, err)
+	assert.Equal(t, "first-key", key)
+}
+
+func TestAccountKeyCacheDoesNotCacheErrors(t *testing.T) {
+	d := NewFakeDriver()
+	ctrl := gomock.NewController(t)
+	factory := mock_azclient.NewMockClientFactory(ctrl)
+	accounts := mock_accountclient.NewMockInterface(ctrl)
+	d.cloud.ComputeClientFactory = factory
+	factory.EXPECT().GetAccountClientForSub("sub").Return(accounts, nil).Times(2)
+	gomock.InOrder(
+		accounts.EXPECT().ListKeys(gomock.Any(), "rg", "account").Return(nil, errors.New("list keys failed")),
+		accounts.EXPECT().ListKeys(gomock.Any(), "rg", "account").Return(
+			[]*armstorage.AccountKey{{Value: to.Ptr("identity-key")}}, nil,
+		),
+	)
+	key, err := d.GetStorageAccesskeyWithSubsID(context.Background(), "sub", "account", "rg", false)
+	assert.EqualError(t, err, "list keys failed")
+	assert.Empty(t, key)
+	for i := 0; i < 2; i++ {
+		key, err = d.GetStorageAccesskeyWithSubsID(context.Background(), "sub", "account", "rg", false)
+		assert.NoError(t, err)
+		assert.Equal(t, "identity-key", key)
 	}
 }
 
