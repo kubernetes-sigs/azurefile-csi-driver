@@ -815,7 +815,7 @@ entries:
     appVersion: latest
     created: "2026-08-07T14:35:49.684817456Z"
     description: Azure File Container Storage Interface (CSI) Storage Plugin
-    digest: 5b5f9d7221e3b159b4f4962061b58aee79859bf4faadd508c1c967d39aeeaaec
+    digest: e45883e6077b5ea24b777fea2113dd737de14b2d0a7bb304a0bf837123291d9d
     name: azurefile-csi-driver
     urls:
     - https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/charts/latest/azurefile-csi-driver-v0.0.0.tgz
