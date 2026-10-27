@@ -1463,8 +1463,11 @@ func (d *Driver) GetStorageAccesskeyWithSubsID(ctx context.Context, subsID, acco
 		return "", fmt.Errorf("could not get account key: cloud or ComputeClientFactory is nil")
 	}
 	cacheKey := accountKeyCacheKey(subsID, account, resourceGroup, getLatestAccountKey)
-	key, err, _ := d.accountKeyRequests.Do(cacheKey, func() (interface{}, error) {
-		cached, err := d.accountCacheMap.Get(ctx, cacheKey, azcache.CacheReadTypeDefault)
+	result := d.accountKeyRequests.DoChan(cacheKey, func() (interface{}, error) {
+		// Shared work outlives individual callers, but must still terminate.
+		lookupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
+		defer cancel()
+		cached, err := d.accountCacheMap.Get(lookupCtx, cacheKey, azcache.CacheReadTypeDefault)
 		if err != nil {
 			return nil, err
 		}
@@ -1475,7 +1478,7 @@ func (d *Driver) GetStorageAccesskeyWithSubsID(ctx context.Context, subsID, acco
 		if err != nil {
 			return nil, err
 		}
-		accountKey, err := d.cloud.GetStorageAccesskey(ctx, accountClient, account, resourceGroup, getLatestAccountKey)
+		accountKey, err := d.cloud.GetStorageAccesskey(lookupCtx, accountClient, account, resourceGroup, getLatestAccountKey)
 		if err != nil {
 			return nil, err
 		}
@@ -1484,10 +1487,18 @@ func (d *Driver) GetStorageAccesskeyWithSubsID(ctx context.Context, subsID, acco
 		}
 		return accountKey, nil
 	})
-	if err != nil {
-		return "", err
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case key := <-result:
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		if key.Err != nil {
+			return "", key.Err
+		}
+		return key.Val.(string), nil
 	}
-	return key.(string), nil
 }
 
 // GetStorageAccountFromSecret get storage account key and OAuth token from k8s secret

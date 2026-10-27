@@ -933,69 +933,6 @@ func TestGetAccountInfoExplicitSecretNamespace(t *testing.T) {
 			defaultSecretAccountName: []byte("testaccount"),
 			defaultSecretAccountKey:  []byte("testkey"),
 		},
-<<<<<<< HEAD
-	})
-	d.kubeClient = client
-	reqContext := map[string]string{
-		"SecretNamespace":            "secret-ns",
-		pvcNamespaceKey:              "pvc-ns",
-		secretNameField:              "azure-secret",
-		getAccountKeyFromSecretField: trueValue,
-	}
-	setKeyValueInMap(reqContext, secretNamespaceField, "secret-ns")
-
-	_, accountName, accountKey, _, _, _, _, _, err := d.GetAccountInfo(context.Background(), "pv-volume", nil, reqContext) //nolint:dogsled // Only account credentials are relevant to this test.
-	assert.NoError(t, err)
-	assert.Equal(t, "testaccount", accountName)
-	assert.Equal(t, "testkey", accountKey)
-	actions := client.Actions()
-	if assert.Len(t, actions, 1) {
-		assert.True(t, actions[0].Matches("get", "secrets"))
-		assert.Equal(t, "secret-ns", actions[0].GetNamespace())
-	}
-}
-
-func TestGetAccountInfoCacheWriteback(t *testing.T) {
-	t.Run("cache hit does not refresh cache entry timestamp", func(t *testing.T) {
-		d := NewFakeDriver()
-		d.cloud = &storage.AccountRepo{}
-
-		const (
-			accountName = "cacheaccount"
-			staleKey    = "stale-key"
-		)
-		reqContext := map[string]string{
-			resourceGroupField:  "rg",
-			storageAccountField: accountName,
-			shareNameField:      "share",
-		}
-
-		d.accountCacheMap.Set(accountName, staleKey)
-		entry, exists, err := d.accountCacheMap.GetStore().GetByKey(accountName)
-		assert.NoError(t, err)
-		if !assert.True(t, exists) {
-			return
-		}
-		cacheEntry := entry.(*cache.AzureCacheEntry)
-		oldCreatedOn := time.Now().UTC().Add(-2 * time.Minute)
-		cacheEntry.CreatedOn = oldCreatedOn
-
-		_, returnedAccountName, accountKey, fileShareName, _, _, _, _, err := d.GetAccountInfo(context.Background(), "invalid-volume-id", nil, reqContext)
-		assert.NoError(t, err)
-		assert.Equal(t, accountName, returnedAccountName)
-		assert.Equal(t, staleKey, accountKey)
-		assert.Equal(t, "share", fileShareName)
-
-		entry, exists, err = d.accountCacheMap.GetStore().GetByKey(accountName)
-		assert.NoError(t, err)
-		if !assert.True(t, exists) {
-			return
-		}
-		cacheEntry = entry.(*cache.AzureCacheEntry)
-		assert.Equal(t, staleKey, cacheEntry.Data)
-		assert.True(t, cacheEntry.CreatedOn.Equal(oldCreatedOn), "cache hit should not rewrite the same key back into cache")
-=======
->>>>>>> e9d2732b0 (fix: storage credential isolation by removing account-key cache)
 	})
 	d.kubeClient = client
 	reqContext := map[string]string{
@@ -2167,6 +2104,88 @@ func TestAccountKeyCacheConcurrentRequests(t *testing.T) {
 	for i := range keys {
 		assert.NoError(t, errs[i])
 		assert.Equal(t, "identity-key", keys[i])
+	}
+}
+
+func TestAccountKeyCacheCallerCancellation(t *testing.T) {
+	for _, cancelInitiator := range []bool{true, false} {
+		t.Run(fmt.Sprintf("cancelInitiator=%t", cancelInitiator), func(t *testing.T) {
+			d := NewFakeDriver()
+			ctrl := gomock.NewController(t)
+			factory := mock_azclient.NewMockClientFactory(ctrl)
+			accounts := mock_accountclient.NewMockInterface(ctrl)
+			d.cloud.ComputeClientFactory = factory
+			started := make(chan struct{})
+			release := make(chan struct{})
+			var releaseOnce sync.Once
+			finishLookup := func() { releaseOnce.Do(func() { close(release) }) }
+			defer finishLookup()
+			factory.EXPECT().GetAccountClientForSub("sub").Return(accounts, nil).Times(1)
+			accounts.EXPECT().ListKeys(gomock.Any(), "rg", "account").DoAndReturn(
+				func(ctx context.Context, _, _ string) ([]*armstorage.AccountKey, error) {
+					deadline, ok := ctx.Deadline()
+					assert.True(t, ok, "shared lookup must have a deadline")
+					if ok {
+						assert.True(t, time.Until(deadline) <= 2*time.Minute)
+					}
+					close(started)
+					select {
+					case <-release:
+						if err := ctx.Err(); err != nil {
+							return nil, err
+						}
+						return []*armstorage.AccountKey{{Value: to.Ptr("identity-key")}}, nil
+					case <-ctx.Done():
+						return nil, ctx.Err()
+					}
+				},
+			).Times(1)
+			type result struct {
+				key string
+				err error
+			}
+			lookup := func(ctx context.Context) <-chan result {
+				done := make(chan result, 1)
+				go func() {
+					key, err := d.GetStorageAccesskeyWithSubsID(ctx, "sub", "account", "rg", false)
+					done <- result{key: key, err: err}
+				}()
+				return done
+			}
+			firstCtx, cancelFirst := context.WithCancel(context.Background())
+			defer cancelFirst()
+			secondCtx, cancelSecond := context.WithCancel(context.Background())
+			defer cancelSecond()
+			first := lookup(firstCtx)
+			select {
+			case <-started:
+			case <-time.After(5 * time.Second):
+				t.Fatal("lookup did not start")
+			}
+			second := lookup(secondCtx)
+			canceled, active := second, first
+			if cancelInitiator {
+				canceled, active = first, second
+				cancelFirst()
+			} else {
+				cancelSecond()
+			}
+			select {
+			case got := <-canceled:
+				assert.ErrorIs(t, got.err, context.Canceled)
+				assert.Empty(t, got.key)
+			case <-time.After(5 * time.Second):
+				t.Error("canceled caller did not return while shared lookup was blocked")
+			}
+			finishLookup()
+			select {
+			case got := <-active:
+				assert.NoError(t, got.err)
+				assert.Equal(t, "identity-key", got.key)
+			case <-time.After(5 * time.Second):
+				t.Error("active caller did not receive shared lookup result")
+			}
+		})
 	}
 }
 
