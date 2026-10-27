@@ -37,7 +37,7 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: csi-provisioner
-          image: mcr.microsoft.com/oss/v2/kubernetes-csi/csi-provisioner:v6.3.0
+          image: mcr.microsoft.com/oss/v2/kubernetes-csi/csi-provisioner:v6.4.0
           args:
             - "-v=2"
             - "--csi-address=$(ADDRESS)"
@@ -65,7 +65,7 @@ spec:
               drop:
                 - ALL
         - name: csi-snapshotter
-          image: mcr.microsoft.com/oss/v2/kubernetes-csi/csi-snapshotter:v8.5.0
+          image: mcr.microsoft.com/oss/v2/kubernetes-csi/csi-snapshotter:v8.7.0
           args:
             - "-v=2"
             - "-csi-address=$(ADDRESS)"
@@ -91,14 +91,13 @@ spec:
               drop:
                 - ALL
         - name: csi-resizer
-          image: mcr.microsoft.com/oss/v2/kubernetes-csi/csi-resizer:v2.2.1
+          image: mcr.microsoft.com/oss/v2/kubernetes-csi/csi-resizer:v2.3.0
           args:
             - "-csi-address=$(ADDRESS)"
             - "-v=2"
             - "--leader-election"
             - "--leader-election-namespace=kube-system"
             - '-handle-volume-inuse-error=false'
-            - '-feature-gates=RecoverVolumeExpansionFailure=true'
             - '-timeout=120s'
             - "--retry-interval-max=30m"
           env:
@@ -118,7 +117,7 @@ spec:
               drop:
                 - ALL
         - name: liveness-probe
-          image: mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.19.0
+          image: mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.20.0
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
