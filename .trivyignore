@@ -2,3 +2,11 @@ CVE-2024-3744
 CVE-2026-39883
 CVE-2026-46600
 CVE-2026-56852
+
+# AzCopy (usr/local/bin/azcopy) bundled Go dependencies.
+# Remove these exceptions when AzCopy includes the fixed dependency versions.
+# github.com/go-jose/go-jose/v4: fixed in v4.1.6
+CVE-2026-116587
+# golang.org/x/net: fixed in v0.62.0
+CVE-2026-78661
+CVE-2026-97045
