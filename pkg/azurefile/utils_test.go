@@ -765,7 +765,29 @@ func TestSetKeyValueInMap(t *testing.T) {
 			m:        map[string]string{"subDir": "value2"},
 			key:      "subdir",
 			value:    "value",
-			expected: map[string]string{"subDir": "value"},
+			expected: map[string]string{"subdir": "value"},
+		},
+		{
+			desc:     "Unicode case insensitive key already exists",
+			m:        map[string]string{"\u017fecretNamespace": "value2"},
+			key:      secretNamespaceField,
+			value:    "value",
+			expected: map[string]string{secretNamespaceField: "value"},
+		},
+		{
+			desc: "all case insensitive aliases are replaced",
+			m: map[string]string{
+				secretNamespaceField:   "value1",
+				"SecretNamespace":      "value2",
+				"\u017fecretNamespace": "value3",
+				shareNameField:         "share",
+			},
+			key:   secretNamespaceField,
+			value: "value",
+			expected: map[string]string{
+				secretNamespaceField: "value",
+				shareNameField:       "share",
+			},
 		},
 	}
 
