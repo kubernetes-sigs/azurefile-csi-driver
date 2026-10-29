@@ -691,6 +691,67 @@ func TestNodePublishVolume(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestNodePublishVolumeInlineSecretNamespace(t *testing.T) {
+	for _, key := range []string{"", secretNamespaceField, "SecretNamespace", "\u017fecretNamespace"} {
+		for _, mode := range []string{inlineVolumeSecretAuthzOff, inlineVolumeSecretAuthzEnforce} {
+			t.Run(key+"/"+mode, func(t *testing.T) {
+				const podNS = "app-ns"
+				const secretName = "azure-secret"
+				d := NewFakeDriver()
+				d.cloud = &storage.AccountRepo{}
+				d.mounter = &mount.SafeFormatAndMount{Interface: mount.NewFakeMounter(nil)}
+				d.inlineVolumeSecretAuthz = mode
+				client := fake.NewSimpleClientset(&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{Name: "app-pod", Namespace: podNS},
+					Spec:       corev1.PodSpec{ServiceAccountName: "app-sa"},
+				})
+				client.PrependReactor("create", "subjectaccessreviews", func(action testingclient.Action) (bool, k8sruntime.Object, error) {
+					sar := action.(testingclient.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
+					assert.Equal(t, podNS, sar.Spec.ResourceAttributes.Namespace)
+					assert.Equal(t, secretName, sar.Spec.ResourceAttributes.Name)
+					sar.Status.Allowed = true
+					return true, sar, nil
+				})
+				d.kubeClient = client
+				volumeContext := map[string]string{
+					ephemeralField:    trueValue,
+					podNameField:      "app-pod",
+					podNamespaceField: podNS,
+					pvcNamespaceKey:   "other-ns",
+					secretNameField:   secretName,
+				}
+				if key != "" {
+					volumeContext[key] = "other-ns"
+				}
+				_, err := d.NodePublishVolume(context.Background(), &csi.NodePublishVolumeRequest{
+					VolumeId:      "inline-volume",
+					TargetPath:    filepath.Join(t.TempDir(), "mount"),
+					VolumeContext: volumeContext,
+					VolumeCapability: &csi.VolumeCapability{
+						AccessType: &csi.VolumeCapability_Mount{Mount: &csi.VolumeCapability_MountVolume{}},
+						AccessMode: &csi.VolumeCapability_AccessMode{Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER},
+					},
+				})
+				// A missing Secret stops the request before any filesystem mount.
+				assert.Equal(t, codes.InvalidArgument, status.Code(err))
+				if assert.Error(t, err) {
+					assert.Contains(t, err.Error(), "not found")
+				}
+				var secretReads int
+				for _, action := range client.Actions() {
+					if action.Matches("get", "secrets") {
+						secretReads++
+						assert.Equal(t, podNS, action.GetNamespace())
+						assert.Equal(t, secretName, action.(testingclient.GetAction).GetName())
+					}
+				}
+				assert.Equal(t, 1, secretReads)
+				assert.Equal(t, podNS, volumeContext[secretNamespaceField])
+			})
+		}
+	}
+}
+
 func TestAuthorizeInlineVolumeSecret(t *testing.T) {
 	const (
 		podNS       = "app-ns"

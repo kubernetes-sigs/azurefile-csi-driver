@@ -924,6 +924,35 @@ func TestGetAccountInfo(t *testing.T) {
 	}
 }
 
+func TestGetAccountInfoExplicitSecretNamespace(t *testing.T) {
+	d := NewFakeDriver()
+	client := fake.NewSimpleClientset(&v1api.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "azure-secret", Namespace: "secret-ns"},
+		Data: map[string][]byte{
+			defaultSecretAccountName: []byte("testaccount"),
+			defaultSecretAccountKey:  []byte("testkey"),
+		},
+	})
+	d.kubeClient = client
+	reqContext := map[string]string{
+		"SecretNamespace":            "secret-ns",
+		pvcNamespaceKey:              "pvc-ns",
+		secretNameField:              "azure-secret",
+		getAccountKeyFromSecretField: trueValue,
+	}
+	setKeyValueInMap(reqContext, secretNamespaceField, "secret-ns")
+
+	_, accountName, accountKey, _, _, _, _, _, err := d.GetAccountInfo(context.Background(), "pv-volume", nil, reqContext) //nolint:dogsled // Only account credentials are relevant to this test.
+	assert.NoError(t, err)
+	assert.Equal(t, "testaccount", accountName)
+	assert.Equal(t, "testkey", accountKey)
+	actions := client.Actions()
+	if assert.Len(t, actions, 1) {
+		assert.True(t, actions[0].Matches("get", "secrets"))
+		assert.Equal(t, "secret-ns", actions[0].GetNamespace())
+	}
+}
+
 func TestGetAccountInfoCacheWriteback(t *testing.T) {
 	t.Run("cache hit does not refresh cache entry timestamp", func(t *testing.T) {
 		d := NewFakeDriver()
