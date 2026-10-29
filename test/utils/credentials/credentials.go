@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"html/template"
 	"os"
+	"path/filepath"
 
 	"github.com/google/uuid"
 )
@@ -160,10 +161,13 @@ func parseAndExecuteTemplate(cloud, tenantID, subscriptionID, aadClientID, aadCl
 		return nil, fmt.Errorf("error parsing azureCredentialFileTemplate %v", err)
 	}
 
-	f, err := os.Create(TempAzureCredentialFilePath)
+	// Parallel e2e processes rewrite this shared file while in-process drivers
+	// may read it, so replace it atomically instead of truncating it in place.
+	f, err := os.CreateTemp(filepath.Dir(TempAzureCredentialFilePath), filepath.Base(TempAzureCredentialFilePath)+".*")
 	if err != nil {
 		return nil, fmt.Errorf("error creating %s %v", TempAzureCredentialFilePath, err)
 	}
+	defer os.Remove(f.Name())
 	defer f.Close()
 
 	c := Credentials{
@@ -182,6 +186,12 @@ func parseAndExecuteTemplate(cloud, tenantID, subscriptionID, aadClientID, aadCl
 	err = t.Execute(f, c)
 	if err != nil {
 		return nil, fmt.Errorf("error executing parsed azure credential file template %v", err)
+	}
+	if err := f.Close(); err != nil {
+		return nil, fmt.Errorf("error writing %s %v", TempAzureCredentialFilePath, err)
+	}
+	if err := os.Rename(f.Name(), TempAzureCredentialFilePath); err != nil {
+		return nil, fmt.Errorf("error replacing %s %v", TempAzureCredentialFilePath, err)
 	}
 
 	return &c, nil

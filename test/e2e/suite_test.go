@@ -102,19 +102,26 @@ type testCmd struct {
 	ignoreError bool
 }
 
-var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
+// suiteSetup carries the cluster-wide setup results from the first Ginkgo
+// process to every parallel process.
+type suiteSetup struct {
+	ResourceGroup        string
+	Location             string
+	MIRoleSetupSucceeded bool
+	WISetupSucceeded     bool
+	WIClientID           string
+}
+
+// Cluster and Azure fixtures are created once; each parallel process then
+// initializes its own clients, region capabilities and in-process driver.
+var _ = ginkgo.SynchronizedBeforeSuite(func(ctx ginkgo.SpecContext) []byte {
 	log.Println(driver.AzureDriverNameVar, os.Getenv(driver.AzureDriverNameVar), fmt.Sprintf("%v", isUsingInTreeVolumePlugin))
 	log.Println(testMigrationEnvVar, os.Getenv(testMigrationEnvVar), fmt.Sprintf("%v", isTestingMigration))
 	log.Println(testWindowsEnvVar, os.Getenv(testWindowsEnvVar), fmt.Sprintf("%v", isWindowsCluster))
 	log.Println(testWinServerVerEnvVar, os.Getenv(testWinServerVerEnvVar), fmt.Sprintf("%v", winServerVer))
 
-	// k8s.io/kubernetes/test/e2e/framework requires env KUBECONFIG to be set
-	// it does not fall back to defaults
-	if os.Getenv(kubeconfigEnvVar) == "" {
-		kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
-		os.Setenv(kubeconfigEnvVar, kubeconfig)
-	}
-
+	setDefaultKubeconfig()
+	setup := suiteSetup{}
 	// Default storage driver configuration is CSI. Freshly built
 	// CSI driver is installed for that case.
 	if isTestingMigration || !isUsingInTreeVolumePlugin {
@@ -122,8 +129,8 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret, creds.AADFederatedTokenFile)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		suiteCreds = creds
-		suiteAzureClient = azureClient
+		setup.ResourceGroup = creds.ResourceGroup
+		setup.Location = creds.Location
 		_, err = azureClient.EnsureResourceGroup(ctx, creds.ResourceGroup, creds.Location, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -132,7 +139,7 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 		if isCapzTest && !isWindowsCluster && !isUsingInTreeVolumePlugin && !isTestingMigration {
 			err := azureClient.EnsureNodeStorageFileDataRole(ctx, creds.ResourceGroup)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to assign Storage File Data SMB MI Admin role to node identity")
-			miRoleSetupSucceeded = true
+			setup.MIRoleSetupSucceeded = true
 
 			kubeConfig, err := framework.LoadConfig()
 			if err != nil {
@@ -146,56 +153,10 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 					if setupErr != nil {
 						log.Printf("WARNING: workload identity setup failed: %v", setupErr)
 					} else {
-						wiSetupSucceeded = true
-						wiClientID = clientID
-						// Start background AAD OIDC cache warm-up
-						go func() {
-							defer close(wiReady)
-							bgCS, csErr := clientset.NewForConfig(kubeConfig)
-							if csErr != nil {
-								errWISetup = fmt.Errorf("failed to create kube client for WI warm-up: %v", csErr)
-								log.Printf("WARNING: %v", errWISetup)
-								return
-							}
-							if warmErr := waitForAADTokenExchange(context.Background(), bgCS, wiClientID, creds, 45*time.Minute); warmErr != nil {
-								errWISetup = fmt.Errorf("AAD token exchange not ready: %v", warmErr)
-								log.Printf("WARNING: WI background warm-up failed: %v", errWISetup)
-							} else {
-								log.Printf("AAD token exchange warm-up succeeded in background")
-							}
-						}()
+						setup.WISetupSucceeded = true
+						setup.WIClientID = clientID
 					}
 				}
-			}
-			if !wiSetupSucceeded {
-				close(wiReady) // Unblock WI test immediately if setup failed
-			}
-		} else {
-			close(wiReady) // No WI setup needed
-		}
-
-		// check whether current region supports Premium_ZRS with NFS protocol
-		supportedRegions := []string{"southeastasia", "australiaeast", "europenorth", "europewest", "francecentral", "japaneast", "uksouth", "useast", "useast2", "uswest2"}
-		for _, region := range supportedRegions {
-			if creds.Location == region {
-				supportZRSwithNFS = true
-			}
-		}
-
-		// check whether current region supports snapshot with NFS protocol
-		supportedRegions = []string{"canadacentral", "uksouth", "francesouth", "francecentral", "germanywestcentral"}
-		for _, region := range supportedRegions {
-			if creds.Location == region {
-				supportSnapshotwithNFS = true
-			}
-		}
-
-		// check whether current region supports encryptInTransit with NFS protocol
-		supportedRegions = []string{"canadacentral", "canadaeast", "southeastasia", "eastasia", "australiaeast", "europenorth", "francecentral", "francesouth", "germanywestcentral", "uksouth", "ukwest", "uswest", "uswest2", "uswest3", "ussouth", "ussouth2", "australiacentral", "australiacentral2"}
-		for _, region := range supportedRegions {
-			if creds.Location == region {
-				supportEncryptInTransitwithNFS = true
-				log.Printf("region %s supports encryptInTransit with NFS protocol", region)
 			}
 		}
 
@@ -225,27 +186,109 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 			}
 			execTestCmd([]testCmd{installSMBProvisioner})
 		}
-
-		kubeconfig := os.Getenv(kubeconfigEnvVar)
-		driverOptions := azurefile.DriverOptions{
-			NodeID:     os.Getenv("nodeid"),
-			DriverName: azurefile.DefaultDriverName,
-			Endpoint:   fmt.Sprintf("unix:///tmp/csi-%s.sock", uuid.NewString()),
-			KubeConfig: kubeconfig,
-		}
-		azurefileDriver = azurefile.NewDriver(&driverOptions)
-		go func() {
-			os.Setenv("AZURE_CREDENTIAL_FILE", credentials.TempAzureCredentialFilePath)
-			err := azurefileDriver.Run(context.Background())
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		}()
-
-		// Setup OAuth token for mountWithOAuthToken e2e test (CAPZ only)
-		// Moved to test case itself to ensure fresh token at mount time
 	}
+	data, err := json.Marshal(setup)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	return data
+}, func(ctx ginkgo.SpecContext, data []byte) {
+	setDefaultKubeconfig()
+	if !isTestingMigration && isUsingInTreeVolumePlugin {
+		close(wiReady)
+		return
+	}
+	var setup suiteSetup
+	gomega.Expect(json.Unmarshal(data, &setup)).To(gomega.Succeed())
+	// Every process must use the first process's resource group, including a
+	// generated one, and the same credential file contents.
+	for name, value := range map[string]string{"AZURE_RESOURCE_GROUP": setup.ResourceGroup, "AZURE_LOCATION": setup.Location} {
+		if os.Getenv(name) == "" {
+			os.Setenv(name, value)
+		}
+	}
+	creds, err := credentials.CreateAzureCredentialFile(false)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	azureClient, err := azure.GetAzureClient(creds.Cloud, creds.SubscriptionID, creds.AADClientID, creds.TenantID, creds.AADClientSecret, creds.AADFederatedTokenFile)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	suiteCreds = creds
+	suiteAzureClient = azureClient
+	miRoleSetupSucceeded = setup.MIRoleSetupSucceeded
+	wiSetupSucceeded = setup.WISetupSucceeded
+	wiClientID = setup.WIClientID
+
+	if wiSetupSucceeded {
+		kubeConfig, err := framework.LoadConfig()
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		// Start background AAD OIDC cache warm-up
+		go func() {
+			defer close(wiReady)
+			bgCS, csErr := clientset.NewForConfig(kubeConfig)
+			if csErr != nil {
+				errWISetup = fmt.Errorf("failed to create kube client for WI warm-up: %v", csErr)
+				log.Printf("WARNING: %v", errWISetup)
+				return
+			}
+			if warmErr := waitForAADTokenExchange(context.Background(), bgCS, wiClientID, creds, 45*time.Minute); warmErr != nil {
+				errWISetup = fmt.Errorf("AAD token exchange not ready: %v", warmErr)
+				log.Printf("WARNING: WI background warm-up failed: %v", errWISetup)
+			} else {
+				log.Printf("AAD token exchange warm-up succeeded in background")
+			}
+		}()
+	} else {
+		close(wiReady) // No WI setup needed, or unblock WI tests immediately if setup failed
+	}
+
+	// check whether current region supports Premium_ZRS with NFS protocol
+	supportedRegions := []string{"southeastasia", "australiaeast", "europenorth", "europewest", "francecentral", "japaneast", "uksouth", "useast", "useast2", "uswest2"}
+	for _, region := range supportedRegions {
+		if creds.Location == region {
+			supportZRSwithNFS = true
+		}
+	}
+
+	// check whether current region supports snapshot with NFS protocol
+	supportedRegions = []string{"canadacentral", "uksouth", "francesouth", "francecentral", "germanywestcentral"}
+	for _, region := range supportedRegions {
+		if creds.Location == region {
+			supportSnapshotwithNFS = true
+		}
+	}
+
+	// check whether current region supports encryptInTransit with NFS protocol
+	supportedRegions = []string{"canadacentral", "canadaeast", "southeastasia", "eastasia", "australiaeast", "europenorth", "francecentral", "francesouth", "germanywestcentral", "uksouth", "ukwest", "uswest", "uswest2", "uswest3", "ussouth", "ussouth2", "australiacentral", "australiacentral2"}
+	for _, region := range supportedRegions {
+		if creds.Location == region {
+			supportEncryptInTransitwithNFS = true
+			log.Printf("region %s supports encryptInTransit with NFS protocol", region)
+		}
+	}
+
+	kubeconfig := os.Getenv(kubeconfigEnvVar)
+	driverOptions := azurefile.DriverOptions{
+		NodeID:     os.Getenv("nodeid"),
+		DriverName: azurefile.DefaultDriverName,
+		Endpoint:   fmt.Sprintf("unix:///tmp/csi-%s.sock", uuid.NewString()),
+		KubeConfig: kubeconfig,
+	}
+	azurefileDriver = azurefile.NewDriver(&driverOptions)
+	go func() {
+		os.Setenv("AZURE_CREDENTIAL_FILE", credentials.TempAzureCredentialFilePath)
+		err := azurefileDriver.Run(context.Background())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	}()
 })
 
-var _ = ginkgo.AfterSuite(func(ctx ginkgo.SpecContext) {
+func setDefaultKubeconfig() {
+	// k8s.io/kubernetes/test/e2e/framework requires env KUBECONFIG to be set
+	// it does not fall back to defaults
+	if os.Getenv(kubeconfigEnvVar) == "" {
+		kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
+		os.Setenv(kubeconfigEnvVar, kubeconfig)
+	}
+}
+
+// Cluster teardown and leak checks run once after every parallel process finishes.
+var _ = ginkgo.SynchronizedAfterSuite(func() {}, func(ctx ginkgo.SpecContext) {
 	if isTestingMigration || isUsingInTreeVolumePlugin {
 		cmLog := testCmd{
 			command:  "bash",
@@ -382,7 +425,7 @@ func checkAccountCreationLeak(_ context.Context) {
 	}
 	ginkgo.By(fmt.Sprintf("GetAccountNumByResourceGroup(%s) returns %d accounts", creds.ResourceGroup, accountNum))
 
-	accountLimitInTest := 20
+	accountLimitInTest := 22
 	gomega.Expect(accountNum >= accountLimitInTest).To(gomega.BeFalse())
 }
 

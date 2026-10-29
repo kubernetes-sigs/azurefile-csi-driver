@@ -1,6 +1,138 @@
 ## End to End Test
 
 ## Run E2E tests Locally
+
+### Authentication coverage
+
+`[auth-mount-matrix]` selects the V1 authentication scenarios and the supported
+entry/controller-API completion cases. The scenario identifiers are stable:
+N01-N19 are V1, M01-M09 complete the entry/API matrix, and G01 is the explicit
+workload-token/ARM counterpart. G01 is included in matrix completion rather
+than declared again by later configuration/lifecycle coverage.
+
+Identity fixtures currently require the CAPZ suite setup, an available worker
+UAMI, successful OIDC/FIC initialization for workload identity, and permission
+to create/assign/detach test identities. Configured-identity cases deliberately
+omit `clientID`; the configured WI FIC uses the suite's default-namespace
+ServiceAccount. Distinct explicit-identity cases remain separate.
+
+M09 requires a dedicated lane already configured with
+`--allow-inline-volume-key-access-with-identity=true`; the test does not change
+the DaemonSet. Default inline WI regression cases require that option disabled.
+Run these incompatible configurations in separate lanes and report skips.
+Inline lane checks run before Azure account, share or identity provisioning.
+Configured-WI cases share the suite ServiceAccount's namespace; only this
+fixture's account and named/generated credential Secrets must be key-free.
+Compilation and Ginkgo dry-run discovery are not native mount execution.
+
+#### Additional authentication scenarios
+
+`[auth-additional]` selects G02-G20, G22-G25 and the D01-D06 negative controls (G21 was removed because key mounts leave no host credential state for a restart to exercise); G01 remains in `[auth-mount-matrix]`.
+These specs follow the existing e2e pattern: each `It` builds StorageClass
+parameters or volume attributes and `PodDetails`, then runs an existing tester
+(`DynamicallyProvisionedCmdVolumeTest`, `PreProvisionedMultiplePods`,
+`DynamicallyProvisionedInlineVolumeTest`, `DynamicallyProvisionedResizeVolumeTest`,
+`DynamicallyProvisionedVolumeCloningTest`, `DynamicallyProvisionedInvalidMountOptions`)
+or one of the small authentication testers in `testsuites/`. Azure accounts,
+shares and identities are created with the Azure SDK; the driver is not changed.
+
+Every positive pod checks `/proc/mounts` for the expected account
+(`//<account>.file.<suffix>/`), `sec=` and `username=` options before writing
+and reading data.
+
+| Cases | Operation and evidence |
+|---|---|
+| G02-G04 | Static MI/WI-token/OAuth-token mounts of the canonical SMB hostname; the CIFS `addr=` must equal the private endpoint address. |
+| G05-G07 | Separate Slow/Disruptive specs (`PreProvisionedCredentialRenewalTest`). Each applies the CSIDriver renewal configuration, keeps one pod and mount unchanged, and requires a later-expiring credential and a newer node Kerberos ticket for the server. G05/G06 keep I/O through the original JWT's expiry; G07 rotates the OAuth token Secret and stops when the refreshed credential reaches the mount, because managed-identity storage tokens live about 24 hours. |
+| G08 | `PreProvisionedConcurrentMountsTest`: two principals with share-scoped roles on one account and node, each remounted in turn while the other keeps I/O; a third roleless principal must fail to mount. |
+| G09-G11 | **Principal-sharing investigations, not a supported isolation guarantee.** Same flow as G08 for MI/WI-token/OAuth-token without the denied pod. |
+| G12-G14 | Explicit existing account with ARM `allowSharedKeyAccess=false` and `useDataPlaneAPI=oauth`; MI/WI-token/OAuth-token mount. |
+| G15-G17 | Shared-key-enabled controls for G12-G14. |
+| G18 | Provisioner-only key Secret with `useDataPlaneAPI=true`; a wrong-key twin must report `ProvisioningFailed`. |
+| G19 | Node-stage-only key Secret; a wrong-key twin must report `FailedMount`. |
+| G20 | Provisioner, node-stage and controller-expand Secrets; `DynamicallyProvisionedResizeVolumeTest` checks the PVC, PV and Azure share quota. |
+| G22-G24 | Separate Disruptive specs: mount, delete the pods, restart the selected node plugin, then mount again with the same authentication and read the data. |
+| G25 | Provisioner operation key Secret; `DynamicallyProvisionedVolumeCloningTest` plus the controller's account-specific SAS-generation log. Never print keys, tokens or SAS URLs. |
+| D01-D06 | Negative twins of M01, N03, N04, N06, N07 and N09 (`PreProvisionedMountFailureTest`). Each removes only the route's credential (shared-key access disabled for M01, no storage role otherwise) and must produce `FailedMount`, so the positive case cannot pass through another route. |
+
+**Supported-contract and proof limits:** the current
+[MI documentation](../../docs/managed-identity-mount.md#limitations) and
+[WI documentation](../../docs/workload-identity-static-pv-mount.md#limitations)
+state **one Kerberos identity per account per node**. G09-G11 test the stronger
+isolation target and may fail against the current contract. They have the
+Ginkgo label `auth-investigation` and skip unless
+`AZUREFILE_MULTI_IDENTITY_KERBEROS=true`. G08 does not require it.
+
+G05-G07 establish credential replacement and node Kerberos cache refresh while
+the mount stays active. They **do not establish expiry of an existing kernel
+SMB session or its Kerberos service ticket**.
+
+Route evidence is behavioral: fresh accounts, single-role identities, CIFS
+mount options and the negative twins. The only driver log read is G25's SAS
+generation. G15-G17 do not prove the OAuth client is preferred while shared-key
+access is allowed, and G12-G17 do not claim zero ARM ListKeys calls.
+
+##### Required lanes and permissions
+
+* Additional fixtures retain the existing **CAPZ/Linux/CSI/non-migration**
+  boundary; they do not enable cloud mutations in arbitrary AKS test clusters.
+  Permit creation/deletion of test accounts, shares, UAMIs, FICs and owned role
+  assignments. MI fixtures also attach/detach a new UAMI only on the selected
+  worker, preserving its original identities and checking the VM ETag. A
+  stale ETag or in-progress update is re-read and retried, so concurrent MI
+  fixtures on one worker do not overwrite each other's identities.
+* G02-G04 run without extra configuration: the first case provisions one
+  driver-created account (`networkEndpointType=privateEndpoint`,
+  `publicNetworkAccess=Disabled`, SMB OAuth enabled by the identity mount
+  parameter), with the driver's private endpoint, private DNS zone and VNet
+  link, then deletes its private endpoint and account after the last case. The
+  DNS zone and link are shared with other private-endpoint specs and are left to
+  the cluster resource group teardown. To use an existing fixture instead,
+  supply both `AZUREFILE_AUTH_PRIVATE_ACCOUNT` (in the suite resource group)
+  and `AZUREFILE_AUTH_PRIVATE_IP` (a private IPv4 address); that account must
+  already have SMB OAuth enabled, **publicNetworkAccess=Disabled**, and an
+  approved file private endpoint with canonical private DNS reachable from the
+  worker, and the harness never modifies/deletes it. Supplying only one
+  variable, or an incorrect/public fixture, fails. This does not validate
+  dynamically emitted private-link aliases on 1.34.
+* G05-G07 and G22-G24 require `AZUREFILE_AUTH_DISRUPTIVE=true` on a dedicated
+  isolated CAPZ cluster. `make e2e-test` sets it by default because each CI job
+  creates its own cluster; set `AZUREFILE_AUTH_DISRUPTIVE=false` to skip them.
+  G05-G07 additionally require permission to update `CSIDriver` renewal
+  fields, node-plugin pod exec access, and sufficient
+  wall-clock budget (OAuth tokens can live over an hour). Renewal temporarily
+  sets `requiresRepublish=true` and the token-exchange audience TTL to 600
+  seconds, preserves other audiences/fields, and restores the original values
+  with conflict checks. If the cluster forbids those updates, the test fails
+  rather than deleting/recreating the shared object. Restart tests delete only
+  the selected node-plugin pod, not the DaemonSet.
+* G25 SAS evidence requires the standard `app=csi-azurefile-controller` pod
+  label, `azurefile` container, verbosity at least **2**, and log read access.
+
+For example, discover all additional declarations **without native execution**:
+
+```console
+ARTIFACTS=./_artifacts go test -p 2 -run '^TestE2E$' ./test/e2e -args \
+  -ginkgo.dry-run -ginkgo.focus='\[auth-additional\]'
+```
+
+Native execution must be explicitly selected in a provisioned lane. Report
+case outcomes and capability skips separately; do not publish an all-G passing
+claim while the above isolation/expiry/auditing limitations remain.
+
+##### Release adaptation
+
+The ordinary/MI counterpart set for 1.34 is
+G02, G08, G09, G12, G15, G18-G20, G22, G25 (10 declarations; G01 is unavailable).
+Omit G03-G07, G10-G11, G13-G14, G16-G17 and G23-G24 from 1.34 declarations.
+The applicable 1.34 negative twins are D01-D04 and the G18/G19 wrong-key twins.
+The renewal testsuite and its CSIDriver configuration are token-only and need
+not be backported to 1.34. All G cases are applicable declarations on
+1.35/master, subject to the explicit capability and contract limits above.
+Keep release-specific V1/M declarations and G01 unchanged when adapting the
+shared fixture helpers; share-scoped roles and per-operation Secret handling
+are common to both releases.
+
 ### Prerequisite
  - Make sure a kubernetes cluster(with version >= 1.13) is set up and kubeconfig is under `$HOME/.kube/config`
  - Copy out `/etc/kubernetes/azure.json` under one agent node to local machine
@@ -24,7 +156,27 @@ make e2e-test
 export TEST_MIGRATION="true"
 export AZURE_STORAGE_DRIVER="kubernetes.io/azure-file"
 make e2e-test
+
+# Force a serial run, or change the parallel process count
+make e2e-test E2E_PROCS=1
+make e2e-test E2E_PROCS=8
 ```
+
+ - On Linux CSI clusters, `make e2e-test` runs specs on 4 parallel Ginkgo
+   processes by default, using the Ginkgo CLI version pinned in `go.mod`
+   (installed under `_output/tools`). Windows, migration and in-tree runs stay
+   serial. `GINKGO_FLAGS` keeps the `-ginkgo.` test-binary syntax; the prefix is
+   dropped for the Ginkgo CLI. Driver install, workload identity setup and
+   teardown run once; each process starts its own in-process driver.
+ - Specs that change cluster-wide state are marked `Serial` and run on one
+   process after all parallel specs: the smb/nfs driver restart cases, the
+   suite workload identity token case, G05-G07 renewal and G22-G24 node plugin
+   restart. G02-G04 share one private-endpoint account and run as an `Ordered`
+   group. Pre-Provisioned specs are also `Serial`: their in-process driver could
+   otherwise select another process's default account before it finishes
+   provisioning. Other specs use their own accounts, identities, namespaces or claim
+   names; configured-WI cases share the `default` namespace with per-case claim
+   names.
 
  - resize e2e test needs more environment setting, export following environment variables from `azure.json`
 ```console
