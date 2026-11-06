@@ -23,12 +23,15 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	armauthorization "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	armcompute "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	armmsi "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
+	armnetwork "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
 	resources "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	storage "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v2"
 	"github.com/google/uuid"
@@ -46,7 +49,12 @@ type Client struct {
 	filesharesClient fileshareclient.Interface
 	vmssClient       *armcompute.VirtualMachineScaleSetsClient
 	vmClient         *armcompute.VirtualMachinesClient
+	vmssVMClient     *armcompute.VirtualMachineScaleSetVMsClient
+	identitiesClient *armmsi.UserAssignedIdentitiesClient
 	roleClient       *armauthorization.RoleAssignmentsClient
+	ficClient        *armmsi.FederatedIdentityCredentialsClient
+	endpointsClient  *armnetwork.PrivateEndpointsClient
+	interfacesClient *armnetwork.InterfacesClient
 }
 
 func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aadFederatedTokenFile string) (*Client, error) {
@@ -98,6 +106,27 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 	if err != nil {
 		return nil, fmt.Errorf("failed to create role assignments client: %v", err)
 	}
+	ficClient, err := armmsi.NewFederatedIdentityCredentialsClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create federated identity credentials client: %v", err)
+	}
+	identitiesClient, err := armmsi.NewUserAssignedIdentitiesClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create managed identities client: %w", err)
+	}
+	vmssVMClient, err := armcompute.NewVirtualMachineScaleSetVMsClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create VMSS instance client: %w", err)
+	}
+
+	endpointsClient, err := armnetwork.NewPrivateEndpointsClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create private endpoints client: %w", err)
+	}
+	interfacesClient, err := armnetwork.NewInterfacesClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create network interfaces client: %w", err)
+	}
 
 	return &Client{
 		subscriptionID:   subscriptionID,
@@ -106,7 +135,12 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 		filesharesClient: factory.GetFileShareClient(),
 		vmssClient:       vmssClient,
 		vmClient:         vmClient,
+		vmssVMClient:     vmssVMClient,
+		identitiesClient: identitiesClient,
 		roleClient:       roleClient,
+		ficClient:        ficClient,
+		endpointsClient:  endpointsClient,
+		interfacesClient: interfacesClient,
 	}, nil
 }
 
@@ -323,5 +357,90 @@ func (az *Client) EnsureNodeStorageFileDataRole(ctx context.Context, resourceGro
 		log.Printf("Successfully assigned Storage File Data SMB MI Admin role to principal %s", principalID)
 	}
 	log.Printf("Successfully assigned Storage File Data SMB MI Admin role to all %d node identities", len(principalIDs))
+	return nil
+}
+
+// NodeIdentityInfo holds identity information for a node's user-assigned identity.
+type NodeIdentityInfo struct {
+	PrincipalID string
+	ClientID    string
+	ResourceID  string
+}
+
+// GetNodeIdentityInfo returns the principalID, clientID, and resource ID of the first
+// user-assigned identity found on VMSS or VMs in the given resource group.
+// All values come from the same identity. Resource IDs are sorted for determinism.
+func (az *Client) GetNodeIdentityInfo(ctx context.Context, resourceGroup string) (*NodeIdentityInfo, error) {
+	// Check VMSS first
+	vmssPager := az.vmssClient.NewListPager(resourceGroup, nil)
+	for vmssPager.More() {
+		page, pageErr := vmssPager.NextPage(ctx)
+		if pageErr != nil {
+			return nil, fmt.Errorf("failed to list VMSS: %v", pageErr)
+		}
+		for _, vmss := range page.Value {
+			if vmss.Identity == nil {
+				continue
+			}
+			if info := pickIdentity(vmss.Identity.UserAssignedIdentities); info != nil {
+				return info, nil
+			}
+		}
+	}
+
+	// Check VMs
+	vmPager := az.vmClient.NewListPager(resourceGroup, nil)
+	for vmPager.More() {
+		page, pageErr := vmPager.NextPage(ctx)
+		if pageErr != nil {
+			return nil, fmt.Errorf("failed to list VMs: %v", pageErr)
+		}
+		for _, vm := range page.Value {
+			if vm.Identity == nil {
+				continue
+			}
+			if info := pickIdentity(vm.Identity.UserAssignedIdentities); info != nil {
+				return info, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("no user-assigned identity with both principalID and clientID found in resource group %s", resourceGroup)
+}
+
+// pickIdentity selects the first valid identity from a map, sorting keys for determinism.
+func pickIdentity(identities map[string]*armcompute.UserAssignedIdentitiesValue) *NodeIdentityInfo {
+	keys := make([]string, 0, len(identities))
+	for k := range identities {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, resourceID := range keys {
+		uaIdentity := identities[resourceID]
+		if uaIdentity != nil && uaIdentity.ClientID != nil && *uaIdentity.ClientID != "" &&
+			uaIdentity.PrincipalID != nil && *uaIdentity.PrincipalID != "" {
+			return &NodeIdentityInfo{
+				PrincipalID: *uaIdentity.PrincipalID,
+				ClientID:    *uaIdentity.ClientID,
+				ResourceID:  resourceID,
+			}
+		}
+	}
+	return nil
+}
+
+// CreateFederatedIdentityCredential creates or updates a federated identity credential
+// for workload identity authentication.
+func (az *Client) CreateFederatedIdentityCredential(ctx context.Context, identityRG, identityName, ficName, issuerURL, subject string) error {
+	_, err := az.ficClient.CreateOrUpdate(ctx, identityRG, identityName, ficName, armmsi.FederatedIdentityCredential{
+		Properties: &armmsi.FederatedIdentityCredentialProperties{
+			Issuer:    to.Ptr(issuerURL),
+			Subject:   to.Ptr(subject),
+			Audiences: []*string{to.Ptr("api://AzureADTokenExchange")},
+		},
+	}, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create/update federated identity credential %s: %v", ficName, err)
+	}
 	return nil
 }
