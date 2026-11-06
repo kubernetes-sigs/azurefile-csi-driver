@@ -31,6 +31,7 @@ import (
 	armauthorization "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	armcompute "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	armmsi "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
+	armnetwork "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
 	resources "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	storage "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v2"
 	"github.com/google/uuid"
@@ -48,8 +49,12 @@ type Client struct {
 	filesharesClient fileshareclient.Interface
 	vmssClient       *armcompute.VirtualMachineScaleSetsClient
 	vmClient         *armcompute.VirtualMachinesClient
+	vmssVMClient     *armcompute.VirtualMachineScaleSetVMsClient
+	identitiesClient *armmsi.UserAssignedIdentitiesClient
 	roleClient       *armauthorization.RoleAssignmentsClient
 	ficClient        *armmsi.FederatedIdentityCredentialsClient
+	endpointsClient  *armnetwork.PrivateEndpointsClient
+	interfacesClient *armnetwork.InterfacesClient
 }
 
 func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aadFederatedTokenFile string) (*Client, error) {
@@ -105,6 +110,23 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 	if err != nil {
 		return nil, fmt.Errorf("failed to create federated identity credentials client: %v", err)
 	}
+	identitiesClient, err := armmsi.NewUserAssignedIdentitiesClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create managed identities client: %w", err)
+	}
+	vmssVMClient, err := armcompute.NewVirtualMachineScaleSetVMsClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create VMSS instance client: %w", err)
+	}
+
+	endpointsClient, err := armnetwork.NewPrivateEndpointsClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create private endpoints client: %w", err)
+	}
+	interfacesClient, err := armnetwork.NewInterfacesClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create network interfaces client: %w", err)
+	}
 
 	return &Client{
 		subscriptionID:   subscriptionID,
@@ -113,8 +135,12 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 		filesharesClient: factory.GetFileShareClient(),
 		vmssClient:       vmssClient,
 		vmClient:         vmClient,
+		vmssVMClient:     vmssVMClient,
+		identitiesClient: identitiesClient,
 		roleClient:       roleClient,
 		ficClient:        ficClient,
+		endpointsClient:  endpointsClient,
+		interfacesClient: interfacesClient,
 	}, nil
 }
 

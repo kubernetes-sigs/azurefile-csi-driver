@@ -149,6 +149,7 @@ type TestPersistentVolumeClaim struct {
 	requestedPersistentVolumeClaim *v1.PersistentVolumeClaim
 	dataSource                     *v1.TypedLocalObjectReference
 	AccessModes                    []v1.PersistentVolumeAccessMode
+	VolumeName                     string
 }
 
 func NewTestPersistentVolumeClaim(c clientset.Interface, ns *v1.Namespace, claimSize string, volumeMode VolumeMode, sc *storagev1.StorageClass) *TestPersistentVolumeClaim {
@@ -193,6 +194,7 @@ func (t *TestPersistentVolumeClaim) Create(ctx context.Context) {
 		ginkgo.By("setting access modes")
 		t.requestedPersistentVolumeClaim.Spec.AccessModes = t.AccessModes
 	}
+	t.requestedPersistentVolumeClaim.Spec.VolumeName = t.VolumeName
 	t.persistentVolumeClaim, err = t.client.CoreV1().PersistentVolumeClaims(t.namespace.Name).Create(ctx, t.requestedPersistentVolumeClaim, metav1.CreateOptions{})
 	framework.ExpectNoError(err)
 }
@@ -721,7 +723,7 @@ func (t *TestPod) WaitForFailedMountError(ctx context.Context) {
 		ctx,
 		t.client,
 		t.namespace.Name,
-		fields.Set{"reason": events.FailedMountVolume}.AsSelector().String(),
+		fields.Set{"reason": events.FailedMountVolume, "involvedObject.name": t.pod.Name}.AsSelector().String(),
 		"",
 		pollLongTimeout)
 	framework.ExpectNoError(err)
@@ -827,6 +829,15 @@ func (t *TestPod) SetupInlineVolume(name, mountPath, secretName, shareName strin
 }
 
 func (t *TestPod) SetupCSIInlineVolume(name, mountPath, secretName, shareName, server string, readOnly bool) {
+	t.SetupCSIInlineVolumeWithAttributes(name, mountPath, map[string]string{
+		"secretName":   secretName,
+		"shareName":    shareName,
+		"server":       server,
+		"mountOptions": "dir_mode=0755,file_mode=0721,cache=singleclient",
+	}, readOnly)
+}
+
+func (t *TestPod) SetupCSIInlineVolumeWithAttributes(name, mountPath string, attributes map[string]string, readOnly bool) {
 	volumeMount := v1.VolumeMount{
 		Name:      name,
 		MountPath: mountPath,
@@ -838,14 +849,9 @@ func (t *TestPod) SetupCSIInlineVolume(name, mountPath, secretName, shareName, s
 		Name: name,
 		VolumeSource: v1.VolumeSource{
 			CSI: &v1.CSIVolumeSource{
-				Driver: azurefile.DefaultDriverName,
-				VolumeAttributes: map[string]string{
-					"secretName":   secretName,
-					"shareName":    shareName,
-					"server":       server,
-					"mountOptions": "dir_mode=0755,file_mode=0721,cache=singleclient",
-				},
-				ReadOnly: ptr.To(readOnly),
+				Driver:           azurefile.DefaultDriverName,
+				VolumeAttributes: attributes,
+				ReadOnly:         ptr.To(readOnly),
 			},
 		},
 	}
@@ -858,6 +864,11 @@ func (t *TestPod) SetNodeSelector(nodeSelector map[string]string) {
 
 func (t *TestPod) Cleanup(ctx context.Context) {
 	cleanupPodOrFail(ctx, t.client, t.pod.Name, t.namespace.Name)
+}
+
+func (t *TestPod) CleanupAndWait(ctx context.Context) {
+	t.Cleanup(ctx)
+	framework.ExpectNoError(e2epod.WaitForPodNotFoundInNamespace(ctx, t.client, t.pod.Name, t.namespace.Name, e2epod.PodDeleteTimeout))
 }
 
 func (t *TestPod) Logs(ctx context.Context) ([]byte, error) {
