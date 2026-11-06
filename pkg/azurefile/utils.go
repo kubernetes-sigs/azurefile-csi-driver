@@ -370,7 +370,20 @@ func SetVolumeOwnership(path, gid, policy string) error {
 }
 
 // setKeyValueInMap set key/value pair in map
-// key in the map is case insensitive, if key already exists, overwrite existing value
+// Replace all case-insensitive aliases with the supplied key so downstream
+// parsers using strings.ToLower observe the same value.
+func setKeyValueInMap(m map[string]string, key, value string) {
+	if m == nil {
+		return
+	}
+	for k := range m {
+		if strings.EqualFold(k, key) {
+			delete(m, k)
+		}
+	}
+	m[key] = value
+}
+
 // caseCollidingKey reports the first pair of keys in m that collide under
 // Unicode case folding. The returned string contains the two lowercased keys
 // in lexical order.
@@ -391,19 +404,6 @@ func caseCollidingKey(m map[string]string) (string, bool) {
 		}
 	}
 	return "", false
-}
-
-func setKeyValueInMap(m map[string]string, key, value string) {
-	if m == nil {
-		return
-	}
-	for k := range m {
-		if strings.EqualFold(k, key) {
-			m[k] = value
-			return
-		}
-	}
-	m[key] = value
 }
 
 // getValueInMap get value from map by key
