@@ -715,7 +715,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				d.accountSearchCache.Set(lockKey, accountName)
 				d.volMap.Store(volName, accountName)
 				if accountKey != "" {
-					d.accountCacheMap.Set(accountName, accountKey)
+					d.accountCacheMap.Set(accountKeyCacheKey(subsID, accountName, resourceGroup, getLatestAccountKey), accountKey)
 				}
 			}
 		}
