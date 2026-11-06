@@ -22,6 +22,10 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	armstorage "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v2"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
 )
 
 func TestCreateFileShare(t *testing.T) {
@@ -53,6 +57,50 @@ func TestCreateFileShare(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, tc.testFunc)
+	}
+}
+
+func TestNewShareCreateOptions(t *testing.T) {
+	tests := []struct {
+		name     string
+		options  *ShareOptions
+		expected *share.CreateOptions
+	}{
+		{
+			name:     "smb share only sets quota",
+			options:  &ShareOptions{Name: "share", Protocol: armstorage.EnabledProtocolsSMB, RequestGiB: 100},
+			expected: &share.CreateOptions{Quota: to.Ptr(int32(100))},
+		},
+		{
+			name: "nfs share sets protocol and the other options",
+			options: &ShareOptions{
+				Name:                      "share",
+				Protocol:                  armstorage.EnabledProtocolsNFS,
+				RequestGiB:                200,
+				AccessTier:                "Premium",
+				RootSquash:                "NoRootSquash",
+				Metadata:                  map[string]*string{"key": to.Ptr("value")},
+				ProvisionedIops:           to.Ptr(int32(3000)),
+				ProvisionedBandwidthMibps: to.Ptr(int32(125)),
+			},
+			expected: &share.CreateOptions{
+				Quota:                          to.Ptr(int32(200)),
+				EnabledProtocols:               to.Ptr("NFS"),
+				AccessTier:                     to.Ptr(share.AccessTierPremium),
+				RootSquash:                     to.Ptr(share.RootSquashNoRootSquash),
+				Metadata:                       map[string]*string{"key": to.Ptr("value")},
+				ShareProvisionedIops:           to.Ptr(int64(3000)),
+				ShareProvisionedBandwidthMibps: to.Ptr(int64(125)),
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual := newShareCreateOptions(test.options)
+			if !reflect.DeepEqual(actual, test.expected) {
+				t.Errorf("actual: %+v, expected: %+v", actual, test.expected)
+			}
+		})
 	}
 }
 
