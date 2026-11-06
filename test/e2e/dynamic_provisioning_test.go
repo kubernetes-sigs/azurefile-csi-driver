@@ -1418,6 +1418,12 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		defer tsecret.Cleanup(ctx)
 
 		server := "smb-server.default.svc.cluster.local"
+		if skipDriverInstall && !isWindowsCluster {
+			// An externally installed driver may not use cluster DNS, so mount by ClusterIP.
+			svc, err := cs.CoreV1().Services("default").Get(ctx, "smb-server", metav1.GetOptions{})
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			server = svc.Spec.ClusterIP
+		}
 		if isWindowsCluster {
 			err := os.Chdir("../..")
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -1983,6 +1989,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		scParameters := map[string]string{
 			"skuName":                        "Premium_LRS",
 			"mountWithWorkloadIdentityToken": "true",
+			"clientID":                       wiClientID,
 		}
 		test := testsuites.DynamicallyProvisionedCmdVolumeTest{
 			CSIDriver:              testDriver,
