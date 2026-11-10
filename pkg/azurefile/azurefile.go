@@ -107,6 +107,7 @@ const (
 	serverNameField                   = "server"
 	fsTypeField                       = "fstype"
 	protocolField                     = "protocol"
+	disablePersistentHandlesField     = "disablepersistenthandles"
 	matchTagsField                    = "matchtags"
 	tagsField                         = "tags"
 	storageAccountField               = "storageaccount"
@@ -761,6 +762,30 @@ func appendDefaultNfsMountOptions(mountOptions []string, appendNoResvPortOption,
 	}
 
 	return allMountOptions
+}
+
+func applyPersistentHandleMountOption(mountOptions []string, disable bool) []string {
+	if !disable {
+		return mountOptions
+	}
+
+	newMountOptions := make([]string, 0, len(mountOptions)+1)
+	for _, option := range mountOptions {
+		parts := strings.Split(option, ",")
+		filtered := make([]string, 0, len(parts))
+		for _, part := range parts {
+			token := strings.TrimSpace(part)
+			if strings.EqualFold(token, "persistenthandles") || strings.EqualFold(token, "nopersistenthandles") {
+				continue
+			}
+			filtered = append(filtered, token)
+		}
+		if len(filtered) > 0 {
+			newMountOptions = append(newMountOptions, strings.Join(filtered, ","))
+		}
+	}
+
+	return append(newMountOptions, "nopersistenthandles")
 }
 
 // get storage account from secrets map

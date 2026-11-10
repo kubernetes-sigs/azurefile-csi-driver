@@ -296,6 +296,53 @@ func TestAppendDefaultNfsMountOptions(t *testing.T) {
 	}
 }
 
+func TestApplyPersistentHandleMountOption(t *testing.T) {
+	tests := []struct {
+		name        string
+		mountOption []string
+		disable     bool
+		expected    []string
+	}{
+			{
+				name:        "disabled keeps options",
+				mountOption: []string{"dir_mode=0777", "persistenthandles"},
+				disable:     false,
+				expected:    []string{"dir_mode=0777", "persistenthandles"},
+			},
+			{
+				name:        "enabled appends nopersistenthandles",
+				mountOption: []string{"dir_mode=0777"},
+				disable:     true,
+				expected:    []string{"dir_mode=0777", "nopersistenthandles"},
+			},
+			{
+				name:        "enabled replaces persistenthandles",
+				mountOption: []string{"persistenthandles"},
+				disable:     true,
+				expected:    []string{"nopersistenthandles"},
+			},
+			{
+				name:        "enabled removes duplicates and preserves grouped options",
+				mountOption: []string{"vers=3.1.1,persistenthandles,cache=strict", "nopersistenthandles"},
+				disable:     true,
+				expected:    []string{"vers=3.1.1,cache=strict", "nopersistenthandles"},
+			},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			original := append([]string(nil), test.mountOption...)
+			result := applyPersistentHandleMountOption(test.mountOption, test.disable)
+			if !reflect.DeepEqual(result, test.expected) {
+				t.Errorf("input: %q, applyPersistentHandleMountOption result: %q, expected: %q", test.mountOption, result, test.expected)
+			}
+			if !reflect.DeepEqual(test.mountOption, original) {
+				t.Errorf("input slice changed: got %q, expected %q", test.mountOption, original)
+			}
+		})
+	}
+}
+
 func TestGetFileShareInfo(t *testing.T) {
 	tests := []struct {
 		id                string
