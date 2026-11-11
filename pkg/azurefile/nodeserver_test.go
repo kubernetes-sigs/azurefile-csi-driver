@@ -32,9 +32,13 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	armnetwork "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
+	armstorage "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v2"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	volume "github.com/kata-containers/kata-containers/src/runtime/pkg/direct-volume"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -54,7 +58,9 @@ import (
 	"sigs.k8s.io/azurefile-csi-driver/test/utils/testutil"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/accountclient/mock_accountclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/interfaceclient/mock_interfaceclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/mock_azclient"
+	"sigs.k8s.io/cloud-provider-azure/pkg/azclient/privateendpointclient/mock_privateendpointclient"
 	"sigs.k8s.io/cloud-provider-azure/pkg/provider/storage"
 )
 
@@ -1105,12 +1111,13 @@ func TestNodeStageVolume(t *testing.T) {
 	)
 
 	volContextEmptyDiskName := map[string]string{
-		fsTypeField:     "ext4",
-		protocolField:   "nfs",
-		diskNameField:   "",
-		shareNameField:  "test_sharename",
-		serverNameField: "test_servername",
-		folderNameField: "test_folder",
+		fsTypeField:         "ext4",
+		protocolField:       "nfs",
+		diskNameField:       "",
+		shareNameField:      "test_sharename",
+		serverNameField:     "test_servername",
+		folderNameField:     "test_folder",
+		storageAccountField: "k8s",
 	}
 	volContextEmptyShareName := map[string]string{
 		fsTypeField:     "smb",
@@ -1150,6 +1157,10 @@ func TestNodeStageVolume(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockResolver := NewMockResolver(ctrl)
+	mockResolver.EXPECT().LookupIPAddr(gomock.Any(), gomock.Any()).Return([]net.IPAddr{
+		{IP: net.ParseIP("192.168.1.1")}, {IP: net.ParseIP("10.10.24.244")},
+	}, nil).AnyTimes()
+	d.resolver = mockResolver
 	mockDirectVolume := NewMockDirectVolume(ctrl)
 	d.isKataNode = false
 
@@ -1281,7 +1292,7 @@ func TestNodeStageVolume(t *testing.T) {
 					serverNameField: "test_servername",
 				}},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Errorf(codes.Internal, "accountName() or accountKey is empty"),
+				DefaultError: status.Error(codes.InvalidArgument, "invalid server error: invalid server configuration: account name or storage endpoint suffix is empty"),
 			},
 		},
 		{
@@ -1298,7 +1309,7 @@ func TestNodeStageVolume(t *testing.T) {
 					pvNameKey:                  "my-pv",
 				}},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Errorf(codes.Internal, "accountName() or accountKey is empty"),
+				DefaultError: status.Error(codes.InvalidArgument, "invalid server error: invalid server configuration: account name or storage endpoint suffix is empty"),
 			},
 		},
 		{
@@ -1312,7 +1323,7 @@ func TestNodeStageVolume(t *testing.T) {
 					folderNameField:            "/aa/bb",
 				}},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Errorf(codes.Internal, "accountName() or accountKey is empty"),
+				DefaultError: status.Error(codes.InvalidArgument, "invalid server error: invalid server configuration: account name or storage endpoint suffix is empty"),
 			},
 		},
 		{
@@ -1473,6 +1484,7 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeContext: map[string]string{
 					fsTypeField:           "nfs",
 					protocolField:         "nfs",
+					storageAccountField:   "k8s",
 					diskNameField:         "test_disk.vhd",
 					shareNameField:        "test_sharename",
 					serverNameField:       "test_servername",
@@ -1495,6 +1507,7 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeContext: map[string]string{
 					fsTypeField:           "nfs",
 					protocolField:         "nfs",
+					storageAccountField:   "k8s",
 					diskNameField:         "test_disk.vhd",
 					shareNameField:        "test_sharename",
 					serverNameField:       "test_servername",
@@ -1541,6 +1554,7 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeContext: map[string]string{
 					fsTypeField:           "nfs",
 					protocolField:         "nfs",
+					storageAccountField:   "k8s",
 					diskNameField:         "test_disk.vhd",
 					shareNameField:        "test_sharename",
 					serverNameField:       "test_servername",
@@ -1748,7 +1762,7 @@ func TestNodeStageVolume(t *testing.T) {
 				VolumeCapability:  &stdVolCap,
 				VolumeContext: map[string]string{
 					shareNameField:             "test_sharename",
-					serverNameField:            "10.10.24.244",
+					serverNameField:            "10.10.24.245",
 					storageEndpointSuffixField: ".core.windows.net",
 					storageAccountField:        "10.10.24.244",
 					ephemeralField:             "true",
@@ -1756,7 +1770,7 @@ func TestNodeStageVolume(t *testing.T) {
 				Secrets: secrets,
 			},
 			expectedErr: testutil.TestError{
-				DefaultError: status.Error(codes.InvalidArgument, "invalid server error: invalid server \"10.10.24.244\": IP addresses are not allowed"),
+				DefaultError: status.Error(codes.InvalidArgument, "invalid server error: invalid server \"10.10.24.245\": address must match a file endpoint of storage account \"k8s\""),
 			},
 		},
 		{
@@ -1845,6 +1859,11 @@ func TestNodeStageVolume(t *testing.T) {
 		clientFactory := mock_azclient.NewMockClientFactory(ctrl)
 		mockAccountClient := mock_accountclient.NewMockInterface(ctrl)
 		clientFactory.EXPECT().GetAccountClientForSub(gomock.Any()).Return(mockAccountClient, nil).AnyTimes()
+		mockAccountClient.EXPECT().GetProperties(gomock.Any(), gomock.Any(), gomock.Any(), nil).Return(&armstorage.Account{
+			Properties: &armstorage.AccountProperties{
+				PrimaryEndpoints: &armstorage.Endpoints{File: to.Ptr("https://k8s.file.core.windows.net/")},
+			},
+		}, nil).AnyTimes()
 		storageEndpointSuffix := test.storageEndpointSuffix
 		if storageEndpointSuffix == "" {
 			storageEndpointSuffix = defaultStorageEndPointSuffix
@@ -1999,7 +2018,7 @@ func TestValidateInlineSMBMountOptions(t *testing.T) {
 	}
 }
 
-func TestValidateInlineVolumeServer(t *testing.T) {
+func TestValidateServerAddress(t *testing.T) {
 	tests := []struct {
 		desc          string
 		server        string
@@ -2073,7 +2092,7 @@ func TestValidateInlineVolumeServer(t *testing.T) {
 			server:        "10.0.0.1",
 			accountName:   "account",
 			suffix:        "core.windows.net",
-			expectedError: `invalid server "10.0.0.1": IP addresses are not allowed`,
+			expectedError: `invalid server "10.0.0.1": address must match a file endpoint of storage account "account"`,
 		},
 		{
 			desc:          "explicit port",
@@ -2094,28 +2113,28 @@ func TestValidateInlineVolumeServer(t *testing.T) {
 			server:        "other.file.core.windows.net",
 			accountName:   "account",
 			suffix:        "core.windows.net",
-			expectedError: `invalid server "other.file.core.windows.net": hostname must match storage account "account" in the configured Azure cloud`,
+			expectedError: `invalid server "other.file.core.windows.net": address must match a file endpoint of storage account "account"`,
 		},
 		{
 			desc:          "wrong cloud suffix",
 			server:        "account.file.example.com",
 			accountName:   "account",
 			suffix:        "core.windows.net",
-			expectedError: `invalid server "account.file.example.com": hostname must match storage account "account" in the configured Azure cloud`,
+			expectedError: `invalid server "account.file.example.com": address must match a file endpoint of storage account "account"`,
 		},
 		{
 			desc:          "invalid Azure DNS zone",
 			server:        "account.z0.file.storage.azure.net",
 			accountName:   "account",
 			suffix:        "core.windows.net",
-			expectedError: `invalid server "account.z0.file.storage.azure.net": hostname must match storage account "account" in the configured Azure cloud`,
+			expectedError: `invalid server "account.z0.file.storage.azure.net": address must match a file endpoint of storage account "account"`,
 		},
 		{
 			desc:          "Azure DNS zone unavailable in sovereign cloud",
 			server:        "account.z32.file.storage.azure.net",
 			accountName:   "account",
 			suffix:        "core.chinacloudapi.cn",
-			expectedError: `invalid server "account.z32.file.storage.azure.net": hostname must match storage account "account" in the configured Azure cloud`,
+			expectedError: `invalid server "account.z32.file.storage.azure.net": address must match a file endpoint of storage account "account"`,
 		},
 		{
 			desc:          "empty account",
@@ -2133,11 +2152,170 @@ func TestValidateInlineVolumeServer(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			err := validateInlineVolumeServer(test.server, test.accountName, test.suffix)
+			d := NewFakeDriver()
+			if strings.Contains(test.expectedError, "address must match") {
+				ctrl := gomock.NewController(t)
+				factory := mock_azclient.NewMockClientFactory(ctrl)
+				client := mock_accountclient.NewMockInterface(ctrl)
+				factory.EXPECT().GetAccountClientForSub("sub").Return(client, nil)
+				client.EXPECT().GetProperties(gomock.Any(), "rg", strings.ToLower(test.accountName), nil).
+					Return(&armstorage.Account{Properties: &armstorage.AccountProperties{}}, nil)
+				d.cloud.ComputeClientFactory = factory
+				resolver := NewMockResolver(ctrl)
+				resolver.EXPECT().LookupIPAddr(gomock.Any(), test.server).
+					Return([]net.IPAddr{{IP: net.ParseIP("10.0.0.1")}}, nil).AnyTimes()
+				d.resolver = resolver
+			}
+			err := d.validateServerAddress(context.Background(), "sub", "rg", test.server, test.accountName, test.suffix)
 			if test.expectedError == "" {
 				assert.NoError(t, err)
 			} else {
 				assert.EqualError(t, err, test.expectedError)
+			}
+		})
+	}
+}
+
+func TestValidateServerAddressCustomEndpoints(t *testing.T) {
+	const primaryHost = "account.file.core.windows.net"
+	const privateID = "/subscriptions/sub/resourceGroups/private-rg/providers/Microsoft.Network/privateEndpoints/endpoint"
+	ipAddresses := func(addresses ...string) []net.IPAddr {
+		result := make([]net.IPAddr, 0, len(addresses))
+		for _, address := range addresses {
+			result = append(result, net.IPAddr{IP: net.ParseIP(address)})
+		}
+		return result
+	}
+	tests := []struct {
+		name        string
+		server      string
+		serverIPs   []net.IPAddr
+		primaryIPs  []net.IPAddr
+		serverErr   error
+		primaryErr  error
+		accountErr  error
+		privateErr  error
+		private     bool
+		pending     bool
+		blob        bool
+		staticIP    bool
+		nicIP       bool
+		nicErr      error
+		noProps     bool
+		noPrimary   bool
+		expectedErr string
+	}{
+		{name: "primary IP", server: "10.0.0.1", primaryIPs: ipAddresses("10.0.0.1")},
+		{name: "primary alias", server: "files.example.com", serverIPs: ipAddresses("10.0.0.1"), primaryIPs: ipAddresses("10.0.0.2", "10.0.0.1")},
+		{name: "IPv6", server: "[2001:db8::1]", primaryIPs: ipAddresses("2001:db8::1")},
+		{name: "unbracketed IPv6", server: "2001:db8::1", primaryIPs: ipAddresses("2001:db8::1")},
+		{name: "IPv4 mapped IPv6", server: "[::ffff:10.0.0.1]", primaryIPs: ipAddresses("10.0.0.1")},
+		{name: "unrelated IP", server: "10.0.0.2", primaryIPs: ipAddresses("10.0.0.1"), expectedErr: "address must match"},
+		{name: "alias with unrelated address", server: "files.example.com", serverIPs: ipAddresses("10.0.0.1", "10.0.0.2"), primaryIPs: ipAddresses("10.0.0.1"), expectedErr: "address must match"},
+		{name: "server DNS failure", server: "files.example.com", serverErr: errors.New("DNS unavailable"), expectedErr: "resolve server"},
+		{name: "empty DNS result", server: "files.example.com", expectedErr: "resolved to no IP addresses"},
+		{name: "primary DNS failure", server: "10.0.0.1", primaryErr: errors.New("DNS unavailable"), expectedErr: "resolve primary file endpoint"},
+		{name: "account API failure", server: "10.0.0.1", accountErr: errors.New("access denied"), expectedErr: "access denied"},
+		{name: "missing account properties", server: "10.0.0.1", noProps: true, expectedErr: "has no properties"},
+		{name: "missing endpoints", server: "10.0.0.1", noPrimary: true, expectedErr: "address must match"},
+		{name: "private IP", server: "10.0.0.3", private: true},
+		{name: "private alias", server: "files.example.com", serverIPs: ipAddresses("10.0.0.3"), private: true},
+		{name: "private endpoint without primary", server: "10.0.0.3", private: true, noPrimary: true},
+		{name: "private endpoint despite primary DNS failure", server: "10.0.0.3", private: true, primaryErr: errors.New("DNS unavailable")},
+		{name: "pending private endpoint", server: "10.0.0.3", private: true, pending: true, expectedErr: "address must match"},
+		{name: "blob private endpoint", server: "10.0.0.3", private: true, blob: true, expectedErr: "address must match"},
+		{name: "private static IP", server: "10.0.0.3", private: true, staticIP: true},
+		{name: "private dynamic NIC IP", server: "10.0.0.3", private: true, nicIP: true},
+		{name: "blob NIC IP", server: "10.0.0.3", private: true, nicIP: true, blob: true, expectedErr: "address must match"},
+		{name: "NIC API failure", server: "10.0.0.3", private: true, nicIP: true, nicErr: errors.New("NIC access denied"), expectedErr: "NIC access denied"},
+		{name: "private API failure", server: "10.0.0.3", private: true, privateErr: errors.New("network access denied"), expectedErr: "network access denied"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			d := NewFakeDriver()
+			resolver := NewMockResolver(ctrl)
+			d.resolver = resolver
+			factory := mock_azclient.NewMockClientFactory(ctrl)
+			accountClient := mock_accountclient.NewMockInterface(ctrl)
+			d.cloud.ComputeClientFactory = factory
+			d.cloud.NetworkClientFactory = factory
+			d.cloud.SubscriptionID = "sub"
+			factory.EXPECT().GetAccountClientForSub("sub").Return(accountClient, nil)
+			properties := &armstorage.AccountProperties{}
+			if !test.noPrimary {
+				properties.PrimaryEndpoints = &armstorage.Endpoints{File: to.Ptr("https://" + primaryHost + "/")}
+			}
+			if test.private {
+				state := armstorage.PrivateEndpointServiceConnectionStatusApproved
+				if test.pending {
+					state = armstorage.PrivateEndpointServiceConnectionStatusPending
+				}
+				properties.PrivateEndpointConnections = []*armstorage.PrivateEndpointConnection{
+					nil, {}, {Properties: &armstorage.PrivateEndpointConnectionProperties{
+						PrivateEndpoint:                   &armstorage.PrivateEndpoint{ID: to.Ptr(privateID)},
+						PrivateLinkServiceConnectionState: &armstorage.PrivateLinkServiceConnectionState{Status: &state},
+					}},
+				}
+				if !test.pending {
+					endpointClient := mock_privateendpointclient.NewMockInterface(ctrl)
+					factory.EXPECT().GetPrivateEndpointClient().Return(endpointClient)
+					group := "file"
+					if test.blob {
+						group = "blob"
+					}
+					endpointProperties := &armnetwork.PrivateEndpointProperties{}
+					if test.nicIP {
+						endpointProperties.NetworkInterfaces = []*armnetwork.Interface{
+							{ID: to.Ptr("/subscriptions/sub/resourceGroups/nic-rg/providers/Microsoft.Network/networkInterfaces/nic")},
+						}
+						nicClient := mock_interfaceclient.NewMockInterface(ctrl)
+						factory.EXPECT().GetInterfaceClient().Return(nicClient)
+						nicClient.EXPECT().Get(gomock.Any(), "nic-rg", "nic", nil).Return(&armnetwork.Interface{
+							Properties: &armnetwork.InterfacePropertiesFormat{
+								IPConfigurations: []*armnetwork.InterfaceIPConfiguration{
+									{Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
+										PrivateIPAddress: to.Ptr("10.0.0.3"),
+										PrivateLinkConnectionProperties: &armnetwork.InterfaceIPConfigurationPrivateLinkConnectionProperties{
+											GroupID: to.Ptr(group),
+										},
+									}},
+								},
+							},
+						}, test.nicErr)
+					} else if test.staticIP {
+						endpointProperties.IPConfigurations = []*armnetwork.PrivateEndpointIPConfiguration{
+							{Properties: &armnetwork.PrivateEndpointIPConfigurationProperties{
+								GroupID: to.Ptr(group), PrivateIPAddress: to.Ptr("10.0.0.3"),
+							}},
+						}
+					} else {
+						endpointProperties.CustomDNSConfigs = []*armnetwork.CustomDNSConfigPropertiesFormat{
+							nil, {}, {Fqdn: to.Ptr("account." + group + ".core.windows.net"), IPAddresses: []*string{nil, to.Ptr("10.0.0.3")}},
+						}
+					}
+					endpointClient.EXPECT().Get(gomock.Any(), "private-rg", "endpoint", nil).
+						Return(&armnetwork.PrivateEndpoint{Properties: endpointProperties}, test.privateErr)
+				}
+			}
+			if test.noProps {
+				properties = nil
+			}
+			accountClient.EXPECT().GetProperties(gomock.Any(), "rg", "account", nil).
+				Return(&armstorage.Account{Properties: properties}, test.accountErr)
+			if test.accountErr == nil && !test.noProps {
+				if net.ParseIP(strings.Trim(test.server, "[]")) == nil {
+					resolver.EXPECT().LookupIPAddr(gomock.Any(), test.server).Return(test.serverIPs, test.serverErr)
+				}
+				if !test.noPrimary && test.serverErr == nil && (test.serverIPs != nil || net.ParseIP(strings.Trim(test.server, "[]")) != nil) {
+					resolver.EXPECT().LookupIPAddr(gomock.Any(), primaryHost).Return(test.primaryIPs, test.primaryErr)
+				}
+			}
+			err := d.validateServerAddress(context.Background(), "sub", "rg", test.server, "account", defaultStorageEndPointSuffix)
+			if test.expectedErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, test.expectedErr)
 			}
 		})
 	}

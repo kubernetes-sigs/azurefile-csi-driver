@@ -17,6 +17,7 @@ limitations under the License.
 package azurefile
 
 import (
+	context "context"
 	net "net"
 	reflect "reflect"
 
@@ -59,4 +60,19 @@ func (m *MockResolver) ResolveIPAddr(network, address string) (*net.IPAddr, erro
 func (mr *MockResolverMockRecorder) ResolveIPAddr(network, address interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveIPAddr", reflect.TypeOf((*MockResolver)(nil).ResolveIPAddr), network, address)
+}
+
+// LookupIPAddr mocks base method.
+func (m *MockResolver) LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LookupIPAddr", ctx, host)
+	ret0, _ := ret[0].([]net.IPAddr)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LookupIPAddr indicates an expected call of LookupIPAddr.
+func (mr *MockResolverMockRecorder) LookupIPAddr(ctx, host interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LookupIPAddr", reflect.TypeOf((*MockResolver)(nil).LookupIPAddr), ctx, host)
 }
