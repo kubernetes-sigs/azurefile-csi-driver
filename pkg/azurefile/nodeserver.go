@@ -370,7 +370,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	// don't respect fsType from req.GetVolumeCapability().GetMount().GetFsType()
 	// since it's ext4 by default on Linux
 	var fsType, server, protocol, ephemeralVolMountOptions, storageEndpointSuffix, folderName, clientID string
-	var ephemeralVol, createFolderIfNotExist, encryptInTransit, mountWithManagedIdentity, mountWithOAuthToken, mountWithWIToken bool
+	var ephemeralVol, createFolderIfNotExist, encryptInTransit, mountWithManagedIdentity, mountWithOAuthToken, mountWithWIToken, disablePersistentHandles bool
 	volumeMetadataReplaceMap := map[string]string{}
 
 	mountPermissions := d.mountPermissions
@@ -441,6 +441,11 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 			if err != nil {
 				return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("Volume context property %q must be a boolean value: %v", k, err))
 			}
+		case disablePersistentHandlesField:
+			disablePersistentHandles, err = strconv.ParseBool(v)
+			if err != nil {
+				return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("Volume context property %q must be a boolean value: %v", k, err))
+			}
 		case clientIDField:
 			clientID = v
 		}
@@ -456,6 +461,10 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	if !isSupportedProtocol(protocol) {
 		return nil, status.Errorf(codes.InvalidArgument, "protocol(%s) is not supported, supported protocol list: %v", protocol, supportedProtocolList)
+	}
+
+	if disablePersistentHandles && (protocol == nfs || fsType == nfs) {
+		return nil, status.Errorf(codes.InvalidArgument, "%s is only supported with SMB protocol", disablePersistentHandlesField)
 	}
 
 	if !isSupportedFSGroupChangePolicy(fsGroupChangePolicy) {
@@ -600,6 +609,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 				cifsMountFlags = util.JoinMountOptions(cifsMountFlags, strings.Split(ephemeralVolMountOptions, ","))
 			}
 			mountOptions = appendDefaultCifsMountOptions(cifsMountFlags, d.appendNoShareSockOption, d.appendClosetimeoOption)
+			mountOptions = applyPersistentHandleMountOption(mountOptions, disablePersistentHandles)
 			if isDiskMount {
 				// A VHD PV is loop-mounted from a plain data blob and never needs CIFS
 				// symlink emulation (enabled by default).

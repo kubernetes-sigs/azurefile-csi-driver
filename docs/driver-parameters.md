@@ -66,6 +66,7 @@ provisionedIOPS | provisioned IOPS for [file share v2](https://learn.microsoft.c
 provisionedBandwidth | provisioned throughput (MB/s) for [file share v2](https://learn.microsoft.com/en-us/azure/storage/files/understanding-billing#provisioned-v2-provisioning-detail)  (supported from v1.33.4)  | | No | 
 --- | **Following parameters are only for SMB protocol** | --- | --- |
 storeAccountKey | Should the storage account key be stored in a Kubernetes secret <br> (Note:  if set to `false`, the driver will use the kubelet identity to retrieve the account key during volume mount) | `true`,`false` | No | `true`
+disablePersistentHandles | disable SMB persistent handles on Linux mounts by adding `nopersistenthandles` | `true`,`false` | No | `false`
 getLatestAccountKey | whether getting the latest account key based on the creation time, this driver would get the first key by default | `true`,`false` | No | `false`
 secretName | specify secret name to store account key | | No |
 secretNamespace | specify the namespace of secret to store account key | `default`,`kube-system`, etc | No | pvc namespace (`csi.storage.k8s.io/pvc/namespace`)
@@ -122,6 +123,7 @@ volumeAttributes.storageEndpointSuffix | specify Azure storage endpoint suffix |
 --- | **Following parameters are only for SMB protocol** | --- | --- |
 volumeAttributes.secretName | secret name that stores storage account name and key | | No |
 volumeAttributes.secretNamespace | secret namespace | `default`,`kube-system`, etc | No | pvc namespace (`csi.storage.k8s.io/pvc/namespace`)
+volumeAttributes.disablePersistentHandles | disable SMB persistent handles on Linux mounts by adding `nopersistenthandles` | `true`,`false` | No | `false`
 volumeAttributes.getLatestAccountKey | whether getting the latest account key based on the creation time, this driver would get the first key by default | `true`,`false` | No | `false`
 volumeAttributes.clientID | Specify the Azure client ID that will be used to create the Azure file share | Azure client ID | No | If left empty, the kubelet managed identity will be used when mounting without an account key
 nodeStageSecretRef.name | secret name that stores storage account name and key | existing secret name |  Yes  |
@@ -130,6 +132,17 @@ nodeStageSecretRef.namespace | secret namespace | k8s namespace  |  Yes  |
 volumeAttributes.fsGroupChangePolicy | indicates how volume's ownership will be changed by the driver, pod `securityContext.fsGroupChangePolicy` is ignored  | `OnRootMismatch`(by default), `Always`, `None` | No | `OnRootMismatch`
 volumeAttributes.mountPermissions | mounted folder permissions. The default is `0777` |  | No |
 volumeAttributes.encryptInTransit | support [Encrypt in Transit(EiT) for NFS](https://learn.microsoft.com/en-us/azure/storage/files/encryption-in-transit-for-nfs-shares)| `true`,`false` | No | `false`
+
+### SMB persistent handle toggle
+
+Set `disablePersistentHandles: "true"` in StorageClass parameters, or set `volumeAttributes.disablePersistentHandles: "true"` for static PVs.
+
+When enabled for Linux SMB mounts, the driver removes explicit `persistenthandles` and duplicate `nopersistenthandles` options, then appends one `nopersistenthandles`.
+
+Notes:
+- This is a mitigation option, not a guaranteed fix for kernel-level CIFS issues.
+- This option is only supported with SMB protocol. The request is rejected for NFS.
+- Existing mounted volumes are not changed automatically. Use a fresh mount lifecycle to apply the new option.
 
  - create a Kubernetes secret for `nodeStageSecretRef.name`
  ```console
