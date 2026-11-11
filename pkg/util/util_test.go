@@ -18,6 +18,7 @@ package util
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -61,6 +62,36 @@ func TestGiBToBytes(t *testing.T) {
 	}
 }
 
+func TestExecCommand(t *testing.T) {
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	command := &ExecCommand{}
+	argument := "share; echo unexpected | cat & other"
+	out, err := command.RunCommand(executable, []string{"-test.run=^TestExecCommandHelper$", "--", argument}, []string{"AZUREFILE_EXEC_TEST=success"})
+	if err != nil || out != argument+":success" {
+		t.Fatalf("expected literal argument and environment, got output %q, error %v", out, err)
+	}
+	if _, err := command.RunCommand(executable, []string{"-test.run=^TestExecCommandHelper$"}, []string{"AZUREFILE_EXEC_TEST=fail"}); err == nil {
+		t.Fatal("expected command failure to be returned")
+	}
+}
+
+func TestExecCommandHelper(t *testing.T) {
+	mode := os.Getenv("AZUREFILE_EXEC_TEST")
+	if mode == "" {
+		return
+	}
+	if mode == "fail" {
+		os.Exit(1)
+	}
+	if _, err := os.Stdout.WriteString(os.Args[len(os.Args)-1] + ":" + mode); err != nil {
+		os.Exit(1)
+	}
+	os.Exit(0)
+}
+
 func TestGetAzcopyJob(t *testing.T) {
 	tests := []struct {
 		desc             string
@@ -73,6 +104,24 @@ func TestGetAzcopyJob(t *testing.T) {
 		expectedPercent  string
 		expectedErr      error
 	}{
+		{
+			desc:             "azcopy exit status 1 is not a missing job",
+			listErr:          fmt.Errorf("exit status 1"),
+			expectedJobState: AzcopyJobError,
+			expectedErr:      fmt.Errorf("couldn't list jobs in azcopy exit status 1"),
+		},
+		{
+			desc:             "no jobs",
+			expectedJobState: AzcopyJobNotFound,
+		},
+		{
+			desc:             "unrelated completed job does not hide matching running job",
+			listStr:          "JobId: unrelated\nStart Time: today\nStatus: Completed\nCommand: copy source other-share\n--\nJobId: ed1c3833-eaff-fe42-71d7-513fb065a9d9\nStart Time: today\nStatus: InProgress\nCommand: copy source dstFileshare\n",
+			enableShow:       true,
+			showStr:          "Job Summary:\nTotal Transfers: 2\nPercent Complete (approx): 50.0\nJob Status: InProgress\n",
+			expectedJobState: AzcopyJobRunning,
+			expectedPercent:  "50.0",
+		},
 		{
 			desc:             "run exec get error",
 			listStr:          "",
@@ -191,9 +240,9 @@ func TestGetAzcopyJob(t *testing.T) {
 		defer ctrl.Finish()
 
 		m := NewMockEXEC(ctrl)
-		m.EXPECT().RunCommand(gomock.Eq("azcopy jobs list | grep dstFileshare -B 3"), []string{}).Return(test.listStr, test.listErr)
+		m.EXPECT().RunCommand("azcopy", []string{"jobs", "list"}, []string{}).Return(test.listStr, test.listErr)
 		if test.enableShow {
-			m.EXPECT().RunCommand(gomock.Not("azcopy jobs list | grep dstFileshare -B 3"), []string{}).Return(test.showStr, test.showErr)
+			m.EXPECT().RunCommand("azcopy", []string{"jobs", "show", "ed1c3833-eaff-fe42-71d7-513fb065a9d9"}, []string{}).Return(test.showStr, test.showErr)
 		}
 
 		azcopyFunc := &Azcopy{ExecCmd: m}
@@ -201,6 +250,21 @@ func TestGetAzcopyJob(t *testing.T) {
 		if jobState != test.expectedJobState || percent != test.expectedPercent || !reflect.DeepEqual(err, test.expectedErr) {
 			t.Errorf("test[%s]: unexpected jobState: %v, percent: %v, err: %v, expected jobState: %v, percent: %v, err: %v", test.desc, jobState, percent, err, test.expectedJobState, test.expectedPercent, test.expectedErr)
 		}
+	}
+}
+
+func TestGetAzcopyJobLiteralInput(t *testing.T) {
+	for _, share := range []string{"dst.*", "dstFileshare; echo unexpected", "-e dstFileshare"} {
+		t.Run(share, func(t *testing.T) {
+			m := NewMockEXEC(gomock.NewController(t))
+			m.EXPECT().RunCommand("azcopy", []string{"jobs", "list"}, nil).Return(
+				"JobId: job\nStart Time: today\nStatus: Completed\nCommand: copy source dstFileshare\n", nil)
+			ac := &Azcopy{ExecCmd: m}
+			state, percent, err := ac.GetAzcopyJob(share, nil)
+			if err != nil || state != AzcopyJobNotFound || percent != "" {
+				t.Fatalf("expected no literal match, got state %s, percent %q, error %v", state, percent, err)
+			}
+		})
 	}
 }
 
@@ -229,7 +293,7 @@ func TestCleanJobs(t *testing.T) {
 		defer ctrl.Finish()
 
 		m := NewMockEXEC(ctrl)
-		m.EXPECT().RunCommand(gomock.Eq("azcopy jobs clean"), nil).Return(test.execStr, test.execErr)
+		m.EXPECT().RunCommand("azcopy", []string{"jobs", "clean"}, nil).Return(test.execStr, test.execErr)
 
 		azcopyFunc := &Azcopy{ExecCmd: m}
 		_, err := azcopyFunc.CleanJobs()
@@ -313,7 +377,7 @@ func TestParseAzcopyJobList(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		jobid, jobState, err := parseAzcopyJobList(test.str)
+		jobid, jobState, err := parseAzcopyJobList(test.str, "dstFileshare")
 		if jobid != test.expectedJobid || jobState != test.expectedJobState || !reflect.DeepEqual(err, test.expectedErr) {
 			t.Errorf("test[%s]: unexpected jobid: %v, jobState: %v, err: %v, expected jobid: %v, jobState: %v, err: %v", test.desc, jobid, jobState, err, test.expectedJobid, test.expectedJobState, test.expectedErr)
 		}
@@ -328,6 +392,12 @@ func TestParseAzcopyJobShow(t *testing.T) {
 		expectedPercent  string
 		expectedErr      error
 	}{
+		{
+			desc:             "summary without percentage",
+			str:              "Job Status: InProgress",
+			expectedJobState: AzcopyJobError,
+			expectedErr:      fmt.Errorf("error parsing jobs summary: Job Status: InProgress in Percent Complete (approx)"),
+		},
 		{
 			desc:             "error parse azcopy job show",
 			str:              "",
