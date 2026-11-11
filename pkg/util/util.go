@@ -79,13 +79,13 @@ func roundUpSize(volumeSizeBytes int64, allocationUnitBytes int64) int64 {
 }
 
 type EXEC interface {
-	RunCommand(string, []string) (string, error)
+	RunCommand(string, []string, []string) (string, error)
 }
 
 type ExecCommand struct{}
 
-func (ec *ExecCommand) RunCommand(cmdStr string, authEnv []string) (string, error) {
-	cmd := exec.Command("sh", "-c", cmdStr)
+func (ec *ExecCommand) RunCommand(command string, args, authEnv []string) (string, error) {
+	cmd := exec.Command(command, args...)
 	if len(authEnv) > 0 {
 		cmd.Env = append(os.Environ(), authEnv...)
 	}
@@ -99,7 +99,6 @@ type Azcopy struct {
 
 // GetAzcopyJob get the azcopy job status if job existed
 func (ac *Azcopy) GetAzcopyJob(dstFileshare string, authAzcopyEnv []string) (AzcopyJobState, string, error) {
-	cmdStr := fmt.Sprintf("azcopy jobs list | grep %s -B 3", dstFileshare)
 	// cmd output example:
 	// JobId: ed1c3833-eaff-fe42-71d7-513fb065a9d9
 	// Start Time: Monday, 07-Aug-23 03:29:54 UTC
@@ -110,13 +109,12 @@ func (ac *Azcopy) GetAzcopyJob(dstFileshare string, authAzcopyEnv []string) (Azc
 	// Start Time: Wednesday, 09-Aug-23 09:09:03 UTC
 	// Status: Cancelled
 	// Command: copy https://{accountName}.file.core.windows.net/{srcFileshare}{SAStoken} https://{accountName}.file.core.windows.net/{dstFileshare}{SAStoken} --recursive --check-length=false
-	out, err := ac.ExecCmd.RunCommand(cmdStr, authAzcopyEnv)
-	// if grep command returns nothing, the exec will return exit status 1 error, so filter this error
-	if err != nil && err.Error() != "exit status 1" {
+	out, err := ac.ExecCmd.RunCommand("azcopy", []string{"jobs", "list"}, authAzcopyEnv)
+	if err != nil {
 		klog.Warningf("failed to get azcopy job with error: %v, jobState: %v", err, AzcopyJobError)
 		return AzcopyJobError, "", fmt.Errorf("couldn't list jobs in azcopy %v", err)
 	}
-	jobid, jobState, err := parseAzcopyJobList(out)
+	jobid, jobState, err := parseAzcopyJobList(out, dstFileshare)
 	if err != nil || jobState == AzcopyJobError {
 		klog.Warningf("failed to get azcopy job with error: %v, jobState: %v", err, jobState)
 		return AzcopyJobError, "", fmt.Errorf("couldn't parse azcopy job list in azcopy %v", err)
@@ -127,10 +125,9 @@ func (ac *Azcopy) GetAzcopyJob(dstFileshare string, authAzcopyEnv []string) (Azc
 	if jobid == "" {
 		return jobState, "", err
 	}
-	cmdPercentStr := fmt.Sprintf("azcopy jobs show %s | grep Percent", jobid)
 	// cmd out example:
 	// Percent Complete (approx): 100.0
-	summary, err := ac.ExecCmd.RunCommand(cmdPercentStr, authAzcopyEnv)
+	summary, err := ac.ExecCmd.RunCommand("azcopy", []string{"jobs", "show", jobid}, authAzcopyEnv)
 	if err != nil {
 		klog.Warningf("failed to get azcopy job with error: %v, jobState: %v", err, AzcopyJobError)
 		return AzcopyJobError, "", fmt.Errorf("couldn't show jobs summary in azcopy %v", err)
@@ -144,11 +141,11 @@ func (ac *Azcopy) GetAzcopyJob(dstFileshare string, authAzcopyEnv []string) (Azc
 }
 
 func (ac *Azcopy) CleanJobs() (string, error) {
-	return ac.ExecCmd.RunCommand("azcopy jobs clean", nil)
+	return ac.ExecCmd.RunCommand("azcopy", []string{"jobs", "clean"}, nil)
 }
 
 // parseAzcopyJobList parse command azcopy jobs list, get jobid and state from joblist
-func parseAzcopyJobList(joblist string) (string, AzcopyJobState, error) {
+func parseAzcopyJobList(joblist, dstFileshare string) (string, AzcopyJobState, error) {
 	jobid := ""
 	jobSegments := strings.Split(joblist, "JobId: ")
 	if len(jobSegments) < 2 {
@@ -159,6 +156,9 @@ func parseAzcopyJobList(joblist string) (string, AzcopyJobState, error) {
 		segments := strings.Split(job, "\n")
 		if len(segments) < 4 {
 			return jobid, AzcopyJobError, fmt.Errorf("error parsing jobs list: %s", job)
+		}
+		if !strings.Contains(segments[3], dstFileshare) {
+			continue
 		}
 		statusSegments := strings.Split(segments[2], ": ")
 		if len(statusSegments) < 2 {
@@ -186,11 +186,12 @@ func parseAzcopyJobList(joblist string) (string, AzcopyJobState, error) {
 
 // parseAzcopyJobShow parse command azcopy jobs show jobid, get job state and copy percent
 func parseAzcopyJobShow(jobshow string) (AzcopyJobState, string, error) {
-	segments := strings.Split(jobshow, ": ")
-	if len(segments) < 2 {
-		return AzcopyJobError, "", fmt.Errorf("error parsing jobs summary: %s in Percent Complete (approx)", jobshow)
+	for _, line := range strings.Split(jobshow, "\n") {
+		if percent, found := strings.CutPrefix(strings.TrimSpace(line), "Percent Complete (approx): "); found {
+			return AzcopyJobRunning, percent, nil
+		}
 	}
-	return AzcopyJobRunning, strings.ReplaceAll(segments[1], "\n", ""), nil
+	return AzcopyJobError, "", fmt.Errorf("error parsing jobs summary: %s in Percent Complete (approx)", jobshow)
 }
 
 // ExecFunc returns a exec function's output and error
