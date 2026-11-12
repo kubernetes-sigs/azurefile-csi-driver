@@ -35,6 +35,10 @@ type PodDetails struct {
 	IsWindows    bool
 	WinServerVer string
 	UseCMD       bool
+	// Optional, pins the pod to nodes with these labels
+	NodeSelector map[string]string
+	// Optional, used for workload identity
+	ServiceAccountName string
 }
 
 type VolumeDetails struct {
@@ -59,6 +63,8 @@ type VolumeDetails struct {
 	Server             string
 	NodeStageSecretRef string
 	AccessModes        []v1.PersistentVolumeAccessMode
+	// Optional, volume attributes of pre-provisioned and CSI inline volumes
+	VolumeAttributes map[string]string
 }
 
 type VolumeMode int
@@ -97,8 +103,24 @@ type DataSource struct {
 
 var supportedStorageAccountTypes = []string{"Standard_LRS", "Premium_LRS", "Standard_ZRS", "Standard_GRS", "Standard_RAGRS"}
 
-func (pod *PodDetails) SetupWithDynamicVolumes(ctx context.Context, client clientset.Interface, namespace *v1.Namespace, csiDriver driver.DynamicPVTestDriver, storageClassParameters map[string]string) (*TestPod, []func(ctx context.Context)) {
+func (pod *PodDetails) newTestPod(client clientset.Interface, namespace *v1.Namespace) *TestPod {
 	tpod := NewTestPod(client, namespace, pod.Cmd, pod.IsWindows, pod.WinServerVer)
+	if len(pod.NodeSelector) > 0 {
+		if tpod.pod.Spec.NodeSelector == nil {
+			tpod.pod.Spec.NodeSelector = map[string]string{}
+		}
+		for key, value := range pod.NodeSelector {
+			tpod.pod.Spec.NodeSelector[key] = value
+		}
+	}
+	if pod.ServiceAccountName != "" {
+		tpod.SetServiceAccountName(pod.ServiceAccountName)
+	}
+	return tpod
+}
+
+func (pod *PodDetails) SetupWithDynamicVolumes(ctx context.Context, client clientset.Interface, namespace *v1.Namespace, csiDriver driver.DynamicPVTestDriver, storageClassParameters map[string]string) (*TestPod, []func(ctx context.Context)) {
+	tpod := pod.newTestPod(client, namespace)
 	cleanupFuncs := make([]func(ctx context.Context), 0)
 	for n, v := range pod.Volumes {
 		tpvc, funcs := v.SetupDynamicPersistentVolumeClaim(ctx, client, namespace, csiDriver, storageClassParameters)
@@ -114,7 +136,7 @@ func (pod *PodDetails) SetupWithDynamicVolumes(ctx context.Context, client clien
 
 // SetupWithDynamicMultipleVolumes each pod will be mounted with multiple volumes with different storage account types
 func (pod *PodDetails) SetupWithDynamicMultipleVolumes(ctx context.Context, client clientset.Interface, namespace *v1.Namespace, csiDriver driver.DynamicPVTestDriver, storageClassParameters map[string]string) (*TestPod, []func(ctx context.Context)) {
-	tpod := NewTestPod(client, namespace, pod.Cmd, pod.IsWindows, pod.WinServerVer)
+	tpod := pod.newTestPod(client, namespace)
 	cleanupFuncs := make([]func(ctx context.Context), 0)
 	accountTypeCount := len(supportedStorageAccountTypes)
 	for n, v := range pod.Volumes {
@@ -133,7 +155,7 @@ func (pod *PodDetails) SetupWithDynamicMultipleVolumes(ctx context.Context, clie
 }
 
 func (pod *PodDetails) SetupWithDynamicVolumesWithSubpath(ctx context.Context, client clientset.Interface, namespace *v1.Namespace, csiDriver driver.DynamicPVTestDriver, storageClassParameters map[string]string) (*TestPod, []func(ctx context.Context)) {
-	tpod := NewTestPod(client, namespace, pod.Cmd, pod.IsWindows, pod.WinServerVer)
+	tpod := pod.newTestPod(client, namespace)
 	cleanupFuncs := make([]func(ctx context.Context), 0)
 	for n, v := range pod.Volumes {
 		tpvc, funcs := v.SetupDynamicPersistentVolumeClaim(ctx, client, namespace, csiDriver, storageClassParameters)
@@ -144,7 +166,7 @@ func (pod *PodDetails) SetupWithDynamicVolumesWithSubpath(ctx context.Context, c
 }
 
 func (pod *PodDetails) SetupWithInlineVolumes(client clientset.Interface, namespace *v1.Namespace, secretName, shareName string, readOnly bool) (*TestPod, []func()) {
-	tpod := NewTestPod(client, namespace, pod.Cmd, pod.IsWindows, pod.WinServerVer)
+	tpod := pod.newTestPod(client, namespace)
 	cleanupFuncs := make([]func(), 0)
 	for n, v := range pod.Volumes {
 		tpod.SetupInlineVolume(fmt.Sprintf("%s%d", v.VolumeMount.NameGenerate, n+1), fmt.Sprintf("%s%d", v.VolumeMount.MountPathGenerate, n+1), secretName, shareName, readOnly)
@@ -153,16 +175,20 @@ func (pod *PodDetails) SetupWithInlineVolumes(client clientset.Interface, namesp
 }
 
 func (pod *PodDetails) SetupWithCSIInlineVolumes(client clientset.Interface, namespace *v1.Namespace, secretName, shareName, server string, readOnly bool) (*TestPod, []func()) {
-	tpod := NewTestPod(client, namespace, pod.Cmd, pod.IsWindows, pod.WinServerVer)
+	tpod := pod.newTestPod(client, namespace)
 	cleanupFuncs := make([]func(), 0)
 	for n, v := range pod.Volumes {
+		if v.VolumeAttributes != nil {
+			tpod.SetupCSIInlineVolumeWithAttributes(fmt.Sprintf("%s%d", v.VolumeMount.NameGenerate, n+1), fmt.Sprintf("%s%d", v.VolumeMount.MountPathGenerate, n+1), v.VolumeAttributes, readOnly)
+			continue
+		}
 		tpod.SetupCSIInlineVolume(fmt.Sprintf("%s%d", v.VolumeMount.NameGenerate, n+1), fmt.Sprintf("%s%d", v.VolumeMount.MountPathGenerate, n+1), secretName, shareName, server, readOnly)
 	}
 	return tpod, cleanupFuncs
 }
 
 func (pod *PodDetails) SetupWithPreProvisionedVolumes(ctx context.Context, client clientset.Interface, namespace *v1.Namespace, csiDriver driver.PreProvisionedVolumeTestDriver) (*TestPod, []func(ctx context.Context)) {
-	tpod := NewTestPod(client, namespace, pod.Cmd, pod.IsWindows, pod.WinServerVer)
+	tpod := pod.newTestPod(client, namespace)
 	cleanupFuncs := make([]func(ctx context.Context), 0)
 	for n, v := range pod.Volumes {
 		tpvc, funcs := v.SetupPreProvisionedPersistentVolumeClaim(ctx, client, namespace, csiDriver)
@@ -265,6 +291,9 @@ func (volume *VolumeDetails) SetupPreProvisionedPersistentVolumeClaim(ctx contex
 	cleanupFuncs := make([]func(ctx context.Context), 0)
 	ginkgo.By("setting up the PV")
 	attrib := make(map[string]string)
+	for key, value := range volume.VolumeAttributes {
+		attrib[key] = value
+	}
 	if volume.ShareName != "" {
 		attrib["shareName"] = volume.ShareName
 	}
@@ -275,9 +304,11 @@ func (volume *VolumeDetails) SetupPreProvisionedPersistentVolumeClaim(ctx contex
 	pv := csiDriver.GetPersistentVolume(volume.VolumeID, volume.FSType, volume.ClaimSize, volume.ReclaimPolicy, namespace.Name, attrib, nodeStageSecretRef)
 	pv.Spec.MountOptions = volume.MountOptions
 	tpv := NewTestPreProvisionedPersistentVolume(client, pv)
-	tpv.Create(ctx)
+	createdPV := tpv.Create(ctx)
 	ginkgo.By("setting up the PVC")
 	tpvc := NewTestPersistentVolumeClaim(client, namespace, volume.ClaimSize, volume.VolumeMode, nil)
+	// Bind to this PV even when other specs' pre-provisioned PVs are available.
+	tpvc.VolumeName = createdPV.Name
 	tpvc.Create(ctx)
 	cleanupFuncs = append(cleanupFuncs, tpvc.DeleteBoundPersistentVolume)
 	cleanupFuncs = append(cleanupFuncs, tpvc.Cleanup)
