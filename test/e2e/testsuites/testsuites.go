@@ -729,6 +729,19 @@ func (t *TestPod) WaitForFailedMountError(ctx context.Context) {
 	framework.ExpectNoError(err)
 }
 
+// ExpectMountFailureToPersist checks that the pod never starts after its first
+// FailedMount, so a transient failure followed by a successful mount does not pass.
+func (t *TestPod) ExpectMountFailureToPersist(ctx context.Context) {
+	ginkgo.By("checking that the pod stays unmounted")
+	gomega.Consistently(ctx, func(ctx context.Context) (v1.PodPhase, error) {
+		pod, err := t.client.CoreV1().Pods(t.namespace.Name).Get(ctx, t.pod.Name, metav1.GetOptions{})
+		if err != nil {
+			return "", err
+		}
+		return pod.Status.Phase, nil
+	}, time.Minute, 5*time.Second).Should(gomega.Equal(v1.PodPending))
+}
+
 // Ideally this would be in "k8s.io/kubernetes/test/e2e/framework"
 // Similar to framework.WaitForPodSuccessInNamespaceSlow
 var podFailedCondition = func(pod *v1.Pod) (bool, error) {
@@ -829,6 +842,15 @@ func (t *TestPod) SetupInlineVolume(name, mountPath, secretName, shareName strin
 }
 
 func (t *TestPod) SetupCSIInlineVolume(name, mountPath, secretName, shareName, server string, readOnly bool) {
+	t.SetupCSIInlineVolumeWithAttributes(name, mountPath, map[string]string{
+		"secretName":   secretName,
+		"shareName":    shareName,
+		"server":       server,
+		"mountOptions": "dir_mode=0755,file_mode=0721,cache=singleclient",
+	}, readOnly)
+}
+
+func (t *TestPod) SetupCSIInlineVolumeWithAttributes(name, mountPath string, attributes map[string]string, readOnly bool) {
 	volumeMount := v1.VolumeMount{
 		Name:      name,
 		MountPath: mountPath,
@@ -840,14 +862,9 @@ func (t *TestPod) SetupCSIInlineVolume(name, mountPath, secretName, shareName, s
 		Name: name,
 		VolumeSource: v1.VolumeSource{
 			CSI: &v1.CSIVolumeSource{
-				Driver: azurefile.DefaultDriverName,
-				VolumeAttributes: map[string]string{
-					"secretName":   secretName,
-					"shareName":    shareName,
-					"server":       server,
-					"mountOptions": "dir_mode=0755,file_mode=0721,cache=singleclient",
-				},
-				ReadOnly: ptr.To(readOnly),
+				Driver:           azurefile.DefaultDriverName,
+				VolumeAttributes: attributes,
+				ReadOnly:         ptr.To(readOnly),
 			},
 		},
 	}
@@ -860,6 +877,11 @@ func (t *TestPod) SetNodeSelector(nodeSelector map[string]string) {
 
 func (t *TestPod) Cleanup(ctx context.Context) {
 	cleanupPodOrFail(ctx, t.client, t.pod.Name, t.namespace.Name)
+}
+
+func (t *TestPod) CleanupAndWait(ctx context.Context) {
+	t.Cleanup(ctx)
+	framework.ExpectNoError(e2epod.WaitForPodNotFoundInNamespace(ctx, t.client, t.pod.Name, t.namespace.Name, e2epod.PodDeleteTimeout))
 }
 
 func (t *TestPod) Logs(ctx context.Context) ([]byte, error) {
