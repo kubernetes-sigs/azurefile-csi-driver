@@ -275,9 +275,11 @@ func (volume *VolumeDetails) SetupPreProvisionedPersistentVolumeClaim(ctx contex
 	pv := csiDriver.GetPersistentVolume(volume.VolumeID, volume.FSType, volume.ClaimSize, volume.ReclaimPolicy, namespace.Name, attrib, nodeStageSecretRef)
 	pv.Spec.MountOptions = volume.MountOptions
 	tpv := NewTestPreProvisionedPersistentVolume(client, pv)
-	tpv.Create(ctx)
+	createdPV := tpv.Create(ctx)
 	ginkgo.By("setting up the PVC")
 	tpvc := NewTestPersistentVolumeClaim(client, namespace, volume.ClaimSize, volume.VolumeMode, nil)
+	// Bind to this PV even when other specs' pre-provisioned PVs are available.
+	tpvc.VolumeName = createdPV.Name
 	tpvc.Create(ctx)
 	cleanupFuncs = append(cleanupFuncs, tpvc.DeleteBoundPersistentVolume)
 	cleanupFuncs = append(cleanupFuncs, tpvc.Cleanup)
