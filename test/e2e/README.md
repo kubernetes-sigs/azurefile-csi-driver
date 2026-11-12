@@ -24,8 +24,8 @@ tester. Spec names state the combination, for example
   produce `FailedMount` and stay unstarted for a minute.
 * **Other specs.** Explicit OAuth REST accounts with shared-key access on and
   off; key Secrets for single CSI operations (provision, stage, expand, clone,
-  plus wrong-key twins); and two workload identity key principals on one
-  account and node with a denied third.
+  plus wrong-key twins); two workload identity key principals on one account
+  and node with a denied third; and private endpoint mounts.
 * **Fixtures.** Identity specs need the CAPZ lane, OIDC setup, and permission
   to create accounts, shares, user-assigned identities, federated credentials
   and role assignments, and to attach identities to the selected worker. The
@@ -33,6 +33,9 @@ tester. Spec names state the combination, for example
   verbosity 2 or more. The inline node-key row needs a lane started with
   `--allow-inline-volume-key-access-with-identity=true` and is skipped
   otherwise; the inline workload identity key rows are skipped when it is on.
+* **Private endpoint.** The first spec provisions a private-endpoint account
+  through the driver and deletes it after the last. To use an existing one, set
+  both `AZUREFILE_AUTH_PRIVATE_ACCOUNT` and `AZUREFILE_AUTH_PRIVATE_IP`.
 * **Limits.** The driver documentation supports one Kerberos identity per
   account per node, so multiple principals are covered only for account keys.
 
@@ -80,12 +83,13 @@ make e2e-test E2E_PROCS=8
    teardown run once; each process starts its own in-process driver.
  - Specs that change cluster-wide state are marked `Serial` and run on one
    process after all parallel specs: the smb/nfs driver restart cases and the
-   suite workload identity token case. Pre-Provisioned, BYO key and CSI inline
-   specs are also `Serial`: they call the in-process driver's `CreateVolume`,
-   which could otherwise select another process's default account before it
-   finishes provisioning. Other specs use their own accounts, identities,
-   namespaces or claim names; configured-WI cases share the `default` namespace
-   with per-case claim names.
+   suite workload identity token case. The private endpoint specs share one
+   account and run as an `Ordered` group. Pre-Provisioned, BYO key and CSI
+   inline specs are also `Serial`: they call the in-process driver's
+   `CreateVolume`, which could otherwise select another process's default
+   account before it finishes provisioning. Other specs use their own accounts,
+   identities, namespaces or claim names; configured-WI cases share the
+   `default` namespace with per-case claim names.
 
  - resize e2e test needs more environment setting, export following environment variables from `azure.json`
 ```console
