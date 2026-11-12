@@ -105,6 +105,16 @@ func authenticationExpectIO(ctx context.Context, f *framework.Framework, pod *v1
 	}, 2*time.Minute, 2*time.Second).Should(gomega.Succeed(), "the original mounted volume must retain authenticated data access")
 }
 
+// AuthenticationTicketStart returns the newest Kerberos ticket start (epoch seconds)
+// for server in node's cache, or 0. The cache is on the host and survives node plugin restarts.
+func AuthenticationTicketStart(ctx context.Context, f *framework.Framework, node, server string) int64 {
+	pod, err := authenticationNodePod(ctx, f.ClientSet, node)
+	framework.ExpectNoError(err)
+	started, err := authenticationTicketStart(ctx, f, pod, server)
+	framework.ExpectNoError(err)
+	return started
+}
+
 // RestartAuthenticationNodePlugin only runs after kubelet has removed every mount
 // of the given fixture shares. It never force-unmounts other volumes or destroys shared sessions.
 func RestartAuthenticationNodePlugin(ctx context.Context, f *framework.Framework, node string, sources ...string) {
