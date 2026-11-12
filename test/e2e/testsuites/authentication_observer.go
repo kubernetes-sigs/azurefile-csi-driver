@@ -18,7 +18,9 @@ package testsuites
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -103,6 +105,44 @@ func authenticationExpectIO(ctx context.Context, f *framework.Framework, pod *v1
 		_, err := authenticationExec(ctx, f, pod, "volume-tester", command)
 		return err
 	}, 2*time.Minute, 2*time.Second).Should(gomega.Succeed(), "the original mounted volume must retain authenticated data access")
+}
+
+// authenticationTicketStart returns the newest Kerberos ticket start (epoch
+// seconds) for server in the node cache, or 0. The listing has no secret material.
+func authenticationTicketStart(ctx context.Context, f *framework.Framework, node *v1.Pod, server string) (int64, error) {
+	out, err := authenticationExec(ctx, f, node, "azurefile", "azfilesauthmanager list --json")
+	if err != nil {
+		return 0, fmt.Errorf("cannot list the node Kerberos cache")
+	}
+	var tickets []struct {
+		Server string `json:"server"`
+		Start  string `json:"ticket_start_time"`
+	}
+	if err := json.Unmarshal([]byte(out), &tickets); err != nil {
+		return 0, fmt.Errorf("unexpected Kerberos cache listing")
+	}
+	var newest int64
+	for _, ticket := range tickets {
+		if !strings.HasPrefix(ticket.Server, "cifs/"+server+"@") {
+			continue
+		}
+		var started int64
+		if _, epoch, found := strings.Cut(ticket.Start, "(epoch: "); found {
+			started, _ = strconv.ParseInt(strings.TrimSuffix(epoch, ")"), 10, 64)
+		}
+		newest = max(newest, started)
+	}
+	return newest, nil
+}
+
+// AuthenticationTicketStart returns the newest Kerberos ticket start (epoch seconds)
+// for server in node's cache, or 0. The cache is on the host and survives node plugin restarts.
+func AuthenticationTicketStart(ctx context.Context, f *framework.Framework, node, server string) int64 {
+	pod, err := authenticationNodePod(ctx, f.ClientSet, node)
+	framework.ExpectNoError(err)
+	started, err := authenticationTicketStart(ctx, f, pod, server)
+	framework.ExpectNoError(err)
+	return started
 }
 
 // RestartAuthenticationNodePlugin only runs after kubelet has removed every mount
