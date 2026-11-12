@@ -149,6 +149,7 @@ type TestPersistentVolumeClaim struct {
 	requestedPersistentVolumeClaim *v1.PersistentVolumeClaim
 	dataSource                     *v1.TypedLocalObjectReference
 	AccessModes                    []v1.PersistentVolumeAccessMode
+	VolumeName                     string
 }
 
 func NewTestPersistentVolumeClaim(c clientset.Interface, ns *v1.Namespace, claimSize string, volumeMode VolumeMode, sc *storagev1.StorageClass) *TestPersistentVolumeClaim {
@@ -193,6 +194,7 @@ func (t *TestPersistentVolumeClaim) Create(ctx context.Context) {
 		ginkgo.By("setting access modes")
 		t.requestedPersistentVolumeClaim.Spec.AccessModes = t.AccessModes
 	}
+	t.requestedPersistentVolumeClaim.Spec.VolumeName = t.VolumeName
 	t.persistentVolumeClaim, err = t.client.CoreV1().PersistentVolumeClaims(t.namespace.Name).Create(ctx, t.requestedPersistentVolumeClaim, metav1.CreateOptions{})
 	framework.ExpectNoError(err)
 }
@@ -721,7 +723,7 @@ func (t *TestPod) WaitForFailedMountError(ctx context.Context) {
 		ctx,
 		t.client,
 		t.namespace.Name,
-		fields.Set{"reason": events.FailedMountVolume}.AsSelector().String(),
+		fields.Set{"reason": events.FailedMountVolume, "involvedObject.name": t.pod.Name}.AsSelector().String(),
 		"",
 		pollLongTimeout)
 	framework.ExpectNoError(err)
