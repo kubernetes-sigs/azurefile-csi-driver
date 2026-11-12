@@ -23,12 +23,15 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	armauthorization "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	armcompute "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	armmsi "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
+	armnetwork "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
 	resources "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	storage "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v2"
 	"github.com/google/uuid"
@@ -46,7 +49,12 @@ type Client struct {
 	filesharesClient fileshareclient.Interface
 	vmssClient       *armcompute.VirtualMachineScaleSetsClient
 	vmClient         *armcompute.VirtualMachinesClient
+	vmssVMClient     *armcompute.VirtualMachineScaleSetVMsClient
 	roleClient       *armauthorization.RoleAssignmentsClient
+	ficClient        *armmsi.FederatedIdentityCredentialsClient
+	uamiClient       *armmsi.UserAssignedIdentitiesClient
+	endpointsClient  *armnetwork.PrivateEndpointsClient
+	interfacesClient *armnetwork.InterfacesClient
 }
 
 func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aadFederatedTokenFile string) (*Client, error) {
@@ -98,6 +106,27 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 	if err != nil {
 		return nil, fmt.Errorf("failed to create role assignments client: %v", err)
 	}
+	uamiClient, err := armmsi.NewUserAssignedIdentitiesClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user assigned identities client: %v", err)
+	}
+	ficClient, err := armmsi.NewFederatedIdentityCredentialsClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create federated identity credentials client: %v", err)
+	}
+	vmssVMClient, err := armcompute.NewVirtualMachineScaleSetVMsClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create VMSS instance client: %w", err)
+	}
+
+	endpointsClient, err := armnetwork.NewPrivateEndpointsClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create private endpoints client: %w", err)
+	}
+	interfacesClient, err := armnetwork.NewInterfacesClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create network interfaces client: %w", err)
+	}
 
 	return &Client{
 		subscriptionID:   subscriptionID,
@@ -106,7 +135,12 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 		filesharesClient: factory.GetFileShareClient(),
 		vmssClient:       vmssClient,
 		vmClient:         vmClient,
+		vmssVMClient:     vmssVMClient,
 		roleClient:       roleClient,
+		ficClient:        ficClient,
+		uamiClient:       uamiClient,
+		endpointsClient:  endpointsClient,
+		interfacesClient: interfacesClient,
 	}, nil
 }
 
@@ -279,7 +313,11 @@ func (az *Client) GetNodeIdentityPrincipalIDs(ctx context.Context, resourceGroup
 //   - Storage File Data Privileged Contributor: 69566ab7-960f-475b-8e7c-b3118f30c6bd
 //   - Storage File Data SMB MI Admin: a235d3ee-5935-4cfb-8cc5-a3303ad5995e
 func (az *Client) AssignRoleToIdentity(ctx context.Context, resourceGroup, principalID, roleDefinitionID string) error {
-	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s", az.subscriptionID, resourceGroup)
+	return az.AssignRoleAtScope(ctx, az.ResourceGroupScope(resourceGroup), principalID, roleDefinitionID)
+}
+
+// AssignRoleAtScope assigns an Azure role to a principal on an ARM scope.
+func (az *Client) AssignRoleAtScope(ctx context.Context, scope, principalID, roleDefinitionID string) error {
 	fullRoleDefID := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s", az.subscriptionID, roleDefinitionID)
 
 	// Deterministic assignment ID based on scope+principal+role to avoid duplicate assignments on retry
@@ -324,4 +362,106 @@ func (az *Client) EnsureNodeStorageFileDataRole(ctx context.Context, resourceGro
 	}
 	log.Printf("Successfully assigned Storage File Data SMB MI Admin role to all %d node identities", len(principalIDs))
 	return nil
+}
+
+// NodeIdentityInfo holds identity information for a node's user-assigned identity.
+type NodeIdentityInfo struct {
+	PrincipalID string
+	ClientID    string
+	ResourceID  string
+}
+
+// GetNodeIdentityInfo returns the principalID, clientID, and resource ID of the first
+// user-assigned identity found on VMSS or VMs in the given resource group.
+// All values come from the same identity. Resource IDs are sorted for determinism.
+func (az *Client) GetNodeIdentityInfo(ctx context.Context, resourceGroup string) (*NodeIdentityInfo, error) {
+	// Check VMSS first
+	vmssPager := az.vmssClient.NewListPager(resourceGroup, nil)
+	for vmssPager.More() {
+		page, pageErr := vmssPager.NextPage(ctx)
+		if pageErr != nil {
+			return nil, fmt.Errorf("failed to list VMSS: %v", pageErr)
+		}
+		for _, vmss := range page.Value {
+			if vmss.Identity == nil {
+				continue
+			}
+			if info := pickIdentity(vmss.Identity.UserAssignedIdentities); info != nil {
+				return info, nil
+			}
+		}
+	}
+
+	// Check VMs
+	vmPager := az.vmClient.NewListPager(resourceGroup, nil)
+	for vmPager.More() {
+		page, pageErr := vmPager.NextPage(ctx)
+		if pageErr != nil {
+			return nil, fmt.Errorf("failed to list VMs: %v", pageErr)
+		}
+		for _, vm := range page.Value {
+			if vm.Identity == nil {
+				continue
+			}
+			if info := pickIdentity(vm.Identity.UserAssignedIdentities); info != nil {
+				return info, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("no user-assigned identity with both principalID and clientID found in resource group %s", resourceGroup)
+}
+
+// pickIdentity selects the first valid identity from a map, sorting keys for determinism.
+func pickIdentity(identities map[string]*armcompute.UserAssignedIdentitiesValue) *NodeIdentityInfo {
+	keys := make([]string, 0, len(identities))
+	for k := range identities {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, resourceID := range keys {
+		uaIdentity := identities[resourceID]
+		if uaIdentity != nil && uaIdentity.ClientID != nil && *uaIdentity.ClientID != "" &&
+			uaIdentity.PrincipalID != nil && *uaIdentity.PrincipalID != "" {
+			return &NodeIdentityInfo{
+				PrincipalID: *uaIdentity.PrincipalID,
+				ClientID:    *uaIdentity.ClientID,
+				ResourceID:  resourceID,
+			}
+		}
+	}
+	return nil
+}
+
+// CreateFederatedIdentityCredential creates or updates a federated identity credential
+// for workload identity authentication.
+func (az *Client) CreateFederatedIdentityCredential(ctx context.Context, identityRG, identityName, ficName, issuerURL, subject string) error {
+	_, err := az.ficClient.CreateOrUpdate(ctx, identityRG, identityName, ficName, armmsi.FederatedIdentityCredential{
+		Properties: &armmsi.FederatedIdentityCredentialProperties{
+			Issuer:    to.Ptr(issuerURL),
+			Subject:   to.Ptr(subject),
+			Audiences: []*string{to.Ptr("api://AzureADTokenExchange")},
+		},
+	}, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create/update federated identity credential %s: %v", ficName, err)
+	}
+	return nil
+}
+
+// EnsureUserAssignedIdentity creates (or updates) a user-assigned identity and
+// returns its principal ID, client ID and resource ID.
+func (az *Client) EnsureUserAssignedIdentity(ctx context.Context, resourceGroup, name, location string) (*NodeIdentityInfo, error) {
+	resp, err := az.uamiClient.CreateOrUpdate(ctx, resourceGroup, name, armmsi.Identity{Location: to.Ptr(location)}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create/update user assigned identity %s: %v", name, err)
+	}
+	if resp.Properties == nil || resp.Properties.PrincipalID == nil || resp.Properties.ClientID == nil || resp.ID == nil {
+		return nil, fmt.Errorf("user assigned identity %s is missing principalID/clientID/id", name)
+	}
+	return &NodeIdentityInfo{
+		PrincipalID: *resp.Properties.PrincipalID,
+		ClientID:    *resp.Properties.ClientID,
+		ResourceID:  *resp.ID,
+	}, nil
 }
