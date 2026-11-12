@@ -37,23 +37,23 @@ serviceAccount:
   snapshotController: csi-snapshot-controller-sa # Name of Service Account to be created or used
 
 rbac:
-  create: true
-  name: azurefile
+  create: false
+  name: linux-xarm92
 
 controller:
-  name: csi-azurefile-controller
+  name: csi-linux-xarm92-controller
   cloudConfigSecretName: azure-cloud-provider
   cloudConfigSecretNamespace: kube-system
-  allowEmptyCloudConfig: true
+  allowEmptyCloudConfig: false
   replicas: 2
   strategyType: RollingUpdate
   hostNetwork: true # this setting could be disabled if controller does not depend on MSI setting
   metricsPort: 29614
   livenessProbe:
     healthPort: 29612
-  runOnMaster: false
+  runOnMaster: true
   runOnControlPlane: false
-  attachRequired: false
+  attachRequired: trues
   logLevel: 5
   labels: {}
   annotations: {}
@@ -170,7 +170,7 @@ feature:
   fsGroupPolicy: ReadWriteOnceWithFSType
 
 driver:
-  name: file.csi.azure.com
+  name: file.csi.linux-xarm92.com
   customUserAgent: ""
   userAgentSuffix: "OSS-helm"
   azureGoSDKLogLevel: "" # available values: ""(no logs), DEBUG, INFO, WARNING, ERROR
@@ -179,7 +179,7 @@ driver:
 
 linux:
   enabled: true
-  dsName: csi-azurefile-node # daemonset name
+  dsName: csi-linux-xarm92-node # daemonset name
   dnsPolicy: Default # available values: Default, ClusterFirst, ClusterFirstWithHostNet, None
   kubelet: /var/lib/kubelet
   kubeconfig: ""
@@ -224,7 +224,7 @@ linux:
 windows:
   enabled: true
   useHostProcessContainers: true
-  dsName: csi-azurefile-node-win # daemonset name
+  dsName: csi-linux-xarm92-node-win # daemonset name
   kubelet: 'C:\var\lib\kubelet'
   kubeconfig: ""
   enableRegistrationProbe: true
