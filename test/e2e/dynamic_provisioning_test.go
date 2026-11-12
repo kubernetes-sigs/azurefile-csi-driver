@@ -1913,7 +1913,7 @@ var _ = ginkgo.Describe("Dynamic Provisioning", func() {
 		test.Run(ctx, cs, ns)
 	})
 
-	ginkgo.It("should create a volume on demand with mountWithOAuthToken [file.csi.azure.com]", func(ctx ginkgo.SpecContext) {
+	ginkgo.It("should create a volume on demand with mountWithOAuthToken [file.csi.azure.com]", ginkgo.Serial, func(ctx ginkgo.SpecContext) {
 		skipIfUsingInTreeVolumePlugin()
 		skipIfTestingInWindowsCluster()
 		if !isCapzTest {
