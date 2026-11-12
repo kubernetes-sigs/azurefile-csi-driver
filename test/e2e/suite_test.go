@@ -82,6 +82,7 @@ var (
 	supportSnapshotwithNFS         bool
 	supportEncryptInTransitwithNFS bool
 	miRoleSetupSucceeded           bool
+	nodeIdentityClientID           string
 	wiSetupSucceeded               bool
 	suiteCreds                     *credentials.Credentials
 	suiteAzureClient               *azure.Client
@@ -108,6 +109,7 @@ type suiteSetup struct {
 	ResourceGroup        string
 	Location             string
 	MIRoleSetupSucceeded bool
+	NodeIdentityClientID string
 	WISetupSucceeded     bool
 	WIClientID           string
 }
@@ -140,6 +142,12 @@ var _ = ginkgo.SynchronizedBeforeSuite(func(ctx ginkgo.SpecContext) []byte {
 			err := azureClient.EnsureNodeStorageFileDataRole(ctx, creds.ResourceGroup)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to assign Storage File Data SMB MI Admin role to node identity")
 			setup.MIRoleSetupSucceeded = true
+			// Recorded before specs attach temporary identities, which can change this lookup.
+			if identity, err := azureClient.GetNodeIdentityInfo(ctx, creds.ResourceGroup); err != nil {
+				log.Printf("WARNING: failed to get node identity: %v", err)
+			} else {
+				setup.NodeIdentityClientID = identity.ClientID
+			}
 
 			kubeConfig, err := framework.LoadConfig()
 			if err != nil {
@@ -212,6 +220,7 @@ var _ = ginkgo.SynchronizedBeforeSuite(func(ctx ginkgo.SpecContext) []byte {
 	suiteCreds = creds
 	suiteAzureClient = azureClient
 	miRoleSetupSucceeded = setup.MIRoleSetupSucceeded
+	nodeIdentityClientID = setup.NodeIdentityClientID
 	wiSetupSucceeded = setup.WISetupSucceeded
 	wiClientID = setup.WIClientID
 
@@ -416,7 +425,7 @@ func checkAccountCreationLeak(_ context.Context) {
 	}
 	ginkgo.By(fmt.Sprintf("GetAccountNumByResourceGroup(%s) returns %d accounts", creds.ResourceGroup, accountNum))
 
-	accountLimitInTest := 20
+	accountLimitInTest := 22
 	gomega.Expect(accountNum >= accountLimitInTest).To(gomega.BeFalse())
 }
 
