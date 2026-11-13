@@ -31,7 +31,7 @@ if [ "${INSTALL_AZNFS_MOUNT}" = "true" ];then
   # install aznfs-mount on ubuntu
   if [ "$DISTRIBUTION" = "ubuntu" ];then
     if [ -z "${AZNFS_UBUNTU_VERSION}" ]; then
-      AZNFS_UBUNTU_VERSION="3.0.14"
+      AZNFS_UBUNTU_VERSION="3.0.20"
     fi
     echo "install aznfs v$AZNFS_UBUNTU_VERSION...."
     # shellcheck disable=SC1091
@@ -42,7 +42,7 @@ if [ "${INSTALL_AZNFS_MOUNT}" = "true" ];then
     echo "aznfs-mount installed"
   elif [ "$DISTRIBUTION" = "azurelinux" ];then # install aznfs-mount on azure linux 3.0
     if [ -z "${AZNFS_AZURELINUX_VERSION}" ]; then
-      AZNFS_AZURELINUX_VERSION="0.1.548"
+      AZNFS_AZURELINUX_VERSION="0.1.712"
     fi
     echo "install aznfs v$AZNFS_AZURELINUX_VERSION...."
     $HOST_CMD curl -fsSL https://github.com/Azure/AZNFS-mount/releases/download/$AZNFS_AZURELINUX_VERSION/aznfs_install.sh | $HOST_CMD bash
