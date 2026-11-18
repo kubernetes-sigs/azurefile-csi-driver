@@ -36,7 +36,7 @@ const (
 	defaultDiskSizeBytes = defaultDiskSize * 1024 * 1024 * 1024
 )
 
-var _ = ginkgo.Describe("Pre-Provisioned", func() {
+var _ = ginkgo.Describe("Pre-Provisioned", ginkgo.Serial, func() {
 	f := framework.NewDefaultFramework("azurefile")
 	f.NamespacePodSecurityEnforceLevel = admissionapi.LevelPrivileged
 

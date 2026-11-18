@@ -32,6 +32,8 @@ type DynamicallyProvisionedInvalidMountOptions struct {
 	CSIDriver              driver.DynamicPVTestDriver
 	Pods                   []PodDetails
 	StorageClassParameters map[string]string
+	// ExpectFailureToPersist also requires the pod to stay unmounted after its first FailedMount.
+	ExpectFailureToPersist bool
 }
 
 func (t *DynamicallyProvisionedInvalidMountOptions) Run(ctx context.Context, client clientset.Interface, namespace *v1.Namespace) {
@@ -47,5 +49,8 @@ func (t *DynamicallyProvisionedInvalidMountOptions) Run(ctx context.Context, cli
 		defer tpod.Cleanup(ctx)
 		ginkgo.By("checking that the pod has 'FailedMount' event")
 		tpod.WaitForFailedMountError(ctx)
+		if t.ExpectFailureToPersist {
+			tpod.ExpectMountFailureToPersist(ctx)
+		}
 	}
 }
