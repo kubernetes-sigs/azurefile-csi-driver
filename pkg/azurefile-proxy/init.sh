@@ -37,7 +37,10 @@ if [ "$ENABLE_MI_AUTH" = "true" ];then
 
   echo "set up /etc/azfilesauth/config.yaml on host"
   mkdir -p /host/etc/azfilesauth
-  printf 'USER_UID: 0\nKRB5_CC_NAME: /var/lib/kubelet/kerberos/krb5cc_0\nLOG_DESTINATION: "file"\n' > /host/etc/azfilesauth/config.yaml
+  # PASSWD_FILE: azfilesauth adds an inert passwd entry for each per-identity
+  # cruid so cifs.upcall (host NSS) can resolve it; the node container sees the
+  # host /etc at /host/etc.
+  printf 'USER_UID: 0\nKRB5_CC_NAME: /var/lib/kubelet/kerberos/krb5cc_0\nPASSWD_FILE: /host/etc/passwd\nLOG_DESTINATION: "file"\n' > /host/etc/azfilesauth/config.yaml
 fi
 
 DISTRIBUTION=$($HOST_CMD cat /etc/os-release | grep ^ID= | cut -d'=' -f2 | tr -d '"')

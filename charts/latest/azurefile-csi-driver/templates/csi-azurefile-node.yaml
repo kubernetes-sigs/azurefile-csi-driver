@@ -195,6 +195,11 @@ spec:
               mountPath: /etc/azfilesauth
             - name: log-dir
               mountPath: /var/log/
+            # libazfilesauth reads PASSWD_FILE (/host/etc/passwd) to confirm the
+            # per-identity cruid entry exists before refreshing krb5cc_<cruid>.
+            - name: host-etc
+              mountPath: /host/etc
+              readOnly: true
           resources: {{- toYaml .Values.linux.resources.azfilesrefresh | nindent 12 }}
 {{- end }}
         - name: azurefile
@@ -298,6 +303,8 @@ spec:
               mountPath: /var/log/
             - name: azfilesauth
               mountPath: /etc/azfilesauth
+            - name: host-etc
+              mountPath: /host/etc
             {{- end }}
           resources: {{- toYaml .Values.linux.resources.azurefile | nindent 12 }}
       volumes:
