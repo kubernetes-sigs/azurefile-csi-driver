@@ -297,6 +297,10 @@ func (az *Client) GetNodeIdentityPrincipalIDs(ctx context.Context, resourceGroup
 //   - Storage File Data Privileged Contributor: 69566ab7-960f-475b-8e7c-b3118f30c6bd
 //   - Storage File Data SMB MI Admin: a235d3ee-5935-4cfb-8cc5-a3303ad5995e
 func (az *Client) AssignRoleToIdentity(ctx context.Context, resourceGroup, principalID, roleDefinitionID string) error {
+	if os.Getenv("SKIP_ROLE_ASSIGNMENT") != "" {
+		log.Printf("SKIP_ROLE_ASSIGNMENT is set, assuming role %s is pre-assigned to principal %s in resource group %s", roleDefinitionID, principalID, resourceGroup)
+		return nil
+	}
 	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s", az.subscriptionID, resourceGroup)
 	fullRoleDefID := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s", az.subscriptionID, roleDefinitionID)
 
