@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -713,6 +714,41 @@ func TestNodePublishVolume(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(alreadyMountedTarget)
 	assert.NoError(t, err)
+}
+
+func TestNodePublishVolumeOAuthDiskFsTypeReconcilesProxyMount(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("cruid is not used on Windows")
+	}
+	d := NewFakeDriver()
+	d.kubeClient = fake.NewSimpleClientset(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: "default"},
+		Data: map[string][]byte{
+			defaultSecretAccountName: []byte("testaccount"),
+			defaultSecretOAuthToken:  []byte(makeJWT(map[string]string{"oid": "test-oid-123"})),
+		},
+	})
+	staging := "/staging/disk/globalmount"
+	// For disk fsTypes the CIFS session lives on the proxy mount, not the
+	// staging path, so the cruid must be reconciled against the proxy mount.
+	d.mounter = &mount.SafeFormatAndMount{Interface: mount.NewFakeMounter([]mount.MountPoint{
+		{Path: staging, Type: "ext4"},
+		{Path: filepath.Join(filepath.Dir(staging), proxyMount), Type: "cifs", Opts: []string{"sec=krb5", fmt.Sprintf("cruid=%d", deriveCruid("another-oid"))}},
+	})}
+	volumeCap := csi.VolumeCapability_AccessMode{Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER}
+	_, err := d.NodePublishVolume(context.Background(), &csi.NodePublishVolumeRequest{
+		VolumeCapability:  &csi.VolumeCapability{AccessMode: &volumeCap},
+		VolumeId:          "vol_1",
+		TargetPath:        "/target/disk",
+		StagingTargetPath: staging,
+		VolumeContext: map[string]string{
+			mountWithOAuthTokenField: "true",
+			serverNameField:          "testaccount.file.core.windows.net",
+			secretNameField:          "test-secret",
+			fsTypeField:              "ext4",
+		},
+	})
+	assert.Equal(t, codes.FailedPrecondition, status.Code(err), "unexpected error: %v", err)
 }
 
 func TestNodePublishVolumeInlineSecretNamespace(t *testing.T) {
@@ -2641,8 +2677,10 @@ func TestSetCredentialCacheWithOAuthToken(t *testing.T) {
 		desc          string
 		volumeContext map[string]string
 		setupDriver   func(d *Driver)
+		mountPath     string
 		expectedErr   string
 		expectSkip    bool
+		expectCruid   *uint32
 	}{
 		{
 			desc: "missing secretName",
@@ -2684,7 +2722,10 @@ func TestSetCredentialCacheWithOAuthToken(t *testing.T) {
 				serverNameField: "testaccount.file.core.windows.net",
 			},
 			setupDriver: func(d *Driver) {
-				token := "test-oauth-token-value"
+				// A minimal JWT whose payload carries an oid, so oauthTokenSubject
+				// resolves a stable identity and the parse-error path is not taken.
+				payload := base64.RawURLEncoding.EncodeToString([]byte(`{"oid":"test-oid-123"}`))
+				token := "hdr." + payload + ".sig"
 				secret := &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: "default"},
 					Data: map[string][]byte{
@@ -2693,11 +2734,77 @@ func TestSetCredentialCacheWithOAuthToken(t *testing.T) {
 					},
 				}
 				d.kubeClient = fake.NewSimpleClientset(secret)
-				// pre-populate SHA cache
+				// pre-populate SHA cache keyed by server|cruid for this identity.
+				cruid := deriveCruid("test-oid-123")
 				tokenSHA := fmt.Sprintf("%x", sha256.Sum256([]byte(token)))
-				d.oauthTokenSHAMap.Store("testaccount.file.core.windows.net", tokenSHA)
+				d.oauthTokenSHAMap.Store(fmt.Sprintf("testaccount.file.core.windows.net|%d", cruid), tokenSHA)
 			},
 			expectSkip: true,
+		},
+		{
+			desc: "error when token is not a parseable JWT",
+			volumeContext: map[string]string{
+				secretNameField: "test-secret",
+				serverNameField: "testaccount.file.core.windows.net",
+			},
+			setupDriver: func(d *Driver) {
+				secret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: "default"},
+					Data: map[string][]byte{
+						defaultSecretAccountName: []byte("testaccount"),
+						defaultSecretOAuthToken:  []byte("not-a-jwt-token"),
+					},
+				}
+				d.kubeClient = fake.NewSimpleClientset(secret)
+			},
+			expectedErr: "unable to extract oid or sub from the OAuth token for server",
+		},
+		{
+			desc: "legacy cruid=0 mount keeps refreshing the shared cache",
+			volumeContext: map[string]string{
+				secretNameField: "test-secret",
+				serverNameField: "testaccount.file.core.windows.net",
+			},
+			mountPath: "/staging/legacy",
+			setupDriver: func(d *Driver) {
+				token := makeJWT(map[string]string{"oid": "test-oid-123"})
+				d.kubeClient = fake.NewSimpleClientset(&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: "default"},
+					Data: map[string][]byte{
+						defaultSecretAccountName: []byte("testaccount"),
+						defaultSecretOAuthToken:  []byte(token),
+					},
+				})
+				d.mounter = &mount.SafeFormatAndMount{Interface: mount.NewFakeMounter([]mount.MountPoint{
+					{Path: "/staging/legacy", Type: "cifs", Opts: []string{"sec=krb5", "cruid=0"}},
+				})}
+				// Only a refresh resolved to cruid 0 hits this cache entry and skips.
+				tokenSHA := fmt.Sprintf("%x", sha256.Sum256([]byte(token)))
+				d.oauthTokenSHAMap.Store("testaccount.file.core.windows.net|0", tokenSHA)
+			},
+			expectSkip:  true,
+			expectCruid: func() *uint32 { v := uint32(0); return &v }(),
+		},
+		{
+			desc: "different identity than the existing mount is rejected",
+			volumeContext: map[string]string{
+				secretNameField: "test-secret",
+				serverNameField: "testaccount.file.core.windows.net",
+			},
+			mountPath: "/staging/other",
+			setupDriver: func(d *Driver) {
+				d.kubeClient = fake.NewSimpleClientset(&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: "default"},
+					Data: map[string][]byte{
+						defaultSecretAccountName: []byte("testaccount"),
+						defaultSecretOAuthToken:  []byte(makeJWT(map[string]string{"oid": "test-oid-123"})),
+					},
+				})
+				d.mounter = &mount.SafeFormatAndMount{Interface: mount.NewFakeMounter([]mount.MountPoint{
+					{Path: "/staging/other", Type: "cifs", Opts: []string{"sec=krb5", fmt.Sprintf("cruid=%d", deriveCruid("another-oid"))}},
+				})}
+			},
+			expectedErr: "belongs to a different identity",
 		},
 	}
 
@@ -2707,12 +2814,18 @@ func TestSetCredentialCacheWithOAuthToken(t *testing.T) {
 			if test.setupDriver != nil {
 				test.setupDriver(d)
 			}
-			_, err := d.setCredentialCacheWithOAuthToken(context.Background(), "vol_1", test.volumeContext)
+			if test.mountPath != "" && runtime.GOOS == "windows" {
+				t.Skip("cruid is not used on Windows")
+			}
+			_, cruid, err := d.setCredentialCacheWithOAuthToken(context.Background(), "vol_1", test.volumeContext, nil, test.mountPath)
 			if test.expectSkip {
 				assert.NoError(t, err)
 			} else if test.expectedErr != "" {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), test.expectedErr)
+			}
+			if test.expectCruid != nil {
+				assert.Equal(t, *test.expectCruid, cruid)
 			}
 		})
 	}

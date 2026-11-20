@@ -18,6 +18,7 @@ package azurefile
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -251,7 +252,15 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	isMountWithOAuthToken := context != nil && strings.EqualFold(getValueInMap(context, mountWithOAuthTokenField), trueValue)
 	if isMountWithOAuthToken {
 		var err error
-		oauthServer, err = d.setCredentialCacheWithOAuthToken(ctx, volumeID, context)
+		// The staged CIFS session keeps reading krb5cc_<cruid it was mounted
+		// with>, so refresh the cache that the staged mount actually uses. For
+		// disk fsTypes the CIFS mount is the proxy mount next to the staging
+		// path, mirroring NodeStageVolume.
+		cifsMountPath := source
+		if isDiskFsType(getValueInMap(context, fsTypeField)) {
+			cifsMountPath = filepath.Join(filepath.Dir(source), proxyMount)
+		}
+		oauthServer, _, err = d.setCredentialCacheWithOAuthToken(ctx, volumeID, context, volCap.GetMount().GetMountFlags(), cifsMountPath)
 		if err != nil {
 			st := status.Convert(err)
 			return nil, status.Errorf(st.Code(), "NodePublishVolume: %s", st.Message())
@@ -547,6 +556,9 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 
 	var mountOptions, sensitiveMountOptions []string
+	// cruid is the per-identity uid used both as the CIFS cruid= session key and
+	// as the owner/suffix of the Kerberos credential cache (krb5cc_<cruid>).
+	var cruid uint32
 	if protocol == nfs {
 		mountOptions = util.JoinMountOptions(mountFlags, []string{"vers=4,minorversion=1,sec=sys"})
 		mountOptions = appendDefaultNfsMountOptions(mountOptions, d.appendNoResvPortOption, d.appendActimeoOption)
@@ -556,29 +568,38 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		}
 
 		if mountWithManagedIdentity && runtime.GOOS != "windows" {
-			sensitiveMountOptions = []string{"sec=krb5,cruid=0,upcall_target=mount", fmt.Sprintf("username=%s", clientID)}
-			klog.V(2).Infof("using managed identity %s for volume %s with mount options: %v", clientID, volumeID, sensitiveMountOptions)
+			cruid = resolveCruid(mountFlags, clientID)
+			sensitiveMountOptions = []string{"sec=krb5,upcall_target=mount", fmt.Sprintf("username=%s", clientID), fmt.Sprintf("cruid=%d", cruid)}
+			klog.V(2).Infof("using managed identity %s (cruid %d) for volume %s with mount options: %v", clientID, cruid, volumeID, sensitiveMountOptions)
 		} else if mountWithWIToken && runtime.GOOS != "windows" {
-			sensitiveMountOptions = []string{"sec=krb5,cruid=0,upcall_target=mount"}
-			klog.V(2).Infof("using workload identity token for volume %s with mount options: %v", volumeID, sensitiveMountOptions)
+			// On republish the target is already mounted; refresh the cache that
+			// live CIFS session reads (krb5cc_<its cruid>), not a new one.
+			var err error
+			if cruid, err = reconcileMountedCruid(d.mounter, cifsMountPath, resolveCruid(mountFlags, clientID)); err != nil {
+				return nil, status.Errorf(codes.FailedPrecondition, "workload identity for volume(%s) changed: %v; unstage and restage the volume to switch identities", volumeID, err)
+			}
+			sensitiveMountOptions = []string{"sec=krb5,upcall_target=mount", fmt.Sprintf("cruid=%d", cruid)}
+			klog.V(2).Infof("using workload identity token (cruid %d) for volume %s with mount options: %v", cruid, volumeID, sensitiveMountOptions)
 			if tokenFilePath != "" {
 				// Kerberos SPN must be the canonical <account>.file.<suffix>; the CIFS
 				// mount source below still uses `server` (which may be privatelink).
 				krbHost := getKerberosHost(server)
 				// always set credential cache when token file is provided even mount does not happen
-				if out, err := setCredentialCache(krbHost, clientID, tenantID, tokenFilePath, "", d.getActiveDirectoryEndpoint(), d.getStorageResource()); err != nil {
+				if out, err := setCredentialCache(krbHost, clientID, tenantID, tokenFilePath, "", d.getActiveDirectoryEndpoint(), d.getStorageResource(), cruid); err != nil {
 					return nil, status.Errorf(codes.Internal, "setCredentialCache failed for %s with error: %v, output: %s", krbHost, err, out)
 				}
 			}
 		} else if mountWithOAuthToken && runtime.GOOS != "windows" {
-			sensitiveMountOptions = []string{"sec=krb5,cruid=0,upcall_target=mount"}
 			secretName := getValueInMap(context, secretNameField)
 			secretNamespace := getSecretNamespace(context)
 			klog.V(2).Infof("using OAuth token from secret(%s/%s) for volume %s", secretNamespace, secretName, volumeID)
 			// always refresh credential cache when mountWithOAuthToken is set, even if mount does not happen
-			if _, err := d.setCredentialCacheWithOAuthToken(ctx, volumeID, context); err != nil {
+			_, oauthCruid, err := d.setCredentialCacheWithOAuthToken(ctx, volumeID, context, mountFlags, cifsMountPath)
+			if err != nil {
 				return nil, err
 			}
+			cruid = oauthCruid
+			sensitiveMountOptions = []string{"sec=krb5,upcall_target=mount", fmt.Sprintf("cruid=%d", cruid)}
 		} else {
 			if accountName == "" || accountKey == "" {
 				return nil, status.Errorf(codes.Internal, "accountName(%s) or accountKey is empty", accountName)
@@ -662,7 +683,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 					// Kerberos SPN must be the canonical <account>.file.<suffix>; the CIFS
 					// mount source below still uses `source` (which may be privatelink).
 					krbHost := getKerberosHost(server)
-					if out, err := setCredentialCache(krbHost, clientID, tenantID, tokenFilePath, "", d.getActiveDirectoryEndpoint(), d.getStorageResource()); err != nil {
+					if out, err := setCredentialCache(krbHost, clientID, tenantID, tokenFilePath, "", d.getActiveDirectoryEndpoint(), d.getStorageResource(), cruid); err != nil {
 						return fmt.Errorf("%w for %s with error: %v, output: %s", errCredentialCacheSetup, krbHost, err, out)
 					}
 				}
@@ -1074,17 +1095,19 @@ func getKerberosHost(server string) string {
 	return strings.Replace(server, ".privatelink.file.", ".file.", 1)
 }
 
-func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, volumeID string, volumeContext map[string]string) (string, error) {
+// mountPath is the path of the CIFS mount this cache backs (it may not be
+// mounted yet); an existing mount there decides which cruid cache is refreshed.
+func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, volumeID string, volumeContext map[string]string, mountFlags []string, mountPath string) (string, uint32, error) {
 	secretName := getValueInMap(volumeContext, secretNameField)
 	if secretName == "" {
-		return "", status.Errorf(codes.InvalidArgument, "secretName is required when %s is true", mountWithOAuthTokenField)
+		return "", 0, status.Errorf(codes.InvalidArgument, "secretName is required when %s is true", mountWithOAuthTokenField)
 	}
 
 	// Fetch the secret once upfront to avoid duplicate API calls
 	secretNamespace := getSecretNamespace(volumeContext)
 	secretAccountName, _, oauthToken, err := d.GetStorageAccountFromSecret(ctx, secretName, secretNamespace)
 	if err != nil {
-		return "", status.Errorf(codes.Internal, "failed to get secret %s/%s: %v", secretNamespace, secretName, err)
+		return "", 0, status.Errorf(codes.Internal, "failed to get secret %s/%s: %v", secretNamespace, secretName, err)
 	}
 
 	// Resolve server name
@@ -1109,29 +1132,65 @@ func (d *Driver) setCredentialCacheWithOAuthToken(ctx context.Context, volumeID 
 		}
 	}
 	if server == "" {
-		return "", status.Errorf(codes.InvalidArgument, "server is empty for volume(%s) with %s: set %q or %q in volume context, or provide account name in secret %q", volumeID, mountWithOAuthTokenField, serverNameField, storageAccountField, secretNameField)
+		return "", 0, status.Errorf(codes.InvalidArgument, "server is empty for volume(%s) with %s: set %q or %q in volume context, or provide account name in secret %q", volumeID, mountWithOAuthTokenField, serverNameField, storageAccountField, secretNameField)
 	}
 
 	if oauthToken == "" {
-		return "", status.Errorf(codes.InvalidArgument, "%s not found in secret %s/%s", defaultSecretOAuthToken, secretNamespace, secretName)
+		return "", 0, status.Errorf(codes.InvalidArgument, "%s not found in secret %s/%s", defaultSecretOAuthToken, secretNamespace, secretName)
 	}
 
-	// check if token has changed by comparing SHA256 hash
+	// Derive a per-identity cruid from the token subject.
+	tokenSubject := oauthTokenSubject(oauthToken)
+	if _, hasExplicit := getExplicitCruid(mountFlags); !hasExplicit && tokenSubject == "" {
+		return "", 0, status.Errorf(codes.Internal, "unable to extract oid or sub from the OAuth token for server %s", server)
+	}
+	cruid, err := reconcileMountedCruid(d.mounter, mountPath, resolveCruid(mountFlags, tokenSubject))
+	if err != nil {
+		return "", 0, status.Errorf(codes.FailedPrecondition, "OAuth token for volume(%s) belongs to a different identity: %v; unstage and restage the volume to switch identities", volumeID, err)
+	}
+
+	// check if token has changed by comparing SHA256 hash.
+	shaKey := fmt.Sprintf("%s|%d", server, cruid)
 	tokenSHA := fmt.Sprintf("%x", sha256.Sum256([]byte(oauthToken)))
-	if cachedSHA, ok := d.oauthTokenSHAMap.Load(server); ok && cachedSHA.(string) == tokenSHA {
-		klog.V(4).Infof("setCredentialCacheWithOAuthToken: OAuth token unchanged for server %s, skipping refresh", server)
-		return server, nil
+	if cachedSHA, ok := d.oauthTokenSHAMap.Load(shaKey); ok && cachedSHA.(string) == tokenSHA {
+		klog.V(4).Infof("setCredentialCacheWithOAuthToken: OAuth token unchanged for server %s (cruid %d), skipping refresh", server, cruid)
+		return server, cruid, nil
 	}
 
 	krbHost := getKerberosHost(server)
-	if output, err := setCredentialCache(krbHost, "", "", "", oauthToken, "", ""); err != nil {
+	if output, err := setCredentialCache(krbHost, "", "", "", oauthToken, "", "", cruid); err != nil {
 		klog.Errorf("setCredentialCache failed for %s with output: %s, error: %v", krbHost, strings.ReplaceAll(string(output), oauthToken, "<redacted>"), err)
-		return "", status.Errorf(codes.Internal, "setCredentialCache failed for %s: %v", krbHost, err)
+		return "", 0, status.Errorf(codes.Internal, "setCredentialCache failed for %s: %v", krbHost, err)
 	}
 
-	d.oauthTokenSHAMap.Store(server, tokenSHA)
-	klog.V(2).Infof("setCredentialCacheWithOAuthToken: refreshed credential cache for server %s (SPN host %s) using secret %s/%s", server, krbHost, secretNamespace, secretName)
-	return server, nil
+	d.oauthTokenSHAMap.Store(shaKey, tokenSHA)
+	klog.V(2).Infof("setCredentialCacheWithOAuthToken: refreshed credential cache for server %s (SPN host %s, cruid %d) using secret %s/%s", server, krbHost, cruid, secretNamespace, secretName)
+	return server, cruid, nil
+}
+
+// oauthTokenSubject extracts a stable per-identity key from a JWT access token,
+// preferring the Azure AD object ID (oid) and falling back to the subject (sub).
+// It returns "" when the token cannot be parsed.
+func oauthTokenSubject(token string) string {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return ""
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return ""
+	}
+	var claims struct {
+		Oid string `json:"oid"`
+		Sub string `json:"sub"`
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return ""
+	}
+	if claims.Oid != "" {
+		return claims.Oid
+	}
+	return claims.Sub
 }
 
 func (d *Driver) mountWithProxy(ctx context.Context, source, target, fsType string, options, sensitiveMountOptions []string) error {

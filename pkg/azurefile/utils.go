@@ -18,12 +18,16 @@ package azurefile
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -581,7 +585,7 @@ func getDefaultBandwidth(requestGiB int, storageAccountType string) *int32 {
 	return &bandwidth
 }
 
-func setCredentialCache(server, clientID, tenantID, tokenFile, token, authorityHost, resource string) ([]byte, error) {
+func setCredentialCache(server, clientID, tenantID, tokenFile, token, authorityHost, resource string, cacheUID uint32) ([]byte, error) {
 	if server == "" {
 		return nil, fmt.Errorf("server must be provided")
 	}
@@ -617,6 +621,11 @@ func setCredentialCache(server, clientID, tenantID, tokenFile, token, authorityH
 		args = []string{"set", serverURL, "--imds-client-id", clientID}
 	}
 
+	// Pin the credential cache to a per-identity uid so every identity on the
+	// node writes its own krb5cc_<uid>, same uid as cruid= in the CIFS mount
+	// options, so the kernel reconnect upcall uses the correct identity.
+	args = append(args, "--cache-uid", strconv.FormatUint(uint64(cacheUID), 10))
+
 	cmd := exec.Command("azfilesauthmanager", args...)
 	cmd.Env = append(os.Environ(), cmd.Env...)
 	if token != "" {
@@ -625,6 +634,106 @@ func setCredentialCache(server, clientID, tenantID, tokenFile, token, authorityH
 		klog.V(2).Infof("Executing command: %q", cmd.String())
 	}
 	return cmd.CombinedOutput()
+}
+
+// Per-identity Kerberos credential-cache uids live in a high band not normally
+// assigned to local accounts and are used only as the suffix of the
+// per-identity credential cache file (/var/lib/kubelet/kerberos/krb5cc_<uid>)
+// and cruid= value in the CIFS mount options, for kernel's reconnect upcall to
+// find the right identity's ticket.
+const (
+	derivedCruidBase = 2000000
+	derivedCruidSpan = 1000000000
+)
+
+// deriveCruid maps a per-identity key (client ID, or an OAuth token subject) to
+// a uid via cryptographic digest. The mapping is stateless so it is identical
+// across driver restarts and across the lifetime of a mount.
+func deriveCruid(identityKey string) uint32 {
+	sum := sha256.Sum256([]byte(identityKey))
+	v := binary.BigEndian.Uint64(sum[:8])
+	return uint32(derivedCruidBase + (v % derivedCruidSpan))
+}
+
+// getExplicitCruid returns an operator-supplied cruid= found in mountFlags.
+func getExplicitCruid(mountFlags []string) (uint32, bool) {
+	for _, f := range mountFlags {
+		for _, kv := range strings.Split(f, ",") {
+			kv = strings.TrimSpace(kv)
+			if v, ok := strings.CutPrefix(kv, "cruid="); ok {
+				if uid, err := strconv.ParseUint(strings.TrimSpace(v), 10, 32); err == nil {
+					return uint32(uid), true
+				}
+			}
+		}
+	}
+	return 0, false
+}
+
+// getMountedCruid returns the cruid= the kernel reports for the mount at path
+// (cifs always shows it for sec=krb5 sessions) and whether one was found.
+func getMountedCruid(mounter mount.Interface, path string) (uint32, bool, error) {
+	mountList, err := mounter.List()
+	if err != nil {
+		return 0, false, err
+	}
+	pathAbs, err := filepath.Abs(path)
+	if err != nil {
+		return 0, false, err
+	}
+	for _, mp := range mountList {
+		if mp.Path == pathAbs {
+			uid, ok := getExplicitCruid(mp.Opts)
+			return uid, ok, nil
+		}
+	}
+	return 0, false, nil
+}
+
+// errCruidMismatch reports that an existing mount is bound to a different
+// per-identity cruid than the one the current request resolves to.
+var errCruidMismatch = errors.New("existing mount is bound to a different identity")
+
+// reconcileMountedCruid returns the cruid whose credential cache must be
+// refreshed for the mount at path. An existing CIFS Kerberos session keeps
+// reading krb5cc_<cruid it was mounted with>, so a refresh must target that
+// cache rather than the newly resolved one:
+//   - no existing mount (or no cruid reported): use want
+//   - mounted cruid == want: use want
+//   - mounted cruid == 0: a mount made before per-identity caches (legacy
+//     shared krb5cc_0); keep refreshing cruid 0 so the upgrade is transparent
+//   - any other cruid: the identity changed under a live mount, errCruidMismatch
+func reconcileMountedCruid(mounter mount.Interface, path string, want uint32) (uint32, error) {
+	if runtime.GOOS == "windows" || path == "" {
+		return want, nil
+	}
+	mounted, found, err := getMountedCruid(mounter, path)
+	if err != nil {
+		klog.Warningf("unable to read cruid of existing mount %s: %v", path, err)
+		return want, nil
+	}
+	if !found || mounted == want {
+		return want, nil
+	}
+	if mounted == 0 {
+		klog.V(2).Infof("existing mount %s uses the legacy shared credential cache (cruid 0); refreshing cruid 0 instead of %d until it is restaged", path, want)
+		return 0, nil
+	}
+	return 0, fmt.Errorf("%w: mount %s has cruid %d, request resolves to cruid %d", errCruidMismatch, path, mounted, want)
+}
+
+// resolveCruid picks the per-identity cruid for a mount: an explicit operator
+// override from mountFlags if present, otherwise a value derived from the
+// identity key. An empty identityKey with no override falls back to 0, which
+// preserves the legacy shared-cache behavior.
+func resolveCruid(mountFlags []string, identityKey string) uint32 {
+	if uid, ok := getExplicitCruid(mountFlags); ok {
+		return uid
+	}
+	if identityKey == "" {
+		return 0
+	}
+	return deriveCruid(identityKey)
 }
 
 // invalidFolderNameChars contains characters not allowed in Azure file share folder names
