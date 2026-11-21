@@ -33,7 +33,6 @@ import (
 	"testing"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	volume "github.com/kata-containers/kata-containers/src/runtime/pkg/direct-volume"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc"
@@ -163,6 +162,7 @@ func TestNodePublishVolume(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockDirectVolume := NewMockDirectVolume(ctrl)
+	mockResolver := NewMockResolver(ctrl)
 	getRuntimeClassForPodFunc = mockGetRuntimeClassForPod
 	isKataDirectVolumeRuntimeClassFunc = mockIsKataDirectVolumeRuntimeClass
 	d.isKataNode = false
@@ -633,21 +633,32 @@ func TestNodePublishVolume(t *testing.T) {
 			},
 		},
 		{
-			desc: "[Success] Valid request with Kata CC Mount enabled",
+			desc: "[Success] Valid request with Kata Mount enabled",
 			req: &csi.NodePublishVolumeRequest{VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
-				VolumeId:          "vol_1",
+				VolumeId:          "vol_1##",
 				TargetPath:        targetTest,
 				StagingTargetPath: sourceTest,
 				Readonly:          true,
-				VolumeContext:     map[string]string{mountPermissionsField: "0755", podNameField: "testPod", podNamespaceField: "testNamespace"},
+				VolumeContext: map[string]string{
+					mountPermissionsField: "0755",
+					podNameField:          "testPod",
+					podNamespaceField:     "testNamespace",
+					shareNameField:        "test_sharename",
+					serverNameField:       "test_servername",
+				},
+				Secrets: map[string]string{"accountname": "k8s", "accountkey": "testkey"},
 			},
 			setup: func() {
 				d.isKataNode = true
+				d.resolver = mockResolver
 				d.directVolume = mockDirectVolume
-				mockDirectVolume.EXPECT().VolumeMountInfo(sourceTest).Return(&volume.MountInfo{}, nil)
+				// publish now re-derives the mount info instead of reading it from staging
+				mockIPAddr := &net.IPAddr{IP: net.ParseIP("192.168.1.1")}
+				mockResolver.EXPECT().ResolveIPAddr("ip", "test_servername").Return(mockIPAddr, nil)
 				mockDirectVolume.EXPECT().Add(targetTest, gomock.Any()).Return(nil)
 			},
 			cleanup: func() {
+				// d.isKataNode = false
 			},
 		},
 		{
@@ -1634,16 +1645,15 @@ func TestNodeStageVolume(t *testing.T) {
 			},
 		},
 		{
-			desc: "[Success] Valid request with Kata CC Mount enabled",
+			desc: "[Success] Valid request with Kata Mount enabled",
 			setup: func() {
+				// NodeStageVolume only checks for a pre-existing mountInfo.json now;
+				// the Kata metadata is written at publish time.
 				d.resolver = mockResolver
 				d.directVolume = mockDirectVolume
 				if runtime.GOOS != "windows" {
 					d.isKataNode = true
-					mockIPAddr := &net.IPAddr{IP: net.ParseIP("192.168.1.1")}
 					mockDirectVolume.EXPECT().VolumeMountInfo(sourceTest).Return(nil, nil)
-					mockResolver.EXPECT().ResolveIPAddr("ip", "test_servername").Return(mockIPAddr, nil)
-					mockDirectVolume.EXPECT().Add(sourceTest, gomock.Any()).Return(nil)
 				}
 			},
 			req: &csi.NodeStageVolumeRequest{VolumeId: "vol_1##", StagingTargetPath: sourceTest,

@@ -203,32 +203,34 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 				}
 				if isKataDirectVolume {
 					klog.V(2).Infof("====++====NodePublishVolume: volume(%s) uses direct volume mount, runtimeClass %s", volumeID, runtimeClass)
-					source := req.GetStagingTargetPath()
-					if len(source) == 0 {
+					stagingPath := req.GetStagingTargetPath()
+					if len(stagingPath) == 0 {
 						return nil, status.Error(codes.InvalidArgument, "Staging target not provided")
 					}
-					// Load the mount info from staging area
-					mountInfo, err := d.directVolume.VolumeMountInfo(source)
+					mountFlags := volCap.GetMount().GetMountFlags()
+					volumeMountGroup := volCap.GetMount().GetVolumeMountGroup()
+					// Derive the SMB mount metadata for guest-facing mount at the pod target
+					mountInfo, err := d.getKataDirectVolumeMountInfo(ctx, volumeID, context, secrets, mountFlags, volumeMountGroup)
 					if err != nil {
-						return nil, status.Errorf(codes.Internal, "failed to load mount info from %s: %v", source, err)
+						return nil, status.Errorf(codes.Internal, "====++====failed to build mount info for volume %s: %v", volumeID, err)
 					}
 					if mountInfo == nil {
-						return nil, status.Errorf(codes.Internal, "mount info is nil for volume %s", volumeID)
+						return nil, status.Errorf(codes.Internal, "====++====mount info is nil for volume %s", volumeID)
 					}
 					data, err := json.Marshal(mountInfo)
 					if err != nil {
-						return nil, status.Errorf(codes.Internal, "failed to marshal mount info %s: %v", source, err)
+						return nil, status.Errorf(codes.Internal, "====++====failed to marshal mount info for volume %s: %v", volumeID, err)
 					}
-					klog.V(2).Infof("====++====NodePublishVolume: mount info for volume(%s) at source(%s): %s", volumeID, source, string(data))
+					klog.V(2).Infof("====++====NodePublishVolume: mount info for volume(%s): device %s, fstype %s, data  %s", volumeID, mountInfo.Device, mountInfo.FsType, string(data))
 					// The guest mounts the SMB share from this metadata. Release the host
 					// mount first so it is not also exposed through virtio-fs.
-					if err := CleanupMountPoint(d.mounter, source, true /*extensiveMountPointCheck*/); err != nil {
-						return nil, status.Errorf(codes.Internal, "failed to unmount staging target %s for Kata direct volume: %v", source, err)
+					if err := CleanupMountPoint(d.mounter, stagingPath, true /*extensiveMountPointCheck*/); err != nil {
+						return nil, status.Errorf(codes.Internal, "====++====failed to unmount staging target %s for Kata direct volume: %v", stagingPath, err)
 					}
 					if err = d.directVolume.Add(target, string(data)); err != nil {
-						return nil, status.Errorf(codes.Internal, "failed to save mount info %s: %v", target, err)
+						return nil, status.Errorf(codes.Internal, "====++====failed to save mount info %s: %v", target, err)
 					}
-					klog.V(2).Infof("====++====NodePublishVolume: direct volume mount %s at %s successfully", source, target)
+					klog.V(2).Infof("====++====NodePublishVolume: direct volume mount %s at %s successfully", stagingPath, target)
 					return &csi.NodePublishVolumeResponse{}, nil
 				}
 			}
@@ -327,6 +329,132 @@ func (d *Driver) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVo
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
+// getKataDirectVolumeMountInfo re-derives the SMB mount metadata that a Kata
+// guest needs to mount the share directly. It mirrors the credential/option
+// resolution in NodeStageVolume so that only a single mountInfo.json (at the pod
+// target) has to be written. For Kerberos auth, the server's ticket is copied
+// from the node cache that NodeStageVolume populated.
+func (d *Driver) getKataDirectVolumeMountInfo(ctx context.Context, volumeID string, volContext, secrets map[string]string, mountFlags []string, volumeMountGroup string) (*volume.MountInfo, error) {
+	_, accountName, accountKey, fileShareName, _, _, _, _, err := d.GetAccountInfo(ctx, volumeID, secrets, volContext)
+	if err != nil {
+		return nil, fmt.Errorf("GetAccountInfo(%s) failed with error: %w", volumeID, err)
+	}
+	if fileShareName == "" {
+		return nil, fmt.Errorf("failed to get file share name from %s", volumeID)
+	}
+
+	var fsType, server, protocol, storageEndpointSuffix, folderName, clientID string
+	var mountWithManagedIdentity, mountWithOAuthToken, mountWithWIToken bool
+	volumeMetadataReplaceMap := map[string]string{}
+	for k, v := range volContext {
+		switch strings.ToLower(k) {
+		case fsTypeField:
+			fsType = v
+		case protocolField:
+			protocol = v
+		case folderNameField:
+			folderName = strings.Trim(v, "/")
+			if folderName != "" {
+				if err := isValidFolderName(folderName); err != nil {
+					return nil, fmt.Errorf("invalid folderName: %w", err)
+				}
+			}
+		case serverNameField:
+			server = v
+		case storageEndpointSuffixField:
+			storageEndpointSuffix = v
+		case mountWithManagedIdentityField:
+			mountWithManagedIdentity, _ = strconv.ParseBool(v)
+		case mountWithOAuthTokenField:
+			mountWithOAuthToken, _ = strconv.ParseBool(v)
+		case mountWithWITokenField:
+			mountWithWIToken, _ = strconv.ParseBool(v)
+		case clientIDField:
+			clientID = v
+		case pvcNamespaceKey:
+			volumeMetadataReplaceMap[pvcNamespaceMetadata] = v
+		case pvcNameKey:
+			volumeMetadataReplaceMap[pvcNameMetadata] = v
+		case pvNameKey:
+			volumeMetadataReplaceMap[pvNameMetadata] = v
+		}
+	}
+
+	if protocol == nfs {
+		return nil, fmt.Errorf("kata direct volume mount is only supported for the SMB protocol, got %q", protocol)
+	}
+	if strings.TrimSpace(storageEndpointSuffix) == "" {
+		storageEndpointSuffix = d.getStorageEndPointSuffix()
+	}
+
+	fileShareName = replaceWithMap(fileShareName, volumeMetadataReplaceMap)
+	folderName = strings.Trim(replaceWithMap(folderName, volumeMetadataReplaceMap), "/")
+
+	osSeparator := string(os.PathSeparator)
+	if strings.TrimSpace(server) == "" {
+		// server address is "accountname.file.core.windows.net" by default
+		server = fmt.Sprintf("%s.file.%s", accountName, storageEndpointSuffix)
+	}
+	source := fmt.Sprintf("%s%s%s%s%s", osSeparator, osSeparator, server, osSeparator, fileShareName)
+	if folderName != "" {
+		source = fmt.Sprintf("%s%s%s", source, osSeparator, folderName)
+	}
+
+	if (mountWithManagedIdentity || mountWithWIToken) && clientID == "" {
+		clientID = d.cloud.Config.AzureAuthConfig.UserAssignedIdentityID
+	}
+
+	var sensitiveMountOptions []string
+	switch {
+	case mountWithManagedIdentity:
+		sensitiveMountOptions = []string{"sec=krb5,cruid=0,upcall_target=mount", fmt.Sprintf("username=%s", clientID)}
+	case mountWithWIToken, mountWithOAuthToken:
+		sensitiveMountOptions = []string{"sec=krb5,cruid=0,upcall_target=mount"}
+	default:
+		if accountName == "" || accountKey == "" {
+			return nil, fmt.Errorf("====++====accountName(%s) or accountKey is empty", accountName)
+		}
+		// Sensitive mount options for CIFS include the username and password
+		sensitiveMountOptions = []string{fmt.Sprintf("username=%s,password=%s", accountName, accountKey)}
+	}
+
+	cifsMountFlags := mountFlags
+	if volumeMountGroup != "" && !checkGidPresentInMountFlags(mountFlags) {
+		cifsMountFlags = append(cifsMountFlags, fmt.Sprintf("gid=%s", volumeMountGroup))
+	}
+	mountOptions := appendDefaultCifsMountOptions(cifsMountFlags, d.appendNoShareSockOption, d.appendClosetimeoOption)
+	if isDiskFsType(fsType) {
+		if opts, existed := removeOptionIfExists(mountOptions, mfsymlinks); existed {
+			mountOptions = opts
+		}
+	}
+
+	ipAddr, err := d.resolver.ResolveIPAddr("ip", server)
+	if err != nil {
+		return nil, fmt.Errorf("====++====couldn't resolve IP for server %s: %w", server, err)
+	}
+	mountOptions = append(mountOptions, "addr="+ipAddr.IP.String())
+
+	metadata := map[string]string{
+		kataSensitiveMountOptionsKey: strings.Join(sensitiveMountOptions, ","),
+	}
+	if mountWithManagedIdentity || mountWithWIToken || mountWithOAuthToken {
+		ccache, err := getKataKrb5Ccache(getKerberosHost(server), clientID, mountWithManagedIdentity)
+		if err != nil {
+			return nil, fmt.Errorf("====++====failed to get kerberos ticket for %s: %w", server, err)
+		}
+		metadata[kataKrb5CcacheKey] = ccache
+	}
+
+	return &volume.MountInfo{
+		VolumeType: "azurefile",
+		Device:     source,
+		FsType:     cifs,
+		Metadata:   metadata,
+		Options:    mountOptions,
+	}, nil
+}
+
 // NodeStageVolume mount the volume to a staging path
 func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (resp *csi.NodeStageVolumeResponse, returnedErr error) {
 	if len(req.GetVolumeId()) == 0 {
@@ -363,7 +491,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	defer func() {
 		mc.WithAdditionalVolumeInfo(VolumeID, volumeID).Observe(returnedErr == nil)
 	}()
-
+	// Account key and other account information retrieval from req secrets and context
 	rgName, accountName, accountKey, fileShareName, diskName, subsID, tenantID, tokenFilePath, err := d.GetAccountInfo(ctx, volumeID, req.GetSecrets(), context)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("GetAccountInfo(%s) failed with error: %v", volumeID, err))
@@ -701,41 +829,15 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		klog.V(2).Infof("volume(%s) mount %s on %s succeeded", volumeID, source, cifsMountPath)
 	}
 
-	// If runtime OS is not windows and protocol is not nfs, save mountInfo.json
-	if d.enableKataMount && d.isKataNode {
-		if runtime.GOOS != "windows" && protocol != nfs {
-			// Check if mountInfo.json is already present at the targetPath
-			isMountInfoPresent, err := d.directVolume.VolumeMountInfo(cifsMountPath)
-			if err != nil && !os.IsNotExist(err) {
-				return nil, status.Errorf(codes.Internal, "Could not save direct volume mount info %s: %v", cifsMountPath, err)
-			}
-			if isMountInfoPresent != nil {
-				klog.V(2).Infof("====++====NodeStageVolume: mount info for volume %s is already present on %s", volumeID, targetPath)
-			} else {
-				mountFsType := cifs
-				ipAddr, err := d.resolver.ResolveIPAddr("ip", server)
-				if err != nil {
-					klog.V(2).ErrorS(err, "Couldn't resolve IP")
-					return nil, err
-				}
-				mountOptions = append(mountOptions, "addr="+ipAddr.IP.String())
-				mountInfo := volume.MountInfo{
-					VolumeType: "azurefile",
-					Device:     source,
-					FsType:     mountFsType,
-					Metadata: map[string]string{
-						"sensitiveMountOptions": strings.Join(sensitiveMountOptions, ","),
-					},
-					Options: mountOptions,
-				}
-				data, _ := json.Marshal(mountInfo)
-				if err := d.directVolume.Add(cifsMountPath, string(data)); err != nil {
-					return nil, status.Errorf(codes.Internal, "Could not save direct volume mount info %s: %v", cifsMountPath, err)
-				}
-				klog.V(2).Infof("====++====NodeStageVolume: mount info for volume %s saved on %s", volumeID, targetPath)
-			}
-		} else {
-			klog.V(2).Infof("====++====NodeStageVolume: skip saving mount info for volume %s on %s, runtime OS: %s, protocol: %s", volumeID, targetPath, runtime.GOOS, protocol)
+	// mountInfo.json is written at publish time; here we only check for a
+	// pre-existing entry and surface read errors, never write one.
+	if d.enableKataMount && d.isKataNode && runtime.GOOS != "windows" && protocol != nfs {
+		isMountInfoPresent, err := d.directVolume.VolumeMountInfo(cifsMountPath)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, status.Errorf(codes.Internal, "Could not save direct volume mount info %s: %v", cifsMountPath, err)
+		}
+		if isMountInfoPresent != nil {
+			klog.V(2).Infof("====++====NodeStageVolume: mount info for volume %s is already present on %s", volumeID, targetPath)
 		}
 	}
 
