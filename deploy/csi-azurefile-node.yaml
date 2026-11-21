@@ -142,7 +142,7 @@ spec:
             - "--azurefile-proxy-endpoint=$(AZUREFILE_PROXY_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
             - "--metrics-address=0.0.0.0:29615"
-            - "--enable-kata-cc-mount=true"
+            - "--enable-kata-mount=true"
           livenessProbe:
             failureThreshold: 5
             httpGet:
