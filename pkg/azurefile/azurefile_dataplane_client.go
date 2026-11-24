@@ -23,6 +23,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	armstorage "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/service"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
 	"k8s.io/klog/v2"
@@ -88,10 +89,19 @@ func (f *azureFileDataplaneClient) CreateFileShare(ctx context.Context, shareOpt
 	if shareOptions == nil {
 		return fmt.Errorf("shareOptions of account(%s) is nil", f.accountName)
 	}
-	_, err := f.Client.NewShareClient(shareOptions.Name).Create(ctx, &share.CreateOptions{
-		Quota: to.Ptr(int32(shareOptions.RequestGiB)),
-	})
+	_, err := f.Client.NewShareClient(shareOptions.Name).Create(ctx, newShareCreateOptions(shareOptions))
 	return err
+}
+
+// newShareCreateOptions preserves the default SMB behavior and explicitly enables NFS when requested.
+func newShareCreateOptions(shareOptions *ShareOptions) *share.CreateOptions {
+	opts := &share.CreateOptions{
+		Quota: to.Ptr(int32(shareOptions.RequestGiB)),
+	}
+	if shareOptions.Protocol == armstorage.EnabledProtocolsNFS {
+		opts.EnabledProtocols = to.Ptr(string(armstorage.EnabledProtocolsNFS))
+	}
+	return opts
 }
 
 // delete a file share
