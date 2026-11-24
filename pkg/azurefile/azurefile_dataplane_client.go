@@ -93,28 +93,13 @@ func (f *azureFileDataplaneClient) CreateFileShare(ctx context.Context, shareOpt
 	return err
 }
 
-// newShareCreateOptions maps ShareOptions to data plane create options, matching azureFileMgmtClient.CreateFileShare.
+// newShareCreateOptions preserves the default SMB behavior and explicitly enables NFS when requested.
 func newShareCreateOptions(shareOptions *ShareOptions) *share.CreateOptions {
 	opts := &share.CreateOptions{
 		Quota: to.Ptr(int32(shareOptions.RequestGiB)),
 	}
 	if shareOptions.Protocol == armstorage.EnabledProtocolsNFS {
 		opts.EnabledProtocols = to.Ptr(string(armstorage.EnabledProtocolsNFS))
-	}
-	if shareOptions.AccessTier != "" {
-		opts.AccessTier = to.Ptr(share.AccessTier(shareOptions.AccessTier))
-	}
-	if shareOptions.RootSquash != "" {
-		opts.RootSquash = to.Ptr(share.RootSquash(shareOptions.RootSquash))
-	}
-	if shareOptions.Metadata != nil {
-		opts.Metadata = shareOptions.Metadata
-	}
-	if shareOptions.ProvisionedIops != nil {
-		opts.ShareProvisionedIops = to.Ptr(int64(*shareOptions.ProvisionedIops))
-	}
-	if shareOptions.ProvisionedBandwidthMibps != nil {
-		opts.ShareProvisionedBandwidthMibps = to.Ptr(int64(*shareOptions.ProvisionedBandwidthMibps))
 	}
 	return opts
 }
