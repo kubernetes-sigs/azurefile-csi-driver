@@ -2447,8 +2447,8 @@ var _ = ginkgo.Describe("TestCopyVolume", func() {
 
 			m := util.NewMockEXEC(ctrl)
 			listStr1 := "JobId: ed1c3833-eaff-fe42-71d7-513fb065a9d9\nStart Time: Monday, 07-Aug-23 03:29:54 UTC\nStatus: InProgress\nCommand: copy https://{accountName}.file.core.windows.net/{srcFileshare}{SAStoken} https://{accountName}.file.core.windows.net/{dstFileshare}{SAStoken} --recursive --check-length=false"
-			m.EXPECT().RunCommand(gomock.Eq("azcopy jobs list | grep dstFileshare -B 3"), gomock.Any()).Return(listStr1, nil).AnyTimes()
-			m.EXPECT().RunCommand(gomock.Not("azcopy jobs list | grep dstFileshare -B 3"), gomock.Any()).Return("Percent Complete (approx): 50.0", nil).AnyTimes()
+			m.EXPECT().RunCommand("azcopy", []string{"jobs", "list"}, gomock.Any()).Return(listStr1, nil).AnyTimes()
+			m.EXPECT().RunCommand("azcopy", []string{"jobs", "show", "ed1c3833-eaff-fe42-71d7-513fb065a9d9"}, gomock.Any()).Return("Percent Complete (approx): 50.0", nil).AnyTimes()
 
 			d.azcopy.ExecCmd = m
 			d.waitForAzCopyTimeoutMinutes = 1
