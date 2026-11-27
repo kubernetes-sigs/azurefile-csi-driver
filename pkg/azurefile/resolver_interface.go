@@ -16,11 +16,15 @@ limitations under the License.
 
 package azurefile
 
-import "net"
+import (
+	"context"
+	"net"
+)
 
 // Resolver is an interface for resolving IP addresses.
 type Resolver interface {
 	ResolveIPAddr(network, address string) (*net.IPAddr, error)
+	LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error)
 }
 
 // NetResolver is the real implementation of the Resolver interface.
@@ -29,4 +33,9 @@ type NetResolver struct{}
 // ResolveIPAddr resolves the IP address using net.ResolveIPAddr.
 func (r *NetResolver) ResolveIPAddr(network, address string) (*net.IPAddr, error) {
 	return net.ResolveIPAddr(network, address)
+}
+
+// LookupIPAddr resolves all IP addresses for a host.
+func (r *NetResolver) LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error) {
+	return net.DefaultResolver.LookupIPAddr(ctx, host)
 }

@@ -31,6 +31,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	armstorage "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v2"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	volume "github.com/kata-containers/kata-containers/src/runtime/pkg/direct-volume"
 
@@ -504,12 +506,11 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		// server address is "accountname.file.core.windows.net" by default
 		server = fmt.Sprintf("%s.file.%s", accountName, storageEndpointSuffix)
 	}
-	// Validate inline ephemeral volume server.
-	if ephemeralVol {
-		if err := validateInlineVolumeServer(server, accountName, trueStorageEndPointSuffix); err != nil {
-			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid server error: %s", err.Error()))
-		}
+	// Validate custom server addresses against the storage account endpoints.
+	if err := d.validateServerAddress(ctx, subsID, rgName, server, accountName, trueStorageEndPointSuffix); err != nil {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid server error: %s", err.Error()))
 	}
+
 	source := fmt.Sprintf("%s%s%s%s%s", osSeparator, osSeparator, server, osSeparator, fileShareName)
 	if protocol == nfs {
 		source = fmt.Sprintf("%s:/%s/%s", server, accountName, fileShareName)
@@ -1322,14 +1323,37 @@ func validateInlineSMBMountOptions(mountOptions []string) error {
 	return nil
 }
 
-func validateInlineVolumeServer(server, accountName, storageEndPointSuffix string) error {
+// GetStorageAccountProperties retrieves the storage account used to validate custom servers.
+func (d *Driver) GetStorageAccountProperties(
+	ctx context.Context, subsID, resourceGroup, accountName string,
+) (*armstorage.Account, error) {
+	if d.cloud == nil || d.cloud.ComputeClientFactory == nil {
+		return nil, fmt.Errorf("cloud provider is not initialized")
+	}
+
+	client, err := d.cloud.ComputeClientFactory.GetAccountClientForSub(subsID)
+	if err != nil {
+		return nil, fmt.Errorf("get account client: %w", err)
+	}
+
+	account, err := client.GetProperties(ctx, resourceGroup, accountName, nil)
+	if err != nil {
+		return nil, fmt.Errorf("get storage account properties: %w", err)
+	}
+	if account == nil {
+		return nil, fmt.Errorf("storage account properties response is nil")
+	}
+	return account, nil
+}
+
+// validateServerAddress will check if the given server address is valid for the specified storage account and endpoint suffix.
+func (d *Driver) validateServerAddress(ctx context.Context, subsID, resourceGroup, server, accountName, storageEndPointSuffix string) error {
 	account := strings.ToLower(strings.TrimSpace(accountName))
 	suffix := strings.ToLower(strings.Trim(strings.TrimSpace(storageEndPointSuffix), "."))
 	host, err := parseInlineVolumeServer(server)
 	if err != nil {
 		return err
 	}
-
 	if account == "" || suffix == "" {
 		return fmt.Errorf("invalid server configuration: account name or storage endpoint suffix is empty")
 	}
@@ -1345,13 +1369,167 @@ func validateInlineVolumeServer(server, accountName, storageEndPointSuffix strin
 		fmt.Sprintf("%s.privatelink.file.%s", secondaryAccount, suffix): {},
 		fmt.Sprintf("%s.privatelink.afs.%s", secondaryAccount, suffix):  {},
 	}
-	if _, ok := allowedHosts[strings.TrimSuffix(strings.ToLower(server), ".")]; ok {
+	if _, ok := allowedHosts[host]; ok {
 		return nil
 	}
 	if suffix == defaultStorageEndPointSuffix && isAzureDNSZoneStorageHost(host, account) {
 		return nil
 	}
-	return fmt.Errorf("invalid server %q: hostname must match storage account %q in the configured Azure cloud", server, accountName)
+	accountInfo, err := d.GetStorageAccountProperties(ctx, subsID, resourceGroup, account)
+	if err != nil {
+		return fmt.Errorf("get storage account details to validate server %q: %w", server, err)
+	}
+	if accountInfo.Properties == nil {
+		return fmt.Errorf("storage account %q has no properties to validate server %q", account, server)
+	}
+
+	serverIPs := []net.IPAddr{{IP: net.ParseIP(host)}}
+	if serverIPs[0].IP == nil {
+		serverIPs, err = d.resolver.LookupIPAddr(ctx, host)
+		if err != nil {
+			return fmt.Errorf("resolve server %q: %w", server, err)
+		}
+	}
+	if len(serverIPs) == 0 {
+		return fmt.Errorf("server %q resolved to no IP addresses", server)
+	}
+	var endpointIPs []net.IPAddr
+	var validationErrors []error
+	if endpoints := accountInfo.Properties.PrimaryEndpoints; endpoints != nil && endpoints.File != nil {
+		endpoint, parseErr := url.Parse(*endpoints.File)
+		if parseErr != nil || endpoint.Hostname() == "" {
+			validationErrors = append(validationErrors, fmt.Errorf("invalid primary file endpoint %q", *endpoints.File))
+		} else {
+			ips, lookupErr := d.resolver.LookupIPAddr(ctx, endpoint.Hostname())
+			if lookupErr != nil {
+				validationErrors = append(validationErrors, fmt.Errorf("resolve primary file endpoint: %w", lookupErr))
+			}
+			endpointIPs = append(endpointIPs, ips...)
+		}
+	}
+	if serverIPsMatchEndpoints(serverIPs, endpointIPs) {
+		return nil
+	}
+	for _, connection := range accountInfo.Properties.PrivateEndpointConnections {
+		if connection == nil || connection.Properties == nil {
+			continue
+		}
+		properties := connection.Properties
+		if properties.PrivateLinkServiceConnectionState == nil ||
+			properties.PrivateLinkServiceConnectionState.Status == nil ||
+			*properties.PrivateLinkServiceConnectionState.Status != armstorage.PrivateEndpointServiceConnectionStatusApproved ||
+			properties.PrivateEndpoint == nil || properties.PrivateEndpoint.ID == nil {
+			continue
+		}
+		id, parseErr := arm.ParseResourceID(*properties.PrivateEndpoint.ID)
+		if parseErr != nil || !strings.EqualFold(id.ResourceType.String(), "Microsoft.Network/privateEndpoints") {
+			validationErrors = append(validationErrors, fmt.Errorf("invalid private endpoint ID %q", *properties.PrivateEndpoint.ID))
+			continue
+		}
+		networkSub := d.cloud.NetworkResourceSubscriptionID
+		if networkSub == "" {
+			networkSub = d.cloud.SubscriptionID
+		}
+		if !strings.EqualFold(id.SubscriptionID, networkSub) {
+			validationErrors = append(validationErrors, fmt.Errorf("private endpoint %q is outside configured network subscription %q", id, networkSub))
+			continue
+		}
+		if d.cloud.NetworkClientFactory == nil {
+			validationErrors = append(validationErrors, fmt.Errorf("network client factory is not initialized"))
+			continue
+		}
+		endpoint, getErr := d.cloud.NetworkClientFactory.GetPrivateEndpointClient().Get(ctx, id.ResourceGroupName, id.Name, nil)
+		if getErr != nil {
+			validationErrors = append(validationErrors, fmt.Errorf("get private endpoint %q: %w", id, getErr))
+			continue
+		}
+		if endpoint == nil || endpoint.Properties == nil {
+			validationErrors = append(validationErrors, fmt.Errorf("private endpoint %q has no properties", id))
+			continue
+		}
+		for _, config := range endpoint.Properties.CustomDNSConfigs {
+			if config == nil || config.Fqdn == nil {
+				continue
+			}
+			dnsHost, parseErr := parseInlineVolumeServer(*config.Fqdn)
+			if parseErr != nil {
+				continue
+			}
+			if _, allowed := allowedHosts[dnsHost]; !allowed && !(suffix == defaultStorageEndPointSuffix && isAzureDNSZoneStorageHost(dnsHost, account)) {
+				continue
+			}
+			for _, address := range config.IPAddresses {
+				if address != nil && net.ParseIP(*address) != nil {
+					endpointIPs = append(endpointIPs, net.IPAddr{IP: net.ParseIP(*address)})
+				}
+			}
+		}
+		for _, config := range endpoint.Properties.IPConfigurations {
+			if config != nil && config.Properties != nil && config.Properties.GroupID != nil &&
+				*config.Properties.GroupID == "file" && config.Properties.PrivateIPAddress != nil {
+				if ip := net.ParseIP(*config.Properties.PrivateIPAddress); ip != nil {
+					endpointIPs = append(endpointIPs, net.IPAddr{IP: ip})
+				}
+			}
+		}
+		if serverIPsMatchEndpoints(serverIPs, endpointIPs) {
+			return nil
+		}
+		// Dynamically allocated addresses may only be returned on the endpoint NIC.
+		for _, nic := range endpoint.Properties.NetworkInterfaces {
+			if nic == nil || nic.ID == nil {
+				continue
+			}
+			nicID, parseErr := arm.ParseResourceID(*nic.ID)
+			if parseErr != nil || !strings.EqualFold(nicID.ResourceType.String(), "Microsoft.Network/networkInterfaces") ||
+				!strings.EqualFold(nicID.SubscriptionID, networkSub) {
+				validationErrors = append(validationErrors, fmt.Errorf("invalid private endpoint network interface ID %q", *nic.ID))
+				continue
+			}
+			iface, getErr := d.cloud.NetworkClientFactory.GetInterfaceClient().Get(ctx, nicID.ResourceGroupName, nicID.Name, nil)
+			if getErr != nil {
+				validationErrors = append(validationErrors, fmt.Errorf("get private endpoint network interface %q: %w", nicID, getErr))
+				continue
+			}
+			if iface == nil || iface.Properties == nil {
+				validationErrors = append(validationErrors, fmt.Errorf("private endpoint network interface %q has no properties", nicID))
+				continue
+			}
+			for _, config := range iface.Properties.IPConfigurations {
+				if config == nil || config.Properties == nil {
+					continue
+				}
+				properties := config.Properties
+				if link := properties.PrivateLinkConnectionProperties; link != nil && link.GroupID != nil &&
+					*link.GroupID == "file" && properties.PrivateIPAddress != nil {
+					if ip := net.ParseIP(*properties.PrivateIPAddress); ip != nil {
+						endpointIPs = append(endpointIPs, net.IPAddr{IP: ip})
+					}
+				}
+			}
+		}
+		if serverIPsMatchEndpoints(serverIPs, endpointIPs) {
+			return nil
+		}
+	}
+	mismatch := fmt.Errorf("invalid server %q: address must match a file endpoint of storage account %q", server, accountName)
+	return errors.Join(append([]error{mismatch}, validationErrors...)...)
+}
+
+func serverIPsMatchEndpoints(serverIPs, endpointIPs []net.IPAddr) bool {
+	for _, serverIP := range serverIPs {
+		matched := false
+		for _, endpointIP := range endpointIPs {
+			if serverIP.IP.Equal(endpointIP.IP) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return len(serverIPs) > 0
 }
 
 // parseInlineVolumeServer extracts a normalized hostname from a server value
@@ -1362,6 +1540,9 @@ func parseInlineVolumeServer(server string) (string, error) {
 	}
 	if strings.TrimSpace(server) != server {
 		return "", fmt.Errorf("server %q must not contain leading or trailing whitespace", server)
+	}
+	if ip := net.ParseIP(server); ip != nil {
+		return ip.String(), nil
 	}
 
 	serverURL := "https://" + server
@@ -1380,7 +1561,7 @@ func parseInlineVolumeServer(server string) (string, error) {
 	if parsed.Port() != "" {
 		return "", fmt.Errorf("invalid server %q: explicit ports are not allowed", server)
 	}
-	if parsed.Path != "" && parsed.Path != "/" {
+	if parsed.Path != "" {
 		return "", fmt.Errorf("invalid server %q: paths are not allowed", server)
 	}
 	if parsed.RawQuery != "" || parsed.Fragment != "" {
@@ -1391,10 +1572,6 @@ func parseInlineVolumeServer(server string) (string, error) {
 	if host == "" {
 		return "", fmt.Errorf("invalid server %q: hostname is required", server)
 	}
-	if net.ParseIP(host) != nil {
-		return "", fmt.Errorf("invalid server %q: IP addresses are not allowed", server)
-	}
-
 	return host, nil
 }
 
