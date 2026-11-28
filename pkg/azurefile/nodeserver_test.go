@@ -1139,7 +1139,7 @@ func TestNodeStageVolume(t *testing.T) {
 		serverNameField: "test_servername",
 	}
 	errorSource := `\\test_servername\test_sharename`
-	errorSourceNFS := `test_servername.file.core.windows.net:/test_servername/test_sharename`
+	errorSourceNFS := `testaccount.file.core.windows.net:/testaccount/test_sharename`
 
 	secrets := map[string]string{
 		"accountname": "k8s",
@@ -1172,6 +1172,7 @@ func TestNodeStageVolume(t *testing.T) {
 		enableAZNFSForNFSMounts  bool
 		shouldEnableProxy        bool
 		storageEndpointSuffix    string
+		expectedSource           string
 	}{
 		{
 			desc:        "[Error] Volume ID missing",
@@ -1376,11 +1377,11 @@ func TestNodeStageVolume(t *testing.T) {
 					protocolField:              "nfs",
 					diskNameField:              "test_disk.vhd",
 					shareNameField:             "test_sharename",
-					serverNameField:            "test_servername.file.core.windows.net",
+					serverNameField:            "testaccount.file.core.windows.net",
 					ephemeralField:             "true",
 					mountOptionsField:          "test_ephemeral",
 					storageEndpointSuffixField: ".core.windows.net",
-					storageAccountField:        "test_servername",
+					storageAccountField:        "testaccount",
 				},
 				Secrets: secrets},
 			execScripts: []ExecArgs{
@@ -1802,6 +1803,45 @@ func TestNodeStageVolume(t *testing.T) {
 			flakyWindowsErrorMessage: fmt.Sprintf("volume(vol_1##) mount \\\\k8s.z32.privatelink.file.storage.azure.net\\test_sharename on %v failed with ",
 				sourceTest),
 		},
+		{
+			desc: "inline server is preserved for SMB mount",
+			setup: func() {
+				d.isKataNode = false
+			},
+			req: &csi.NodeStageVolumeRequest{
+				VolumeId:          "vol_1##",
+				StagingTargetPath: sourceTest,
+				VolumeCapability:  &stdVolCap,
+				VolumeContext: map[string]string{
+					shareNameField:  "test_sharename",
+					serverNameField: "K8S.FILE.CORE.WINDOWS.NET.",
+					ephemeralField:  "true",
+				},
+				Secrets: secrets,
+			},
+			skipOnWindows:  true,
+			expectedSource: "//K8S.FILE.CORE.WINDOWS.NET./test_sharename",
+		},
+		{
+			desc: "inline server is preserved for NFS mount",
+			setup: func() {
+				d.isKataNode = false
+			},
+			req: &csi.NodeStageVolumeRequest{
+				VolumeId:          "vol_1##",
+				StagingTargetPath: sourceTest,
+				VolumeCapability:  &stdVolCap,
+				VolumeContext: map[string]string{
+					shareNameField:      "test_sharename",
+					storageAccountField: "k8s",
+					serverNameField:     "K8S.FILE.CORE.WINDOWS.NET.",
+					protocolField:       "nfs",
+					ephemeralField:      "true",
+				},
+			},
+			skipOnWindows:  true,
+			expectedSource: "K8S.FILE.CORE.WINDOWS.NET.:/k8s/test_sharename",
+		},
 	}
 
 	// Setup
@@ -1842,6 +1882,9 @@ func TestNodeStageVolume(t *testing.T) {
 		}
 
 		d.mounter = mounter
+		if test.expectedSource != "" {
+			mounter.Interface = mount.NewFakeMounter(nil)
+		}
 		clientFactory := mock_azclient.NewMockClientFactory(ctrl)
 		mockAccountClient := mock_accountclient.NewMockInterface(ctrl)
 		clientFactory.EXPECT().GetAccountClientForSub(gomock.Any()).Return(mockAccountClient, nil).AnyTimes()
@@ -1856,6 +1899,17 @@ func TestNodeStageVolume(t *testing.T) {
 		}
 
 		_, err = d.NodeStageVolume(context.Background(), test.req)
+		if test.expectedSource != "" && assert.NoError(t, err, test.desc) {
+			mounts, listErr := mounter.List()
+			assert.NoError(t, listErr)
+			found := false
+			for _, point := range mounts {
+				if point.Device == test.expectedSource {
+					found = true
+				}
+			}
+			assert.True(t, found, "mount source %q not found: %+v", test.expectedSource, mounts)
+		}
 		// separate assertion for flaky error messages
 		if test.flakyWindowsErrorMessage != "" && runtime.GOOS == "windows" {
 			if !matchFlakyWindowsError(err, test.flakyWindowsErrorMessage) {
@@ -2056,17 +2110,29 @@ func TestValidateInlineVolumeServer(t *testing.T) {
 			suffix:      ".CORE.WINDOWS.NET.",
 		},
 		{
+			desc:        "trailing DNS dot",
+			server:      "account.file.core.windows.net.",
+			accountName: "account",
+			suffix:      "core.windows.net",
+		},
+		{
+			desc:        "DNS zone endpoint with trailing slash",
+			server:      "account.z32.file.storage.azure.net/",
+			accountName: "account",
+			suffix:      "core.windows.net",
+		},
+		{
 			desc:          "empty server",
 			accountName:   "account",
 			suffix:        "core.windows.net",
-			expectedError: "server must not be empty",
+			expectedError: `invalid server "": hostname is required`,
 		},
 		{
 			desc:          "leading whitespace",
 			server:        " account.file.core.windows.net",
 			accountName:   "account",
 			suffix:        "core.windows.net",
-			expectedError: `server " account.file.core.windows.net" must not contain leading or trailing whitespace`,
+			expectedError: `invalid server " account.file.core.windows.net": hostname contains an invalid character`,
 		},
 		{
 			desc:          "IP address",
@@ -2076,11 +2142,18 @@ func TestValidateInlineVolumeServer(t *testing.T) {
 			expectedError: `invalid server "10.0.0.1": IP addresses are not allowed`,
 		},
 		{
+			desc:          "HTTPS IP address still rejected by parser",
+			server:        "https://203.0.113.10",
+			accountName:   "account",
+			suffix:        "core.windows.net",
+			expectedError: `invalid server "https://203.0.113.10": IP addresses are not allowed`,
+		},
+		{
 			desc:          "explicit port",
 			server:        "account.file.core.windows.net:445",
 			accountName:   "account",
 			suffix:        "core.windows.net",
-			expectedError: `invalid server "account.file.core.windows.net:445": explicit ports are not allowed`,
+			expectedError: `invalid server "account.file.core.windows.net:445": hostname contains an invalid character`,
 		},
 		{
 			desc:          "path",
@@ -2095,6 +2168,20 @@ func TestValidateInlineVolumeServer(t *testing.T) {
 			accountName:   "account",
 			suffix:        "core.windows.net",
 			expectedError: `invalid server "other.file.core.windows.net": hostname must match storage account "account" in the configured Azure cloud`,
+		},
+		{
+			desc:          "NFS path still rejected by parser",
+			server:        "account.file.core.windows.net:/path-to-share",
+			accountName:   "account",
+			suffix:        "core.windows.net",
+			expectedError: `invalid server "account.file.core.windows.net:/path-to-share": paths are not allowed`,
+		},
+		{
+			desc:          "custom hostname still rejected by account restrictions",
+			server:        "us.bank-dns.com",
+			accountName:   "account",
+			suffix:        "core.windows.net",
+			expectedError: `invalid server "us.bank-dns.com": hostname must match storage account "account" in the configured Azure cloud`,
 		},
 		{
 			desc:          "wrong cloud suffix",
@@ -2138,6 +2225,112 @@ func TestValidateInlineVolumeServer(t *testing.T) {
 				assert.NoError(t, err)
 			} else {
 				assert.EqualError(t, err, test.expectedError)
+			}
+		})
+	}
+}
+
+func TestValidateInlineVolumeServerFormat(t *testing.T) {
+	tests := []struct {
+		name        string
+		server      string
+		errorString string
+	}{
+		{name: "normalized hostname", server: "ACCOUNT.FILE.CORE.WINDOWS.NET."},
+		{name: "custom hostname format", server: "files.example.com"},
+		{name: "custom bank hostname", server: "us.bank-dns.com"},
+		{name: "custom cloud hostname", server: "storage.siemens.cloud"},
+		{name: "custom directory hostname", server: "storage.sbicdirectory.com"},
+		{name: "single label hostname", server: "literalstorageaccountname"},
+		{name: "trailing slash", server: "account.file.core.windows.net/"},
+		{name: "share suffix", server: "account.file.core.windows.net/share"},
+		{name: "nested share suffix", server: "literalstorageaccountname/share/folder_1/file.txt"},
+		{name: "NFS suffix", server: "account.file.core.windows.net:/path-to-share"},
+		{name: "NFS root", server: "account.file.core.windows.net:/"},
+		{name: "NFS account and share path", server: "account.file.core.windows.net:/f80c3617ffe9d4f8792e717/pvcn-1278c468-6572-4118-a9ca-b2c1d3068e05"},
+		{name: "HTTPS NFS account and share path", server: "https://f80c3617ffe9d4f8792e717.file.core.windows.net:/f80c3617ffe9d4f8792e717/pvcn-1278c468-6572-4118-a9ca-b2c1d3068e05"},
+		{name: "HTTPS NFS root", server: "https://f80c3617ffe9d4f8792e717.file.core.windows.net:/"},
+		{name: "IPv4 address", server: "203.0.113.10"},
+		{name: "HTTPS IPv4 address", server: "https://203.0.113.10"},
+		{name: "IPv4 NFS path", server: "203.0.113.10:/account/share"},
+		{name: "HTTPS IPv4 NFS path", server: "https://203.0.113.10:/account/share"},
+		{name: "HTTPS custom DNS", server: "https://us.bank-dns.com"},
+		{name: "backslash path", server: `account.file.core.windows.net\share`, errorString: "backslashes are not allowed"},
+		{name: "URL", server: "https://account.file.core.windows.net"},
+		{name: "case insensitive HTTPS URL", server: "HTTPS://ACCOUNT.FILE.CORE.WINDOWS.NET"},
+		{name: "URL with path", server: "https://account.file.core.windows.net/share"},
+		{name: "URL with trailing slash", server: "https://account.file.core.windows.net/"},
+		{name: "HTTP URL", server: "http://account.file.core.windows.net/share", errorString: "only HTTPS endpoints are allowed"},
+		{name: "file URL", server: "file:///var/lib/kubelet", errorString: "only HTTPS endpoints are allowed"},
+		{name: "UNC path", server: `\\account.file.core.windows.net\share`, errorString: "backslashes are not allowed"},
+		{name: "empty hostname", server: "", errorString: "hostname is required"},
+		{name: "absolute host path", server: "/var/lib/kubelet/pods/writer/volumes/kubernetes.io~empty-dir/scratch/", errorString: "hostname is required"},
+		{name: "option prefixed host path", server: "-aT/var/lib/kubelet/pods/writer/scratch/", errorString: "must not start or end with a hyphen"},
+		{name: "missing NFS hostname", server: ":/var/lib/kubelet", errorString: "hostname is required"},
+		{name: "path with option separator", server: "files.example.com/share,bind", errorString: "path contains an invalid character"},
+		{name: "path with space", server: "files.example.com/share extra", errorString: "path contains an invalid character"},
+		{name: "path with newline", server: "files.example.com/share\nextra", errorString: "path contains an invalid character"},
+		{name: "path with NUL", server: "files.example.com/share\x00", errorString: "path contains an invalid character"},
+		{name: "encoded path suffix", server: "files.example.com/share%2fother", errorString: "path contains an invalid character"},
+		{name: "path with colon", server: "files.example.com/share:/other", errorString: "path contains an invalid character"},
+		{name: "multiple NFS separators", server: "files.example.com::/share", errorString: "hostname contains an invalid character"},
+		{name: "parent path segment", server: "files.example.com/share/../other", errorString: "relative path segments are not allowed"},
+		{name: "current path segment", server: "files.example.com/./share", errorString: "relative path segments are not allowed"},
+		{name: "userinfo", server: "user@account.file.core.windows.net", errorString: "invalid character"},
+		{name: "empty port", server: "account.file.core.windows.net:", errorString: "invalid character"},
+		{name: "empty query", server: "account.z32.file.storage.azure.net?", errorString: "query strings and fragments are not allowed"},
+		{name: "empty fragment", server: "account.z32.file.storage.azure.net#", errorString: "query strings and fragments are not allowed"},
+		{name: "option delimiter", server: "account.z32.file.storage.azure.net,option=value", errorString: "invalid character"},
+		{name: "embedded space", server: "account.file.core.windows.net extra", errorString: "invalid server"},
+		{name: "tab", server: "account\t.file.core.windows.net", errorString: "invalid server"},
+		{name: "newline", server: "account\n.file.core.windows.net", errorString: "invalid server"},
+		{name: "NUL", server: "account\x00.file.core.windows.net", errorString: "invalid server"},
+		{name: "encoded path", server: "account.file.core.windows.net%2fshare", errorString: "invalid server"},
+		{name: "Unicode hostname", server: "acc\u043eunt.file.core.windows.net", errorString: "invalid character"},
+		{name: "leading hyphen", server: "-account.file.core.windows.net", errorString: "must not start or end with a hyphen"},
+		{name: "empty label", server: "account..file.core.windows.net", errorString: "hostname labels"},
+		{name: "oversized label", server: strings.Repeat("a", 64) + ".file.core.windows.net", errorString: "hostname labels"},
+		{name: "oversized hostname", server: strings.Repeat(strings.Repeat("a", 63)+".", 4), errorString: "hostname exceeds"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := validateInlineVolumeServerFormat(test.server)
+			if test.errorString != "" {
+				if assert.Error(t, err) {
+					assert.Contains(t, err.Error(), test.errorString)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateInlineVolumeServerHTTPS(t *testing.T) {
+	tests := []struct {
+		server string
+		valid  bool
+	}{
+		{server: "https://account.file.core.windows.net", valid: true},
+		{server: "HTTPS://ACCOUNT.FILE.CORE.WINDOWS.NET", valid: true},
+		{server: "https://account.z32.file.storage.azure.net", valid: true},
+		{server: "http://account.file.core.windows.net"},
+		{server: "https://other.file.core.windows.net"},
+		{server: "https://account.file.core.windows.net/", valid: true},
+		{server: "https://account.file.core.windows.net/share"},
+		{server: "https://user@account.file.core.windows.net"},
+		{server: "https://account.file.core.windows.net:443"},
+		{server: "https://account.file.core.windows.net?"},
+		{server: "https://account.file.core.windows.net#"},
+		{server: "https://account.file.core.windows.net%2fshare"},
+	}
+	for _, test := range tests {
+		t.Run(test.server, func(t *testing.T) {
+			err := validateInlineVolumeServer(test.server, "account", defaultStorageEndPointSuffix)
+			if test.valid {
+				assert.NoError(t, err)
+			} else {
+				assert.Error(t, err)
 			}
 		})
 	}

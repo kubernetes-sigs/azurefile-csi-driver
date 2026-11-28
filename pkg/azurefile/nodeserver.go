@@ -507,7 +507,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	// Validate inline ephemeral volume server.
 	if ephemeralVol {
 		if err := validateInlineVolumeServer(server, accountName, trueStorageEndPointSuffix); err != nil {
-			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid server error: %s", err.Error()))
+			return nil, status.Errorf(codes.InvalidArgument, "invalid server error: %v", err)
 		}
 	}
 	source := fmt.Sprintf("%s%s%s%s%s", osSeparator, osSeparator, server, osSeparator, fileShareName)
@@ -1325,6 +1325,9 @@ func validateInlineSMBMountOptions(mountOptions []string) error {
 func validateInlineVolumeServer(server, accountName, storageEndPointSuffix string) error {
 	account := strings.ToLower(strings.TrimSpace(accountName))
 	suffix := strings.ToLower(strings.Trim(strings.TrimSpace(storageEndPointSuffix), "."))
+	if err := validateInlineVolumeServerFormat(server); err != nil {
+		return err
+	}
 	host, err := parseInlineVolumeServer(server)
 	if err != nil {
 		return err
@@ -1345,13 +1348,69 @@ func validateInlineVolumeServer(server, accountName, storageEndPointSuffix strin
 		fmt.Sprintf("%s.privatelink.file.%s", secondaryAccount, suffix): {},
 		fmt.Sprintf("%s.privatelink.afs.%s", secondaryAccount, suffix):  {},
 	}
-	if _, ok := allowedHosts[strings.TrimSuffix(strings.ToLower(server), ".")]; ok {
+	if _, ok := allowedHosts[host]; ok {
 		return nil
 	}
 	if suffix == defaultStorageEndPointSuffix && isAzureDNSZoneStorageHost(host, account) {
 		return nil
 	}
 	return fmt.Errorf("invalid server %q: hostname must match storage account %q in the configured Azure cloud", server, accountName)
+}
+
+func validateInlineVolumeServerFormat(server string) error {
+	host := server
+	if len(host) >= len("https://") && strings.EqualFold(host[:len("https://")], "https://") {
+		host = host[len("https://"):]
+	}
+	if strings.Contains(host, "://") {
+		return fmt.Errorf("invalid server %q: only HTTPS endpoints are allowed", server)
+	}
+	if strings.Contains(host, `\`) {
+		return fmt.Errorf("invalid server %q: backslashes are not allowed", server)
+	}
+	if strings.ContainsAny(server, "?#") {
+		return fmt.Errorf("invalid server %q: query strings and fragments are not allowed", server)
+	}
+
+	host, path, hasPath := strings.Cut(host, "/")
+	if hasPath {
+		host = strings.TrimSuffix(host, ":")
+	}
+	host = strings.TrimSuffix(host, ".")
+	if host == "" {
+		return fmt.Errorf("invalid server %q: hostname is required", server)
+	}
+	if len(host) > 253 {
+		return fmt.Errorf("invalid server %q: hostname exceeds 253 characters", server)
+	}
+	for _, label := range strings.Split(host, ".") {
+		if len(label) == 0 || len(label) > 63 {
+			return fmt.Errorf("invalid server %q: hostname labels must contain between 1 and 63 characters", server)
+		}
+		if label[0] == '-' || label[len(label)-1] == '-' {
+			return fmt.Errorf("invalid server %q: hostname labels must not start or end with a hyphen", server)
+		}
+		for _, c := range label {
+			if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') &&
+				(c < '0' || c > '9') && c != '-' {
+				return fmt.Errorf("invalid server %q: hostname contains an invalid character", server)
+			}
+		}
+	}
+	if hasPath {
+		for _, segment := range strings.Split(path, "/") {
+			if segment == "." || segment == ".." {
+				return fmt.Errorf("invalid server %q: relative path segments are not allowed", server)
+			}
+			for _, c := range segment {
+				if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') &&
+					(c < '0' || c > '9') && c != '-' && c != '.' {
+					return fmt.Errorf("invalid server %q: path contains an invalid character", server)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // parseInlineVolumeServer extracts a normalized hostname from a server value
@@ -1365,6 +1424,9 @@ func parseInlineVolumeServer(server string) (string, error) {
 	}
 
 	serverURL := "https://" + server
+	if strings.Contains(server, "://") {
+		serverURL = server
+	}
 	// Always use HTTPS scheme for inline volume server
 
 	parsed, err := url.Parse(serverURL)
