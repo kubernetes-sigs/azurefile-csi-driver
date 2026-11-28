@@ -31,6 +31,7 @@ import (
 	armauthorization "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	armcompute "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	armmsi "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
+	armnetwork "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
 	resources "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	storage "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v2"
 	"github.com/google/uuid"
@@ -48,9 +49,12 @@ type Client struct {
 	filesharesClient fileshareclient.Interface
 	vmssClient       *armcompute.VirtualMachineScaleSetsClient
 	vmClient         *armcompute.VirtualMachinesClient
+	vmssVMClient     *armcompute.VirtualMachineScaleSetVMsClient
 	roleClient       *armauthorization.RoleAssignmentsClient
 	ficClient        *armmsi.FederatedIdentityCredentialsClient
 	uamiClient       *armmsi.UserAssignedIdentitiesClient
+	endpointsClient  *armnetwork.PrivateEndpointsClient
+	interfacesClient *armnetwork.InterfacesClient
 }
 
 func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aadFederatedTokenFile string) (*Client, error) {
@@ -110,6 +114,19 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 	if err != nil {
 		return nil, fmt.Errorf("failed to create federated identity credentials client: %v", err)
 	}
+	vmssVMClient, err := armcompute.NewVirtualMachineScaleSetVMsClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create VMSS instance client: %w", err)
+	}
+
+	endpointsClient, err := armnetwork.NewPrivateEndpointsClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create private endpoints client: %w", err)
+	}
+	interfacesClient, err := armnetwork.NewInterfacesClient(subscriptionID, cred, armClientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create network interfaces client: %w", err)
+	}
 
 	return &Client{
 		subscriptionID:   subscriptionID,
@@ -118,9 +135,12 @@ func GetAzureClient(cloud, subscriptionID, clientID, tenantID, clientSecret, aad
 		filesharesClient: factory.GetFileShareClient(),
 		vmssClient:       vmssClient,
 		vmClient:         vmClient,
+		vmssVMClient:     vmssVMClient,
 		roleClient:       roleClient,
 		ficClient:        ficClient,
 		uamiClient:       uamiClient,
+		endpointsClient:  endpointsClient,
+		interfacesClient: interfacesClient,
 	}, nil
 }
 
@@ -301,7 +321,11 @@ func (az *Client) AssignRoleToIdentity(ctx context.Context, resourceGroup, princ
 		log.Printf("SKIP_ROLE_ASSIGNMENT is set, assuming role %s is pre-assigned to principal %s in resource group %s", roleDefinitionID, principalID, resourceGroup)
 		return nil
 	}
-	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s", az.subscriptionID, resourceGroup)
+	return az.AssignRoleAtScope(ctx, az.ResourceGroupScope(resourceGroup), principalID, roleDefinitionID)
+}
+
+// AssignRoleAtScope assigns an Azure role to a principal on an ARM scope.
+func (az *Client) AssignRoleAtScope(ctx context.Context, scope, principalID, roleDefinitionID string) error {
 	fullRoleDefID := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s", az.subscriptionID, roleDefinitionID)
 
 	// Deterministic assignment ID based on scope+principal+role to avoid duplicate assignments on retry

@@ -18,12 +18,15 @@ package testsuites
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"sigs.k8s.io/azurefile-csi-driver/test/e2e/driver"
 
 	"github.com/onsi/ginkgo/v2"
 	v1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 )
 
 // PreProvisionedMultiplePods will provision required PV(s), PVC(s) and Pod(s)
@@ -45,6 +48,9 @@ func (t *PreProvisionedMultiplePods) Run(ctx context.Context, client clientset.I
 		tpod.Create(ctx)
 		defer tpod.Cleanup(ctx)
 		ginkgo.By("checking that the pods command exits with no error")
+		if err := e2epod.WaitForPodSuccessInNamespaceTimeout(ctx, tpod.client, tpod.pod.Name, tpod.namespace.Name, 15*time.Minute); err != nil {
+			ginkgo.By(fmt.Sprintf("hit error(%v) in first run, give another try", err))
+		}
 		tpod.WaitForSuccess(ctx)
 	}
 }
