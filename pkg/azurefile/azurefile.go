@@ -461,6 +461,9 @@ func (d *Driver) Run(ctx context.Context) error {
 	if err != nil {
 		klog.Fatalf("failed to get Azure Cloud Provider, error: %v", err)
 	}
+	if d.NodeID != "" {
+		d.registerVolumeStatsCollector()
+	}
 	// pass if the storageEndpointSuffix must be trusted by azCopy by checking if it is not in azcopyTrustedSuffixesAAD
 	requiredAzCopyToTrust := d.getStorageEndPointSuffix() != "" && !strings.Contains(azcopyTrustedSuffixesAAD, d.getStorageEndPointSuffix())
 
