@@ -196,6 +196,8 @@ spec:
               mountPath: /etc/azfilesauth
             - name: log-dir
               mountPath: /var/log/
+            - name: host-etc
+              mountPath: /host/etc
           resources:
             limits:
               memory: 400Mi
@@ -226,6 +228,11 @@ spec:
               mountPath: /etc/azfilesauth
             - name: log-dir
               mountPath: /var/log/
+            # libazfilesauth reads PASSWD_FILE (/host/etc/passwd) to confirm the
+            # per-identity cruid entry exists before refreshing krb5cc_<cruid>.
+            - name: host-etc
+              mountPath: /host/etc
+              readOnly: true
           resources:
             limits:
               memory: 256Mi
